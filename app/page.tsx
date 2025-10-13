@@ -29,9 +29,32 @@ interface DisruptionData {
   };
 }
 
+interface WeatherData {
+  district: string;
+  coordinates: { lat: number; lng: number };
+  forecast: Array<{
+    date: string;
+    maxTemp: number;
+    minTemp: number;
+    precipitation: number;
+    precipitationProb: number;
+    weatherCode: number;
+    weatherDescription: string;
+    windSpeed: number;
+  }>;
+  summary: {
+    avgMaxTemp: number;
+    avgMinTemp: number;
+    totalPrecipitation: number;
+    rainyDays: number;
+    maxWindSpeed: number;
+  };
+}
+
 interface CombinedData {
   crime: CrimeData;
   disruptions: DisruptionData;
+  weather: WeatherData;
 }
 
 export default function Home() {
@@ -118,22 +141,25 @@ export default function Home() {
         
         console.log(`\n🔍 Fetching data for ${districtName}...`);
         
-        const [crimeResponse, disruptionsResponse] = await Promise.all([
+        const [crimeResponse, disruptionsResponse, weatherResponse] = await Promise.all([
           fetch(`/api/uk-crime?district=${districtId}`),
-          fetch(`/api/tfl-disruptions?district=${districtId}&days=${days}`)
+          fetch(`/api/tfl-disruptions?district=${districtId}&days=${days}`),
+          fetch(`/api/weather?district=${districtId}&days=${Math.min(days, 16)}`) // Open-Meteo max 16 days
         ]);
         
         const crimeData = await crimeResponse.json();
         const disruptionsData = await disruptionsResponse.json();
+        const weatherData = await weatherResponse.json();
         
-        if (crimeData.success && disruptionsData.success) {
-          console.log(`✅ ${districtName}: ${crimeData.data.summary.totalCrimes} crimes, ${disruptionsData.data.analysis.total} disruptions`);
+        if (crimeData.success && disruptionsData.success && weatherData.success) {
+          console.log(`✅ ${districtName}: ${crimeData.data.summary.totalCrimes} crimes, ${disruptionsData.data.analysis.total} disruptions, ${weatherData.data.forecast.length} days forecast`);
           
           return {
             district: districtId,
             data: {
               crime: crimeData.data,
               disruptions: disruptionsData.data,
+              weather: weatherData.data,
             },
           };
         } else {
@@ -189,20 +215,24 @@ export default function Home() {
             </h1>
           </div>
           <p className="text-gray-600 dark:text-gray-300 text-lg mb-3">
-            London District Safety & Traffic Information
+            London District Safety, Traffic & Weather Information
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-4 py-2 rounded-lg text-sm">
+            <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-3 py-1.5 rounded-lg text-xs font-medium">
               <span>🚨</span>
-              <span>Crime Data</span>
+              <span>Crime</span>
             </div>
-            <div className="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 px-4 py-2 rounded-lg text-sm">
+            <div className="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 px-3 py-1.5 rounded-lg text-xs font-medium">
               <span>🚦</span>
-              <span>Road Disruptions</span>
+              <span>Traffic</span>
             </div>
-            <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-4 py-2 rounded-lg text-sm font-semibold">
+            <div className="inline-flex items-center gap-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200 px-3 py-1.5 rounded-lg text-xs font-medium">
+              <span>🌤️</span>
+              <span>Weather</span>
+            </div>
+            <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-3 py-1.5 rounded-lg text-xs font-semibold">
               <span>✅</span>
-              <span>100% FREE APIs</span>
+              <span>100% FREE</span>
             </div>
           </div>
         </div>
@@ -326,13 +356,13 @@ export default function Home() {
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-blue-500">
                       <div className="text-2xl mb-1">🚨</div>
                       <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                         {result.data.crime.summary.totalCrimes.toLocaleString()}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Crime Incidents</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Crimes</div>
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-orange-500">
@@ -340,15 +370,23 @@ export default function Home() {
                       <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                         {result.data.disruptions.analysis.total}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Road Disruptions</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Disruptions</div>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-cyan-500">
+                      <div className="text-2xl mb-1">🌡️</div>
+                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                        {result.data.weather.summary.avgMaxTemp}°C
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Avg Temp</div>
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-purple-500">
-                      <div className="text-2xl mb-1">📅</div>
-                      <div className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.crime.summary.month}
+                      <div className="text-2xl mb-1">☔</div>
+                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                        {result.data.weather.summary.rainyDays}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Report Period</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Rainy Days</div>
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-red-500">
@@ -356,25 +394,25 @@ export default function Home() {
                       <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
                         {result.data.disruptions.analysis.bySeverity['Moderate'] || 0}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Moderate Issues</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Moderate</div>
                     </div>
                   </div>
 
-                  {/* Two Column Layout for Crime and Disruptions */}
-                  <div className="grid lg:grid-cols-2 gap-6">
+                  {/* Three Column Layout for Crime, Disruptions, and Weather */}
+                  <div className="grid lg:grid-cols-3 gap-4">
                     {/* Top Crime Categories */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-xl">
                       <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
                         <span>🚨</span> Crime Report
                       </h3>
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         {result.data.crime.summary.topCategories.slice(0, 5).map((cat, idx) => (
                           <div key={idx} className="relative">
                             <div className="flex justify-between items-center mb-1">
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                                 {idx + 1}. {cat.category}
                               </span>
-                              <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                              <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
                                 {cat.count}
                               </span>
                             </div>
@@ -392,11 +430,11 @@ export default function Home() {
                     {/* TfL Disruptions */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-xl">
                       <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>🚦</span> Road Disruptions
+                        <span>🚦</span> Disruptions
                       </h3>
                       
                       {/* Disruption Mini Stats */}
-                      <div className="grid grid-cols-2 gap-2 mb-4">
+                      <div className="grid grid-cols-2 gap-2 mb-3">
                         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2 text-center">
                           <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
                             {result.data.disruptions.analysis.total}
@@ -414,12 +452,12 @@ export default function Home() {
                       {/* Top 3 Disruptions */}
                       <div className="space-y-2">
                         {result.data.disruptions.disruptions.slice(0, 3).map((disruption: any, idx: number) => (
-                          <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                          <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 border border-gray-200 dark:border-gray-600">
                             <div className="flex items-start justify-between mb-1">
                               <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs leading-tight">
-                                {disruption.location.length > 40 ? disruption.location.substring(0, 40) + '...' : disruption.location}
+                                {disruption.location.length > 35 ? disruption.location.substring(0, 35) + '...' : disruption.location}
                               </h4>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${
                                 disruption.severity === 'Moderate' 
                                   ? 'bg-orange-200 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300'
                                   : 'bg-yellow-200 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'
@@ -428,10 +466,188 @@ export default function Home() {
                               </span>
                             </div>
                             <div className="text-xs text-gray-600 dark:text-gray-400">
-                              {new Date(disruption.startDateTime).toLocaleDateString()} - {new Date(disruption.endDateTime).toLocaleDateString()}
+                              {new Date(disruption.startDateTime).toLocaleDateString()}
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* Weather Forecast */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-xl">
+                      <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <span>🌤️</span> Weather Forecast
+                      </h3>
+                      
+                      {/* Weather Summary */}
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="bg-cyan-50 dark:bg-cyan-900/20 rounded-lg p-2 text-center">
+                          <div className="text-xl font-bold text-cyan-600 dark:text-cyan-400">
+                            {result.data.weather.summary.avgMaxTemp}°C
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">Avg Max</div>
+                        </div>
+                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 text-center">
+                          <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                            {result.data.weather.summary.rainyDays}/{result.data.weather.forecast.length}
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">Rainy Days</div>
+                        </div>
+                      </div>
+
+                      {/* All Days in Date Range */}
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 sticky top-0 bg-white dark:bg-gray-800 py-1">
+                          Full Forecast ({result.data.weather.forecast.length} days):
+                        </h4>
+                        {result.data.weather.forecast.map((day: any, idx: number) => {
+                          const weatherEmoji = day.weatherCode === 0 ? '☀️' : 
+                                             day.weatherCode <= 3 ? '⛅' :
+                                             day.weatherCode >= 61 && day.weatherCode <= 67 ? '🌧️' :
+                                             day.weatherCode >= 71 && day.weatherCode <= 77 ? '❄️' :
+                                             day.weatherCode >= 95 ? '⛈️' : '🌤️';
+                          
+                          return (
+                            <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2.5 border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-2xl">{weatherEmoji}</span>
+                                  <div>
+                                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                                      {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      {day.weatherDescription}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                                    {day.minTemp}°-{day.maxTemp}°C
+                                  </div>
+                                  {day.precipitation > 0 && (
+                                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                                      💧 {day.precipitation}mm
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {day.windSpeed > 15 && (
+                                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                  <span>💨</span>
+                                  <span>{day.windSpeed} km/h wind</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Weather Forecast - Full Width */}
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <span>🌤️</span> Complete Weather Forecast for {districtName}
+                    </h3>
+                    
+                    {/* Weather Summary Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+                      <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg p-3 border-2 border-cyan-200 dark:border-cyan-800">
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Avg Temp</div>
+                        <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
+                          {result.data.weather.summary.avgMinTemp}°-{result.data.weather.summary.avgMaxTemp}°C
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-3 border-2 border-blue-200 dark:border-blue-800">
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Precipitation</div>
+                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {result.data.weather.summary.totalPrecipitation}mm
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-3 border-2 border-purple-200 dark:border-purple-800">
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Rainy Days</div>
+                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                          {result.data.weather.summary.rainyDays}/{result.data.weather.forecast.length}
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-lg p-3 border-2 border-green-200 dark:border-green-800">
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Max Wind</div>
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {result.data.weather.summary.maxWindSpeed} km/h
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg p-3 border-2 border-orange-200 dark:border-orange-800">
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Forecast</div>
+                        <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                          {result.data.weather.forecast.length} Days
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Daily Weather Cards - Horizontal Scroll */}
+                    <div className="overflow-x-auto pb-2">
+                      <div className="flex gap-3" style={{ minWidth: 'fit-content' }}>
+                        {result.data.weather.forecast.map((day: any, idx: number) => {
+                          const weatherEmoji = day.weatherCode === 0 ? '☀️' : 
+                                             day.weatherCode <= 3 ? '⛅' :
+                                             day.weatherCode >= 61 && day.weatherCode <= 67 ? '🌧️' :
+                                             day.weatherCode >= 71 && day.weatherCode <= 77 ? '❄️' :
+                                             day.weatherCode >= 95 ? '⛈️' : '🌤️';
+                          
+                          const isRainy = day.precipitation > 0;
+                          const isWindy = day.windSpeed > 15;
+                          
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`flex-shrink-0 w-48 rounded-xl p-4 shadow-lg border-2 ${
+                                isRainy 
+                                  ? 'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 border-blue-300 dark:border-blue-700'
+                                  : 'bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600'
+                              }`}
+                            >
+                              <div className="text-center mb-3">
+                                <div className="text-5xl mb-2">{weatherEmoji}</div>
+                                <div className="font-bold text-gray-800 dark:text-gray-200">
+                                  {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short' })}
+                                </div>
+                                <div className="text-xs text-gray-600 dark:text-gray-400">
+                                  {new Date(day.date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-600 dark:text-gray-400">Temp</span>
+                                  <span className="font-bold text-gray-800 dark:text-gray-200">
+                                    {day.minTemp}°-{day.maxTemp}°C
+                                  </span>
+                                </div>
+                                
+                                {isRainy && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-600 dark:text-gray-400">Rain</span>
+                                    <span className="font-bold text-blue-600 dark:text-blue-400">
+                                      💧 {day.precipitation}mm
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-600 dark:text-gray-400">Wind</span>
+                                  <span className={`font-bold ${isWindy ? 'text-orange-600 dark:text-orange-400' : 'text-gray-800 dark:text-gray-200'}`}>
+                                    {isWindy ? '💨 ' : ''}{day.windSpeed} km/h
+                                  </span>
+                                </div>
+
+                                <div className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                                  {day.weatherDescription}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -441,19 +657,24 @@ export default function Home() {
 
             {/* Overall Footer */}
             <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-4 bg-white dark:bg-gray-800 rounded-xl">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-green-500">✅</span>
-                  <span>UK Police Open Data API</span>
+                  <span>UK Police API</span>
                 </div>
                 <div className="hidden sm:block text-gray-400">•</div>
                 <div className="flex items-center gap-2">
                   <span className="text-green-500">✅</span>
-                  <span>Transport for London (TfL) API</span>
+                  <span>TfL API</span>
+                </div>
+                <div className="hidden sm:block text-gray-400">•</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-green-500">✅</span>
+                  <span>Open-Meteo API</span>
                 </div>
               </div>
               <p className="text-xs mt-2">
-                Analyzing {results.length} district{results.length > 1 ? 's' : ''} • Real-time official data
+                {results.length} district{results.length > 1 ? 's' : ''} • Crime + Traffic + Weather • 100% Free
               </p>
             </div>
           </div>

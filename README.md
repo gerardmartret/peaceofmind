@@ -1,6 +1,6 @@
 # Peace of Mind - London District Safety Analysis
 
-A comprehensive Next.js application for analyzing London district safety using real-time data from UK Police and Transport for London APIs.
+A comprehensive Next.js application for analyzing London district safety using real-time data from **3 FREE APIs**: UK Police, Transport for London, and Open-Meteo Weather.
 
 ## 🎯 Features
 
@@ -28,6 +28,14 @@ A comprehensive Next.js application for analyzing London district safety using r
 - **Categories** (Works, Collisions, Events)
 - **Active vs Upcoming** disruptions
 - **Full details** with dates and descriptions
+
+### 🌤️ Weather Forecast (Open-Meteo API)
+- **7-16 day weather forecast** for selected date range
+- **Temperature** (min/max daily)
+- **Precipitation** probability and amount
+- **Weather conditions** with emojis (☀️⛅🌧️❄️⛈️)
+- **Wind speed** forecasts
+- **Summary statistics** (avg temp, rainy days)
 
 ## 🏙️ Available Districts (24 Total)
 
@@ -88,6 +96,13 @@ All selected districts are displayed on the same page with:
 
 ## 📊 What You Get for Each District
 
+### 5 Quick Stats Cards
+1. 🚨 **Total Crimes** - Crime incident count
+2. 🚧 **Road Disruptions** - Traffic issues
+3. 🌡️ **Avg Temperature** - Weather forecast average
+4. ☔ **Rainy Days** - Days with precipitation
+5. ⚠️ **Moderate Severity** - High-priority disruptions
+
 ### Crime Data
 - **Safety Score**: 0-100 (higher is safer)
   - 80-100: Very Safe 🟢
@@ -131,6 +146,14 @@ All selected districts are displayed on the same page with:
 - **Coverage**: All London roads
 - **Data**: Real-time disruptions, planned works, collisions
 
+#### 3. Open-Meteo Weather API
+- **Endpoint**: `https://api.open-meteo.com/v1/forecast`
+- **Cost**: 100% FREE
+- **API Key**: Not required
+- **Rate Limit**: 10,000 requests/day
+- **Coverage**: Worldwide
+- **Data**: Temperature, precipitation, wind, weather codes
+
 ### File Structure
 
 ```
@@ -139,10 +162,12 @@ All selected districts are displayed on the same page with:
 │   ├── page.tsx                    # Main UI with multi-select
 │   ├── api/
 │   │   ├── uk-crime/route.ts      # Crime data API
-│   │   └── tfl-disruptions/route.ts # TfL disruptions API
+│   │   ├── tfl-disruptions/route.ts # TfL disruptions API
+│   │   └── weather/route.ts       # Weather forecast API
 ├── lib/
 │   ├── uk-police-api.ts           # UK Police API client
-│   └── tfl-api.ts                 # TfL API client
+│   ├── tfl-api.ts                 # TfL API client
+│   └── open-meteo-api.ts          # Open-Meteo weather client
 ├── .env.local                      # Environment variables (optional)
 └── package.json
 ```
