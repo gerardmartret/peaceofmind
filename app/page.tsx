@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import LocationSearch from '@/components/LocationSearch';
 
 interface CrimeData {
   district: string;
@@ -237,13 +238,28 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Location Search */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+            <span>🔍</span> Search Any Location
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Search for hotels, restaurants, landmarks, or any location in London
+          </p>
+          <LocationSearch 
+            onLocationSelect={(location) => {
+              console.log('📍 Location selected:', location);
+            }}
+          />
+        </div>
+
         {/* Controls */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
           <div className="space-y-4">
             {/* District Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Select London Districts ({selectedDistricts.length} selected)
+                Or Select London Districts for Analysis ({selectedDistricts.length} selected)
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 {londonDistricts.map((district) => (
