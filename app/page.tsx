@@ -2,6 +2,24 @@
 
 import { useState } from 'react';
 import LocationSearch from '@/components/LocationSearch';
+import TripMap from '@/components/TripMap';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface CrimeData {
   district: string;
@@ -58,6 +76,121 @@ interface CombinedData {
   weather: WeatherData;
 }
 
+interface SortableLocationItemProps {
+  location: {
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    time: string;
+  };
+  index: number;
+  onLocationSelect: (id: string, data: { name: string; lat: number; lng: number }) => void;
+  onTimeChange: (id: string, time: string) => void;
+  onRemove: (id: string) => void;
+  canRemove: boolean;
+}
+
+function SortableLocationItem({
+  location,
+  index,
+  onLocationSelect,
+  onTimeChange,
+  onRemove,
+  canRemove,
+}: SortableLocationItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: location.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-600"
+    >
+      <div className="flex items-start gap-3">
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="flex-shrink-0 cursor-grab active:cursor-grabbing mt-1 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+          title="Drag to reorder"
+        >
+          <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+
+        {/* Location Number */}
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+          {index + 1}
+        </div>
+
+        {/* Location Search and Time */}
+        <div className="flex-1 grid sm:grid-cols-[1fr_auto_auto] gap-3">
+          {/* Location Search */}
+          <div className="min-w-0">
+            <LocationSearch
+              onLocationSelect={(loc) => {
+                console.log(`📍 Location ${index + 1} selected:`, loc);
+                onLocationSelect(location.id, {
+                  name: loc.name,
+                  lat: loc.lat,
+                  lng: loc.lng,
+                });
+              }}
+            />
+            {location.name && (
+              <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
+                ✓ {location.name.split(',')[0]}
+              </div>
+            )}
+          </div>
+
+          {/* Time Picker */}
+          <div className="sm:w-32">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Time
+            </label>
+            <input
+              type="time"
+              value={location.time}
+              onChange={(e) => onTimeChange(location.id, e.target.value)}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Remove Button */}
+          <div className="flex items-end">
+            <button
+              onClick={() => onRemove(location.id)}
+              disabled={!canRemove}
+              className="rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-30 disabled:cursor-not-allowed p-2 transition-all"
+              title="Remove location"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Array<{ district: string; data: CombinedData }>>([]);
@@ -65,6 +198,28 @@ export default function Home() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Multi-location trip state
+  const [tripDate, setTripDate] = useState('');
+  const [locations, setLocations] = useState<Array<{
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    time: string;
+  }>>([
+    { id: '1', name: '', lat: 0, lng: 0, time: '09:00' },
+    { id: '2', name: '', lat: 0, lng: 0, time: '12:00' },
+    { id: '3', name: '', lat: 0, lng: 0, time: '15:00' },
+  ]);
+  const [tripResults, setTripResults] = useState<Array<{
+    locationId: string;
+    locationName: string;
+    time: string;
+    data: CombinedData;
+  }> | null>(null);
+  const [loadingTrip, setLoadingTrip] = useState(false);
+  const [locationsReordered, setLocationsReordered] = useState(false);
 
   const londonDistricts = [
     { id: 'westminster', name: 'Westminster' },
@@ -99,6 +254,7 @@ export default function Home() {
     const futureDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     setStartDate(today.toISOString().split('T')[0]);
     setEndDate(futureDate.toISOString().split('T')[0]);
+    setTripDate(today.toISOString().split('T')[0]);
   });
 
   const toggleDistrict = (districtId: string) => {
@@ -120,6 +276,136 @@ export default function Home() {
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const addLocation = () => {
+    const newId = (locations.length + 1).toString();
+    setLocations([...locations, {
+      id: newId,
+      name: '',
+      lat: 0,
+      lng: 0,
+      time: '18:00',
+    }]);
+  };
+
+  const removeLocation = (id: string) => {
+    if (locations.length > 1) {
+      setLocations(locations.filter(loc => loc.id !== id));
+    }
+  };
+
+  const updateLocation = (id: string, data: { name: string; lat: number; lng: number }) => {
+    setLocations(locations.map(loc => 
+      loc.id === id ? { ...loc, ...data } : loc
+    ));
+  };
+
+  const updateLocationTime = (id: string, time: string) => {
+    setLocations(locations.map(loc => 
+      loc.id === id ? { ...loc, time } : loc
+    ));
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setLocations((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        const reorderedItems = arrayMove(items, oldIndex, newIndex);
+        
+        console.log(`📦 Location reordered: ${oldIndex + 1} → ${newIndex + 1}`);
+        
+        // Clear results and show reorder indicator
+        setTripResults(null);
+        setLocationsReordered(true);
+        
+        return reorderedItems;
+      });
+    }
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleTripSubmit = async () => {
+    // Validate all locations are filled
+    const validLocations = locations.filter(loc => loc.name && loc.lat !== 0 && loc.lng !== 0);
+    
+    if (validLocations.length === 0) {
+      setError('Please select at least one location');
+      return;
+    }
+
+    setLoadingTrip(true);
+    setTripResults(null);
+    setError(null);
+    setLocationsReordered(false); // Clear reorder indicator
+
+    try {
+      console.log(`\n${'='.repeat(80)}`);
+      console.log(`🗓️  Trip Date: ${tripDate}`);
+      console.log(`📍 Analyzing ${validLocations.length} location(s)`);
+      console.log(`${'='.repeat(80)}\n`);
+
+      const days = 7; // Fixed period for trip planning
+
+      // Fetch data for all locations in parallel
+      const results = await Promise.all(
+        validLocations.map(async (location) => {
+          console.log(`\n🔍 Fetching data for: ${location.name} at ${location.time}`);
+          
+          const tempDistrictId = `custom-${Date.now()}-${location.id}`;
+
+          const [crimeResponse, disruptionsResponse, weatherResponse] = await Promise.all([
+            fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
+            fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`)
+          ]);
+
+          const [crimeData, disruptionsData, weatherData] = await Promise.all([
+            crimeResponse.json(),
+            disruptionsResponse.json(),
+            weatherResponse.json()
+          ]);
+
+          if (crimeData.success && disruptionsData.success && weatherData.success) {
+            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100`);
+            
+            return {
+              locationId: location.id,
+              locationName: location.name,
+              time: location.time,
+              data: {
+                crime: crimeData.data,
+                disruptions: disruptionsData.data,
+                weather: weatherData.data,
+              },
+            };
+          } else {
+            throw new Error(`Failed to fetch data for ${location.name}`);
+          }
+        })
+      );
+
+      console.log(`\n${'='.repeat(80)}`);
+      console.log(`✅ Successfully analyzed all ${results.length} location(s)`);
+      console.log(`${'='.repeat(80)}\n`);
+
+      setTripResults(results);
+    } catch (err) {
+      console.error('❌ Error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch trip data');
+    } finally {
+      setLoadingTrip(false);
+    }
   };
 
   const fetchDistrictData = async () => {
@@ -216,7 +502,7 @@ export default function Home() {
             </h1>
           </div>
           <p className="text-gray-600 dark:text-gray-300 text-lg mb-3">
-            London District Safety, Traffic & Weather Information
+            Plan Your London Trip with Safety, Traffic & Weather Analysis
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-3 py-1.5 rounded-lg text-xs font-medium">
@@ -238,97 +524,262 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Location Search */}
+        {/* Multi-Location Trip Planner */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-            <span>🔍</span> Search Any Location
+            <span>🗺️</span> Plan Your Trip
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Search for hotels, restaurants, landmarks, or any location in London
+            Add multiple locations to analyze safety, traffic, and weather for your entire journey
           </p>
-          <LocationSearch 
-            onLocationSelect={(location) => {
-              console.log('📍 Location selected:', location);
-            }}
-          />
-        </div>
+          
+          {/* Trip Date at Top */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+            <label htmlFor="tripDate" className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-2">
+              📅 Trip Date (applies to all locations)
+            </label>
+            <input
+              type="date"
+              id="tripDate"
+              value={tripDate}
+              onChange={(e) => setTripDate(e.target.value)}
+              className="w-full max-w-xs rounded-lg border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-4 text-base font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
 
-        {/* Controls */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
-          <div className="space-y-4">
-            {/* District Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Or Select London Districts for Analysis ({selectedDistricts.length} selected)
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                {londonDistricts.map((district) => (
-                  <button
-                    key={district.id}
-                    onClick={() => toggleDistrict(district.id)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                      selectedDistricts.includes(district.id)
-                        ? 'bg-blue-600 text-white shadow-lg scale-105'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:border-blue-400'
-                    }`}
-                  >
-                    {district.name}
-                  </button>
+          {/* Multiple Location Inputs with Drag and Drop */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={locations.map(loc => loc.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4 mb-4">
+                {locations.map((location, index) => (
+                  <SortableLocationItem
+                    key={location.id}
+                    location={location}
+                    index={index}
+                    onLocationSelect={updateLocation}
+                    onTimeChange={updateLocationTime}
+                    onRemove={removeLocation}
+                    canRemove={locations.length > 1}
+                  />
                 ))}
               </div>
-            </div>
+            </SortableContext>
+          </DndContext>
 
-            {/* Date Range */}
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  id="startDate"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-3 px-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  id="endDate"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-3 px-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+          {/* Reorder Indicator */}
+          {locationsReordered && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg p-3 mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                Locations reordered! Click <strong>"Analyze Trip"</strong> to update the route.
+              </p>
             </div>
+          )}
 
-            {/* Analyze Button */}
+          {/* Add Location & Analyze Buttons */}
+          <div className="flex gap-3">
             <button
-              onClick={fetchDistrictData}
-              disabled={loading || selectedDistricts.length === 0}
-              className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium py-3 px-6 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+              onClick={addLocation}
+              className="flex-1 sm:flex-initial rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium py-3 px-6 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Location
+            </button>
+
+            <button
+              onClick={handleTripSubmit}
+              disabled={loadingTrip || locations.filter(l => l.name).length === 0}
+              className={`flex-1 sm:flex-initial rounded-lg ${locationsReordered ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 animate-pulse' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white font-bold py-3 px-8 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2`}
+            >
+              {loadingTrip ? (
+                <>
                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Analyzing {selectedDistricts.length} district(s)...
-                </span>
+                  Analyzing...
+                </>
               ) : (
-                `🔍 Analyze ${selectedDistricts.length} District${selectedDistricts.length > 1 ? 's' : ''}`
+                <>
+                  🚀 Analyze Trip
+                </>
               )}
             </button>
           </div>
         </div>
 
-        {/* Results for Multiple Districts */}
-        {results.length > 0 && (
+        {/* Trip Results */}
+        {tripResults && tripResults.length > 0 && (
+          <div className="mb-8">
+            {/* Map View */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
+                <span>🗺️</span> Your Trip Map
+                <span className="text-sm font-normal text-gray-500">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
+              </h2>
+              <TripMap 
+                locations={tripResults.map((result, index) => {
+                  const location = locations.find(l => l.id === result.locationId);
+                  return {
+                    id: result.locationId,
+                    name: result.locationName,
+                    lat: location?.lat || 0,
+                    lng: location?.lng || 0,
+                    time: result.time,
+                    safetyScore: result.data.crime.safetyScore,
+                  };
+                })}
+              />
+            </div>
+
+            {/* Location Reports */}
+            <div className="space-y-6">
+              {tripResults.map((result, index) => (
+                <div key={result.locationId} className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl p-6 border-2 border-gray-200 dark:border-gray-700">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b-2 border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-lg">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                          {result.locationName.split(',')[0]}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          🕐 {result.time} • 📅 {tripDate}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`text-4xl font-bold ${getSafetyColor(result.data.crime.safetyScore)}`}>
+                      {result.data.crime.safetyScore}
+                      <span className="text-lg text-gray-500">/100</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-blue-500">
+                      <div className="text-xl mb-1">🚨</div>
+                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                        {result.data.crime.summary.totalCrimes.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Crimes</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-orange-500">
+                      <div className="text-xl mb-1">🚧</div>
+                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                        {result.data.disruptions.analysis.total}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Disruptions</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-cyan-500">
+                      <div className="text-xl mb-1">🌡️</div>
+                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                        {result.data.weather.summary.avgMaxTemp}°C
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Avg Temp</div>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-purple-500">
+                      <div className="text-xl mb-1">☔</div>
+                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                        {result.data.weather.summary.rainyDays}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Rainy Days</div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Breakdown */}
+                  <div className="grid lg:grid-cols-3 gap-4">
+                    {/* Crime */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <span>🚨</span> Top Crimes
+                      </h4>
+                      <div className="space-y-2">
+                        {result.data.crime.summary.topCategories.slice(0, 3).map((cat, idx) => (
+                          <div key={idx}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-700 dark:text-gray-300">{cat.category}</span>
+                              <span className="font-bold text-gray-800 dark:text-gray-200">{cat.count}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                              <div
+                                className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full"
+                                style={{ width: `${cat.percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Traffic */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <span>🚦</span> Traffic
+                      </h4>
+                      <div className="space-y-2">
+                        {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
+                          <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
+                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                              {disruption.location.substring(0, 30)}...
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              {disruption.severity}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Weather */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <span>🌤️</span> Weather
+                      </h4>
+                      <div className="space-y-2">
+                        {result.data.weather.forecast.slice(0, 2).map((day: any, idx: number) => {
+                          const weatherEmoji = day.weatherCode === 0 ? '☀️' : 
+                                             day.weatherCode <= 3 ? '⛅' :
+                                             day.weatherCode >= 61 && day.weatherCode <= 67 ? '🌧️' : '🌤️';
+                          return (
+                            <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
+                              <div className="flex items-center justify-between">
+                                <span className="text-lg">{weatherEmoji}</span>
+                                <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                                  {day.minTemp}°-{day.maxTemp}°C
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+
+        {/* Hidden: District Results removed, keeping only trip planner */}
+        {false && results.length > 0 && (
           <div className="space-y-8">
             {/* Comparison Header */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white text-center">
@@ -710,41 +1161,6 @@ export default function Home() {
         )}
 
 
-        {/* Initial State */}
-        {results.length === 0 && !loading && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-12 text-center shadow-xl">
-            <div className="text-7xl mb-6">📍</div>
-            <h3 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-              Comprehensive London District Analysis
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg mb-6">
-              Select a London district to view detailed crime statistics, safety scores, and road disruptions.
-              Powered by UK Police and Transport for London APIs.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 max-w-2xl mx-auto text-sm">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                <div className="font-semibold text-blue-600 dark:text-blue-400">24</div>
-                <div className="text-gray-600 dark:text-gray-400">Districts</div>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
-                <div className="font-semibold text-purple-600 dark:text-purple-400">Real-Time</div>
-                <div className="text-gray-600 dark:text-gray-400">Crime Data</div>
-              </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
-                <div className="font-semibold text-orange-600 dark:text-orange-400">30 Days</div>
-                <div className="text-gray-600 dark:text-gray-400">Disruptions</div>
-              </div>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                <div className="font-semibold text-green-600 dark:text-green-400">100% Free</div>
-                <div className="text-gray-600 dark:text-gray-400">No API Key</div>
-              </div>
-              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
-                <div className="font-semibold text-red-600 dark:text-red-400">Official</div>
-                <div className="text-gray-600 dark:text-gray-400">APIs</div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

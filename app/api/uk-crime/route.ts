@@ -10,45 +10,65 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const districtParam = searchParams.get('district')?.toLowerCase() || 'westminster';
+    const customLat = searchParams.get('lat');
+    const customLng = searchParams.get('lng');
     const date = searchParams.get('date'); // Optional YYYY-MM format
 
-    console.log(`\n🔍 Fetching UK Police data for London district: ${districtParam}`);
-    console.log('='.repeat(60));
+    let lat: number, lng: number, locationName: string;
 
-    // Get district coordinates
-    const districtKey = districtParam as keyof typeof LONDON_DISTRICTS;
-    const district = LONDON_DISTRICTS[districtKey];
+    // Check if custom coordinates provided
+    if (customLat && customLng) {
+      lat = parseFloat(customLat);
+      lng = parseFloat(customLng);
+      locationName = 'Custom Location';
+      
+      console.log(`\n🔍 Fetching UK Police data for custom location`);
+      console.log('='.repeat(60));
+      console.log(`📍 Location: Custom`);
+      console.log(`📌 Coordinates: ${lat}, ${lng}`);
+    } else {
+      // Use predefined district
+      console.log(`\n🔍 Fetching UK Police data for London district: ${districtParam}`);
+      console.log('='.repeat(60));
 
-    if (!district) {
-      const availableDistricts = Object.values(LONDON_DISTRICTS).map(d => d.name).join(', ');
-      console.log(`❌ District not found: ${districtParam}`);
-      console.log(`Available districts: ${availableDistricts}`);
-      console.log('='.repeat(60) + '\n');
+      const districtKey = districtParam as keyof typeof LONDON_DISTRICTS;
+      const district = LONDON_DISTRICTS[districtKey];
 
-      return NextResponse.json({
-        success: false,
-        error: `District "${districtParam}" not supported. Available: ${availableDistricts}`,
-      }, { status: 404 });
+      if (!district) {
+        const availableDistricts = Object.values(LONDON_DISTRICTS).map(d => d.name).join(', ');
+        console.log(`❌ District not found: ${districtParam}`);
+        console.log(`Available districts: ${availableDistricts}`);
+        console.log('='.repeat(60) + '\n');
+
+        return NextResponse.json({
+          success: false,
+          error: `District "${districtParam}" not supported. Available: ${availableDistricts}`,
+        }, { status: 404 });
+      }
+
+      lat = district.lat;
+      lng = district.lng;
+      locationName = district.name;
+      
+      console.log(`📍 District: ${district.name}, London`);
+      console.log(`📌 Coordinates: ${lat}, ${lng}`);
     }
-
-    console.log(`📍 District: ${district.name}, London`);
-    console.log(`📌 Coordinates: ${district.lat}, ${district.lng}`);
     if (date) {
       console.log(`📅 Date: ${date}`);
     }
 
     // Fetch crime data
-    const crimes = await getStreetLevelCrimes(district.lat, district.lng, date || undefined);
+    const crimes = await getStreetLevelCrimes(lat, lng, date || undefined);
 
     if (crimes.length === 0) {
-      console.log(`⚠️  No crime data available for ${district.name}`);
+      console.log(`⚠️  No crime data available for ${locationName}`);
       console.log('='.repeat(60) + '\n');
 
       return NextResponse.json({
         success: true,
         data: {
-          district: district.name,
-          coordinates: { lat: district.lat, lng: district.lng },
+          district: locationName,
+          coordinates: { lat, lng },
           crimes: [],
           summary: {
             totalCrimes: 0,
@@ -58,7 +78,7 @@ export async function GET(request: Request) {
           },
           safetyScore: 100,
         },
-        message: `No crime data available for ${district.name}`,
+        message: `No crime data available for ${locationName}`,
       });
     }
 
@@ -66,7 +86,7 @@ export async function GET(request: Request) {
     const summary = analyzeCrimeData(crimes);
     const safetyScore = calculateSafetyScore(crimes);
 
-    console.log(`\n✅ Successfully retrieved crime data for ${district.name}`);
+    console.log(`\n✅ Successfully retrieved crime data for ${locationName}`);
     console.log('='.repeat(60));
     console.log(`📊 Total Crimes: ${summary.totalCrimes}`);
     console.log(`📅 Month: ${summary.month}`);
@@ -93,13 +113,13 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: {
-        district: district.name,
-        coordinates: { lat: district.lat, lng: district.lng },
+        district: locationName,
+        coordinates: { lat, lng },
         crimes: crimes.slice(0, 100), // Limit to 100 for performance
         summary,
         safetyScore,
       },
-      message: `Successfully retrieved crime data for ${district.name}, London`,
+      message: `Successfully retrieved crime data for ${locationName}, London`,
     });
   } catch (error) {
     console.error('\n❌ Error fetching UK Police data:', error);

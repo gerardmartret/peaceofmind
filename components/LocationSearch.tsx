@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { useState } from 'react';
 
 interface SearchResult {
   id: string;
@@ -21,11 +19,6 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ name: string; lat: number; lng: number } | null>(null);
-  const [showMap, setShowMap] = useState(false);
-  
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const marker = useRef<mapboxgl.Marker | null>(null);
 
   const searchLocations = async (query: string) => {
     if (query.length < 3) {
@@ -95,85 +88,12 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
     setSelectedLocation(location);
     setSearchQuery(suggestion.text);
     setSuggestions([]);
-    setShowMap(true);
 
     if (onLocationSelect) {
       onLocationSelect(location);
     }
-
-    // Initialize or update map
-    setTimeout(() => initializeMap(lat, lng, suggestion.place_name), 100);
   };
 
-  const initializeMap = (lat: number, lng: number, placeName: string) => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-    if (!token) return;
-
-    mapboxgl.accessToken = token;
-
-    if (map.current) {
-      // Update existing map
-      map.current.flyTo({
-        center: [lng, lat],
-        zoom: 14,
-        duration: 2000,
-      });
-
-      if (marker.current) {
-        marker.current.setLngLat([lng, lat]);
-      } else {
-        marker.current = new mapboxgl.Marker({ color: '#3b82f6' })
-          .setLngLat([lng, lat])
-          .setPopup(
-            new mapboxgl.Popup({ offset: 25 }).setHTML(
-              `<div style="padding: 8px;">
-                <h3 style="font-weight: bold; margin: 0 0 5px 0; font-size: 14px;">${placeName}</h3>
-                <p style="margin: 0; font-size: 12px; color: #666;">${lat.toFixed(4)}°N, ${Math.abs(lng).toFixed(4)}°${lng < 0 ? 'W' : 'E'}</p>
-              </div>`
-            )
-          )
-          .addTo(map.current);
-      }
-    } else {
-      // Create new map
-      if (!mapContainer.current) return;
-
-      console.log('🗺️  Creating new map...');
-
-      map.current = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [lng, lat],
-        zoom: 14,
-      });
-
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-      marker.current = new mapboxgl.Marker({ color: '#3b82f6' })
-        .setLngLat([lng, lat])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 25 }).setHTML(
-            `<div style="padding: 8px;">
-              <h3 style="font-weight: bold; margin: 0 0 5px 0; font-size: 14px;">${placeName}</h3>
-              <p style="margin: 0; font-size: 12px; color: #666;">${lat.toFixed(4)}°N, ${Math.abs(lng).toFixed(4)}°${lng < 0 ? 'W' : 'E'}</p>
-            </div>`
-          )
-        )
-        .addTo(map.current);
-
-      map.current.on('load', () => {
-        console.log('✅ Map loaded and location displayed!');
-      });
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (map.current) {
-        map.current.remove();
-      }
-    };
-  }, []);
 
   return (
     <div className="space-y-4">
@@ -254,27 +174,10 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
                 {selectedLocation.lat.toFixed(4)}°N, {Math.abs(selectedLocation.lng).toFixed(4)}°W
               </p>
             </div>
-            <button
-              onClick={() => {
-                setShowMap(!showMap);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              {showMap ? 'Hide Map' : 'Show Map'}
-            </button>
           </div>
         </div>
       )}
 
-      {/* Map Display */}
-      {showMap && selectedLocation && (
-        <div className="rounded-xl overflow-hidden shadow-2xl border-2 border-gray-200 dark:border-gray-700">
-          <div 
-            ref={mapContainer} 
-            className="w-full h-[500px]"
-          />
-        </div>
-      )}
     </div>
   );
 }

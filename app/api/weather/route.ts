@@ -11,32 +11,53 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const districtParam = searchParams.get('district')?.toLowerCase() || 'westminster';
+    const customLat = searchParams.get('lat');
+    const customLng = searchParams.get('lng');
     const days = parseInt(searchParams.get('days') || '7');
 
-    console.log(`\n🌤️  Fetching weather forecast for: ${districtParam}`);
-    console.log('='.repeat(60));
+    let lat: number, lng: number, locationName: string;
 
-    // Get district coordinates
-    const districtKey = districtParam as keyof typeof LONDON_DISTRICTS;
-    const district = LONDON_DISTRICTS[districtKey];
+    // Check if custom coordinates provided
+    if (customLat && customLng) {
+      lat = parseFloat(customLat);
+      lng = parseFloat(customLng);
+      locationName = 'Custom Location';
+      
+      console.log(`\n🌤️  Fetching weather forecast for custom location`);
+      console.log('='.repeat(60));
+      console.log(`📍 Location: Custom`);
+      console.log(`📌 Coordinates: ${lat}, ${lng}`);
+      console.log(`📅 Forecast period: ${days} days`);
+    } else {
+      // Use predefined district
+      console.log(`\n🌤️  Fetching weather forecast for: ${districtParam}`);
+      console.log('='.repeat(60));
 
-    if (!district) {
-      return NextResponse.json({
-        success: false,
-        error: `District "${districtParam}" not found`,
-      }, { status: 404 });
+      const districtKey = districtParam as keyof typeof LONDON_DISTRICTS;
+      const district = LONDON_DISTRICTS[districtKey];
+
+      if (!district) {
+        return NextResponse.json({
+          success: false,
+          error: `District "${districtParam}" not found`,
+        }, { status: 404 });
+      }
+
+      lat = district.lat;
+      lng = district.lng;
+      locationName = district.name;
+      
+      console.log(`📍 District: ${district.name}, London`);
+      console.log(`📌 Coordinates: ${lat}, ${lng}`);
+      console.log(`📅 Forecast period: ${days} days`);
     }
 
-    console.log(`📍 District: ${district.name}, London`);
-    console.log(`📌 Coordinates: ${district.lat}, ${district.lng}`);
-    console.log(`📅 Forecast period: ${days} days`);
-
     // Fetch weather data
-    const weatherData = await getWeatherForecast(district.lat, district.lng, days);
+    const weatherData = await getWeatherForecast(lat, lng, days);
     const dailyForecasts = processWeatherData(weatherData);
     const summary = getWeatherSummary(dailyForecasts);
 
-    console.log(`\n✅ Successfully retrieved weather forecast for ${district.name}`);
+    console.log(`\n✅ Successfully retrieved weather forecast for ${locationName}`);
     console.log('='.repeat(60));
     console.log(`🌡️  Average Temperature: ${summary.avgMinTemp}°C - ${summary.avgMaxTemp}°C`);
     console.log(`🌧️  Total Precipitation: ${summary.totalPrecipitation}mm`);
@@ -59,12 +80,12 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: {
-        district: district.name,
-        coordinates: { lat: district.lat, lng: district.lng },
+        district: locationName,
+        coordinates: { lat, lng },
         forecast: dailyForecasts,
         summary,
       },
-      message: `Successfully retrieved ${days}-day forecast for ${district.name}`,
+      message: `Successfully retrieved ${days}-day forecast for ${locationName}`,
     });
   } catch (error) {
     console.error('\n❌ Error fetching weather data:', error);

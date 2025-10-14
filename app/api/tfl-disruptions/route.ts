@@ -16,19 +16,31 @@ export async function GET(request: Request) {
     console.log(`\n🚦 Fetching TfL disruptions for: ${districtParam}`);
     console.log('='.repeat(60));
 
-    // Get district info
-    const districtKey = districtParam as keyof typeof LONDON_DISTRICTS;
-    const district = LONDON_DISTRICTS[districtKey];
+    let locationName: string;
+    let isCustomLocation = false;
 
-    if (!district) {
-      return NextResponse.json({
-        success: false,
-        error: `District "${districtParam}" not found`,
-      }, { status: 404 });
+    // Check if this is a custom location (starts with "custom-")
+    if (districtParam.startsWith('custom-')) {
+      locationName = 'Custom Location';
+      isCustomLocation = true;
+      console.log(`📍 Location: Custom (London-wide disruptions)`);
+      console.log(`📅 Time range: Next ${daysAhead} days`);
+    } else {
+      // Get district info from predefined districts
+      const districtKey = districtParam as keyof typeof LONDON_DISTRICTS;
+      const district = LONDON_DISTRICTS[districtKey];
+
+      if (!district) {
+        return NextResponse.json({
+          success: false,
+          error: `District "${districtParam}" not found`,
+        }, { status: 404 });
+      }
+
+      locationName = district.name;
+      console.log(`📍 District: ${district.name}, London`);
+      console.log(`📅 Time range: Next ${daysAhead} days`);
     }
-
-    console.log(`📍 District: ${district.name}, London`);
-    console.log(`📅 Time range: Next ${daysAhead} days`);
 
     // Fetch all disruptions
     const allDisruptions = await getAllDisruptions();
@@ -36,11 +48,17 @@ export async function GET(request: Request) {
     // Filter by timeframe
     const upcomingDisruptions = filterDisruptionsByTimeframe(allDisruptions, daysAhead);
     
-    // Filter by area (try to match district name in location/comments)
-    let areaDisruptions = filterDisruptionsByArea(upcomingDisruptions, district.name);
+    // Filter by area (only if not a custom location)
+    let areaDisruptions: any[] = [];
+    let isFiltered = false;
     
-    // If no exact matches, show all upcoming disruptions with a note
-    const isFiltered = areaDisruptions.length > 0;
+    if (!isCustomLocation) {
+      // Try to match district name in location/comments
+      areaDisruptions = filterDisruptionsByArea(upcomingDisruptions, locationName);
+      isFiltered = areaDisruptions.length > 0;
+    }
+    
+    // Use area-specific if found, otherwise show all London-wide disruptions
     const disruptions = isFiltered ? areaDisruptions : upcomingDisruptions;
 
     console.log(`\n✅ Found ${disruptions.length} ${isFiltered ? 'area-specific' : 'London-wide'} disruptions`);
@@ -84,13 +102,13 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: {
-        district: district.name,
+        district: locationName,
         timeframe: `${daysAhead} days`,
         isAreaFiltered: isFiltered,
         disruptions: disruptions.slice(0, 50), // Limit to 50 for performance
         analysis,
       },
-      message: `Found ${disruptions.length} disruptions for ${district.name}`,
+      message: `Found ${disruptions.length} disruptions for ${locationName}`,
     });
   } catch (error) {
     console.error('\n❌ Error fetching TfL disruptions:', error);
