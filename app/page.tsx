@@ -241,6 +241,8 @@ export default function Home() {
   }> | null>(null);
   const [loadingTrip, setLoadingTrip] = useState(false);
   const [locationsReordered, setLocationsReordered] = useState(false);
+  const [executiveReport, setExecutiveReport] = useState<any | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
 
   const londonDistricts = [
     { id: 'westminster', name: 'Westminster' },
@@ -435,6 +437,45 @@ export default function Home() {
       console.log(`${'='.repeat(80)}\n`);
 
       setTripResults(results);
+
+      // Generate executive report
+      console.log('🤖 Generating Executive Peace of Mind Report...');
+      setLoadingReport(true);
+      
+      try {
+        const reportData = results.map(r => ({
+          locationName: r.locationName,
+          time: r.time,
+          crime: r.data.crime,
+          disruptions: r.data.disruptions,
+          weather: r.data.weather,
+          events: r.data.events,
+        }));
+
+        const reportResponse = await fetch('/api/executive-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tripData: reportData,
+            tripDate,
+            routeDistance: 0, // Will be updated with actual route data
+            routeDuration: 0,
+          }),
+        });
+
+        const reportResult = await reportResponse.json();
+        
+        if (reportResult.success) {
+          setExecutiveReport(reportResult.data);
+          console.log('✅ Executive Report Generated!');
+          console.log(`🎯 Trip Risk Score: ${reportResult.data.tripRiskScore}/10`);
+        }
+      } catch (reportError) {
+        console.error('⚠️ Could not generate executive report:', reportError);
+        // Don't fail the whole trip analysis if report fails
+      } finally {
+        setLoadingReport(false);
+      }
     } catch (err) {
       console.error('❌ Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch trip data');
@@ -670,6 +711,178 @@ export default function Home() {
         {/* Trip Results */}
         {tripResults && tripResults.length > 0 && (
           <div className="mb-8">
+            {/* Executive Report */}
+            {loadingReport && (
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-2xl p-8 mb-6 text-white">
+                <div className="flex items-center justify-center gap-3">
+                  <svg className="animate-spin h-8 w-8" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <p className="text-xl font-semibold">Generating Executive Peace of Mind Report...</p>
+                </div>
+              </div>
+            )}
+
+            {executiveReport && (
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-3xl shadow-2xl p-8 mb-6 border-4 border-slate-300 dark:border-slate-700">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6 pb-6 border-b-4 border-slate-300 dark:border-slate-600">
+                  <div>
+                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
+                      <span className="text-4xl">🛡️</span>
+                      Peace of Mind Report
+                      <span className="text-sm font-normal text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-3 py-1 rounded-full">AI-Powered</span>
+                    </h2>
+                    <p className="text-slate-600 dark:text-slate-300 mt-2">
+                      Executive Summary • {tripDate} • {tripResults.length} Location{tripResults.length > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Trip Risk Score</div>
+                    <div className={`text-6xl font-bold ${
+                      executiveReport.tripRiskScore <= 3 ? 'text-green-600 dark:text-green-400' :
+                      executiveReport.tripRiskScore <= 6 ? 'text-yellow-600 dark:text-yellow-400' :
+                      executiveReport.tripRiskScore <= 8 ? 'text-orange-600 dark:text-orange-400' :
+                      'text-red-600 dark:text-red-400'
+                    }`}>
+                      {executiveReport.tripRiskScore}
+                      <span className="text-3xl text-slate-400">/10</span>
+                    </div>
+                    <div className={`text-xs font-semibold mt-1 ${
+                      executiveReport.tripRiskScore <= 3 ? 'text-green-600 dark:text-green-400' :
+                      executiveReport.tripRiskScore <= 6 ? 'text-yellow-600 dark:text-yellow-400' :
+                      executiveReport.tripRiskScore <= 8 ? 'text-orange-600 dark:text-orange-400' :
+                      'text-red-600 dark:text-red-400'
+                    }`}>
+                      {executiveReport.tripRiskScore <= 3 ? 'LOW RISK' :
+                       executiveReport.tripRiskScore <= 6 ? 'MODERATE RISK' :
+                       executiveReport.tripRiskScore <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Overall Summary */}
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 mb-6 shadow-lg border-l-4 border-blue-500">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    <span>📊</span> Executive Summary
+                  </h3>
+                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {executiveReport.overallSummary}
+                  </p>
+                </div>
+
+                {/* Key Highlights */}
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  {executiveReport.highlights.map((highlight: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className={`rounded-xl p-4 shadow-lg border-l-4 ${
+                        highlight.type === 'danger' ? 'bg-red-50 dark:bg-red-900/20 border-red-500' :
+                        highlight.type === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500' :
+                        highlight.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-500' :
+                        'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-xl flex-shrink-0">
+                          {highlight.type === 'danger' ? '🔴' :
+                           highlight.type === 'warning' ? '⚠️' :
+                           highlight.type === 'success' ? '✅' : 'ℹ️'}
+                        </span>
+                        <p className={`text-sm font-medium leading-snug ${
+                          highlight.type === 'danger' ? 'text-red-800 dark:text-red-200' :
+                          highlight.type === 'warning' ? 'text-yellow-800 dark:text-yellow-200' :
+                          highlight.type === 'success' ? 'text-green-800 dark:text-green-200' :
+                          'text-blue-800 dark:text-blue-200'
+                        }`}>
+                          {highlight.message}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Location Analysis */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {executiveReport.locationAnalysis.map((loc: any, idx: number) => (
+                    <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs">
+                            {idx + 1}
+                          </span>
+                          {loc.locationName.split(',')[0]}
+                        </h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                          loc.riskLevel === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                          loc.riskLevel === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+                          'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                        }`}>
+                          {loc.riskLevel.toUpperCase()}
+                        </span>
+                      </div>
+                      <ul className="space-y-2">
+                        {loc.keyFindings.map((finding: string, fIdx: number) => (
+                          <li key={fIdx} className="text-xs text-slate-700 dark:text-slate-300 leading-tight flex items-start gap-1">
+                            <span className="text-blue-500 flex-shrink-0 mt-0.5">•</span>
+                            <span>{finding}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Route Disruptions */}
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-lg border-l-4 border-orange-500">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                      <span>🚗</span> Driving Risks
+                    </h3>
+                    <ul className="space-y-2">
+                      {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
+                        <li key={idx} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                          <span className="text-orange-500 flex-shrink-0 mt-1">▸</span>
+                          <span>{risk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-lg border-l-4 border-purple-500">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                      <span>🚶</span> External Disruptions
+                    </h3>
+                    <ul className="space-y-2">
+                      {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
+                        <li key={idx} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
+                          <span className="text-purple-500 flex-shrink-0 mt-1">▸</span>
+                          <span>{disruption}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Recommendations */}
+                <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl p-6 shadow-xl text-white">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span>💡</span> Recommendations
+                  </h3>
+                  <ul className="space-y-3">
+                    {executiveReport.recommendations.map((rec: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
+                          {idx + 1}
+                        </span>
+                        <span className="text-white/95 leading-relaxed">{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             {/* Map View */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
