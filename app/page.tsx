@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LocationSearch from '@/components/LocationSearch';
 import TripMap from '@/components/TripMap';
 import {
@@ -70,10 +70,30 @@ interface WeatherData {
   };
 }
 
+interface EventData {
+  location: string;
+  coordinates: { lat: number; lng: number };
+  date: string;
+  events: Array<{
+    title: string;
+    description: string;
+    date?: string;
+    severity: 'high' | 'medium' | 'low';
+    type: 'strike' | 'protest' | 'festival' | 'construction' | 'other';
+  }>;
+  summary: {
+    total: number;
+    byType: Record<string, number>;
+    bySeverity: Record<string, number>;
+    highSeverity: number;
+  };
+}
+
 interface CombinedData {
   crime: CrimeData;
   disruptions: DisruptionData;
   weather: WeatherData;
+  events: EventData;
 }
 
 interface SortableLocationItemProps {
@@ -198,6 +218,7 @@ export default function Home() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   
   // Multi-location trip state
   const [tripDate, setTripDate] = useState('');
@@ -248,14 +269,15 @@ export default function Home() {
     { id: 'wimbledon', name: 'Wimbledon' },
   ];
 
-  // Set default date range (today to 30 days from now)
-  useState(() => {
+  // Set default date range and handle client-side mounting
+  useEffect(() => {
+    setIsMounted(true);
     const today = new Date();
     const futureDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     setStartDate(today.toISOString().split('T')[0]);
     setEndDate(futureDate.toISOString().split('T')[0]);
     setTripDate(today.toISOString().split('T')[0]);
-  });
+  }, []);
 
   const toggleDistrict = (districtId: string) => {
     if (selectedDistricts.includes(districtId)) {
@@ -364,20 +386,32 @@ export default function Home() {
           
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
-          const [crimeResponse, disruptionsResponse, weatherResponse] = await Promise.all([
+          const [crimeResponse, disruptionsResponse, weatherResponse, eventsResponse] = await Promise.all([
             fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
             fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
-            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`)
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+            fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDate}`)
           ]);
 
-          const [crimeData, disruptionsData, weatherData] = await Promise.all([
+          const [crimeData, disruptionsData, weatherData, eventsData] = await Promise.all([
             crimeResponse.json(),
             disruptionsResponse.json(),
-            weatherResponse.json()
+            weatherResponse.json(),
+            eventsResponse.json()
           ]);
 
-          if (crimeData.success && disruptionsData.success && weatherData.success) {
-            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100`);
+          if (crimeData.success && disruptionsData.success && weatherData.success && eventsData.success) {
+            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: ${eventsData.data.events.length}`);
+            
+            // Log events to browser console
+            if (eventsData.data.events.length > 0) {
+              console.log(`\n📰 Events found for ${location.name}:`);
+              eventsData.data.events.forEach((event: any, idx: number) => {
+                console.log(`  ${idx + 1}. ${event.title} (${event.type}, ${event.severity})`);
+              });
+            } else {
+              console.log(`📰 No events found for ${location.name}`);
+            }
             
             return {
               locationId: location.id,
@@ -387,6 +421,7 @@ export default function Home() {
                 crime: crimeData.data,
                 disruptions: disruptionsData.data,
                 weather: weatherData.data,
+                events: eventsData.data,
               },
             };
           } else {
@@ -447,6 +482,13 @@ export default function Home() {
               crime: crimeData.data,
               disruptions: disruptionsData.data,
               weather: weatherData.data,
+              events: { 
+                location: districtName, 
+                coordinates: { lat: 0, lng: 0 }, 
+                date: '', 
+                events: [], 
+                summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 } 
+              },
             },
           };
         } else {
@@ -548,30 +590,36 @@ export default function Home() {
           </div>
 
           {/* Multiple Location Inputs with Drag and Drop */}
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={locations.map(loc => loc.id)}
-              strategy={verticalListSortingStrategy}
+          {isMounted ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <div className="space-y-4 mb-4">
-                {locations.map((location, index) => (
-                  <SortableLocationItem
-                    key={location.id}
-                    location={location}
-                    index={index}
-                    onLocationSelect={updateLocation}
-                    onTimeChange={updateLocationTime}
-                    onRemove={removeLocation}
-                    canRemove={locations.length > 1}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+              <SortableContext
+                items={locations.map(loc => loc.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4 mb-4">
+                  {locations.map((location, index) => (
+                    <SortableLocationItem
+                      key={location.id}
+                      location={location}
+                      index={index}
+                      onLocationSelect={updateLocation}
+                      onTimeChange={updateLocationTime}
+                      onRemove={removeLocation}
+                      canRemove={locations.length > 1}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <div className="space-y-4 mb-4">
+              <div className="text-center py-8 text-gray-500">Loading...</div>
+            </div>
+          )}
 
           {/* Reorder Indicator */}
           {locationsReordered && (
@@ -669,7 +717,7 @@ export default function Home() {
                   </div>
 
                   {/* Quick Stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
                     <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-blue-500">
                       <div className="text-xl mb-1">🚨</div>
                       <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
@@ -698,10 +746,17 @@ export default function Home() {
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">Rainy Days</div>
                     </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-pink-500">
+                      <div className="text-xl mb-1">📰</div>
+                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                        {result.data.events.summary.total}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">Events</div>
+                    </div>
                   </div>
 
                   {/* Detailed Breakdown */}
-                  <div className="grid lg:grid-cols-3 gap-4">
+                  <div className="grid lg:grid-cols-4 gap-4">
                     {/* Crime */}
                     <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
                       <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -769,6 +824,41 @@ export default function Home() {
                           );
                         })}
                       </div>
+                    </div>
+
+                    {/* Events */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                        <span>📰</span> Events
+                        <span className="text-xs font-normal text-gray-500">AI</span>
+                      </h4>
+                      {result.data.events.summary.total > 0 ? (
+                        <div className="space-y-2">
+                          {result.data.events.events.slice(0, 3).map((event: any, idx: number) => {
+                            const severityColor = event.severity === 'high' ? 'red' : event.severity === 'medium' ? 'orange' : 'yellow';
+                            const typeEmoji = event.type === 'strike' ? '✊' : event.type === 'protest' ? '📢' : event.type === 'festival' ? '🎉' : '🚧';
+                            return (
+                              <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
+                                <div className="flex items-start gap-1">
+                                  <span className="text-sm">{typeEmoji}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                                      {event.title.substring(0, 35)}...
+                                    </div>
+                                    <div className={`text-xs mt-1 text-${severityColor}-600 dark:text-${severityColor}-400 font-medium`}>
+                                      {event.severity.toUpperCase()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
+                          No significant events found
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
