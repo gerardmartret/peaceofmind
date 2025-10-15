@@ -23,6 +23,7 @@ interface TrafficPredictionResponse {
   totalDistance: string;
   totalMinutes: number;
   totalMinutesNoTraffic: number;
+  warning?: string;
   error?: string;
 }
 
@@ -137,15 +138,30 @@ function createTrafficLegs(locations: Array<{
   lat: number;
   lng: number;
   time: string;
-}>, tripDate: string): TrafficLeg[] {
+}>, tripDate: string): { legs: TrafficLeg[]; warning?: string } {
   const legs: TrafficLeg[] = [];
+  const now = new Date();
+  let hasTimeAdjustment = false;
   
   for (let i = 0; i < locations.length - 1; i++) {
     const origin = locations[i];
     const destination = locations[i + 1];
     
     // Create departure time for this leg
-    const legDepartureTime = `${tripDate}T${origin.time}:00`;
+    let legDepartureTime = `${tripDate}T${origin.time}:00`;
+    const plannedDeparture = new Date(legDepartureTime);
+    
+    // If the planned departure is in the past, adjust it to be in the future
+    if (plannedDeparture <= now) {
+      hasTimeAdjustment = true;
+      // Keep the same time but move it to tomorrow
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(parseInt(origin.time.split(':')[0]), parseInt(origin.time.split(':')[1]), 0, 0);
+      legDepartureTime = tomorrow.toISOString();
+      console.log(`⚠️ Planned departure ${plannedDeparture.toISOString()} is in the past. Using tomorrow at same time: ${tomorrow.toISOString()}`);
+    }
+    
     const legLabel = `${String.fromCharCode(65 + i)}→${String.fromCharCode(66 + i)}`;
     
     legs.push({
@@ -156,7 +172,10 @@ function createTrafficLegs(locations: Array<{
     });
   }
   
-  return legs;
+  return {
+    legs,
+    warning: hasTimeAdjustment ? 'Some departure times were in the past and have been adjusted to tomorrow for traffic prediction purposes.' : undefined
+  };
 }
 
 /**
@@ -193,8 +212,11 @@ export async function getTrafficPredictions(
     }
     
     // Create traffic legs
-    const trafficLegs = createTrafficLegs(validLocations, tripDate);
+    const { legs: trafficLegs, warning } = createTrafficLegs(validLocations, tripDate);
     console.log(`🛣️  Analyzing ${trafficLegs.length} route leg(s)`);
+    if (warning) {
+      console.log(`⚠️ ${warning}`);
+    }
     
     // Calculate traffic for each leg
     const trafficResults: TrafficResult[] = [];
@@ -235,6 +257,7 @@ export async function getTrafficPredictions(
       totalDistance,
       totalMinutes,
       totalMinutesNoTraffic,
+      warning,
     };
     
   } catch (error) {
