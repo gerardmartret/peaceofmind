@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
-import GoogleTripMap from '@/components/GoogleTripMap';
-import TripRiskBreakdown from '@/components/TripRiskBreakdown';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import {
   DndContext,
@@ -223,6 +222,7 @@ function SortableLocationItem({
 }
 
 export default function Home() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Array<{ district: string; data: CombinedData }>>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>(['westminster']);
@@ -233,6 +233,7 @@ export default function Home() {
   
   // Multi-location trip state
   const [tripDate, setTripDate] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [locations, setLocations] = useState<Array<{
     id: string;
     name: string;
@@ -244,17 +245,8 @@ export default function Home() {
     { id: '2', name: '', lat: 0, lng: 0, time: '12:00' },
     { id: '3', name: '', lat: 0, lng: 0, time: '15:00' },
   ]);
-  const [tripResults, setTripResults] = useState<Array<{
-    locationId: string;
-    locationName: string;
-    time: string;
-    data: CombinedData;
-  }> | null>(null);
   const [loadingTrip, setLoadingTrip] = useState(false);
   const [locationsReordered, setLocationsReordered] = useState(false);
-  const [executiveReport, setExecutiveReport] = useState<any | null>(null);
-  const [loadingReport, setLoadingReport] = useState(false);
-  const [trafficPredictions, setTrafficPredictions] = useState<any>(null);
 
   const londonDistricts = [
     { id: 'westminster', name: 'Westminster' },
@@ -291,6 +283,20 @@ export default function Home() {
     setStartDate(today.toISOString().split('T')[0]);
     setEndDate(futureDate.toISOString().split('T')[0]);
     setTripDate(today.toISOString().split('T')[0]);
+
+    // Check if user is modifying an existing trip
+    const storedData = sessionStorage.getItem('peaceOfMindTripData');
+    if (storedData) {
+      try {
+        const parsed = JSON.parse(storedData);
+        console.log('📝 Loading existing trip for modification');
+        if (parsed.tripDate) setTripDate(parsed.tripDate);
+        if (parsed.locations) setLocations(parsed.locations);
+        if (parsed.userEmail) setUserEmail(parsed.userEmail);
+      } catch (error) {
+        console.error('⚠️ Error loading stored trip data:', error);
+      }
+    }
   }, []);
 
   const toggleDistrict = (districtId: string) => {
@@ -355,8 +361,7 @@ export default function Home() {
         
         console.log(`📦 Location reordered: ${oldIndex + 1} → ${newIndex + 1}`);
         
-        // Clear results and show reorder indicator
-        setTripResults(null);
+        // Show reorder indicator
         setLocationsReordered(true);
         
         return reorderedItems;
@@ -372,6 +377,19 @@ export default function Home() {
   );
 
   const handleTripSubmit = async () => {
+    // Validate email
+    if (!userEmail || !userEmail.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     // Validate all locations are filled
     const validLocations = locations.filter(loc => loc.name && loc.lat !== 0 && loc.lng !== 0);
     
@@ -381,7 +399,6 @@ export default function Home() {
     }
 
     setLoadingTrip(true);
-    setTripResults(null);
     setError(null);
     setLocationsReordered(false); // Clear reorder indicator
 
@@ -448,13 +465,11 @@ export default function Home() {
       console.log(`✅ Successfully analyzed all ${results.length} location(s)`);
       console.log(`${'='.repeat(80)}\n`);
 
-      setTripResults(results);
-
       // Get traffic predictions for the route
       console.log('🚦 Fetching traffic predictions...');
+      let trafficData = null;
       try {
-        const trafficData = await getTrafficPredictions(validLocations, tripDate);
-        setTrafficPredictions(trafficData);
+        trafficData = await getTrafficPredictions(validLocations, tripDate);
         
         if (trafficData.success) {
           console.log('✅ Traffic predictions completed successfully');
@@ -463,15 +478,15 @@ export default function Home() {
         }
       } catch (trafficError) {
         console.error('❌ Traffic prediction error:', trafficError);
-        setTrafficPredictions({
+        trafficData = {
           success: false,
           error: 'Failed to get traffic predictions',
-        });
+        };
       }
 
       // Generate executive report
       console.log('🤖 Generating Executive Peace of Mind Report...');
-      setLoadingReport(true);
+      let executiveReportData = null;
       
       try {
         const reportData = results.map(r => ({
@@ -489,29 +504,45 @@ export default function Home() {
           body: JSON.stringify({
             tripData: reportData,
             tripDate,
-            routeDistance: trafficPredictions?.totalDistance || '0 km',
-            routeDuration: trafficPredictions?.totalMinutes || 0,
-            trafficPredictions: trafficPredictions?.success ? trafficPredictions.data : null,
+            routeDistance: trafficData?.totalDistance || '0 km',
+            routeDuration: trafficData?.totalMinutes || 0,
+            trafficPredictions: trafficData?.success ? trafficData.data : null,
           }),
         });
 
         const reportResult = await reportResponse.json();
         
         if (reportResult.success) {
-          setExecutiveReport(reportResult.data);
+          executiveReportData = reportResult.data;
           console.log('✅ Executive Report Generated!');
           console.log(`🎯 Trip Risk Score: ${reportResult.data.tripRiskScore}/10`);
         }
       } catch (reportError) {
         console.error('⚠️ Could not generate executive report:', reportError);
         // Don't fail the whole trip analysis if report fails
-      } finally {
-        setLoadingReport(false);
       }
+
+      // Store all data in sessionStorage
+      const tripData = {
+        tripDate,
+        userEmail,
+        locations: validLocations,
+        tripResults: results,
+        trafficPredictions: trafficData,
+        executiveReport: executiveReportData,
+      };
+
+      sessionStorage.setItem('peaceOfMindTripData', JSON.stringify(tripData));
+      console.log('💾 Trip data saved to session storage');
+      console.log(`📧 User email: ${userEmail}`);
+
+      // Redirect to results page
+      console.log('🚀 Redirecting to results page...');
+      router.push('/results');
+
     } catch (err) {
       console.error('❌ Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch trip data');
-    } finally {
       setLoadingTrip(false);
     }
   };
@@ -648,6 +679,24 @@ export default function Home() {
             Add multiple locations to analyze safety, traffic, and weather for your entire journey
           </p>
           
+          {/* User Email - Required Field */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
+            <label htmlFor="userEmail" className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-2">
+              📧 Your Email <span className="text-red-600">*</span> (required to analyze)
+            </label>
+            <input
+              type="email"
+              id="userEmail"
+              value={userEmail}
+              onChange={(e) => setUserEmail(e.target.value)}
+              placeholder="your.email@example.com"
+              className="w-full max-w-md rounded-lg border-2 border-green-300 dark:border-green-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-4 text-base font-medium focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+              We'll use this to send you your trip analysis report
+            </p>
+          </div>
+
           {/* Trip Date at Top */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
             <label htmlFor="tripDate" className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-2">
@@ -721,7 +770,7 @@ export default function Home() {
 
             <button
               onClick={handleTripSubmit}
-              disabled={loadingTrip || locations.filter(l => l.name).length === 0}
+              disabled={loadingTrip || !userEmail.trim() || locations.filter(l => l.name).length === 0}
               className={`flex-1 sm:flex-initial rounded-lg ${locationsReordered ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 animate-pulse' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white font-bold py-3 px-8 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2`}
             >
               {loadingTrip ? (
@@ -741,817 +790,29 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Trip Results */}
-        {tripResults && tripResults.length > 0 && (
-          <div className="mb-8">
-            {/* Executive Report */}
-            {loadingReport && (
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-2xl p-8 mb-6 text-white">
-                <div className="flex items-center justify-center gap-3">
-                  <svg className="animate-spin h-8 w-8" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <p className="text-xl font-semibold">Generating Executive Peace of Mind Report...</p>
-                </div>
-              </div>
-            )}
-
-            {executiveReport && (
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-3xl shadow-2xl p-8 mb-6 border-4 border-slate-300 dark:border-slate-700">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6 pb-6 border-b-4 border-slate-300 dark:border-slate-600">
-                  <div>
-                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                      <span className="text-4xl">🛡️</span>
-                      Peace of Mind Report
-                      <span className="text-sm font-normal text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-3 py-1 rounded-full">AI-Powered</span>
-                    </h2>
-                    <p className="text-slate-600 dark:text-slate-300 mt-2">
-                      Executive Summary • {tripDate} • {tripResults.length} Location{tripResults.length > 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Trip Risk Score</div>
-                    <div className={`text-6xl font-bold ${
-                      executiveReport.tripRiskScore <= 3 ? 'text-green-600 dark:text-green-400' :
-                      executiveReport.tripRiskScore <= 6 ? 'text-yellow-600 dark:text-yellow-400' :
-                      executiveReport.tripRiskScore <= 8 ? 'text-orange-600 dark:text-orange-400' :
-                      'text-red-600 dark:text-red-400'
-                    }`}>
-                      {executiveReport.tripRiskScore}
-                      <span className="text-3xl text-slate-400">/10</span>
-                    </div>
-                    <div className={`text-xs font-semibold mt-1 ${
-                      executiveReport.tripRiskScore <= 3 ? 'text-green-600 dark:text-green-400' :
-                      executiveReport.tripRiskScore <= 6 ? 'text-yellow-600 dark:text-yellow-400' :
-                      executiveReport.tripRiskScore <= 8 ? 'text-orange-600 dark:text-orange-400' :
-                      'text-red-600 dark:text-red-400'
-                    }`}>
-                      {executiveReport.tripRiskScore <= 3 ? 'LOW RISK' :
-                       executiveReport.tripRiskScore <= 6 ? 'MODERATE RISK' :
-                       executiveReport.tripRiskScore <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Overall Summary */}
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 mb-6 shadow-lg border-l-4 border-blue-500">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
-                    <span>📊</span> Executive Summary
-                  </h3>
-                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {executiveReport.overallSummary}
-                  </p>
-                </div>
-
-                {/* Key Highlights */}
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  {executiveReport.highlights.map((highlight: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className={`rounded-xl p-4 shadow-lg border-l-4 ${
-                        highlight.type === 'danger' ? 'bg-red-50 dark:bg-red-900/20 border-red-500' :
-                        highlight.type === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500' :
-                        highlight.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-500' :
-                        'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="text-xl flex-shrink-0">
-                          {highlight.type === 'danger' ? '🔴' :
-                           highlight.type === 'warning' ? '⚠️' :
-                           highlight.type === 'success' ? '✅' : 'ℹ️'}
-                        </span>
-                        <p className={`text-sm font-medium leading-snug ${
-                          highlight.type === 'danger' ? 'text-red-800 dark:text-red-200' :
-                          highlight.type === 'warning' ? 'text-yellow-800 dark:text-yellow-200' :
-                          highlight.type === 'success' ? 'text-green-800 dark:text-green-200' :
-                          'text-blue-800 dark:text-blue-200'
-                        }`}>
-                          {highlight.message}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Location Analysis */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                  {executiveReport.locationAnalysis.map((loc: any, idx: number) => (
-                    <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs">
-                            {idx + 1}
-                          </span>
-                          {loc.locationName.split(',')[0]}
-                        </h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                          loc.riskLevel === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                          loc.riskLevel === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
-                          'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                        }`}>
-                          {loc.riskLevel.toUpperCase()}
-                        </span>
-                      </div>
-                      <ul className="space-y-2">
-                        {loc.keyFindings.map((finding: string, fIdx: number) => (
-                          <li key={fIdx} className="text-xs text-slate-700 dark:text-slate-300 leading-tight flex items-start gap-1">
-                            <span className="text-blue-500 flex-shrink-0 mt-0.5">•</span>
-                            <span>{finding}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Route Disruptions */}
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-lg border-l-4 border-orange-500">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
-                      <span>🚗</span> Driving Risks
-                    </h3>
-                    <ul className="space-y-2">
-                      {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
-                        <li key={idx} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
-                          <span className="text-orange-500 flex-shrink-0 mt-1">▸</span>
-                          <span>{risk}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-lg border-l-4 border-purple-500">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
-                      <span>🚶</span> External Disruptions
-                    </h3>
-                    <ul className="space-y-2">
-                      {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
-                        <li key={idx} className="text-sm text-slate-700 dark:text-slate-300 flex items-start gap-2">
-                          <span className="text-purple-500 flex-shrink-0 mt-1">▸</span>
-                          <span>{disruption}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Recommendations */}
-                <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl p-6 shadow-xl text-white">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <span>💡</span> Recommendations
-                  </h3>
-                  <ul className="space-y-3">
-                    {executiveReport.recommendations.map((rec: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
-                          {idx + 1}
-                        </span>
-                        <span className="text-white/95 leading-relaxed">{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* Traffic Predictions */}
-            {trafficPredictions && trafficPredictions.success && (
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-6 mb-6 text-white">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  <span>🚦</span> Traffic Predictions
-                  <span className="text-sm font-normal text-blue-100">(Historical-based)</span>
-                </h2>
-                
-          {/* Warning Message */}
-          {trafficPredictions.warning && (
-            <div className="bg-yellow-500/20 border border-yellow-400/30 rounded-lg p-4 mb-6">
-              <div className="flex items-center gap-2 text-yellow-200">
-                <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <span className="font-medium">Time Adjustment Notice</span>
-              </div>
-              <p className="text-yellow-100 text-sm mt-2">{trafficPredictions.warning}</p>
+        {/* Loading Indicator - Show during analysis */}
+        {loadingTrip && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-12 mb-8 text-center">
+            <div className="mb-6">
+              <svg className="animate-spin h-16 w-16 mx-auto text-blue-600" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
             </div>
-          )}
-
-          {/* Summary Stats */}
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white/20 rounded-lg p-4">
-              <div className="text-2xl font-bold">{trafficPredictions.totalDistance}</div>
-              <div className="text-blue-100 text-sm">Total Distance</div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
+              Analyzing Your Trip...
+            </h2>
+            <div className="space-y-2 text-gray-600 dark:text-gray-400">
+              <p className="text-sm">📍 Gathering location data</p>
+              <p className="text-sm">🚨 Checking safety information</p>
+              <p className="text-sm">🚦 Analyzing traffic patterns</p>
+              <p className="text-sm">🌤️ Reviewing weather forecasts</p>
+              <p className="text-sm">📰 Searching for events</p>
+              <p className="text-sm">🤖 Generating AI report</p>
             </div>
-            <div className="bg-white/20 rounded-lg p-4">
-              <div className="text-2xl font-bold">{trafficPredictions.totalMinutes} min</div>
-              <div className="text-blue-100 text-sm">With Traffic</div>
-            </div>
-            <div className="bg-white/20 rounded-lg p-4">
-              <div className="text-2xl font-bold">
-                +{trafficPredictions.totalMinutes - trafficPredictions.totalMinutesNoTraffic} min
-              </div>
-              <div className="text-blue-100 text-sm">Traffic Delay</div>
-            </div>
-          </div>
-
-                {/* Route Legs */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-blue-100">Route Breakdown:</h3>
-                  {trafficPredictions.data.map((leg: any, index: number) => (
-                    <div key={index} className="bg-white/10 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-semibold">{leg.leg}</div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">{leg.minutes} min</div>
-                          <div className="text-xs text-blue-200">{leg.distance}</div>
-                        </div>
-                      </div>
-                      <div className="text-sm text-blue-100">
-                        {leg.originName.split(',')[0]} → {leg.destinationName.split(',')[0]}
-                      </div>
-                      {leg.busyMinutes && (
-                        <div className="text-xs text-yellow-200 mt-1">
-                          ⚠️ Busy traffic expected: +{leg.busyMinutes - leg.minutesNoTraffic} min delay
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Trip Risk Breakdown */}
-            <TripRiskBreakdown 
-              tripResults={tripResults}
-              trafficPredictions={trafficPredictions}
-              tripDate={tripDate}
-            />
-
-            {/* Map View */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                <span>🗺️</span> Your Trip Map
-                <span className="text-sm font-normal text-gray-500">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
-              </h2>
-              <GoogleTripMap 
-                locations={tripResults.map((result, index) => {
-                  const location = locations.find(l => l.id === result.locationId);
-                  return {
-                    id: result.locationId,
-                    name: result.locationName,
-                    lat: location?.lat || 0,
-                    lng: location?.lng || 0,
-                    time: result.time,
-                    safetyScore: result.data.crime.safetyScore,
-                  };
-                })}
-              />
-            </div>
-
-            {/* Location Reports */}
-            <div className="space-y-6">
-              {tripResults.map((result, index) => (
-                <div key={result.locationId} className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl p-6 border-2 border-gray-200 dark:border-gray-700">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b-2 border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-lg">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                          {result.locationName.split(',')[0]}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          🕐 {result.time} • 📅 {tripDate}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={`text-4xl font-bold ${getSafetyColor(result.data.crime.safetyScore)}`}>
-                      {result.data.crime.safetyScore}
-                      <span className="text-lg text-gray-500">/100</span>
-                    </div>
-                  </div>
-
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-blue-500">
-                      <div className="text-xl mb-1">🚨</div>
-                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.crime.summary.totalCrimes.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Crimes</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-orange-500">
-                      <div className="text-xl mb-1">🚧</div>
-                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.disruptions.analysis.total}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Disruptions</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-cyan-500">
-                      <div className="text-xl mb-1">🌡️</div>
-                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.weather.summary.avgMaxTemp}°C
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Avg Temp</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-purple-500">
-                      <div className="text-xl mb-1">☔</div>
-                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.weather.summary.rainyDays}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Rainy Days</div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-pink-500">
-                      <div className="text-xl mb-1">📰</div>
-                      <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.events.summary.total}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Events</div>
-                    </div>
-                  </div>
-
-                  {/* Detailed Breakdown */}
-                  <div className="grid lg:grid-cols-4 gap-4">
-                    {/* Crime */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>🚨</span> Top Crimes
-                      </h4>
-                      <div className="space-y-2">
-                        {result.data.crime.summary.topCategories.slice(0, 3).map((cat, idx) => (
-                          <div key={idx}>
-                            <div className="flex justify-between text-xs mb-1">
-                              <span className="text-gray-700 dark:text-gray-300">{cat.category}</span>
-                              <span className="font-bold text-gray-800 dark:text-gray-200">{cat.count}</span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                              <div
-                                className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full"
-                                style={{ width: `${cat.percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Traffic */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>🚦</span> Traffic
-                      </h4>
-                      <div className="space-y-2">
-                        {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
-                          <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
-                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
-                              {disruption.location.substring(0, 30)}...
-                            </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                              {disruption.severity}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Weather */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>🌤️</span> Weather
-                      </h4>
-                      <div className="space-y-2">
-                        {result.data.weather.forecast.slice(0, 2).map((day: any, idx: number) => {
-                          const weatherEmoji = day.weatherCode === 0 ? '☀️' : 
-                                             day.weatherCode <= 3 ? '⛅' :
-                                             day.weatherCode >= 61 && day.weatherCode <= 67 ? '🌧️' : '🌤️';
-                          return (
-                            <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
-                              <div className="flex items-center justify-between">
-                                <span className="text-lg">{weatherEmoji}</span>
-                                <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
-                                  {day.minTemp}°-{day.maxTemp}°C
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Events */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-                      <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>📰</span> Events
-                        <span className="text-xs font-normal text-gray-500">AI</span>
-                      </h4>
-                      {result.data.events.summary.total > 0 ? (
-                        <div className="space-y-2">
-                          {result.data.events.events.slice(0, 3).map((event: any, idx: number) => {
-                            const severityColor = event.severity === 'high' ? 'red' : event.severity === 'medium' ? 'orange' : 'yellow';
-                            const typeEmoji = event.type === 'strike' ? '✊' : event.type === 'protest' ? '📢' : event.type === 'festival' ? '🎉' : '🚧';
-                            return (
-                              <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
-                                <div className="flex items-start gap-1">
-                                  <span className="text-sm">{typeEmoji}</span>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
-                                      {event.title.substring(0, 35)}...
-                                    </div>
-                                    <div className={`text-xs mt-1 text-${severityColor}-600 dark:text-${severityColor}-400 font-medium`}>
-                                      {event.severity.toUpperCase()}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
-                          No significant events found
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-
-        {/* Hidden: District Results removed, keeping only trip planner */}
-        {false && results.length > 0 && (
-          <div className="space-y-8">
-            {/* Comparison Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white text-center">
-              <h2 className="text-3xl font-bold mb-2">
-                Comparing {results.length} District{results.length > 1 ? 's' : ''}
-              </h2>
-              <p className="text-blue-100">
-                {startDate} to {endDate} • {calculateDaysFromDates()} days analysis
-              </p>
-            </div>
-
-            {/* Results for Each District */}
-            {results.map((result, resultIdx) => {
-              const districtName = londonDistricts.find(d => d.id === result.district)?.name || result.district;
-              
-              return (
-                <div key={result.district} className="space-y-6 border-4 border-gray-200 dark:border-gray-700 rounded-3xl p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
-                  {/* District Header */}
-                  <div className="flex items-center justify-between pb-4 border-b-2 border-gray-200 dark:border-gray-700">
-                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                      {resultIdx + 1}. {districtName}
-                    </h3>
-                    <div className={`text-5xl font-bold ${getSafetyColor(result.data.crime.safetyScore)}`}>
-                      {result.data.crime.safetyScore}
-                      <span className="text-xl text-gray-500">/100</span>
-                    </div>
-                  </div>
-
-                  {/* Safety Score Card */}
-                  <div className={`rounded-2xl p-6 border-2 ${getSafetyBg(result.data.crime.safetyScore)}`}>
-                    <div className="text-center">
-                      <div className={`inline-block px-4 py-2 rounded-full text-lg font-bold mb-2 ${getSafetyBg(result.data.crime.safetyScore)}`}>
-                        <span className={getSafetyColor(result.data.crime.safetyScore)}>
-                          {getSafetyLabel(result.data.crime.safetyScore)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Based on {result.data.crime.summary.totalCrimes.toLocaleString()} crimes • {result.data.crime.summary.month}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-blue-500">
-                      <div className="text-2xl mb-1">🚨</div>
-                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.crime.summary.totalCrimes.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Crimes</div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-orange-500">
-                      <div className="text-2xl mb-1">🚧</div>
-                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.disruptions.analysis.total}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Disruptions</div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-cyan-500">
-                      <div className="text-2xl mb-1">🌡️</div>
-                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.weather.summary.avgMaxTemp}°C
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Avg Temp</div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-purple-500">
-                      <div className="text-2xl mb-1">☔</div>
-                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.weather.summary.rainyDays}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Rainy Days</div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 border-red-500">
-                      <div className="text-2xl mb-1">⚠️</div>
-                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-                        {result.data.disruptions.analysis.bySeverity['Moderate'] || 0}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Moderate</div>
-                    </div>
-                  </div>
-
-                  {/* Three Column Layout for Crime, Disruptions, and Weather */}
-                  <div className="grid lg:grid-cols-3 gap-4">
-                    {/* Top Crime Categories */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-xl">
-                      <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>🚨</span> Crime Report
-                      </h3>
-                      <div className="space-y-2.5">
-                        {result.data.crime.summary.topCategories.slice(0, 5).map((cat, idx) => (
-                          <div key={idx} className="relative">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                {idx + 1}. {cat.category}
-                              </span>
-                              <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
-                                {cat.count}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div
-                                className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full"
-                                style={{ width: `${cat.percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* TfL Disruptions */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-xl">
-                      <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>🚦</span> Disruptions
-                      </h3>
-                      
-                      {/* Disruption Mini Stats */}
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-2 text-center">
-                          <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                            {result.data.disruptions.analysis.total}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Total</div>
-                        </div>
-                        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2 text-center">
-                          <div className="text-xl font-bold text-red-600 dark:text-red-400">
-                            {result.data.disruptions.analysis.bySeverity['Moderate'] || 0}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Moderate</div>
-                        </div>
-                      </div>
-
-                      {/* Top 3 Disruptions */}
-                      <div className="space-y-2">
-                        {result.data.disruptions.disruptions.slice(0, 3).map((disruption: any, idx: number) => (
-                          <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 border border-gray-200 dark:border-gray-600">
-                            <div className="flex items-start justify-between mb-1">
-                              <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-xs leading-tight">
-                                {disruption.location.length > 35 ? disruption.location.substring(0, 35) + '...' : disruption.location}
-                              </h4>
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${
-                                disruption.severity === 'Moderate' 
-                                  ? 'bg-orange-200 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300'
-                                  : 'bg-yellow-200 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300'
-                              }`}>
-                                {disruption.severity}
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
-                              {new Date(disruption.startDateTime).toLocaleDateString()}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Weather Forecast */}
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-xl">
-                      <h3 className="text-lg font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                        <span>🌤️</span> Weather Forecast
-                      </h3>
-                      
-                      {/* Weather Summary */}
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div className="bg-cyan-50 dark:bg-cyan-900/20 rounded-lg p-2 text-center">
-                          <div className="text-xl font-bold text-cyan-600 dark:text-cyan-400">
-                            {result.data.weather.summary.avgMaxTemp}°C
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Avg Max</div>
-                        </div>
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 text-center">
-                          <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                            {result.data.weather.summary.rainyDays}/{result.data.weather.forecast.length}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Rainy Days</div>
-                        </div>
-                      </div>
-
-                      {/* All Days in Date Range */}
-                      <div className="space-y-2 max-h-96 overflow-y-auto">
-                        <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 sticky top-0 bg-white dark:bg-gray-800 py-1">
-                          Full Forecast ({result.data.weather.forecast.length} days):
-                        </h4>
-                        {result.data.weather.forecast.map((day: any, idx: number) => {
-                          const weatherEmoji = day.weatherCode === 0 ? '☀️' : 
-                                             day.weatherCode <= 3 ? '⛅' :
-                                             day.weatherCode >= 61 && day.weatherCode <= 67 ? '🌧️' :
-                                             day.weatherCode >= 71 && day.weatherCode <= 77 ? '❄️' :
-                                             day.weatherCode >= 95 ? '⛈️' : '🌤️';
-                          
-                          return (
-                            <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2.5 border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-2xl">{weatherEmoji}</span>
-                                  <div>
-                                    <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                                      {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                    </div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                      {day.weatherDescription}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                                    {day.minTemp}°-{day.maxTemp}°C
-                                  </div>
-                                  {day.precipitation > 0 && (
-                                    <div className="text-xs text-blue-600 dark:text-blue-400">
-                                      💧 {day.precipitation}mm
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              {day.windSpeed > 15 && (
-                                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                  <span>💨</span>
-                                  <span>{day.windSpeed} km/h wind</span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Full Weather Forecast - Full Width */}
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl">
-                    <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                      <span>🌤️</span> Complete Weather Forecast for {districtName}
-                    </h3>
-                    
-                    {/* Weather Summary Stats */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-                      <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg p-3 border-2 border-cyan-200 dark:border-cyan-800">
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Avg Temp</div>
-                        <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
-                          {result.data.weather.summary.avgMinTemp}°-{result.data.weather.summary.avgMaxTemp}°C
-                        </div>
-                      </div>
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-3 border-2 border-blue-200 dark:border-blue-800">
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Precipitation</div>
-                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {result.data.weather.summary.totalPrecipitation}mm
-                        </div>
-                      </div>
-                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-3 border-2 border-purple-200 dark:border-purple-800">
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Rainy Days</div>
-                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                          {result.data.weather.summary.rainyDays}/{result.data.weather.forecast.length}
-                        </div>
-                      </div>
-                      <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-lg p-3 border-2 border-green-200 dark:border-green-800">
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Max Wind</div>
-                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          {result.data.weather.summary.maxWindSpeed} km/h
-                        </div>
-                      </div>
-                      <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg p-3 border-2 border-orange-200 dark:border-orange-800">
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Forecast</div>
-                        <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                          {result.data.weather.forecast.length} Days
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Daily Weather Cards - Horizontal Scroll */}
-                    <div className="overflow-x-auto pb-2">
-                      <div className="flex gap-3" style={{ minWidth: 'fit-content' }}>
-                        {result.data.weather.forecast.map((day: any, idx: number) => {
-                          const weatherEmoji = day.weatherCode === 0 ? '☀️' : 
-                                             day.weatherCode <= 3 ? '⛅' :
-                                             day.weatherCode >= 61 && day.weatherCode <= 67 ? '🌧️' :
-                                             day.weatherCode >= 71 && day.weatherCode <= 77 ? '❄️' :
-                                             day.weatherCode >= 95 ? '⛈️' : '🌤️';
-                          
-                          const isRainy = day.precipitation > 0;
-                          const isWindy = day.windSpeed > 15;
-                          
-                          return (
-                            <div 
-                              key={idx} 
-                              className={`flex-shrink-0 w-48 rounded-xl p-4 shadow-lg border-2 ${
-                                isRainy 
-                                  ? 'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 border-blue-300 dark:border-blue-700'
-                                  : 'bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600'
-                              }`}
-                            >
-                              <div className="text-center mb-3">
-                                <div className="text-5xl mb-2">{weatherEmoji}</div>
-                                <div className="font-bold text-gray-800 dark:text-gray-200">
-                                  {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short' })}
-                                </div>
-                                <div className="text-xs text-gray-600 dark:text-gray-400">
-                                  {new Date(day.date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
-                                </div>
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-gray-600 dark:text-gray-400">Temp</span>
-                                  <span className="font-bold text-gray-800 dark:text-gray-200">
-                                    {day.minTemp}°-{day.maxTemp}°C
-                                  </span>
-                                </div>
-                                
-                                {isRainy && (
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-600 dark:text-gray-400">Rain</span>
-                                    <span className="font-bold text-blue-600 dark:text-blue-400">
-                                      💧 {day.precipitation}mm
-                                    </span>
-                                  </div>
-                                )}
-                                
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="text-gray-600 dark:text-gray-400">Wind</span>
-                                  <span className={`font-bold ${isWindy ? 'text-orange-600 dark:text-orange-400' : 'text-gray-800 dark:text-gray-200'}`}>
-                                    {isWindy ? '💨 ' : ''}{day.windSpeed} km/h
-                                  </span>
-                                </div>
-
-                                <div className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                                  {day.weatherDescription}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Overall Footer */}
-            <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-4 bg-white dark:bg-gray-800 rounded-xl">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✅</span>
-                  <span>UK Police API</span>
-                </div>
-                <div className="hidden sm:block text-gray-400">•</div>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✅</span>
-                  <span>TfL API</span>
-                </div>
-                <div className="hidden sm:block text-gray-400">•</div>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✅</span>
-                  <span>Open-Meteo API</span>
-                </div>
-              </div>
-              <p className="text-xs mt-2">
-                {results.length} district{results.length > 1 ? 's' : ''} • Crime + Traffic + Weather • 100% Free
-              </p>
-            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-6">
+              This may take 30-60 seconds...
+            </p>
           </div>
         )}
 
@@ -1567,7 +828,6 @@ export default function Home() {
             </p>
           </div>
         )}
-
 
       </div>
     </div>
