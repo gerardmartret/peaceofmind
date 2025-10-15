@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import LocationSearch from '@/components/LocationSearch';
-import TripMap from '@/components/TripMap';
+import GoogleLocationSearch from '@/components/GoogleLocationSearch';
+import GoogleTripMap from '@/components/GoogleTripMap';
 import {
   DndContext,
   closestCenter,
@@ -162,7 +162,7 @@ function SortableLocationItem({
         <div className="flex-1 grid sm:grid-cols-[1fr_auto_auto] gap-3">
           {/* Location Search */}
           <div className="min-w-0">
-            <LocationSearch
+            <GoogleLocationSearch
               onLocationSelect={(loc) => {
                 console.log(`📍 Location ${index + 1} selected:`, loc);
                 onLocationSelect(location.id, {
@@ -889,7 +889,7 @@ export default function Home() {
                 <span>🗺️</span> Your Trip Map
                 <span className="text-sm font-normal text-gray-500">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
               </h2>
-              <TripMap 
+              <GoogleTripMap 
                 locations={tripResults.map((result, index) => {
                   const location = locations.find(l => l.id === result.locationId);
                   return {

@@ -1,0 +1,169 @@
+'use client';
+
+import { useState, useRef } from 'react';
+import { Autocomplete } from '@react-google-maps/api';
+import { useGoogleMaps } from '@/hooks/useGoogleMaps';
+
+interface SearchResult {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+interface GoogleLocationSearchProps {
+  onLocationSelect?: (location: SearchResult) => void;
+}
+
+export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocationSearchProps) {
+  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<SearchResult | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const { isLoaded, loadError } = useGoogleMaps();
+
+  const onLoad = (autocompleteInstance: google.maps.places.Autocomplete) => {
+    setAutocomplete(autocompleteInstance);
+    console.log('🔍 Google Places Autocomplete loaded');
+  };
+
+  const onPlaceChanged = () => {
+    if (autocomplete) {
+      const place = autocomplete.getPlace();
+      
+      if (!place.geometry || !place.geometry.location) {
+        console.log('⚠️ No geometry available for this place');
+        return;
+      }
+
+      const location: SearchResult = {
+        name: place.formatted_address || place.name || 'Unknown location',
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+      };
+
+      console.log('📍 Selected:', location.name);
+      console.log('   Coordinates:', location.lat, location.lng);
+      
+      // Log place types for debugging
+      if (place.types) {
+        const isPOI = place.types.some(type => 
+          ['point_of_interest', 'establishment', 'restaurant', 'cafe', 'store'].includes(type)
+        );
+        console.log('   Types:', place.types.join(', '));
+        if (isPOI) {
+          console.log('   🏢 Business/POI detected');
+        }
+      }
+
+      // Log additional place details if available
+      if (place.rating) {
+        console.log('   ⭐ Rating:', place.rating);
+      }
+      if (place.business_status) {
+        console.log('   Status:', place.business_status);
+      }
+
+      setSelectedLocation(location);
+
+      if (onLocationSelect) {
+        onLocationSelect(location);
+      }
+    }
+  };
+
+  if (loadError) {
+    return (
+      <div className="w-full p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-lg">
+        <div className="text-red-800 dark:text-red-300 font-semibold">
+          ❌ Failed to load Google Places
+        </div>
+        <div className="text-sm text-red-600 dark:text-red-400 mt-1">
+          Check your API key configuration
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="relative">
+        <input
+          type="text"
+          disabled
+          placeholder="Loading Google Places..."
+          className="w-full rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 py-3 px-4 pr-10"
+        />
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <svg className="animate-spin h-5 w-5 text-gray-400" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Search Input with Autocomplete */}
+      <div className="relative">
+        <Autocomplete
+          onLoad={onLoad}
+          onPlaceChanged={onPlaceChanged}
+          options={{
+            types: ['establishment', 'geocode'], // Include businesses and addresses
+            componentRestrictions: { country: 'gb' }, // UK only
+            fields: [
+              'formatted_address',
+              'name',
+              'geometry',
+              'place_id',
+              'types',
+              'rating',
+              'business_status',
+              'opening_hours'
+            ],
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Search hotels, restaurants, landmarks, or any location..."
+            className="w-full rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-3 px-4 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+          />
+        </Autocomplete>
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Selected Location Info */}
+      {selectedLocation && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-blue-800 dark:text-blue-300">
+                📍 Selected Location
+              </h3>
+              <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                {selectedLocation.name}
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
+                {selectedLocation.lat.toFixed(4)}°N, {Math.abs(selectedLocation.lng).toFixed(4)}°W
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Powered by Google Badge */}
+      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+        <span className="font-bold text-blue-600">G</span>
+        <span>Powered by Google Places</span>
+      </div>
+    </div>
+  );
+}
+
