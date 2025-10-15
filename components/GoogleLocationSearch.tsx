@@ -139,30 +139,7 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
         </div>
       </div>
 
-      {/* Selected Location Info */}
-      {selectedLocation && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-blue-800 dark:text-blue-300">
-                📍 Selected Location
-              </h3>
-              <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                {selectedLocation.name}
-              </p>
-              <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">
-                {selectedLocation.lat.toFixed(4)}°N, {Math.abs(selectedLocation.lng).toFixed(4)}°W
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Powered by Google Badge */}
-      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-        <span className="font-bold text-blue-600">G</span>
-        <span>Powered by Google Places</span>
-      </div>
     </div>
   );
 }

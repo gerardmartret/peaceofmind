@@ -105,6 +105,7 @@ interface SortableLocationItemProps {
     time: string;
   };
   index: number;
+  totalLocations: number;
   onLocationSelect: (id: string, data: { name: string; lat: number; lng: number }) => void;
   onTimeChange: (id: string, time: string) => void;
   onRemove: (id: string) => void;
@@ -114,6 +115,7 @@ interface SortableLocationItemProps {
 function SortableLocationItem({
   location,
   index,
+  totalLocations,
   onLocationSelect,
   onTimeChange,
   onRemove,
@@ -134,6 +136,13 @@ function SortableLocationItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Determine time label based on position
+  const getTimeLabel = () => {
+    if (index === 0) return 'Pickup time';
+    if (index === totalLocations - 1) return 'Dropoff time';
+    return 'Resume';
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -141,48 +150,48 @@ function SortableLocationItem({
       className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-600"
     >
       <div className="flex items-start gap-3">
-        {/* Drag Handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing mt-1 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Drag to reorder"
-        >
-          <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-          </svg>
-        </div>
-
-        {/* Location Number */}
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm">
-          {index + 1}
-        </div>
-
         {/* Location Search and Time */}
         <div className="flex-1 grid sm:grid-cols-[1fr_auto_auto] gap-3">
-          {/* Location Search */}
-          <div className="min-w-0">
-            <GoogleLocationSearch
-              onLocationSelect={(loc) => {
-                console.log(`📍 Location ${index + 1} selected:`, loc);
-                onLocationSelect(location.id, {
-                  name: loc.name,
-                  lat: loc.lat,
-                  lng: loc.lng,
-                });
-              }}
-            />
-            {location.name && (
-              <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
-                ✓ {location.name.split(',')[0]}
-              </div>
-            )}
+          {/* Location Number and Drag Handle - positioned over the address field */}
+          <div className="relative">
+            <div className="absolute -left-6 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 text-sm">
+              {index + 1}
+            </div>
+            {/* Drag Handle */}
+            <div
+              {...attributes}
+              {...listeners}
+              className="absolute -left-12 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+              title="Drag to reorder"
+            >
+              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+              </svg>
+            </div>
+            {/* Location Search */}
+            <div className="min-w-0">
+              <GoogleLocationSearch
+                onLocationSelect={(loc) => {
+                  console.log(`📍 Location ${index + 1} selected:`, loc);
+                  onLocationSelect(location.id, {
+                    name: loc.name,
+                    lat: loc.lat,
+                    lng: loc.lng,
+                  });
+                }}
+              />
+              {location.name && (
+                <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
+                  ✓ {location.name.split(',')[0]}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Time Picker */}
           <div className="sm:w-32">
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Time
+              {getTimeLabel()}
             </label>
             <input
               type="time"
@@ -647,6 +656,7 @@ export default function Home() {
                       key={location.id}
                       location={location}
                       index={index}
+                      totalLocations={locations.length}
                       onLocationSelect={updateLocation}
                       onTimeChange={updateLocationTime}
                       onRemove={removeLocation}
