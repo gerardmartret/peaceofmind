@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
+import { supabase } from '@/lib/supabase';
 import {
   DndContext,
   closestCenter,
@@ -283,20 +284,6 @@ export default function Home() {
     setStartDate(today.toISOString().split('T')[0]);
     setEndDate(futureDate.toISOString().split('T')[0]);
     setTripDate(today.toISOString().split('T')[0]);
-
-    // Check if user is modifying an existing trip
-    const storedData = sessionStorage.getItem('peaceOfMindTripData');
-    if (storedData) {
-      try {
-        const parsed = JSON.parse(storedData);
-        console.log('📝 Loading existing trip for modification');
-        if (parsed.tripDate) setTripDate(parsed.tripDate);
-        if (parsed.locations) setLocations(parsed.locations);
-        if (parsed.userEmail) setUserEmail(parsed.userEmail);
-      } catch (error) {
-        console.error('⚠️ Error loading stored trip data:', error);
-      }
-    }
   }, []);
 
   const toggleDistrict = (districtId: string) => {
@@ -522,23 +509,57 @@ export default function Home() {
         // Don't fail the whole trip analysis if report fails
       }
 
-      // Store all data in sessionStorage
-      const tripData = {
-        tripDate,
-        userEmail,
-        locations: validLocations,
-        tripResults: results,
-        trafficPredictions: trafficData,
-        executiveReport: executiveReportData,
-      };
+      // Save user to database (upsert - add if new, ignore if exists)
+      console.log('💾 Saving user to database...');
+      console.log('   Email:', userEmail);
+      
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .upsert({ 
+          email: userEmail,
+          marketing_consent: true 
+        })
+        .select();
 
-      sessionStorage.setItem('peaceOfMindTripData', JSON.stringify(tripData));
-      console.log('💾 Trip data saved to session storage');
+      if (userError) {
+        console.error('❌ Error saving user:', userError);
+        console.error('   Details:', JSON.stringify(userError, null, 2));
+        throw new Error(`Failed to save user to database: ${userError.message || 'Unknown error'}`);
+      }
+      console.log('✅ User saved/updated:', userData);
+
+      // Save trip to database
+      console.log('💾 Saving trip to database...');
+      console.log('   User:', userEmail);
+      console.log('   Date:', tripDate);
+      console.log('   Locations:', validLocations.length);
+      
+      const { data: tripData, error: tripError } = await supabase
+        .from('trips')
+        .insert({
+          user_email: userEmail,
+          trip_date: tripDate,
+          locations: validLocations as any,
+          trip_results: results as any,
+          traffic_predictions: trafficData as any,
+          executive_report: executiveReportData as any
+        })
+        .select()
+        .single();
+
+      if (tripError || !tripData) {
+        console.error('❌ Error saving trip:', tripError);
+        console.error('   Details:', JSON.stringify(tripError, null, 2));
+        throw new Error(`Failed to save trip to database: ${tripError?.message || 'Unknown error'}`);
+      }
+
+      console.log('✅ Trip saved to database');
+      console.log(`🔗 Trip ID: ${tripData.id}`);
       console.log(`📧 User email: ${userEmail}`);
 
-      // Redirect to results page
-      console.log('🚀 Redirecting to results page...');
-      router.push('/results');
+      // Redirect to shareable results page
+      console.log('🚀 Redirecting to shareable results page...');
+      router.push(`/results/${tripData.id}`);
 
     } catch (err) {
       console.error('❌ Error:', err);

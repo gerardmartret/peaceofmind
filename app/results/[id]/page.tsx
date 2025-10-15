@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import TripRiskBreakdown from '@/components/TripRiskBreakdown';
+import { supabase } from '@/lib/supabase';
 
 interface CrimeData {
   district: string;
@@ -102,38 +103,75 @@ interface TripData {
 
 export default function ResultsPage() {
   const router = useRouter();
+  const params = useParams();
+  const tripId = params.id as string;
   const [tripData, setTripData] = useState<TripData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load trip data from sessionStorage
-    const storedData = sessionStorage.getItem('peaceOfMindTripData');
-    
-    if (!storedData) {
-      console.log('⚠️ No trip data found, redirecting to home');
-      router.push('/');
-      return;
+    async function loadTripFromDatabase() {
+      if (!tripId) {
+        console.log('⚠️ No trip ID provided');
+        router.push('/');
+        return;
+      }
+
+      try {
+        console.log(`📡 Loading trip from database: ${tripId}`);
+        
+        const { data, error: fetchError } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('id', tripId)
+          .single();
+
+        if (fetchError) {
+          console.error('❌ Error loading trip:', fetchError);
+          setError('Trip not found');
+          setLoading(false);
+          return;
+        }
+
+        if (!data) {
+          console.log('⚠️ Trip not found in database');
+          setError('Trip not found');
+          setLoading(false);
+          return;
+        }
+
+        console.log('✅ Trip loaded from database');
+        
+        // Transform database data to match expected TripData format
+        const tripData: TripData = {
+          tripDate: data.trip_date,
+          userEmail: data.user_email,
+          locations: data.locations as any,
+          tripResults: data.trip_results as any,
+          trafficPredictions: data.traffic_predictions as any,
+          executiveReport: data.executive_report as any,
+        };
+
+        setTripData(tripData);
+        setLoading(false);
+      } catch (err) {
+        console.error('❌ Unexpected error:', err);
+        setError('Failed to load trip');
+        setLoading(false);
+      }
     }
 
-    try {
-      const parsed = JSON.parse(storedData);
-      console.log('✅ Loaded trip data from storage');
-      setTripData(parsed);
-      setLoading(false);
-    } catch (error) {
-      console.error('❌ Error parsing trip data:', error);
-      router.push('/');
-    }
-  }, [router]);
+    loadTripFromDatabase();
+  }, [tripId, router]);
 
   const handlePlanNewTrip = () => {
-    // Clear session storage and redirect to home
-    sessionStorage.removeItem('peaceOfMindTripData');
+    // Redirect to home for new trip
     router.push('/');
   };
 
   const handleModifyTrip = () => {
-    // Keep session storage but redirect to home for editing
+    // For now, just redirect to home
+    // Future: could pre-fill form with current trip data
     router.push('/');
   };
 
@@ -164,8 +202,26 @@ export default function ResultsPage() {
     );
   }
 
-  if (!tripData || !tripData.tripResults) {
-    return null;
+  if (error || !tripData || !tripData.tripResults) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
+          <div className="text-6xl mb-4">😕</div>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
+            Trip Not Found
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            {error || 'This trip analysis could not be found. It may have been deleted or the link is incorrect.'}
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 transition-all shadow-lg"
+          >
+            🏠 Go to Home
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const { tripDate, locations, tripResults, trafficPredictions, executiveReport } = tripData;
@@ -184,6 +240,29 @@ export default function ResultsPage() {
           <p className="text-gray-600 dark:text-gray-300 text-lg mb-4">
             Complete safety, traffic & weather report for {tripDate}
           </p>
+
+          {/* Shareable Link */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-4 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1">🔗 Shareable Link</p>
+                <p className="text-sm text-blue-600 dark:text-blue-400 font-mono truncate">
+                  {typeof window !== 'undefined' ? window.location.href : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert('Link copied to clipboard! 📋');
+                  }
+                }}
+                className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 transition-all text-sm flex-shrink-0"
+              >
+                📋 Copy
+              </button>
+            </div>
+          </div>
           
           {/* Navigation Buttons */}
           <div className="flex flex-wrap justify-center gap-3 mb-4">
