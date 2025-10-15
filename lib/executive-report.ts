@@ -30,7 +30,16 @@ export async function generateExecutiveReport(
   }>,
   tripDate: string,
   routeDistance?: number,
-  routeDuration?: number
+  routeDuration?: number,
+  trafficPredictions?: Array<{
+    leg: string;
+    minutes: number;
+    minutesNoTraffic: number;
+    distance: string;
+    originName: string;
+    destinationName: string;
+    departureTime: string;
+  }>
 ): Promise<ExecutiveReport> {
   try {
     console.log('\n' + '='.repeat(80));
@@ -38,7 +47,11 @@ export async function generateExecutiveReport(
     console.log('='.repeat(80));
     console.log(`📅 Trip Date: ${tripDate}`);
     console.log(`📍 Locations: ${tripData.length}`);
-    if (routeDistance) console.log(`🚗 Route: ${routeDistance.toFixed(1)} km, ${Math.round(routeDuration || 0)} min`);
+    if (routeDistance) console.log(`🚗 Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} min`);
+    if (trafficPredictions) {
+      const totalTrafficDelay = trafficPredictions.reduce((sum, leg) => sum + (leg.minutes - leg.minutesNoTraffic), 0);
+      console.log(`🚦 Traffic Predictions: ${trafficPredictions.length} legs, +${totalTrafficDelay} min delay`);
+    }
 
     // Prepare data summary for GPT
     const dataSummary = tripData.map((loc, idx) => ({
@@ -60,8 +73,19 @@ export async function generateExecutiveReport(
 
 TRIP DETAILS:
 Date: ${tripDate}
-${routeDistance ? `Route: ${routeDistance.toFixed(1)} km, ${Math.round(routeDuration || 0)} minutes driving` : ''}
+${routeDistance ? `Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} minutes driving` : ''}
 Locations: ${tripData.length} stops
+
+${trafficPredictions ? `
+TRAFFIC PREDICTIONS (Historical-based):
+${JSON.stringify(trafficPredictions.map(leg => ({
+  leg: leg.leg,
+  route: `${leg.originName.split(',')[0]} → ${leg.destinationName.split(',')[0]}`,
+  travelTime: `${leg.minutes} min (${leg.minutesNoTraffic} min without traffic)`,
+  distance: leg.distance,
+  trafficDelay: `${leg.minutes - leg.minutesNoTraffic} min delay`
+})), null, 2)}
+` : ''}
 
 DATA FOR EACH LOCATION:
 ${JSON.stringify(dataSummary, null, 2)}
@@ -83,6 +107,7 @@ ANALYZE THIS VIP TRIP AND PROVIDE:
 3. ROUTE DISRUPTIONS:
    - Driving risks (traffic, road closures, weather impact on driving)
    - External disruptions (protests blocking routes, events causing detours)
+   ${trafficPredictions ? '- Historical traffic delays and timing predictions' : ''}
 
 4. RECOMMENDATIONS:
    - 3-5 specific actionable recommendations

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import GoogleTripMap from '@/components/GoogleTripMap';
+import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import {
   DndContext,
   closestCenter,
@@ -252,6 +253,7 @@ export default function Home() {
   const [locationsReordered, setLocationsReordered] = useState(false);
   const [executiveReport, setExecutiveReport] = useState<any | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [trafficPredictions, setTrafficPredictions] = useState<any>(null);
 
   const londonDistricts = [
     { id: 'westminster', name: 'Westminster' },
@@ -447,6 +449,25 @@ export default function Home() {
 
       setTripResults(results);
 
+      // Get traffic predictions for the route
+      console.log('🚦 Fetching traffic predictions...');
+      try {
+        const trafficData = await getTrafficPredictions(validLocations, tripDate);
+        setTrafficPredictions(trafficData);
+        
+        if (trafficData.success) {
+          console.log('✅ Traffic predictions completed successfully');
+        } else {
+          console.error('⚠️ Traffic predictions failed:', trafficData.error);
+        }
+      } catch (trafficError) {
+        console.error('❌ Traffic prediction error:', trafficError);
+        setTrafficPredictions({
+          success: false,
+          error: 'Failed to get traffic predictions',
+        });
+      }
+
       // Generate executive report
       console.log('🤖 Generating Executive Peace of Mind Report...');
       setLoadingReport(true);
@@ -467,8 +488,9 @@ export default function Home() {
           body: JSON.stringify({
             tripData: reportData,
             tripDate,
-            routeDistance: 0, // Will be updated with actual route data
-            routeDuration: 0,
+            routeDistance: trafficPredictions?.totalDistance || '0 km',
+            routeDuration: trafficPredictions?.totalMinutes || 0,
+            trafficPredictions: trafficPredictions?.success ? trafficPredictions.data : null,
           }),
         });
 
@@ -889,6 +911,58 @@ export default function Home() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Traffic Predictions */}
+            {trafficPredictions && trafficPredictions.success && (
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-6 mb-6 text-white">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <span>🚦</span> Traffic Predictions
+                  <span className="text-sm font-normal text-blue-100">(Historical-based)</span>
+                </h2>
+                
+                {/* Summary Stats */}
+                <div className="grid md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white/20 rounded-lg p-4">
+                    <div className="text-2xl font-bold">{trafficPredictions.totalDistance}</div>
+                    <div className="text-blue-100 text-sm">Total Distance</div>
+                  </div>
+                  <div className="bg-white/20 rounded-lg p-4">
+                    <div className="text-2xl font-bold">{trafficPredictions.totalMinutes} min</div>
+                    <div className="text-blue-100 text-sm">With Traffic</div>
+                  </div>
+                  <div className="bg-white/20 rounded-lg p-4">
+                    <div className="text-2xl font-bold">
+                      +{trafficPredictions.totalMinutes - trafficPredictions.totalMinutesNoTraffic} min
+                    </div>
+                    <div className="text-blue-100 text-sm">Traffic Delay</div>
+                  </div>
+                </div>
+
+                {/* Route Legs */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-blue-100">Route Breakdown:</h3>
+                  {trafficPredictions.data.map((leg: any, index: number) => (
+                    <div key={index} className="bg-white/10 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-semibold">{leg.leg}</div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold">{leg.minutes} min</div>
+                          <div className="text-xs text-blue-200">{leg.distance}</div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-blue-100">
+                        {leg.originName.split(',')[0]} → {leg.destinationName.split(',')[0]}
+                      </div>
+                      {leg.busyMinutes && (
+                        <div className="text-xs text-yellow-200 mt-1">
+                          ⚠️ Busy traffic expected: +{leg.busyMinutes - leg.minutesNoTraffic} min delay
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

@@ -4,16 +4,20 @@ import { generateExecutiveReport } from '@/lib/executive-report';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { tripData, tripDate, routeDistance, routeDuration } = body;
+    const { tripData, tripDate, routeDistance, routeDuration, trafficPredictions } = body;
 
     console.log('\n🔍 Generating Executive Report...');
     console.log(`📍 Processing ${tripData.length} location(s)`);
+    if (trafficPredictions) {
+      console.log(`🚦 Including ${trafficPredictions.length} traffic prediction leg(s)`);
+    }
 
     const report = await generateExecutiveReport(
       tripData,
       tripDate,
       routeDistance,
-      routeDuration
+      routeDuration,
+      trafficPredictions
     );
 
     return NextResponse.json({
