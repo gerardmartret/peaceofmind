@@ -48,17 +48,17 @@ interface TripRiskBreakdownProps {
 
 function getRiskColor(level: 'low' | 'medium' | 'high') {
   switch (level) {
-    case 'low': return 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/20';
-    case 'medium': return 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20';
-    case 'high': return 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/20';
+    case 'low': return 'text-ring bg-ring/10';
+    case 'medium': return 'text-destructive/80 bg-destructive/5';
+    case 'high': return 'text-destructive bg-destructive/10';
   }
 }
 
 function getRiskIcon(level: 'low' | 'medium' | 'high') {
   switch (level) {
-    case 'low': return '✅';
-    case 'medium': return '⚠️';
-    case 'high': return '🚨';
+    case 'low': return '✓';
+    case 'medium': return '!';
+    case 'high': return '!';
   }
 }
 
@@ -76,7 +76,7 @@ function calculateLocationRisks(locationData: any): {
 } {
   // Add safety checks for data structure
   if (!locationData || !locationData.crime || !locationData.weather || !locationData.disruptions || !locationData.events) {
-    console.error('❌ Missing location data:', locationData);
+    console.error('Missing location data:', locationData);
     return {
       safety: { score: 0, level: 'high', crimes: 0, topCrimes: [] },
       weather: { level: 'high', temp: { min: 0, max: 0 }, precipitation: 0, rainyDays: 0, windSpeed: 0 },
@@ -200,73 +200,73 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
     : [];
   
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-6 flex items-center gap-2">
-        <span>🛡️</span> Trip Risk Breakdown
-        <span className="text-sm font-normal text-gray-500">({tripDate})</span>
+    <div className="bg-card border border-border rounded-2xl shadow-xl p-6 mb-6">
+      <h2 className="text-2xl font-bold text-card-foreground mb-6 flex items-center gap-2">
+        Trip Risk Breakdown
+        <span className="text-sm font-normal text-muted-foreground">({tripDate})</span>
       </h2>
       
       <div className="space-y-8">
         {/* Trip Overview */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">📍 Trip Overview</h3>
+        <div className="bg-secondary rounded-xl p-4">
+          <h3 className="text-lg font-semibold text-card-foreground mb-3">Trip Overview</h3>
           <div className="grid md:grid-cols-4 gap-4 text-sm">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{locations.length}</div>
-              <div className="text-gray-600 dark:text-gray-400">Locations</div>
+              <div className="text-2xl font-bold text-primary">{locations.length}</div>
+              <div className="text-muted-foreground">Locations</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{routes.length}</div>
-              <div className="text-gray-600 dark:text-gray-400">Route Legs</div>
+              <div className="text-2xl font-bold text-primary">{routes.length}</div>
+              <div className="text-muted-foreground">Route Legs</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-primary">
                 {locations.length > 0 ? Math.round(locations.reduce((sum, loc) => sum + (loc.safety?.score || 0), 0) / locations.length) : 0}
               </div>
-              <div className="text-gray-600 dark:text-gray-400">Avg Safety</div>
+              <div className="text-muted-foreground">Avg Safety</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-primary">
                 {routes.reduce((sum, route) => sum + route.trafficDelay, 0)} min
               </div>
-              <div className="text-gray-600 dark:text-gray-400">Total Delay</div>
+              <div className="text-muted-foreground">Total Delay</div>
             </div>
           </div>
         </div>
 
         {/* Location-by-Location Breakdown */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">🏢 Location Analysis</h3>
+          <h3 className="text-lg font-semibold text-card-foreground mb-4">Location Analysis</h3>
           <div className="space-y-6">
             {locations.map((location, index) => (
-              <div key={location.locationId} className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6">
+              <div key={location.locationId} className="border-2 border-border rounded-xl p-6">
                 {/* Location Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
                       {index + 1}
                     </div>
                     <div>
-                      <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200">
+                      <h4 className="text-lg font-bold text-card-foreground">
                         {location.locationName.split(',')[0]}
                       </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        🕐 {location.time} • 📅 {tripDate}
+                      <p className="text-sm text-muted-foreground">
+                        {location.time} • {tripDate}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                    <div className="text-2xl font-bold text-card-foreground">
                       {location.safety.score}
                     </div>
-                    <div className="text-xs text-gray-500">Safety Score</div>
+                    <div className="text-xs text-muted-foreground">Safety Score</div>
                   </div>
                 </div>
 
                 {/* Risk Categories */}
                 <div className="grid md:grid-cols-4 gap-4">
                   {/* Safety Risk */}
-                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.safety.level).split(' ')[1]} ${getRiskColor(location.safety.level).split(' ')[0]}`}>
+                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.safety.level)}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-lg">{getRiskIcon(location.safety.level)}</span>
                       <span className="font-semibold">Safety</span>
@@ -280,7 +280,7 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                   </div>
 
                   {/* Weather Risk */}
-                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.weather.level).split(' ')[1]} ${getRiskColor(location.weather.level).split(' ')[0]}`}>
+                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.weather.level)}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-lg">{getRiskIcon(location.weather.level)}</span>
                       <span className="font-semibold">Weather</span>
@@ -294,7 +294,7 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                   </div>
 
                   {/* Disruptions Risk */}
-                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.disruptions.level).split(' ')[1]} ${getRiskColor(location.disruptions.level).split(' ')[0]}`}>
+                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.disruptions.level)}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-lg">{getRiskIcon(location.disruptions.level)}</span>
                       <span className="font-semibold">Disruptions</span>
@@ -308,7 +308,7 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                   </div>
 
                   {/* Events Risk */}
-                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.events.level).split(' ')[1]} ${getRiskColor(location.events.level).split(' ')[0]}`}>
+                  <div className={`rounded-lg p-4 border-2 ${getRiskColor(location.events.level)}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-lg">{getRiskIcon(location.events.level)}</span>
                       <span className="font-semibold">Events</span>
@@ -329,10 +329,10 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
         {/* Route Analysis */}
         {routes.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">🛣️ Route Analysis</h3>
+            <h3 className="text-lg font-semibold text-card-foreground mb-4">Route Analysis</h3>
             <div className="space-y-4">
               {routes.map((route, index) => (
-                <div key={index} className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <div key={index} className="border-2 border-border rounded-xl p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${getRiskColor(route.level)}`}>
@@ -342,8 +342,8 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                         <h4 className="text-lg font-bold text-gray-800 dark:text-gray-200">
                           {route.origin} → {route.destination}
                         </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          🚗 {route.travelTime} min • 📏 {route.distance}
+                        <p className="text-sm text-muted-foreground">
+                          {route.travelTime} min • {route.distance}
                         </p>
                       </div>
                     </div>
@@ -357,19 +357,19 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                   
                   {/* Route Details */}
                   <div className="grid md:grid-cols-3 gap-4">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                      <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">Travel Time</div>
-                      <div className="text-lg font-bold text-blue-800 dark:text-blue-200">{route.travelTime} min</div>
+                    <div className="bg-secondary rounded-lg p-3">
+                      <div className="text-sm text-secondary-foreground font-medium">Travel Time</div>
+                      <div className="text-lg font-bold text-card-foreground">{route.travelTime} min</div>
                     </div>
-                    <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
-                      <div className="text-sm text-orange-600 dark:text-orange-400 font-medium">Traffic Delay</div>
-                      <div className="text-lg font-bold text-orange-800 dark:text-orange-200">
+                    <div className="bg-destructive/5 rounded-lg p-3">
+                      <div className="text-sm text-destructive/70 font-medium">Traffic Delay</div>
+                      <div className="text-lg font-bold text-destructive">
                         {route.trafficDelay > 0 ? `+${route.trafficDelay}` : '0'} min
                       </div>
                     </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                      <div className="text-sm text-green-600 dark:text-green-400 font-medium">Distance</div>
-                      <div className="text-lg font-bold text-green-800 dark:text-green-200">{route.distance}</div>
+                    <div className="bg-ring/10 rounded-lg p-3">
+                      <div className="text-sm text-ring font-medium">Distance</div>
+                      <div className="text-lg font-bold text-ring">{route.distance}</div>
                     </div>
                   </div>
                 </div>
@@ -379,23 +379,23 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
         )}
 
         {/* Risk Legend */}
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
-          <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3">Risk Level Legend</h4>
+        <div className="bg-secondary rounded-xl p-4">
+          <h4 className="font-semibold text-card-foreground mb-3">Risk Level Legend</h4>
           <div className="grid md:grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-green-600">✅</span>
-              <span className="font-medium text-green-600">Low Risk</span>
-              <span className="text-gray-600 dark:text-gray-400">- Safe conditions</span>
+              <span className="text-ring">✓</span>
+              <span className="font-medium text-ring">Low Risk</span>
+              <span className="text-muted-foreground">- Safe conditions</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-yellow-600">⚠️</span>
-              <span className="font-medium text-yellow-600">Medium Risk</span>
-              <span className="text-gray-600 dark:text-gray-400">- Caution advised</span>
+              <span className="text-destructive/80">!</span>
+              <span className="font-medium text-destructive/80">Medium Risk</span>
+              <span className="text-muted-foreground">- Caution advised</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-red-600">🚨</span>
-              <span className="font-medium text-red-600">High Risk</span>
-              <span className="text-gray-600 dark:text-gray-400">- Extra vigilance needed</span>
+              <span className="text-destructive">!</span>
+              <span className="font-medium text-destructive">High Risk</span>
+              <span className="text-muted-foreground">- Extra vigilance needed</span>
             </div>
           </div>
         </div>

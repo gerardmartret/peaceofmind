@@ -209,32 +209,51 @@ function SortableLocationItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-600"
+      className="bg-secondary rounded-xl p-4 border-2 border-border"
     >
       <div className="flex items-start gap-3">
         {/* Location Search and Time */}
-        <div className="flex-1 grid sm:grid-cols-[1fr_auto_auto] gap-3">
-          {/* Location Number and Drag Handle - positioned over the address field */}
-          <div className="relative">
-            <div className="absolute -left-6 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 text-sm">
-              {index + 1}
-            </div>
-            {/* Drag Handle */}
+        <div className="flex-1 grid sm:grid-cols-[auto_1fr_auto] gap-3">
+          {/* Drag Handle */}
+          <div className="flex items-center gap-2">
             <div
               {...attributes}
               {...listeners}
-              className="absolute -left-12 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors"
               title="Drag to reorder"
             >
-              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
               </svg>
             </div>
+            <div className="w-6 h-6 flex items-center justify-center text-muted-foreground text-sm font-medium">
+              {index + 1}
+            </div>
+          </div>
+
+          {/* Time Picker and Location Search */}
+          <div className="grid sm:grid-cols-[140px_1fr] gap-3">
+            {/* Time Picker */}
+            <div>
+              <label className="block text-xs font-medium text-secondary-foreground mb-1">
+                {getTimeLabel()}
+              </label>
+              <input
+                type="time"
+                value={location.time}
+                onChange={(e) => onTimeChange(location.id, e.target.value)}
+                className="w-full rounded-lg border border-border bg-background text-foreground py-2 px-3 text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
+              />
+            </div>
+
             {/* Location Search */}
             <div className="min-w-0">
+              <label className="block text-xs font-medium text-secondary-foreground mb-1">
+                Location
+              </label>
               <GoogleLocationSearch
                 onLocationSelect={(loc) => {
-                  console.log(`📍 Location ${index + 1} selected:`, loc);
+                  console.log(`Location ${index + 1} selected:`, loc);
                   onLocationSelect(location.id, {
                     name: loc.name,
                     lat: loc.lat,
@@ -242,25 +261,7 @@ function SortableLocationItem({
                   });
                 }}
               />
-              {location.name && (
-                <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
-                  ✓ {location.name.split(',')[0]}
-                </div>
-              )}
             </div>
-          </div>
-
-          {/* Time Picker */}
-          <div className="sm:w-32">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {getTimeLabel()}
-            </label>
-            <input
-              type="time"
-              value={location.time}
-              onChange={(e) => onTimeChange(location.id, e.target.value)}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
           </div>
 
           {/* Remove Button */}
@@ -268,7 +269,7 @@ function SortableLocationItem({
             <button
               onClick={() => onRemove(location.id)}
               disabled={!canRemove}
-              className="rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-30 disabled:cursor-not-allowed p-2 transition-all"
+              className="rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-30 disabled:cursor-not-allowed p-2 transition-all"
               title="Remove location"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -308,6 +309,14 @@ export default function Home() {
   ]);
   const [loadingTrip, setLoadingTrip] = useState(false);
   const [locationsReordered, setLocationsReordered] = useState(false);
+  const [loadingSteps, setLoadingSteps] = useState<Array<{
+    id: string;
+    title: string;
+    description: string;
+    source: string;
+    status: 'pending' | 'loading' | 'completed' | 'error';
+    locationIndex?: number;
+  }>>([]);
 
   const londonDistricts = [
     { id: 'westminster', name: 'Westminster' },
@@ -404,14 +413,25 @@ export default function Home() {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
 
+        // Store the times in their current positions before reordering
+        const timesByPosition = items.map(item => item.time);
+        
+        // Reorder the locations
         const reorderedItems = arrayMove(items, oldIndex, newIndex);
         
-        console.log(`📦 Location reordered: ${oldIndex + 1} → ${newIndex + 1}`);
+        // Reassign times based on new positions (times stay with positions, not locations)
+        const itemsWithSwappedTimes = reorderedItems.map((item, index) => ({
+          ...item,
+          time: timesByPosition[index]
+        }));
+        
+        console.log(`Location reordered: ${oldIndex + 1} → ${newIndex + 1}`);
+        console.log(`Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
         
         // Show reorder indicator
         setLocationsReordered(true);
         
-        return reorderedItems;
+        return itemsWithSwappedTimes;
       });
     }
   };
@@ -422,6 +442,96 @@ export default function Home() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Professional loading steps generator
+  const generateLoadingSteps = (locations: any[]) => {
+    const steps = [];
+    let stepId = 1;
+
+    // For each location, create steps for different data sources
+    locations.forEach((location, locationIndex) => {
+      const locationName = location.name.split(',')[0] || `Location ${locationIndex + 1}`;
+      
+      // Crime data from UK Police
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Analyzing Crime Data`,
+        description: `Checking safety statistics for ${locationName}`,
+        source: 'UK Police API',
+        status: 'pending' as const,
+        locationIndex
+      });
+
+      // Traffic data from TfL
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Checking Traffic Conditions`,
+        description: `Getting real-time traffic data for ${locationName}`,
+        source: 'Transport for London',
+        status: 'pending' as const,
+        locationIndex
+      });
+
+      // Weather data
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Fetching Weather Forecast`,
+        description: `Getting weather conditions for ${locationName}`,
+        source: 'Open-Meteo',
+        status: 'pending' as const,
+        locationIndex
+      });
+
+      // Events data
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Scanning Local Events`,
+        description: `Checking for events and disruptions near ${locationName}`,
+        source: 'Event Discovery API',
+        status: 'pending' as const,
+        locationIndex
+      });
+
+      // Parking data
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Analyzing Parking Options`,
+        description: `Finding parking facilities and restrictions for ${locationName}`,
+        source: 'TfL Parking API',
+        status: 'pending' as const,
+        locationIndex
+      });
+
+      // Cafe data
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Discovering Local Cafes`,
+        description: `Finding top-rated cafes near ${locationName}`,
+        source: 'Google Places API',
+        status: 'pending' as const,
+        locationIndex
+      });
+    });
+
+    // Final steps
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Calculating Route Optimization`,
+      description: `Analyzing traffic patterns and route efficiency`,
+      source: 'Google Maps API',
+      status: 'pending' as const
+    });
+
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Generating Executive Report`,
+      description: `Creating comprehensive risk assessment and recommendations`,
+      source: 'OpenAI GPT-4',
+      status: 'pending' as const
+    });
+
+    return steps;
+  };
 
   const handleTripSubmit = async () => {
     // Validate email
@@ -448,6 +558,31 @@ export default function Home() {
     setLoadingTrip(true);
     setError(null);
     setLocationsReordered(false); // Clear reorder indicator
+
+    // Initialize loading steps
+    const steps = generateLoadingSteps(validLocations);
+    setLoadingSteps(steps);
+
+    // Simulate step-by-step loading with realistic timing
+    const simulateLoadingSteps = async () => {
+      for (let i = 0; i < steps.length; i++) {
+        // Mark current step as loading
+        setLoadingSteps(prev => prev.map((step, index) => 
+          index === i ? { ...step, status: 'loading' } : step
+        ));
+
+        // Wait 2-3 seconds for each step
+        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
+
+        // Mark current step as completed
+        setLoadingSteps(prev => prev.map((step, index) => 
+          index === i ? { ...step, status: 'completed' } : step
+        ));
+      }
+    };
+
+    // Start the loading simulation
+    simulateLoadingSteps();
 
     try {
       console.log(`\n${'='.repeat(80)}`);
@@ -784,56 +919,57 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4 sm:p-8">
+    <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <span className="text-5xl">🇬🇧</span>
-            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Peace of Mind
-            </h1>
+        <div className="mb-8">
+          {/* Logo and Title */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <img src="/Logo.png" alt="My Roadshow Planner Logo" className="h-12 w-auto" />
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
+                My Roadshow Planner
+              </h1>
+            </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 text-lg mb-3">
-            Plan Your London Trip with Safety, Traffic, Weather & Top Cafes
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-3 py-1.5 rounded-lg text-xs font-medium">
-              <span>🚨</span>
-              <span>Crime</span>
-            </div>
-            <div className="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 px-3 py-1.5 rounded-lg text-xs font-medium">
-              <span>🚦</span>
-              <span>Traffic</span>
-            </div>
-            <div className="inline-flex items-center gap-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200 px-3 py-1.5 rounded-lg text-xs font-medium">
-              <span>🌤️</span>
-              <span>Weather</span>
-            </div>
-            <div className="inline-flex items-center gap-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-3 py-1.5 rounded-lg text-xs font-medium">
-              <span>☕</span>
-              <span>Cafes</span>
-            </div>
-            <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-3 py-1.5 rounded-lg text-xs font-semibold">
-              <span>✅</span>
-              <span>100% FREE</span>
+          
+          <div className="text-center">
+            <p className="text-muted-foreground text-lg mb-3">
+              Plan Your London Trip with Safety, Traffic, Weather & Top Cafes
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+                <span>Crime</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+                <span>Traffic</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+                <span>Weather</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+                <span>Cafes</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-ring/20 text-ring px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-ring">
+                <span>100% FREE</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Multi-Location Trip Planner */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-            <span>🗺️</span> Plan Your Trip
+        <div className="bg-card rounded-2xl shadow-xl p-6 mb-8 border border-border">
+          <h2 className="text-xl font-bold text-card-foreground mb-4">
+            Plan Your Trip
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             Add multiple locations to analyze safety, traffic, and weather for your entire journey
           </p>
           
           {/* User Email - Required Field */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
-            <label htmlFor="userEmail" className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-2">
-              📧 Your Email <span className="text-red-600">*</span> (required to analyze)
+          <div className="bg-ring/10 border-2 border-ring rounded-lg p-4 mb-6">
+            <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground mb-2">
+              Your Email <span className="text-destructive">*</span> (required to analyze)
             </label>
             <input
               type="email"
@@ -841,25 +977,42 @@ export default function Home() {
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
               placeholder="your.email@example.com"
-              className="w-full max-w-md rounded-lg border-2 border-green-300 dark:border-green-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-4 text-base font-medium focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              className="w-full max-w-md rounded-lg border-2 border-ring bg-background text-foreground py-2 px-4 text-base font-medium focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground"
             />
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               We'll use this to send you your trip analysis report
             </p>
           </div>
 
-          {/* Trip Date at Top */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-            <label htmlFor="tripDate" className="block text-sm font-bold text-gray-800 dark:text-gray-200 mb-2">
-              📅 Trip Date (applies to all locations)
-            </label>
-            <input
-              type="date"
-              id="tripDate"
-              value={tripDate}
-              onChange={(e) => setTripDate(e.target.value)}
-              className="w-full max-w-xs rounded-lg border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-2 px-4 text-base font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+          {/* Trip Date and City Selector */}
+          <div className="bg-secondary border-2 border-border rounded-lg p-4 mb-6">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="tripDate" className="block text-sm font-bold text-secondary-foreground mb-2">
+                  Trip Date
+                </label>
+                <input
+                  type="date"
+                  id="tripDate"
+                  value={tripDate}
+                  onChange={(e) => setTripDate(e.target.value)}
+                  className="w-full rounded-lg border-2 border-border bg-background text-foreground py-2 px-4 text-base font-medium focus:ring-2 focus:ring-ring focus:border-ring"
+                />
+              </div>
+              <div>
+                <label htmlFor="citySelect" className="block text-sm font-bold text-secondary-foreground mb-2">
+                  City
+                </label>
+                <select
+                  id="citySelect"
+                  className="w-full rounded-lg border-2 border-border bg-background text-foreground py-2 px-4 text-base font-medium focus:ring-2 focus:ring-ring focus:border-ring"
+                  defaultValue="london"
+                >
+                  <option value="london">London</option>
+                  <option value="newyork" disabled>New York (Coming Soon)</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Multiple Location Inputs with Drag and Drop */}
@@ -891,18 +1044,18 @@ export default function Home() {
             </DndContext>
           ) : (
             <div className="space-y-4 mb-4">
-              <div className="text-center py-8 text-gray-500">Loading...</div>
+              <div className="text-center py-8 text-muted-foreground">Loading...</div>
             </div>
           )}
 
           {/* Reorder Indicator */}
           {locationsReordered && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700 rounded-lg p-3 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="bg-destructive/10 border-2 border-destructive rounded-lg p-3 mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-destructive flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
-                Locations reordered! Click <strong>"Analyze Trip"</strong> to update the route.
+              <p className="text-sm font-medium text-destructive">
+                Locations reordered! Click "Analyze Trip" to update the route.
               </p>
             </div>
           )}
@@ -911,7 +1064,7 @@ export default function Home() {
           <div className="flex gap-3">
             <button
               onClick={addLocation}
-              className="flex-1 sm:flex-initial rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium py-3 px-6 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-initial rounded-lg border-2 border-dashed border-border bg-secondary text-secondary-foreground font-medium py-3 px-6 hover:bg-accent transition-all flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -922,7 +1075,7 @@ export default function Home() {
             <button
               onClick={handleTripSubmit}
               disabled={loadingTrip || !userEmail.trim() || locations.filter(l => l.name).length === 0}
-              className={`flex-1 sm:flex-initial rounded-lg ${locationsReordered ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 animate-pulse' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white font-bold py-3 px-8 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2`}
+              className={`flex-1 sm:flex-initial rounded-lg ${locationsReordered ? 'bg-destructive hover:bg-destructive/90 animate-pulse' : 'bg-ring hover:bg-ring/90'} text-primary-foreground font-bold py-3 px-8 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2`}
             >
               {loadingTrip ? (
                 <>
@@ -934,48 +1087,75 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  🚀 Analyze Trip
+                  Analyze Trip
                 </>
               )}
             </button>
           </div>
         </div>
 
-        {/* Loading Indicator - Show during analysis */}
+        {/* Professional Loading State */}
         {loadingTrip && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-12 mb-8 text-center">
-            <div className="mb-6">
-              <svg className="animate-spin h-16 w-16 mx-auto text-blue-600" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
+          <div className="bg-card border border-border rounded-2xl shadow-xl p-8 mb-8">
+            <div className="text-center mb-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <h3 className="text-xl font-bold text-card-foreground mb-2">Analyzing Your Trip</h3>
+              <p className="text-muted-foreground">
+                Gathering comprehensive data from official sources for accurate risk assessment
+              </p>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-              Analyzing Your Trip...
-            </h2>
-            <div className="space-y-2 text-gray-600 dark:text-gray-400">
-              <p className="text-sm">📍 Gathering location data</p>
-              <p className="text-sm">🚨 Checking safety information</p>
-              <p className="text-sm">🚦 Analyzing traffic patterns</p>
-              <p className="text-sm">🌤️ Reviewing weather forecasts</p>
-              <p className="text-sm">📰 Searching for events</p>
-              <p className="text-sm">☕ Finding top cafes nearby</p>
-              <p className="text-sm">🤖 Generating AI report</p>
+            
+            {/* Loading Steps */}
+            <div className="space-y-4">
+              {loadingSteps.map((step, index) => (
+                <div key={step.id} className="flex items-center gap-4 p-4 rounded-lg border border-border">
+                  {/* Status Icon */}
+                  <div className="flex-shrink-0">
+                    {step.status === 'pending' && (
+                      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground"></div>
+                    )}
+                    {step.status === 'loading' && (
+                      <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                    )}
+                    {step.status === 'completed' && (
+                      <div className="w-6 h-6 rounded-full bg-ring flex items-center justify-center">
+                        <svg className="w-4 h-4 text-ring-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                    {step.status === 'error' && (
+                      <div className="w-6 h-6 rounded-full bg-destructive flex items-center justify-center">
+                        <svg className="w-4 h-4 text-destructive-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Step Content */}
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-card-foreground">{step.title}</h4>
+                      <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
+                        {step.source}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-6">
-              This may take 30-60 seconds...
-            </p>
           </div>
         )}
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-2xl p-8 text-center">
-            <div className="text-5xl mb-4">❌</div>
-            <h3 className="text-xl font-semibold text-red-800 dark:text-red-300 mb-2">
+          <div className="bg-destructive/10 border-2 border-destructive rounded-2xl p-8 text-center">
+            <h3 className="text-xl font-semibold text-destructive mb-2">
               Error Loading Data
             </h3>
-            <p className="text-red-600 dark:text-red-400">
+            <p className="text-destructive">
               {error}
             </p>
           </div>
