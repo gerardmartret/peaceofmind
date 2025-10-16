@@ -108,12 +108,36 @@ interface ParkingData {
   };
 }
 
+interface CafeData {
+  location: string;
+  coordinates: { lat: number; lng: number };
+  cafes: Array<{
+    id: string;
+    name: string;
+    address: string;
+    rating: number;
+    userRatingsTotal: number;
+    priceLevel: number;
+    distance?: number;
+    lat: number;
+    lng: number;
+    types: string[];
+    businessStatus?: string;
+  }>;
+  summary: {
+    total: number;
+    averageRating: number;
+    averageDistance: number;
+  };
+}
+
 interface CombinedData {
   crime: CrimeData;
   disruptions: DisruptionData;
   weather: WeatherData;
   events: EventData;
   parking: ParkingData;
+  cafes: CafeData;
 }
 
 interface TripData {
@@ -599,7 +623,7 @@ export default function ResultsPage() {
                 </div>
 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-blue-500">
                     <div className="text-xl mb-1">🚨</div>
                     <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
@@ -646,10 +670,17 @@ export default function ResultsPage() {
                     </div>
                     <div className="text-xs text-gray-600 dark:text-gray-400">Parking Risk</div>
                   </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-amber-500">
+                    <div className="text-xl mb-1">☕</div>
+                    <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                      {result.data.cafes?.summary.total || 0}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Top Cafes</div>
+                  </div>
                 </div>
 
                 {/* Detailed Breakdown */}
-                <div className="grid lg:grid-cols-5 gap-4">
+                <div className="grid lg:grid-cols-6 gap-4">
                   {/* Crime */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
                     <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -804,6 +835,53 @@ export default function ResultsPage() {
                     ) : (
                       <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
                         ⚠️ Limited parking nearby
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Top Cafes */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                    <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <span>☕</span> Top Cafes
+                      <span className="text-xs font-normal text-gray-500">(~5 min walk)</span>
+                    </h4>
+                    {result.data.cafes?.summary.total > 0 ? (
+                      <div className="space-y-2">
+                        {/* Cafes */}
+                        {result.data.cafes.cafes.slice(0, 3).map((cafe: any, idx: number) => (
+                          <div key={idx} className="bg-amber-50 dark:bg-amber-900/20 rounded p-2 border border-amber-200 dark:border-amber-800">
+                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                              {cafe.name.substring(0, 30)}{cafe.name.length > 30 ? '...' : ''}
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-amber-600 dark:text-amber-400 font-bold">
+                                  {cafe.rating}⭐
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  ({cafe.userRatingsTotal})
+                                </span>
+                              </div>
+                              {cafe.priceLevel > 0 && (
+                                <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                                  {'$'.repeat(cafe.priceLevel)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              📍 {Math.round(cafe.distance)}m away
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Summary */}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2 border-t border-gray-200 dark:border-gray-600">
+                          Avg rating: {result.data.cafes.summary.averageRating}⭐
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
+                        ⚠️ No cafes found within 250m
                       </div>
                     )}
                   </div>

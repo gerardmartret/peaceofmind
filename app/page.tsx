@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
+import { searchNearbyCafes } from '@/lib/google-cafes';
 import { supabase } from '@/lib/supabase';
 import {
   DndContext,
@@ -125,12 +126,36 @@ interface ParkingData {
   };
 }
 
+interface CafeData {
+  location: string;
+  coordinates: { lat: number; lng: number };
+  cafes: Array<{
+    id: string;
+    name: string;
+    address: string;
+    rating: number;
+    userRatingsTotal: number;
+    priceLevel: number;
+    distance?: number;
+    lat: number;
+    lng: number;
+    types: string[];
+    businessStatus?: string;
+  }>;
+  summary: {
+    total: number;
+    averageRating: number;
+    averageDistance: number;
+  };
+}
+
 interface CombinedData {
   crime: CrimeData;
   disruptions: DisruptionData;
   weather: WeatherData;
   events: EventData;
   parking: ParkingData;
+  cafes: CafeData;
 }
 
 interface SortableLocationItemProps {
@@ -455,8 +480,25 @@ export default function Home() {
             parkingResponse.json()
           ]);
 
+          // Fetch cafes using Google Places API (client-side)
+          console.log(`☕ Searching for top cafes near ${location.name}...`);
+          let cafeData = null;
+          try {
+            cafeData = await searchNearbyCafes(location.lat, location.lng, location.name);
+            console.log(`✅ Found ${cafeData.cafes.length} cafes`);
+          } catch (cafeError) {
+            console.error('❌ Error fetching cafes:', cafeError);
+            // Provide empty cafe data if fetch fails
+            cafeData = {
+              location: location.name,
+              coordinates: { lat: location.lat, lng: location.lng },
+              cafes: [],
+              summary: { total: 0, averageRating: 0, averageDistance: 0 },
+            };
+          }
+
           if (crimeData.success && disruptionsData.success && weatherData.success && eventsData.success && parkingData.success) {
-            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: ${eventsData.data.events.length}, Parking Risk: ${parkingData.data.parkingRiskScore}/10`);
+            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: ${eventsData.data.events.length}, Parking Risk: ${parkingData.data.parkingRiskScore}/10, Cafes: ${cafeData.cafes.length}`);
             
             // Log events to browser console
             if (eventsData.data.events.length > 0) {
@@ -476,6 +518,17 @@ export default function Home() {
             } else {
               console.log(`   ✓ No CPZ restrictions`);
             }
+
+            // Log cafes summary
+            console.log(`\n☕ Top Cafes at ${location.name}:`);
+            if (cafeData.cafes.length > 0) {
+              cafeData.cafes.forEach((cafe: any, idx: number) => {
+                const priceDisplay = cafe.priceLevel > 0 ? '$'.repeat(cafe.priceLevel) : 'N/A';
+                console.log(`   ${idx + 1}. ${cafe.name} - ${cafe.rating}⭐ (${cafe.userRatingsTotal} reviews, ${priceDisplay}) - ${Math.round(cafe.distance)}m`);
+              });
+            } else {
+              console.log(`   ⚠️  No cafes found within 250m`);
+            }
             
             return {
               locationId: location.id,
@@ -487,6 +540,7 @@ export default function Home() {
                 weather: weatherData.data,
                 events: eventsData.data,
                 parking: parkingData.data,
+                cafes: cafeData,
               },
             };
           } else {
@@ -531,6 +585,7 @@ export default function Home() {
           weather: r.data.weather,
           events: r.data.events,
           parking: r.data.parking,
+          cafes: r.data.cafes,
         }));
 
         const reportResponse = await fetch('/api/executive-report', {
@@ -675,6 +730,16 @@ export default function Home() {
                   cpzWarning: false,
                 },
               },
+              cafes: {
+                location: districtName,
+                coordinates: { lat: 0, lng: 0 },
+                cafes: [],
+                summary: {
+                  total: 0,
+                  averageRating: 0,
+                  averageDistance: 0,
+                },
+              },
             },
           };
         } else {
@@ -730,7 +795,7 @@ export default function Home() {
             </h1>
           </div>
           <p className="text-gray-600 dark:text-gray-300 text-lg mb-3">
-            Plan Your London Trip with Safety, Traffic & Weather Analysis
+            Plan Your London Trip with Safety, Traffic, Weather & Top Cafes
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-3 py-1.5 rounded-lg text-xs font-medium">
@@ -744,6 +809,10 @@ export default function Home() {
             <div className="inline-flex items-center gap-2 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-200 px-3 py-1.5 rounded-lg text-xs font-medium">
               <span>🌤️</span>
               <span>Weather</span>
+            </div>
+            <div className="inline-flex items-center gap-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-3 py-1.5 rounded-lg text-xs font-medium">
+              <span>☕</span>
+              <span>Cafes</span>
             </div>
             <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-3 py-1.5 rounded-lg text-xs font-semibold">
               <span>✅</span>
@@ -890,6 +959,7 @@ export default function Home() {
               <p className="text-sm">🚦 Analyzing traffic patterns</p>
               <p className="text-sm">🌤️ Reviewing weather forecasts</p>
               <p className="text-sm">📰 Searching for events</p>
+              <p className="text-sm">☕ Finding top cafes nearby</p>
               <p className="text-sm">🤖 Generating AI report</p>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-6">

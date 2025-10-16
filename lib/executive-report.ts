@@ -28,6 +28,7 @@ export async function generateExecutiveReport(
     weather: any;
     events: any;
     parking: any;
+    cafes: any;
   }>,
   tripDate: string,
   routeDistance?: number,
@@ -74,6 +75,9 @@ export async function generateExecutiveReport(
       cpzRestrictions: loc.parking.cpzInfo.inCPZ
         ? `${loc.parking.cpzInfo.zoneName} - ${loc.parking.cpzInfo.operatingHours} (${loc.parking.cpzInfo.chargeInfo})`
         : 'No CPZ restrictions',
+      premiumCafes: loc.cafes.cafes.length,
+      topCafes: loc.cafes.cafes.slice(0, 3).map((c: any) => `${c.name} (${c.rating}⭐, ${'$'.repeat(c.priceLevel)}, ${Math.round(c.distance)}m)`),
+      cafesAverageRating: loc.cafes.summary.averageRating,
     }));
 
     const prompt = `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in London.
@@ -113,6 +117,7 @@ ANALYZE THIS VIP TRIP AND PROVIDE:
    - Specific data points from crime/traffic/weather/events
    - **PARKING CHALLENGES**: If parking risk score > 6, mention limited parking availability
    - **CPZ RESTRICTIONS**: Warn about Controlled Parking Zones and operating hours
+   - **TOP CAFES**: If available, mention best cafes within 5 min walking distance (250m)
 
 3. ROUTE DISRUPTIONS:
    - Driving risks (traffic, road closures, weather impact on driving)
@@ -126,6 +131,7 @@ ANALYZE THIS VIP TRIP AND PROVIDE:
    - Route alternatives if applicable
    - **PARKING ADVICE**: Suggest arrival times to avoid CPZ charges (e.g., arrive before 8:30am or after 6:30pm)
    - **ALTERNATIVE PARKING**: Recommend specific car parks if destination parking is limited
+   - **CAFE RECOMMENDATIONS**: Suggest top-rated cafes within 250m for convenience and refreshments if available
 
 5. KEY HIGHLIGHTS:
    - 4-6 most important points
