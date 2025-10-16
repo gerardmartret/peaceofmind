@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Autocomplete } from '@react-google-maps/api';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
+import { Input } from '@/components/ui/input';
 
 interface SearchResult {
   name: string;
@@ -87,11 +88,11 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
   if (!isLoaded) {
     return (
       <div className="relative">
-        <input
+        <Input
           type="text"
           disabled
           placeholder="Loading Google Places..."
-          className="w-full rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 py-3 px-4 pr-10"
+          className="w-full pr-10"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <svg className="animate-spin h-5 w-5 text-gray-400" viewBox="0 0 24 24">
@@ -125,11 +126,11 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
             ],
           }}
         >
-          <input
+          <Input
             ref={inputRef}
             type="text"
             placeholder="Search hotels, restaurants, landmarks, or any location..."
-            className="w-full rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 py-3 px-4 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            className="w-full pr-10"
           />
         </Autocomplete>
         <div className="absolute right-3 top-1/2 -translate-y-1/2">

@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
 import { supabase } from '@/lib/supabase';
@@ -206,12 +212,13 @@ function SortableLocationItem({
   };
 
   return (
-    <div
+    <Card
       ref={setNodeRef}
       style={style}
-      className="bg-secondary rounded-xl p-4 border-2 border-border"
+      className="border-2"
     >
-      <div className="flex items-start gap-3">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
         {/* Location Search and Time */}
         <div className="flex-1 grid sm:grid-cols-[auto_1fr_auto] gap-3">
           {/* Drag Handle */}
@@ -227,7 +234,7 @@ function SortableLocationItem({
               </svg>
             </div>
             <div className="w-6 h-6 flex items-center justify-center text-muted-foreground text-sm font-medium">
-              {index + 1}
+              {numberToLetter(index + 1)}
             </div>
           </div>
 
@@ -235,25 +242,25 @@ function SortableLocationItem({
           <div className="grid sm:grid-cols-[140px_1fr] gap-3">
             {/* Time Picker */}
             <div>
-              <label className="block text-xs font-medium text-secondary-foreground mb-1">
+              <Label className="text-xs font-medium text-secondary-foreground mb-1">
                 {getTimeLabel()}
-              </label>
-              <input
+              </Label>
+              <Input
                 type="time"
                 value={location.time}
                 onChange={(e) => onTimeChange(location.id, e.target.value)}
-                className="w-full rounded-lg border border-border bg-background text-foreground py-2 px-3 text-sm focus:ring-2 focus:ring-ring focus:border-transparent"
+                className="w-full"
               />
             </div>
 
             {/* Location Search */}
             <div className="min-w-0">
-              <label className="block text-xs font-medium text-secondary-foreground mb-1">
+              <Label className="text-xs font-medium text-secondary-foreground mb-1">
                 Location
-              </label>
+              </Label>
               <GoogleLocationSearch
                 onLocationSelect={(loc) => {
-                  console.log(`Location ${index + 1} selected:`, loc);
+                  console.log(`Location ${numberToLetter(index + 1)} selected:`, loc);
                   onLocationSelect(location.id, {
                     name: loc.name,
                     lat: loc.lat,
@@ -266,22 +273,30 @@ function SortableLocationItem({
 
           {/* Remove Button */}
           <div className="flex items-end">
-            <button
+            <Button
               onClick={() => onRemove(location.id)}
               disabled={!canRemove}
-              className="rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-30 disabled:cursor-not-allowed p-2 transition-all"
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               title="Remove location"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
+
+// Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
+const numberToLetter = (num: number): string => {
+  return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
+};
 
 export default function Home() {
   const router = useRouter();
@@ -425,7 +440,7 @@ export default function Home() {
           time: timesByPosition[index]
         }));
         
-        console.log(`Location reordered: ${oldIndex + 1} → ${newIndex + 1}`);
+        console.log(`Location reordered: ${numberToLetter(oldIndex + 1)} → ${numberToLetter(newIndex + 1)}`);
         console.log(`Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
         
         // Show reorder indicator
@@ -448,85 +463,68 @@ export default function Home() {
     const steps = [];
     let stepId = 1;
 
-    // For each location, create steps for different data sources
-    locations.forEach((location, locationIndex) => {
-      const locationName = location.name.split(',')[0] || `Location ${locationIndex + 1}`;
-      
-      // Crime data from UK Police
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Analyzing Crime Data`,
-        description: `Checking safety statistics for ${locationName}`,
-        source: 'UK Police API',
-        status: 'pending' as const,
-        locationIndex
-      });
-
-      // Traffic data from TfL
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Checking Traffic Conditions`,
-        description: `Getting real-time traffic data for ${locationName}`,
-        source: 'Transport for London',
-        status: 'pending' as const,
-        locationIndex
-      });
-
-      // Weather data
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Fetching Weather Forecast`,
-        description: `Getting weather conditions for ${locationName}`,
-        source: 'Open-Meteo',
-        status: 'pending' as const,
-        locationIndex
-      });
-
-      // Events data
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Scanning Local Events`,
-        description: `Checking for events and disruptions near ${locationName}`,
-        source: 'Event Discovery API',
-        status: 'pending' as const,
-        locationIndex
-      });
-
-      // Parking data
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Analyzing Parking Options`,
-        description: `Finding parking facilities and restrictions for ${locationName}`,
-        source: 'TfL Parking API',
-        status: 'pending' as const,
-        locationIndex
-      });
-
-      // Cafe data
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Discovering Local Cafes`,
-        description: `Finding top-rated cafes near ${locationName}`,
-        source: 'Google Places API',
-        status: 'pending' as const,
-        locationIndex
-      });
-    });
-
-    // Final steps
+    // Simplified data sources - not per location
     steps.push({
       id: `step-${stepId++}`,
-      title: `Calculating Route Optimization`,
-      description: `Analyzing traffic patterns and route efficiency`,
-      source: 'Google Maps API',
+      title: `Analyzing Crime & Safety Data`,
+      description: `Retrieving safety statistics and crime reports from official UK Police database`,
+      source: 'UK Police National Database',
       status: 'pending' as const
     });
 
     steps.push({
       id: `step-${stepId++}`,
-      title: `Generating Executive Report`,
-      description: `Creating comprehensive risk assessment and recommendations`,
-      source: 'OpenAI GPT-4',
+      title: `Assessing Traffic Conditions`,
+      description: `Pulling real-time traffic data, road closures, and congestion patterns`,
+      source: 'Transport for London',
+      status: 'pending' as const
+    });
+
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Checking Public Transport Disruptions`,
+      description: `Monitoring Underground, bus, and rail service disruptions`,
+      source: 'TfL Unified API',
+      status: 'pending' as const
+    });
+
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Analyzing Weather Conditions`,
+      description: `Gathering meteorological data and forecast models for trip planning`,
+      source: 'Open-Meteo Weather Service',
+      status: 'pending' as const
+    });
+
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Scanning Major Events`,
+      description: `Identifying concerts, sports events, and gatherings affecting traffic`,
+      source: 'Event Intelligence Network',
+      status: 'pending' as const
+    });
+
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Evaluating Parking Availability`,
+      description: `Analyzing parking facilities, restrictions, and pricing information`,
+      source: 'TfL Parking Database',
+      status: 'pending' as const
+    });
+
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Calculating Optimal Routes`,
+      description: `Processing route efficiency, travel times, and traffic predictions`,
+      source: 'Google Maps Directions API',
+      status: 'pending' as const
+    });
+
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Generating Risk Assessment`,
+      description: `Synthesizing data into comprehensive executive report with recommendations`,
+      source: 'OpenAI GPT-4 Analysis',
       status: 'pending' as const
     });
 
@@ -595,7 +593,7 @@ export default function Home() {
       // Fetch data for all locations in parallel
       const results = await Promise.all(
         validLocations.map(async (location) => {
-          console.log(`\n🔍 Fetching data for: ${location.name} at ${location.time}`);
+          console.log(`\n🔍 Fetching data for Location ${numberToLetter(validLocations.indexOf(location) + 1)}: ${location.name} at ${location.time}`);
           
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
@@ -971,13 +969,13 @@ export default function Home() {
             <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground mb-2">
               Your Email <span className="text-destructive">*</span> (required to analyze)
             </label>
-            <input
+            <Input
               type="email"
               id="userEmail"
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
               placeholder="your.email@example.com"
-              className="w-full max-w-md rounded-lg border-2 border-ring bg-background text-foreground py-2 px-4 text-base font-medium focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground"
+              className="w-full max-w-md"
             />
             <p className="text-xs text-muted-foreground mt-2">
               We'll use this to send you your trip analysis report
@@ -991,26 +989,27 @@ export default function Home() {
                 <label htmlFor="tripDate" className="block text-sm font-bold text-secondary-foreground mb-2">
                   Trip Date
                 </label>
-                <input
+                <Input
                   type="date"
                   id="tripDate"
                   value={tripDate}
                   onChange={(e) => setTripDate(e.target.value)}
-                  className="w-full rounded-lg border-2 border-border bg-background text-foreground py-2 px-4 text-base font-medium focus:ring-2 focus:ring-ring focus:border-ring"
+                  className="w-full"
                 />
               </div>
               <div>
                 <label htmlFor="citySelect" className="block text-sm font-bold text-secondary-foreground mb-2">
                   City
                 </label>
-                <select
-                  id="citySelect"
-                  className="w-full rounded-lg border-2 border-border bg-background text-foreground py-2 px-4 text-base font-medium focus:ring-2 focus:ring-ring focus:border-ring"
-                  defaultValue="london"
-                >
-                  <option value="london">London</option>
-                  <option value="newyork" disabled>New York (Coming Soon)</option>
-                </select>
+                <Select defaultValue="london">
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="london">London</SelectItem>
+                    <SelectItem value="newyork" disabled>New York (Coming Soon)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -1050,32 +1049,36 @@ export default function Home() {
 
           {/* Reorder Indicator */}
           {locationsReordered && (
-            <div className="bg-destructive/10 border-2 border-destructive rounded-lg p-3 mb-4 flex items-center gap-2">
+            <Alert className="mb-4 border-destructive bg-destructive/10">
               <svg className="w-5 h-5 text-destructive flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-sm font-medium text-destructive">
+              <AlertDescription className="text-destructive">
                 Locations reordered! Click "Analyze Trip" to update the route.
-              </p>
-            </div>
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Add Location & Analyze Buttons */}
           <div className="flex gap-3">
-            <button
+            <Button
               onClick={addLocation}
-              className="flex-1 sm:flex-initial rounded-lg border-2 border-dashed border-border bg-secondary text-secondary-foreground font-medium py-3 px-6 hover:bg-accent transition-all flex items-center justify-center gap-2"
+              variant="outline"
+              size="lg"
+              className="flex-1 sm:flex-initial border-dashed"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Add Location
-            </button>
+            </Button>
 
-            <button
+            <Button
               onClick={handleTripSubmit}
               disabled={loadingTrip || !userEmail.trim() || locations.filter(l => l.name).length === 0}
-              className={`flex-1 sm:flex-initial rounded-lg ${locationsReordered ? 'bg-destructive hover:bg-destructive/90 animate-pulse' : 'bg-ring hover:bg-ring/90'} text-primary-foreground font-bold py-3 px-8 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2`}
+              variant={locationsReordered ? "destructive" : "default"}
+              size="lg"
+              className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
             >
               {loadingTrip ? (
                 <>
@@ -1090,75 +1093,103 @@ export default function Home() {
                   Analyze Trip
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* Professional Loading State */}
+        {/* Professional Loading State - Vertical Carousel */}
         {loadingTrip && (
-          <div className="bg-card border border-border rounded-2xl shadow-xl p-8 mb-8">
-            <div className="text-center mb-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <h3 className="text-xl font-bold text-card-foreground mb-2">Analyzing Your Trip</h3>
-              <p className="text-muted-foreground">
-                Gathering comprehensive data from official sources for accurate risk assessment
-              </p>
-            </div>
-            
-            {/* Loading Steps */}
-            <div className="space-y-4">
-              {loadingSteps.map((step, index) => (
-                <div key={step.id} className="flex items-center gap-4 p-4 rounded-lg border border-border">
-                  {/* Status Icon */}
-                  <div className="flex-shrink-0">
-                    {step.status === 'pending' && (
-                      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground"></div>
-                    )}
-                    {step.status === 'loading' && (
-                      <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
-                    )}
-                    {step.status === 'completed' && (
-                      <div className="w-6 h-6 rounded-full bg-ring flex items-center justify-center">
-                        <svg className="w-4 h-4 text-ring-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                    {step.status === 'error' && (
-                      <div className="w-6 h-6 rounded-full bg-destructive flex items-center justify-center">
-                        <svg className="w-4 h-4 text-destructive-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
+          <Card className="mb-8 shadow-xl">
+            <CardContent className="p-8">
+              <div className="text-center mb-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <h3 className="text-xl font-bold text-card-foreground mb-2">Analyzing Your Trip</h3>
+                <p className="text-muted-foreground">
+                  Gathering comprehensive data from official sources for accurate risk assessment
+                </p>
+              </div>
+              
+              {/* Vertical Carousel - Single Active Card */}
+              <div className="relative h-48 overflow-hidden">
+                {loadingSteps.map((step, index) => {
+                  const isActive = step.status === 'loading';
+                  const isCompleted = step.status === 'completed';
+                  const isPending = step.status === 'pending';
                   
-                  {/* Step Content */}
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-card-foreground">{step.title}</h4>
-                      <span className="text-xs text-muted-foreground bg-secondary px-2 py-1 rounded">
-                        {step.source}
-                      </span>
+                  return (
+                    <div
+                      key={step.id}
+                      className={`absolute inset-0 transition-all duration-500 ease-in-out ${
+                        isActive 
+                          ? 'opacity-100 translate-y-0' 
+                          : isCompleted 
+                            ? 'opacity-0 -translate-y-full pointer-events-none' 
+                            : 'opacity-0 translate-y-full pointer-events-none'
+                      }`}
+                    >
+                      <div className="flex items-start gap-6 p-6 rounded-xl border-2 border-border bg-card">
+                        {/* Status Icon */}
+                        <div className="flex-shrink-0 mt-1">
+                          {isActive && (
+                            <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+                          )}
+                          {isCompleted && (
+                            <div className="w-12 h-12 rounded-full bg-ring flex items-center justify-center">
+                              <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Step Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <h4 className="text-lg font-bold text-card-foreground leading-tight">
+                              {step.title}
+                            </h4>
+                            <span className="text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0">
+                              {step.source}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {step.description}
+                          </p>
+                          
+                          {/* Progress indicator */}
+                          <div className="mt-4 flex items-center gap-2">
+                            <div className="text-xs font-medium text-muted-foreground">
+                              Step {loadingSteps.filter(s => s.status === 'completed').length + 1} of {loadingSteps.length}
+                            </div>
+                            <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary transition-all duration-500 ease-out"
+                                style={{ 
+                                  width: `${((loadingSteps.filter(s => s.status === 'completed').length) / loadingSteps.length) * 100}%` 
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{step.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Error State */}
         {error && (
-          <div className="bg-destructive/10 border-2 border-destructive rounded-2xl p-8 text-center">
-            <h3 className="text-xl font-semibold text-destructive mb-2">
-              Error Loading Data
-            </h3>
-            <p className="text-destructive">
-              {error}
-            </p>
-          </div>
+          <Alert className="border-destructive bg-destructive/10">
+            <svg className="w-5 h-5 text-destructive flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <AlertDescription className="text-destructive">
+              <strong>Error Loading Data:</strong> {error}
+            </AlertDescription>
+          </Alert>
         )}
 
       </div>

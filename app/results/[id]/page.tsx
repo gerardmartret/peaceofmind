@@ -5,6 +5,14 @@ import { useRouter, useParams } from 'next/navigation';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import TripRiskBreakdown from '@/components/TripRiskBreakdown';
 import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
+const numberToLetter = (num: number): string => {
+  return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
+};
 
 interface CrimeData {
   district: string;
@@ -263,20 +271,22 @@ export default function ResultsPage() {
   if (error || !tripData || !tripData.tripResults) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-card border border-border rounded-2xl shadow-xl p-8 text-center">
+        <Card className="max-w-md w-full shadow-xl">
+          <CardContent className="p-8 text-center">
           <h2 className="text-2xl font-bold text-card-foreground mb-4">
             Trip Not Found
           </h2>
           <p className="text-muted-foreground mb-6">
             {error || 'This trip analysis could not be found. It may have been deleted or the link is incorrect.'}
           </p>
-          <button
+          <Button
             onClick={() => router.push('/')}
-            className="rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 transition-all shadow-lg"
+            size="lg"
           >
             Go to Home
-          </button>
-        </div>
+          </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -309,17 +319,18 @@ export default function ResultsPage() {
                   Copy this link to share with your driver
                 </p>
               </div>
-              <button
+              <Button
                 onClick={() => {
                   if (typeof window !== 'undefined') {
                     navigator.clipboard.writeText(window.location.href);
                     alert('Link copied to clipboard!');
                   }
                 }}
-                className="rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-4 transition-all text-sm flex-shrink-0"
+                size="sm"
+                className="flex-shrink-0"
               >
                 Copy
-              </button>
+              </Button>
             </div>
           </div>
           
@@ -582,7 +593,7 @@ export default function ResultsPage() {
                 <div className="flex items-center justify-between mb-4 pb-4 border-b-2 border-border">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
-                      {index + 1}
+                      {numberToLetter(index + 1)}
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-card-foreground">
@@ -858,12 +869,14 @@ export default function ResultsPage() {
         {/* Footer Navigation */}
         <div className="text-center py-8">
           <div className="flex flex-wrap justify-center gap-3 mb-4">
-            <button
+            <Button
               onClick={handlePlanNewTrip}
-              className="rounded-lg bg-ring hover:bg-ring/90 text-primary-foreground font-bold py-3 px-8 transition-all shadow-lg flex items-center gap-2"
+              variant="default"
+              size="lg"
+              className="bg-ring hover:bg-ring/90 text-primary-foreground"
             >
               Plan New Trip
-            </button>
+            </Button>
           </div>
           <p className="text-sm text-muted-foreground">
             Powered by UK Police API, TfL, Open-Meteo, OpenAI - 100% Free

@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { GoogleMap, DirectionsRenderer, Marker, InfoWindow, TrafficLayer } from '@react-google-maps/api';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 
+// Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
+const numberToLetter = (num: number): string => {
+  return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
+};
+
 interface TripLocation {
   id: string;
   name: string;
@@ -26,6 +31,80 @@ const defaultCenter = {
   lat: 51.5074,
   lng: -0.1278,
 };
+
+// Corporate monochrome map style matching your brand colors
+const corporateMapStyle = [
+  {
+    featureType: "all",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#FBFAF9" }] // Your light background color
+  },
+  {
+    featureType: "water",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#E5E7EF" }] // Your secondary color
+  },
+  {
+    featureType: "landscape",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#FBFAF9" }] // Your light background
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#E5E7EF" }] // Your secondary color
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#05060A" }] // Your dark foreground
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#E5E7EF" }] // Your secondary color
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#05060A", weight: 2 }] // Your dark foreground
+  },
+  {
+    featureType: "poi",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#E5E7EF" }] // Your secondary color
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#05060A" }] // Your dark foreground
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#FBFAF9" }] // Your light background
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#E5E7EF" }] // Your secondary color
+  },
+  {
+    featureType: "administrative",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#FBFAF9" }] // Your light background
+  },
+  {
+    featureType: "administrative",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#05060A" }] // Your dark foreground
+  },
+  {
+    featureType: "administrative",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#FBFAF9" }] // Your light background
+  }
+];
 
 export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
   const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
@@ -77,9 +156,9 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
     }));
 
     console.log(`🚗 Calculating route: ${validLocations.length} locations`);
-    console.log(`   Origin: ${validLocations[0].name.split(',')[0]}`);
+    console.log(`   Origin (${numberToLetter(1)}): ${validLocations[0].name.split(',')[0]}`);
     console.log(`   Waypoints: ${waypoints.length}`);
-    console.log(`   Destination: ${validLocations[validLocations.length - 1].name.split(',')[0]}`);
+    console.log(`   Destination (${numberToLetter(validLocations.length)}): ${validLocations[validLocations.length - 1].name.split(',')[0]}`);
 
     directionsService.route(
       {
@@ -137,16 +216,16 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
   }, [isLoaded, locations]);
 
   const getMarkerColor = (safetyScore?: number): string => {
-    if (!safetyScore) return '#3B82F6'; // blue
-    if (safetyScore >= 70) return '#10B981'; // green
-    if (safetyScore >= 50) return '#F59E0B'; // yellow
-    return '#EF4444'; // red
+    if (!safetyScore) return '#18815A'; // Your success/ring color
+    if (safetyScore >= 70) return '#18815A'; // Your success/ring color
+    if (safetyScore >= 50) return '#AD5252'; // Your destructive color (medium risk)
+    return '#AD5252'; // Your destructive color (high risk)
   };
 
   const getSafetyColor = (score: number): string => {
-    if (score >= 70) return '#10B981';
-    if (score >= 50) return '#F59E0B';
-    return '#EF4444';
+    if (score >= 70) return '#18815A'; // Your success/ring color
+    if (score >= 50) return '#AD5252'; // Your destructive color (medium risk)
+    return '#AD5252'; // Your destructive color (high risk)
   };
 
   if (loadError) {
@@ -192,6 +271,7 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
           streetViewControl: false,
           mapTypeControl: false,
           fullscreenControl: true,
+          styles: corporateMapStyle, // Apply corporate monochrome styling
         }}
       >
         {/* Traffic Layer */}
@@ -204,7 +284,7 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
             position={{ lat: location.lat, lng: location.lng }}
             onClick={() => setSelectedMarker(index)}
             label={{
-              text: (index + 1).toString(),
+              text: numberToLetter(index + 1),
               color: 'white',
               fontWeight: 'bold',
             }}
@@ -230,7 +310,7 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
           >
             <div className="p-2">
               <div className="font-bold text-gray-800">
-                {selectedMarker + 1}. {validLocations[selectedMarker].name.split(',')[0]}
+                {numberToLetter(selectedMarker + 1)}. {validLocations[selectedMarker].name.split(',')[0]}
               </div>
               <div className="text-sm text-gray-600 mt-1">
                 🕐 {validLocations[selectedMarker].time}
@@ -257,7 +337,7 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
             options={{
               suppressMarkers: false, // Show A, B markers
               polylineOptions: {
-                strokeColor: '#3B82F6',
+                strokeColor: '#18815A', // Your success/ring color
                 strokeWeight: 5,
                 strokeOpacity: 0.8,
               },
@@ -268,16 +348,16 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
 
       {/* Route Info Badge */}
       {routeInfo && (
-        <div className="absolute top-4 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 border-2 border-blue-500">
+        <div className="absolute top-4 left-4 bg-card border border-border rounded-lg shadow-lg p-3">
           <div className="flex items-center gap-3 text-sm">
             <div>
-              <span className="text-gray-600 dark:text-gray-400">📏</span>
-              <span className="font-bold text-gray-800 dark:text-gray-200 ml-1">{routeInfo.distance}</span>
+              <span className="text-muted-foreground">📏</span>
+              <span className="font-bold text-card-foreground ml-1">{routeInfo.distance}</span>
             </div>
-            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+            <div className="w-px h-4 bg-border"></div>
             <div>
-              <span className="text-gray-600 dark:text-gray-400">⏱️</span>
-              <span className="font-bold text-gray-800 dark:text-gray-200 ml-1">{routeInfo.duration}</span>
+              <span className="text-muted-foreground">⏱️</span>
+              <span className="font-bold text-card-foreground ml-1">{routeInfo.duration}</span>
             </div>
           </div>
         </div>
@@ -289,8 +369,8 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
           onClick={() => setShowTraffic(!showTraffic)}
           className={`px-3 py-2 rounded-lg shadow-lg text-sm font-medium transition-all ${
             showTraffic
-              ? 'bg-green-500 text-white hover:bg-green-600'
-              : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-2 border-gray-300 dark:border-gray-600 hover:border-green-500'
+              ? 'bg-ring text-primary-foreground hover:bg-ring/90'
+              : 'bg-card text-card-foreground border-2 border-border hover:border-ring'
           }`}
           title="Toggle traffic layer"
         >
@@ -299,10 +379,10 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
       </div>
 
       {/* Google Maps Indicator */}
-      <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg px-3 py-1.5 border border-gray-200 dark:border-gray-600">
+      <div className="absolute bottom-4 left-4 bg-card border border-border rounded-lg shadow-lg px-3 py-1.5">
         <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold text-blue-600">G</span>
-          <span className="text-gray-600 dark:text-gray-400">Google Maps</span>
+          <span className="font-bold text-primary">G</span>
+          <span className="text-muted-foreground">Google Maps</span>
         </div>
       </div>
     </div>

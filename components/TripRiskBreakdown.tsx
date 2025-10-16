@@ -1,5 +1,13 @@
 'use client';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+
+// Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
+const numberToLetter = (num: number): string => {
+  return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
+};
+
 interface LocationRisk {
   locationId: string;
   locationName: string;
@@ -200,11 +208,14 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
     : [];
   
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-xl p-6 mb-6">
-      <h2 className="text-2xl font-bold text-card-foreground mb-6 flex items-center gap-2">
-        Trip Risk Breakdown
-        <span className="text-sm font-normal text-muted-foreground">({tripDate})</span>
-      </h2>
+    <Card className="mb-6 shadow-xl">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-card-foreground flex items-center gap-2">
+          Trip Risk Breakdown
+          <span className="text-sm font-normal text-muted-foreground">({tripDate})</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
       
       <div className="space-y-8">
         {/* Trip Overview */}
@@ -244,7 +255,7 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                      {index + 1}
+                      {numberToLetter(index + 1)}
                     </div>
                     <div>
                       <h4 className="text-lg font-bold text-card-foreground">
@@ -383,23 +394,27 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
           <h4 className="font-semibold text-card-foreground mb-3">Risk Level Legend</h4>
           <div className="grid md:grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-ring">✓</span>
-              <span className="font-medium text-ring">Low Risk</span>
+              <Badge variant="secondary" className="bg-ring/10 text-ring border-ring/20">
+                ✓ Low Risk
+              </Badge>
               <span className="text-muted-foreground">- Safe conditions</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-destructive/80">!</span>
-              <span className="font-medium text-destructive/80">Medium Risk</span>
+              <Badge variant="secondary" className="bg-destructive/5 text-destructive/80 border-destructive/20">
+                ! Medium Risk
+              </Badge>
               <span className="text-muted-foreground">- Caution advised</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-destructive">!</span>
-              <span className="font-medium text-destructive">High Risk</span>
+              <Badge variant="secondary" className="bg-destructive/10 text-destructive border-destructive/20">
+                ! High Risk
+              </Badge>
               <span className="text-muted-foreground">- Extra vigilance needed</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
