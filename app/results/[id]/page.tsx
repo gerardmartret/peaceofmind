@@ -74,11 +74,46 @@ interface EventData {
   };
 }
 
+interface ParkingData {
+  location: string;
+  coordinates: { lat: number; lng: number };
+  carParks: Array<{
+    id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    distance: number;
+    totalSpaces?: number;
+    operatingHours?: string;
+    facilities: string[];
+    type: string;
+  }>;
+  cpzInfo: {
+    inCPZ: boolean;
+    zone?: string;
+    zoneName?: string;
+    borough?: string;
+    operatingHours?: string;
+    operatingDays?: string;
+    restrictions?: string;
+    chargeInfo?: string;
+  };
+  parkingRiskScore: number;
+  summary: {
+    totalNearby: number;
+    averageDistance: number;
+    hasStationParking: boolean;
+    cpzWarning: boolean;
+  };
+}
+
 interface CombinedData {
   crime: CrimeData;
   disruptions: DisruptionData;
   weather: WeatherData;
   events: EventData;
+  parking: ParkingData;
 }
 
 interface TripData {
@@ -564,7 +599,7 @@ export default function ResultsPage() {
                 </div>
 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 border-blue-500">
                     <div className="text-xl mb-1">🚨</div>
                     <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
@@ -600,10 +635,21 @@ export default function ResultsPage() {
                     </div>
                     <div className="text-xs text-gray-600 dark:text-gray-400">Events</div>
                   </div>
+                  <div className={`bg-white dark:bg-gray-800 rounded-lg p-3 shadow border-l-4 ${
+                    result.data.parking.parkingRiskScore >= 7 ? 'border-red-500' : 
+                    result.data.parking.parkingRiskScore >= 4 ? 'border-yellow-500' : 
+                    'border-green-500'
+                  }`}>
+                    <div className="text-xl mb-1">🅿️</div>
+                    <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                      {result.data.parking.parkingRiskScore}/10
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Parking Risk</div>
+                  </div>
                 </div>
 
                 {/* Detailed Breakdown */}
-                <div className="grid lg:grid-cols-4 gap-4">
+                <div className="grid lg:grid-cols-5 gap-4">
                   {/* Crime */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
                     <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
@@ -704,6 +750,60 @@ export default function ResultsPage() {
                     ) : (
                       <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
                         No significant events found
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Parking */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                    <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                      <span>🅿️</span> Parking
+                    </h4>
+                    {result.data.parking.summary.totalNearby > 0 ? (
+                      <div className="space-y-2">
+                        {/* CPZ Warning */}
+                        {result.data.parking.cpzInfo.inCPZ && (
+                          <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded p-2 border border-yellow-200 dark:border-yellow-800 mb-2">
+                            <div className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 flex items-center gap-1">
+                              ⚠️ CPZ Zone
+                            </div>
+                            <div className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                              {result.data.parking.cpzInfo.operatingHours}
+                            </div>
+                            <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                              {result.data.parking.cpzInfo.chargeInfo}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Car Parks */}
+                        {result.data.parking.carParks.slice(0, 3).map((carPark: any, idx: number) => (
+                          <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
+                            <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                              {carPark.name.substring(0, 30)}{carPark.name.length > 30 ? '...' : ''}
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 flex items-center justify-between">
+                              <span>📍 {Math.round(carPark.distance)}m</span>
+                              {carPark.totalSpaces && (
+                                <span>🚗 {carPark.totalSpaces} spaces</span>
+                              )}
+                            </div>
+                            {carPark.facilities && carPark.facilities.length > 0 && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {carPark.facilities.slice(0, 2).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Summary */}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2 border-t border-gray-200 dark:border-gray-600">
+                          {result.data.parking.summary.totalNearby} car parks within 1km
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
+                        ⚠️ Limited parking nearby
                       </div>
                     )}
                   </div>

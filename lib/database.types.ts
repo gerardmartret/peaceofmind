@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      cpz_zones: {
+        Row: {
+          borough: string
+          center_lat: number
+          center_lng: number
+          charge_info: string | null
+          created_at: string | null
+          geometry: Json
+          id: number
+          operating_days: string
+          operating_hours: string
+          restrictions: string | null
+          updated_at: string | null
+          zone_code: string
+          zone_name: string
+        }
+        Insert: {
+          borough: string
+          center_lat: number
+          center_lng: number
+          charge_info?: string | null
+          created_at?: string | null
+          geometry: Json
+          id?: number
+          operating_days: string
+          operating_hours: string
+          restrictions?: string | null
+          updated_at?: string | null
+          zone_code: string
+          zone_name: string
+        }
+        Update: {
+          borough?: string
+          center_lat?: number
+          center_lng?: number
+          charge_info?: string | null
+          created_at?: string | null
+          geometry?: Json
+          id?: number
+          operating_days?: string
+          operating_hours?: string
+          restrictions?: string | null
+          updated_at?: string | null
+          zone_code?: string
+          zone_name?: string
+        }
+        Relationships: []
+      }
       trips: {
         Row: {
           created_at: string | null
@@ -212,4 +260,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

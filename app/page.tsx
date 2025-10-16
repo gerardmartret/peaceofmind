@@ -91,11 +91,46 @@ interface EventData {
   };
 }
 
+interface ParkingData {
+  location: string;
+  coordinates: { lat: number; lng: number };
+  carParks: Array<{
+    id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    distance: number;
+    totalSpaces?: number;
+    operatingHours?: string;
+    facilities: string[];
+    type: string;
+  }>;
+  cpzInfo: {
+    inCPZ: boolean;
+    zone?: string;
+    zoneName?: string;
+    borough?: string;
+    operatingHours?: string;
+    operatingDays?: string;
+    restrictions?: string;
+    chargeInfo?: string;
+  };
+  parkingRiskScore: number;
+  summary: {
+    totalNearby: number;
+    averageDistance: number;
+    hasStationParking: boolean;
+    cpzWarning: boolean;
+  };
+}
+
 interface CombinedData {
   crime: CrimeData;
   disruptions: DisruptionData;
   weather: WeatherData;
   events: EventData;
+  parking: ParkingData;
 }
 
 interface SortableLocationItemProps {
@@ -404,22 +439,24 @@ export default function Home() {
           
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
-          const [crimeResponse, disruptionsResponse, weatherResponse, eventsResponse] = await Promise.all([
+          const [crimeResponse, disruptionsResponse, weatherResponse, eventsResponse, parkingResponse] = await Promise.all([
             fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
             fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
             fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
-            fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDate}`)
+            fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDate}`),
+            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`)
           ]);
 
-          const [crimeData, disruptionsData, weatherData, eventsData] = await Promise.all([
+          const [crimeData, disruptionsData, weatherData, eventsData, parkingData] = await Promise.all([
             crimeResponse.json(),
             disruptionsResponse.json(),
             weatherResponse.json(),
-            eventsResponse.json()
+            eventsResponse.json(),
+            parkingResponse.json()
           ]);
 
-          if (crimeData.success && disruptionsData.success && weatherData.success && eventsData.success) {
-            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: ${eventsData.data.events.length}`);
+          if (crimeData.success && disruptionsData.success && weatherData.success && eventsData.success && parkingData.success) {
+            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: ${eventsData.data.events.length}, Parking Risk: ${parkingData.data.parkingRiskScore}/10`);
             
             // Log events to browser console
             if (eventsData.data.events.length > 0) {
@@ -429,6 +466,15 @@ export default function Home() {
               });
             } else {
               console.log(`📰 No events found for ${location.name}`);
+            }
+
+            // Log parking summary
+            console.log(`\n🅿️  Parking at ${location.name}:`);
+            console.log(`   ${parkingData.data.summary.totalNearby} car parks within 1km`);
+            if (parkingData.data.cpzInfo.inCPZ) {
+              console.log(`   ⚠️  CPZ: ${parkingData.data.cpzInfo.zoneName} (${parkingData.data.cpzInfo.operatingHours})`);
+            } else {
+              console.log(`   ✓ No CPZ restrictions`);
             }
             
             return {
@@ -440,6 +486,7 @@ export default function Home() {
                 disruptions: disruptionsData.data,
                 weather: weatherData.data,
                 events: eventsData.data,
+                parking: parkingData.data,
               },
             };
           } else {
@@ -483,6 +530,7 @@ export default function Home() {
           disruptions: r.data.disruptions,
           weather: r.data.weather,
           events: r.data.events,
+          parking: r.data.parking,
         }));
 
         const reportResponse = await fetch('/api/executive-report', {
@@ -613,6 +661,19 @@ export default function Home() {
                 date: '', 
                 events: [], 
                 summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 } 
+              },
+              parking: {
+                location: districtName,
+                coordinates: { lat: 0, lng: 0 },
+                carParks: [],
+                cpzInfo: { inCPZ: false },
+                parkingRiskScore: 0,
+                summary: {
+                  totalNearby: 0,
+                  averageDistance: 0,
+                  hasStationParking: false,
+                  cpzWarning: false,
+                },
               },
             },
           };

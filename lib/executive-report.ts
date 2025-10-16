@@ -27,6 +27,7 @@ export async function generateExecutiveReport(
     disruptions: any;
     weather: any;
     events: any;
+    parking: any;
   }>,
   tripDate: string,
   routeDistance?: number,
@@ -67,6 +68,12 @@ export async function generateExecutiveReport(
       weatherSummary: `${loc.weather.summary.avgMinTemp}°C-${loc.weather.summary.avgMaxTemp}°C, ${loc.weather.summary.rainyDays} rainy days`,
       eventsCount: loc.events.summary.total,
       events: loc.events.events.map((e: any) => `${e.title} (${e.severity})`),
+      parkingRiskScore: loc.parking.parkingRiskScore,
+      nearbyCarParks: loc.parking.summary.totalNearby,
+      nearestParkingDistance: loc.parking.carParks[0]?.distance || 'None within 1km',
+      cpzRestrictions: loc.parking.cpzInfo.inCPZ
+        ? `${loc.parking.cpzInfo.zoneName} - ${loc.parking.cpzInfo.operatingHours} (${loc.parking.cpzInfo.chargeInfo})`
+        : 'No CPZ restrictions',
     }));
 
     const prompt = `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in London.
@@ -97,26 +104,33 @@ ANALYZE THIS VIP TRIP AND PROVIDE:
    - 4-6: Moderate risk, some disruptions possible
    - 7-8: High risk, significant disruptions likely
    - 9-10: Critical risk, trip may need rescheduling
+   - Include parking difficulty in overall score (10-15% weight)
 
 2. LOCATION-BY-LOCATION ANALYSIS:
    For each stop, identify:
    - Risk level (high/medium/low)
    - Key safety/disruption concerns
    - Specific data points from crime/traffic/weather/events
+   - **PARKING CHALLENGES**: If parking risk score > 6, mention limited parking availability
+   - **CPZ RESTRICTIONS**: Warn about Controlled Parking Zones and operating hours
 
 3. ROUTE DISRUPTIONS:
    - Driving risks (traffic, road closures, weather impact on driving)
    - External disruptions (protests blocking routes, events causing detours)
    ${trafficPredictions ? '- Historical traffic delays and timing predictions' : ''}
+   - **PARKING LOGISTICS**: Mention if any location has challenging parking
 
 4. RECOMMENDATIONS:
    - 3-5 specific actionable recommendations
    - Time adjustments if needed
    - Route alternatives if applicable
+   - **PARKING ADVICE**: Suggest arrival times to avoid CPZ charges (e.g., arrive before 8:30am or after 6:30pm)
+   - **ALTERNATIVE PARKING**: Recommend specific car parks if destination parking is limited
 
 5. KEY HIGHLIGHTS:
    - 4-6 most important points
    - Mark as: danger (red), warning (yellow), info (blue), success (green)
+   - Include parking warnings if risk score > 7
 
 FORMAT AS JSON:
 {
