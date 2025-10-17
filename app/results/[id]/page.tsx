@@ -492,6 +492,27 @@ export default function ResultsPage() {
             </div>
           )}
 
+          {/* Map View */}
+          <div className="bg-card border border-border rounded-2xl shadow-xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
+              Your Trip Map
+              <span className="text-sm font-normal text-muted-foreground">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
+            </h2>
+            <GoogleTripMap 
+              locations={tripResults.map((result, index) => {
+                const location = locations.find(l => l.id === result.locationId);
+                return {
+                  id: result.locationId,
+                  name: result.locationName,
+                  lat: location?.lat || 0,
+                  lng: location?.lng || 0,
+                  time: result.time,
+                  safetyScore: result.data.crime.safetyScore,
+                };
+              })}
+            />
+          </div>
+
           {/* Traffic Predictions */}
           {trafficPredictions && trafficPredictions.success && (
             <div className="bg-primary rounded-2xl shadow-xl p-6 mb-6 text-primary-foreground">
@@ -564,27 +585,6 @@ export default function ResultsPage() {
             tripDate={tripDate}
           />
 
-          {/* Map View */}
-          <div className="bg-card border border-border rounded-2xl shadow-xl p-6 mb-6">
-            <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
-              Your Trip Map
-              <span className="text-sm font-normal text-muted-foreground">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
-            </h2>
-            <GoogleTripMap 
-              locations={tripResults.map((result, index) => {
-                const location = locations.find(l => l.id === result.locationId);
-                return {
-                  id: result.locationId,
-                  name: result.locationName,
-                  lat: location?.lat || 0,
-                  lng: location?.lng || 0,
-                  time: result.time,
-                  safetyScore: result.data.crime.safetyScore,
-                };
-              })}
-            />
-          </div>
-
           {/* Location Reports */}
           <div className="space-y-6">
             {tripResults.map((result, index) => (
@@ -603,10 +603,6 @@ export default function ResultsPage() {
                         {result.time} • {tripDate}
                       </p>
                     </div>
-                  </div>
-                  <div className={`text-4xl font-bold ${getSafetyColor(result.data.crime.safetyScore)}`}>
-                    {result.data.crime.safetyScore}
-                    <span className="text-lg text-muted-foreground">/100</span>
                   </div>
                 </div>
 

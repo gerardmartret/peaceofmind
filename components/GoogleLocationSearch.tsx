@@ -92,7 +92,7 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
           type="text"
           disabled
           placeholder="Loading Google Places..."
-          className="w-full pr-10"
+          className="w-full pr-10 h-9"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <svg className="animate-spin h-5 w-5 text-gray-400" viewBox="0 0 24 24">
@@ -130,7 +130,7 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
             ref={inputRef}
             type="text"
             placeholder="Search hotels, restaurants, landmarks, or any location..."
-            className="w-full pr-10"
+            className="w-full pr-10 h-9"
           />
         </Autocomplete>
         <div className="absolute right-3 top-1/2 -translate-y-1/2">

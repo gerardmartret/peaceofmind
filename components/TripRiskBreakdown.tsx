@@ -221,7 +221,7 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
         {/* Trip Overview */}
         <div className="bg-secondary rounded-xl p-4">
           <h3 className="text-lg font-semibold text-card-foreground mb-3">Trip Overview</h3>
-          <div className="grid md:grid-cols-4 gap-4 text-sm">
+          <div className="grid md:grid-cols-3 gap-4 text-sm">
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">{locations.length}</div>
               <div className="text-muted-foreground">Locations</div>
@@ -229,12 +229,6 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">{routes.length}</div>
               <div className="text-muted-foreground">Route Legs</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">
-                {locations.length > 0 ? Math.round(locations.reduce((sum, loc) => sum + (loc.safety?.score || 0), 0) / locations.length) : 0}
-              </div>
-              <div className="text-muted-foreground">Avg Safety</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
@@ -265,12 +259,6 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                         {location.time} • {tripDate}
                       </p>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-card-foreground">
-                      {location.safety.score}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Safety Score</div>
                   </div>
                 </div>
 

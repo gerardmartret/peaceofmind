@@ -215,31 +215,29 @@ function SortableLocationItem({
     <Card
       ref={setNodeRef}
       style={style}
-      className="border-2"
+      className="border-2 relative"
     >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-        {/* Location Search and Time */}
-        <div className="flex-1 grid sm:grid-cols-[auto_1fr_auto] gap-3">
+      {/* ABC Letter in top-left corner */}
+      <div className="absolute top-2 left-2 text-muted-foreground/40 text-xs font-normal">
+        {numberToLetter(index + 1)}
+      </div>
+      
+      <CardContent className="py-1.5 px-4">
+        <div className="flex items-center gap-3">
           {/* Drag Handle */}
-          <div className="flex items-center gap-2">
-            <div
-              {...attributes}
-              {...listeners}
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors"
-              title="Drag to reorder"
-            >
-              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-              </svg>
-            </div>
-            <div className="w-6 h-6 flex items-center justify-center text-muted-foreground text-sm font-medium">
-              {numberToLetter(index + 1)}
-            </div>
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors flex items-center"
+            title="Drag to reorder"
+          >
+            <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
           </div>
 
           {/* Time Picker and Location Search */}
-          <div className="grid sm:grid-cols-[140px_1fr] gap-3">
+          <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
             {/* Time Picker */}
             <div>
               <Label className="text-xs font-medium text-secondary-foreground mb-1">
@@ -249,7 +247,7 @@ function SortableLocationItem({
                 type="time"
                 value={location.time}
                 onChange={(e) => onTimeChange(location.id, e.target.value)}
-                className="w-full"
+                className="w-full h-9"
               />
             </div>
 
@@ -272,21 +270,18 @@ function SortableLocationItem({
           </div>
 
           {/* Remove Button */}
-          <div className="flex items-end">
-            <Button
-              onClick={() => onRemove(location.id)}
-              disabled={!canRemove}
-              variant="ghost"
-              size="icon"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-              title="Remove location"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </Button>
-          </div>
-        </div>
+          <Button
+            onClick={() => onRemove(location.id)}
+            disabled={!canRemove}
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground h-8 w-8"
+            title="Remove location"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -958,7 +953,7 @@ export default function Home() {
         {/* Multi-Location Trip Planner */}
         <div className="bg-card rounded-2xl shadow-xl p-6 mb-8 border border-border">
           <h2 className="text-xl font-bold text-card-foreground mb-4">
-            Plan Your Trip
+            Plan Your Roadshow
           </h2>
           <p className="text-sm text-muted-foreground mb-4">
             Add multiple locations to analyze safety, traffic, and weather for your entire journey
@@ -967,7 +962,7 @@ export default function Home() {
           {/* User Email - Required Field */}
           <div className="bg-ring/10 border-2 border-ring rounded-lg p-4 mb-6">
             <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground mb-2">
-              Your Email <span className="text-destructive">*</span> (required to analyze)
+              Your Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
             </label>
             <Input
               type="email"
@@ -975,7 +970,7 @@ export default function Home() {
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
               placeholder="your.email@example.com"
-              className="w-full max-w-md"
+              className="w-full max-w-md bg-card"
             />
             <p className="text-xs text-muted-foreground mt-2">
               We'll use this to send you your trip analysis report
@@ -983,10 +978,10 @@ export default function Home() {
           </div>
 
           {/* Trip Date and City Selector */}
-          <div className="bg-secondary border-2 border-border rounded-lg p-4 mb-6">
+          <div className="rounded-lg p-4 mb-6" style={{ backgroundColor: '#1F253D' }}>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="tripDate" className="block text-sm font-bold text-secondary-foreground mb-2">
+                <label htmlFor="tripDate" className="block text-sm font-bold text-primary-foreground mb-2">
                   Trip Date
                 </label>
                 <Input
@@ -994,15 +989,15 @@ export default function Home() {
                   id="tripDate"
                   value={tripDate}
                   onChange={(e) => setTripDate(e.target.value)}
-                  className="w-full"
+                  className="w-full bg-card"
                 />
               </div>
               <div>
-                <label htmlFor="citySelect" className="block text-sm font-bold text-secondary-foreground mb-2">
+                <label htmlFor="citySelect" className="block text-sm font-bold text-primary-foreground mb-2">
                   City
                 </label>
                 <Select defaultValue="london">
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-card">
                     <SelectValue placeholder="Select city" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1079,6 +1074,7 @@ export default function Home() {
               variant={locationsReordered ? "destructive" : "default"}
               size="lg"
               className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
+              style={{ backgroundColor: '#1F253D', color: '#FFFFFF' }}
             >
               {loadingTrip ? (
                 <>
