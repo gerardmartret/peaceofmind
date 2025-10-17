@@ -931,19 +931,19 @@ export default function Home() {
               Plan Your London Trip with Safety, Traffic, Weather & Top Cafes
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
                 <span>Crime</span>
               </div>
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
                 <span>Traffic</span>
               </div>
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
                 <span>Weather</span>
               </div>
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-medium">
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
                 <span>Cafes</span>
               </div>
-              <div className="inline-flex items-center gap-2 bg-ring/20 text-ring px-3 py-1.5 rounded-lg text-xs font-semibold border-2 border-ring">
+              <div className="inline-flex items-center gap-2 bg-ring/20 text-ring px-3 py-1.5 rounded-md text-xs font-semibold border-2 border-ring">
                 <span>100% FREE</span>
               </div>
             </div>
@@ -951,7 +951,7 @@ export default function Home() {
         </div>
 
         {/* Multi-Location Trip Planner */}
-        <div className="bg-card rounded-2xl shadow-xl p-6 mb-8 border border-border">
+        <div className="bg-card rounded-md p-6 mb-8 border border-border">
           <h2 className="text-xl font-bold text-card-foreground mb-4">
             Plan Your Roadshow
           </h2>
@@ -960,7 +960,7 @@ export default function Home() {
           </p>
           
           {/* User Email - Required Field */}
-          <div className="bg-ring/10 border-2 border-ring rounded-lg p-4 mb-6">
+          <div className="bg-ring/10 border-2 border-ring rounded-md p-4 mb-6">
             <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground mb-2">
               Your Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
             </label>
@@ -978,7 +978,7 @@ export default function Home() {
           </div>
 
           {/* Trip Date and City Selector */}
-          <div className="rounded-lg p-4 mb-6" style={{ backgroundColor: '#1F253D' }}>
+          <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#1F253D' }}>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="tripDate" className="block text-sm font-bold text-primary-foreground mb-2">
@@ -1123,7 +1123,7 @@ export default function Home() {
                             : 'opacity-0 translate-y-full pointer-events-none'
                       }`}
                     >
-                      <div className="flex items-start gap-6 p-6 rounded-xl border-2 border-border bg-card">
+                      <div className="flex items-start gap-6 p-6 rounded-md border-2 border-border bg-card">
                         {/* Status Icon */}
                         <div className="flex-shrink-0 mt-1">
                           {isActive && (

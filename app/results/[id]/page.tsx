@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import TripRiskBreakdown from '@/components/TripRiskBreakdown';
@@ -340,7 +340,7 @@ export default function ResultsPage() {
         <div className="mb-8">
           {/* Executive Report */}
           {executiveReport && (
-            <div className="bg-card rounded-3xl shadow-2xl p-8 mb-6 border-4 border-border">
+            <div className="bg-card rounded-md p-8 mb-6 border-2 border-border">
               {/* Header */}
               <div className="flex items-center justify-between mb-6 pb-6 border-b-4 border-border">
                 <div>
@@ -493,7 +493,7 @@ export default function ResultsPage() {
           )}
 
           {/* Map View */}
-          <div className="bg-card border border-border rounded-2xl shadow-xl p-6 mb-6">
+          <div className="bg-card border border-border rounded-md p-6 mb-6">
             <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
               Your Trip Map
               <span className="text-sm font-normal text-muted-foreground">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
@@ -513,84 +513,13 @@ export default function ResultsPage() {
             />
           </div>
 
-          {/* Traffic Predictions */}
-          {trafficPredictions && trafficPredictions.success && (
-            <div className="bg-primary rounded-2xl shadow-xl p-6 mb-6 text-primary-foreground">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                Traffic Predictions
-                <span className="text-sm font-normal opacity-80">(Historical-based)</span>
-              </h2>
-              
-              {/* Warning Message */}
-              {trafficPredictions.warning && (
-                <div className="bg-destructive/20 border border-destructive/30 rounded-lg p-4 mb-6">
-                  <div className="flex items-center gap-2 text-destructive-foreground">
-                    <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium">Time Adjustment Notice</span>
-                  </div>
-                  <p className="opacity-90 text-sm mt-2">{trafficPredictions.warning}</p>
-                </div>
-              )}
-
-              {/* Summary Stats */}
-              <div className="grid md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-background/20 rounded-lg p-4">
-                  <div className="text-2xl font-bold">{trafficPredictions.totalDistance}</div>
-                  <div className="opacity-80 text-sm">Total Distance</div>
-                </div>
-                <div className="bg-background/20 rounded-lg p-4">
-                  <div className="text-2xl font-bold">{trafficPredictions.totalMinutes} min</div>
-                  <div className="opacity-80 text-sm">With Traffic</div>
-                </div>
-                <div className="bg-background/20 rounded-lg p-4">
-                  <div className="text-2xl font-bold">
-                    +{trafficPredictions.totalMinutes - trafficPredictions.totalMinutesNoTraffic} min
-                  </div>
-                  <div className="opacity-80 text-sm">Traffic Delay</div>
-                </div>
-              </div>
-
-              {/* Route Legs */}
-              <div className="space-y-3">
-                <h3 className="font-semibold opacity-90">Route Breakdown:</h3>
-                {trafficPredictions.data.map((leg: any, index: number) => (
-                  <div key={index} className="bg-background/10 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold">{leg.leg}</div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold">{leg.minutes} min</div>
-                        <div className="text-xs opacity-80">{leg.distance}</div>
-                      </div>
-                    </div>
-                    <div className="text-sm opacity-90">
-                      {leg.originName.split(',')[0]} → {leg.destinationName.split(',')[0]}
-                    </div>
-                    {leg.busyMinutes && (
-                      <div className="text-xs text-destructive mt-1">
-                        Busy traffic expected: +{leg.busyMinutes - leg.minutesNoTraffic} min delay
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Trip Risk Breakdown */}
-          <TripRiskBreakdown 
-            tripResults={tripResults}
-            trafficPredictions={trafficPredictions}
-            tripDate={tripDate}
-          />
-
-          {/* Location Reports */}
+          {/* Chronological Journey Flow */}
           <div className="space-y-6">
             {tripResults.map((result, index) => (
-              <div key={result.locationId} className="bg-card rounded-2xl shadow-xl p-6 border-2 border-border">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4 pb-4 border-b-2 border-border">
+              <React.Fragment key={result.locationId}>
+              <div key={result.locationId} className="bg-card rounded-md p-6 border-2 border-border">
+                {/* Header with Full Address */}
+                <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-border">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
                       {numberToLetter(index + 1)}
@@ -600,265 +529,243 @@ export default function ResultsPage() {
                         {result.locationName.split(',')[0]}
                       </h3>
                       <p className="text-sm text-muted-foreground">
+                        {result.locationName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
                         {result.time} • {tripDate}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
-                  <div className="bg-background rounded-lg p-3 shadow border-l-4 border-primary">
-                    <div className="text-sm font-medium mb-1 text-muted-foreground">Crime</div>
-                    <div className="text-xl font-bold text-foreground">
-                      {result.data.crime.summary.totalCrimes.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="bg-background rounded-lg p-3 shadow border-l-4 border-destructive/70">
-                    <div className="text-sm font-medium mb-1 text-muted-foreground">Disruptions</div>
-                    <div className="text-xl font-bold text-foreground">
-                      {result.data.disruptions.analysis.total}
-                    </div>
-                  </div>
-                  <div className="bg-background rounded-lg p-3 shadow border-l-4 border-primary/70">
-                    <div className="text-sm font-medium mb-1 text-muted-foreground">Avg Temp</div>
-                    <div className="text-xl font-bold text-foreground">
+                {/* All Information Cards - Single Row */}
+                <div className="grid grid-cols-5 gap-3">
+                  {/* Weather */}
+                  <div className="bg-secondary border-2 border-border rounded-md p-3">
+                    <h4 className="font-bold text-card-foreground mb-2">Weather</h4>
+                    <div className="text-lg font-bold text-card-foreground mb-1">
                       {result.data.weather.summary.avgMaxTemp}°C
                     </div>
-                  </div>
-                  <div className="bg-background rounded-lg p-3 shadow border-l-4 border-primary/50">
-                    <div className="text-sm font-medium mb-1 text-muted-foreground">Rain Days</div>
-                    <div className="text-xl font-bold text-foreground">
-                      {result.data.weather.summary.rainyDays}
+                    <div className="text-xs text-muted-foreground mb-2">
+                      {result.data.weather.summary.rainyDays} rainy days
                     </div>
-                  </div>
-                  <div className="bg-background rounded-lg p-3 shadow border-l-4 border-primary/60">
-                    <div className="text-sm font-medium mb-1 text-muted-foreground">Events</div>
-                    <div className="text-xl font-bold text-foreground">
-                      {result.data.events.summary.total}
-                    </div>
-                  </div>
-                  <div className={`bg-background rounded-lg p-3 shadow border-l-4 ${
-                    result.data.parking.parkingRiskScore >= 7 ? 'border-destructive' : 
-                    result.data.parking.parkingRiskScore >= 4 ? 'border-destructive/50' : 
-                    'border-ring'
-                  }`}>
-                    <div className="text-sm font-medium mb-1 text-muted-foreground">Parking</div>
-                    <div className="text-xl font-bold text-foreground">
-                      {result.data.parking.parkingRiskScore}/10
-                    </div>
-                  </div>
-                  <div className="bg-background rounded-lg p-3 shadow border-l-4 border-ring/70">
-                    <div className="text-sm font-medium mb-1 text-muted-foreground">Cafes</div>
-                    <div className="text-xl font-bold text-foreground">
-                      {result.data.cafes?.summary.total || 0}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Detailed Breakdown */}
-                <div className="grid lg:grid-cols-6 gap-4">
-                  {/* Crime */}
-                  <div className="bg-background border border-border rounded-lg p-4 shadow">
-                    <h4 className="text-sm font-bold mb-2 text-foreground">
-                      Top Crimes
-                    </h4>
-                    <div className="space-y-2">
-                      {result.data.crime.summary.topCategories.slice(0, 3).map((cat, idx) => (
-                        <div key={idx}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-muted-foreground">{cat.category}</span>
-                            <span className="font-bold text-foreground">{cat.count}</span>
-                          </div>
-                          <div className="w-full bg-secondary rounded-full h-1.5">
-                            <div
-                              className="bg-primary h-1.5 rounded-full"
-                              style={{ width: `${cat.percentage}%` }}
-                            />
-                          </div>
+                    <div className="space-y-1">
+                      {result.data.weather.forecast.slice(0, 2).map((day: any, idx: number) => (
+                        <div key={idx} className="text-xs text-muted-foreground">
+                          {day.minTemp}°-{day.maxTemp}°C
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Traffic */}
-                  <div className="bg-background border border-border rounded-lg p-4 shadow">
-                    <h4 className="text-sm font-bold mb-2 text-foreground">
-                      Traffic
-                    </h4>
-                    <div className="space-y-2">
-                      {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
-                        <div key={idx} className="bg-secondary rounded p-2 border border-border">
-                          <div className="text-xs font-semibold text-foreground leading-tight">
-                            {disruption.location.substring(0, 30)}...
+                  {/* Cafes */}
+                  <div className="bg-secondary border-2 border-border rounded-md p-3">
+                    <h4 className="font-bold text-card-foreground mb-2">Cafes</h4>
+                    <div className="text-lg font-bold text-card-foreground mb-1">
+                      {result.data.cafes?.summary.total || 0} nearby
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Avg rating: {result.data.cafes?.summary.averageRating || 0}/5
+                    </div>
+                    <div className="space-y-1">
+                      {result.data.cafes?.cafes && result.data.cafes.cafes.length > 0 ? (
+                        result.data.cafes.cafes.slice(0, 2).map((cafe: any, idx: number) => (
+                          <div key={idx} className="text-xs text-muted-foreground">
+                            {cafe.name.substring(0, 15)}... {cafe.rating}/5
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {disruption.severity}
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No cafes found</div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Weather */}
-                  <div className="bg-background border border-border rounded-lg p-4 shadow">
-                    <h4 className="text-sm font-bold mb-2 text-foreground">
-                      Weather
-                    </h4>
-                    <div className="space-y-2">
-                      {result.data.weather.forecast.slice(0, 2).map((day: any, idx: number) => {
-                        return (
-                          <div key={idx} className="bg-secondary rounded p-2 border border-border">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-foreground">
-                                {day.minTemp}°-{day.maxTemp}°C
-                              </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {/* Parking */}
+                  <div className="bg-secondary border-2 border-border rounded-md p-3">
+                    <h4 className="font-bold text-card-foreground mb-2">Parking</h4>
+                    <div className="text-lg font-bold text-card-foreground mb-1">
+                      {result.data.parking.parkingRiskScore >= 7 ? 'Limited' : 
+                       result.data.parking.parkingRiskScore >= 4 ? 'Moderate' : 'Good'}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      {result.data.parking.parkingRiskScore}/10 availability
+                    </div>
+                    <div className="space-y-1">
+                      {result.data.parking.cpzInfo.inCPZ && (
+                        <div className="text-xs text-destructive">
+                          CPZ Zone Active
+                        </div>
+                      )}
+                      {result.data.parking.carParks.slice(0, 2).map((carPark: any, idx: number) => (
+                        <div key={idx} className="text-xs text-muted-foreground">
+                          {carPark.name.substring(0, 15)}... {Math.round(carPark.distance)}m
+                        </div>
+                      ))}
                     </div>
                   </div>
 
                   {/* Events */}
-                  <div className="bg-background border border-border rounded-lg p-4 shadow">
-                    <h4 className="text-sm font-bold mb-2 text-foreground">
-                      Events
-                      <span className="text-xs font-normal text-muted-foreground ml-2">AI</span>
-                    </h4>
-                    {result.data.events.summary.total > 0 ? (
-                      <div className="space-y-2">
-                        {result.data.events.events.slice(0, 3).map((event: any, idx: number) => {
-                          const severityColor = event.severity === 'high' ? 'destructive' : event.severity === 'medium' ? 'destructive/70' : 'destructive/50';
-                          return (
-                            <div key={idx} className="bg-secondary rounded p-2 border border-border">
-                              <div className="flex items-start gap-1">
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-xs font-semibold text-foreground leading-tight">
-                                    {event.title.substring(0, 35)}...
-                                  </div>
-                                  <div className={`text-xs mt-1 text-${severityColor} font-medium`}>
-                                    {event.severity.toUpperCase()}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground text-center py-4">
-                        No significant events found
-                      </div>
-                    )}
+                  <div className="bg-secondary border-2 border-border rounded-md p-3">
+                    <h4 className="font-bold text-card-foreground mb-2">Events</h4>
+                    <div className="text-lg font-bold text-card-foreground mb-1">
+                      {result.data.events.summary.total} upcoming
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      AI Generated
+                    </div>
+                    <div className="space-y-1">
+                      {result.data.events.events.length > 0 ? (
+                        result.data.events.events.slice(0, 2).map((event: any, idx: number) => (
+                          <div key={idx} className="text-xs text-muted-foreground">
+                            {event.title.substring(0, 15)}... {event.severity.toUpperCase()}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No events</div>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Parking */}
-                  <div className="bg-background border border-border rounded-lg p-4 shadow">
-                    <h4 className="text-sm font-bold mb-2 text-foreground">
-                      Parking
-                    </h4>
-                    {result.data.parking.summary.totalNearby > 0 ? (
-                      <div className="space-y-2">
-                        {/* CPZ Warning */}
-                        {result.data.parking.cpzInfo.inCPZ && (
-                          <div className="bg-destructive/10 rounded p-2 border border-destructive mb-2">
-                            <div className="text-xs font-semibold text-destructive flex items-center gap-1">
-                              CPZ Zone
-                            </div>
-                            <div className="text-xs text-destructive/80 mt-1">
-                              {result.data.parking.cpzInfo.operatingHours}
-                            </div>
-                            <div className="text-xs text-destructive/70 mt-1">
-                              {result.data.parking.cpzInfo.chargeInfo}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Car Parks */}
-                        {result.data.parking.carParks.slice(0, 3).map((carPark: any, idx: number) => (
-                          <div key={idx} className="bg-secondary rounded p-2 border border-border">
-                            <div className="text-xs font-semibold text-foreground leading-tight">
-                              {carPark.name.substring(0, 30)}{carPark.name.length > 30 ? '...' : ''}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
-                              <span>{Math.round(carPark.distance)}m</span>
-                              {carPark.totalSpaces && (
-                                <span>{carPark.totalSpaces} spaces</span>
-                              )}
-                            </div>
-                            {carPark.facilities && carPark.facilities.length > 0 && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {carPark.facilities.slice(0, 2).join(', ')}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-
-                        {/* Summary */}
-                        <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
-                          {result.data.parking.summary.totalNearby} car parks within 1km
+                  {/* Crime */}
+                  <div className="bg-secondary border-2 border-border rounded-md p-3">
+                    <h4 className="font-bold text-card-foreground mb-2">Crime</h4>
+                    <div className="text-lg font-bold text-card-foreground mb-1">
+                      {result.data.crime.summary.totalCrimes.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Total incidents
+                    </div>
+                    <div className="space-y-1">
+                      {result.data.crime.summary.topCategories.slice(0, 2).map((cat, idx) => (
+                        <div key={idx} className="text-xs text-muted-foreground">
+                          {cat.category}: {cat.count}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground text-center py-4">
-                        Limited parking nearby
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Top Cafes */}
-                  <div className="bg-background border border-border rounded-lg p-4 shadow">
-                    <h4 className="text-sm font-bold mb-2 text-foreground">
-                      Top Cafes
-                      <span className="text-xs font-normal text-muted-foreground ml-2">(~5 min walk)</span>
-                    </h4>
-                    {result.data.cafes?.summary.total > 0 ? (
-                      <div className="space-y-2">
-                        {/* Cafes */}
-                        {result.data.cafes.cafes.slice(0, 3).map((cafe: any, idx: number) => (
-                          <div key={idx} className="bg-ring/10 rounded p-2 border border-ring">
-                            <div className="text-xs font-semibold text-foreground leading-tight">
-                              {cafe.name.substring(0, 30)}{cafe.name.length > 30 ? '...' : ''}
-                            </div>
-                            <div className="flex items-center justify-between mt-1">
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs text-ring font-bold">
-                                  {cafe.rating} stars
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  ({cafe.userRatingsTotal})
-                                </span>
-                              </div>
-                              {cafe.priceLevel > 0 && (
-                                <span className="text-xs font-bold text-ring">
-                                  {'$'.repeat(cafe.priceLevel)}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {Math.round(cafe.distance)}m away
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Summary */}
-                        <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border">
-                          Avg rating: {result.data.cafes.summary.averageRating} stars
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground text-center py-4">
-                        No cafes found within 250m
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Route Card (after each location except the last) */}
+              {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data[index] && (
+                <div 
+                  className="rounded-md p-6 border-2 border-primary text-primary-foreground"
+                  style={{ backgroundColor: '#1F253D' }}
+                >
+                  {/* Route Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="text-2xl font-bold">
+                        Route: {numberToLetter(index + 1)} → {numberToLetter(index + 2)}
+                      </div>
+                    </div>
+                    <div className={`px-4 py-2 rounded-lg font-semibold ${
+                      (() => {
+                        const leg = trafficPredictions.data[index];
+                        const delay = leg.minutes - leg.minutesNoTraffic;
+                        if (delay < 5) return 'bg-ring/20 text-ring';
+                        if (delay < 10) return 'bg-destructive/20 text-destructive';
+                        return 'bg-destructive/30 text-destructive';
+                      })()
+                    }`}>
+                      {(() => {
+                        const leg = trafficPredictions.data[index];
+                        const delay = leg.minutes - leg.minutesNoTraffic;
+                        if (delay < 5) return 'Low Risk';
+                        if (delay < 10) return 'Medium Risk';
+                        return 'High Risk';
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Route Stats */}
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-background/10 rounded-lg p-4">
+                      <div className="text-sm opacity-80 mb-1">Travel Time</div>
+                      <div className="text-2xl font-bold">
+                        {trafficPredictions.data[index].minutes} min
+                      </div>
+                    </div>
+                    <div className="bg-background/10 rounded-lg p-4">
+                      <div className="text-sm opacity-80 mb-1">Distance</div>
+                      <div className="text-2xl font-bold">
+                        {trafficPredictions.data[index].distance}
+                      </div>
+                    </div>
+                    <div className="bg-destructive/20 rounded-lg p-4">
+                      <div className="text-sm text-destructive-foreground/80 mb-1">Traffic Delay</div>
+                      <div className="text-2xl font-bold text-destructive-foreground">
+                        +{trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic} min
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Route Details */}
+                  <div className="bg-background/5 rounded-lg p-4">
+                    <div className="text-sm opacity-90">
+                      <span className="font-semibold">{trafficPredictions.data[index].originName.split(',')[0]}</span>
+                      {' → '}
+                      <span className="font-semibold">{trafficPredictions.data[index].destinationName.split(',')[0]}</span>
+                    </div>
+                    {trafficPredictions.data[index].busyMinutes && (
+                      <div className="text-sm text-destructive-foreground/90 mt-2">
+                        Busy traffic expected: +{trafficPredictions.data[index].busyMinutes - trafficPredictions.data[index].minutesNoTraffic} min additional delay
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Road Closures */}
+                  {result.data.disruptions.disruptions.length > 0 && (
+                    <div className="bg-background/5 rounded-lg p-4 mt-4">
+                      <div className="text-sm font-semibold mb-2">Road Closures</div>
+                      <div className="space-y-2">
+                        {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
+                          <div key={idx} className="text-xs opacity-90">
+                            <div className="font-semibold">{disruption.location.substring(0, 40)}...</div>
+                            <div className="text-destructive-foreground/80">{disruption.severity}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              </React.Fragment>
             ))}
+          </div>
+
+          {/* Risk Legend */}
+          <div className="bg-secondary rounded-md p-6 mt-6 border-2 border-border">
+            <h3 className="text-lg font-bold text-card-foreground mb-4">Risk Level Legend</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3 bg-ring/10 rounded-md p-3 border-2 border-ring/20">
+                <div className="w-6 h-6 rounded-full bg-ring flex items-center justify-center">
+                  <div className="text-xs font-bold text-primary-foreground">L</div>
+                </div>
+                <div>
+                  <div className="font-semibold text-ring">Low Risk</div>
+                  <div className="text-xs text-muted-foreground">Safe conditions</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-destructive/5 rounded-md p-3 border-2 border-destructive/20">
+                <div className="w-6 h-6 rounded-full bg-destructive/80 flex items-center justify-center">
+                  <div className="text-xs font-bold text-primary-foreground">M</div>
+                </div>
+                <div>
+                  <div className="font-semibold text-destructive/80">Medium Risk</div>
+                  <div className="text-xs text-muted-foreground">Caution advised</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-destructive/10 rounded-md p-3 border-2 border-destructive">
+                <div className="w-6 h-6 rounded-full bg-destructive flex items-center justify-center">
+                  <div className="text-xs font-bold text-primary-foreground">H</div>
+                </div>
+                <div>
+                  <div className="font-semibold text-destructive">High Risk</div>
+                  <div className="text-xs text-muted-foreground">Extra vigilance needed</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -882,4 +789,5 @@ export default function ResultsPage() {
     </div>
   );
 }
+
 
