@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
+import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { supabase } from '@/lib/supabase';
 import {
   DndContext,
@@ -625,6 +626,21 @@ export default function Home() {
             };
           }
 
+          // Fetch emergency services using Google Places API (client-side)
+          console.log(`🚨 Searching for emergency services near ${location.name}...`);
+          let emergencyServicesData = null;
+          try {
+            emergencyServicesData = await searchEmergencyServices(location.lat, location.lng, location.name);
+            console.log(`✅ Found emergency services`);
+          } catch (emergencyError) {
+            console.error('❌ Error fetching emergency services:', emergencyError);
+            // Provide empty emergency services data if fetch fails
+            emergencyServicesData = {
+              location: location.name,
+              coordinates: { lat: location.lat, lng: location.lng },
+            };
+          }
+
           if (crimeData.success && disruptionsData.success && weatherData.success && eventsData.success && parkingData.success) {
             console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: ${eventsData.data.events.length}, Parking Risk: ${parkingData.data.parkingRiskScore}/10, Cafes: ${cafeData.cafes.length}`);
             
@@ -669,6 +685,7 @@ export default function Home() {
                 events: eventsData.data,
                 parking: parkingData.data,
                 cafes: cafeData,
+                emergencyServices: emergencyServicesData,
               },
             };
           } else {

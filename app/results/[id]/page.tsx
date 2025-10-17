@@ -139,6 +139,29 @@ interface CafeData {
   };
 }
 
+interface EmergencyServicesData {
+  location: string;
+  coordinates: { lat: number; lng: number };
+  policeStation?: {
+    id: string;
+    name: string;
+    address: string;
+    distance: number;
+    lat: number;
+    lng: number;
+    type: 'police';
+  };
+  hospital?: {
+    id: string;
+    name: string;
+    address: string;
+    distance: number;
+    lat: number;
+    lng: number;
+    type: 'hospital';
+  };
+}
+
 interface CombinedData {
   crime: CrimeData;
   disruptions: DisruptionData;
@@ -146,6 +169,7 @@ interface CombinedData {
   events: EventData;
   parking: ParkingData;
   cafes: CafeData;
+  emergencyServices?: EmergencyServicesData;
 }
 
 interface TripData {
@@ -540,6 +564,180 @@ export default function ResultsPage() {
 
                 {/* All Information Cards - Responsive Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {/* Personal Safety */}
+                  <div 
+                    className="border-2 rounded-md p-3"
+                    style={{
+                      backgroundColor: (() => {
+                        const safetyScore = result.data.crime.safetyScore;
+                        if (safetyScore >= 60) return '#18815A'; // Brand green for safe
+                        if (safetyScore >= 40) return '#D4915C'; // Professional elegant orange for moderate
+                        return '#AD5252'; // Brand red for dangerous
+                      })(),
+                      borderColor: (() => {
+                        const safetyScore = result.data.crime.safetyScore;
+                        if (safetyScore >= 60) return '#18815A';
+                        if (safetyScore >= 40) return '#D4915C';
+                        return '#AD5252';
+                      })()
+                    }}
+                  >
+                    <h4 className="font-bold text-primary-foreground mb-2">Personal Safety</h4>
+                    <div className="flex items-center gap-2 mb-2">
+                      {(() => {
+                        const safetyScore = result.data.crime.safetyScore;
+                        if (safetyScore >= 80) {
+                          return (
+                            <>
+                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <div className="text-sm font-semibold text-primary-foreground">Very Safe</div>
+                                <div className="text-xs text-primary-foreground/80">Low crime area with excellent safety record</div>
+                              </div>
+                            </>
+                          );
+                        } else if (safetyScore >= 60) {
+                          return (
+                            <>
+                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <div className="text-sm font-semibold text-primary-foreground">Safe</div>
+                                <div className="text-xs text-primary-foreground/80">Generally safe with minimal concerns</div>
+                              </div>
+                            </>
+                          );
+                        } else if (safetyScore >= 40) {
+                          return (
+                            <>
+                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                              <div>
+                                <div className="text-sm font-semibold text-primary-foreground">Moderate</div>
+                                <div className="text-xs text-primary-foreground/80">Mixed safety profile, stay aware</div>
+                              </div>
+                            </>
+                          );
+                        } else if (safetyScore >= 20) {
+                          return (
+                            <>
+                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                              </svg>
+                              <div>
+                                <div className="text-sm font-semibold text-primary-foreground">Caution Advised</div>
+                                <div className="text-xs text-primary-foreground/80">Higher crime area, extra caution needed</div>
+                              </div>
+                            </>
+                          );
+                        } else {
+                          return (
+                            <>
+                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div>
+                                <div className="text-sm font-semibold text-primary-foreground">High Alert</div>
+                                <div className="text-xs text-primary-foreground/80">High crime area, avoid if possible</div>
+                              </div>
+                            </>
+                          );
+                        }
+                      })()}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-primary-foreground/80 font-medium mb-1">
+                        These are the 3 most common crimes in this area. Be aware.
+                      </div>
+                      {result.data.crime.summary.topCategories
+                        .filter(cat => !cat.category.toLowerCase().includes('other'))
+                        .slice(0, 3)
+                        .map((cat, idx) => (
+                          <div key={idx} className="text-xs text-primary-foreground/70">
+                            {(() => {
+                              const category = cat.category.toLowerCase();
+                              if (category.includes('violence')) return 'Violence and assault incidents';
+                              if (category.includes('theft')) return 'Theft and burglary cases';
+                              if (category.includes('robbery')) return 'Robbery and street crime';
+                              if (category.includes('vehicle')) return 'Vehicle-related crimes';
+                              if (category.includes('drug')) return 'Drug-related offenses';
+                              if (category.includes('criminal damage')) return 'Criminal damage and vandalism';
+                              if (category.includes('public order')) return 'Public order disturbances';
+                              if (category.includes('burglary')) return 'Burglary and break-ins';
+                              if (category.includes('shoplifting')) return 'Shoplifting incidents';
+                              if (category.includes('anti-social')) return 'Anti-social behavior';
+                              return cat.category;
+                            })()}
+                          </div>
+                        ))}
+                    </div>
+                    
+                    {/* Emergency Services Links */}
+                    <div className="mt-3 pt-3 border-t border-primary-foreground/20 space-y-2">
+                      {result.data.emergencyServices?.policeStation ? (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.policeStation.name)}&query_place_id=${result.data.emergencyServices.policeStation.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                        >
+                          <div>
+                            <div className="font-medium">Closest Police Station</div>
+                            <div className="text-primary-foreground/70">{Math.round(result.data.emergencyServices.policeStation.distance)}m away</div>
+                          </div>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      ) : (
+                        <a
+                          href={`https://www.google.com/maps/search/police+station+near+${encodeURIComponent(result.locationName)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                        >
+                          <span className="font-medium">Closest Police Station</span>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      )}
+
+                      {result.data.emergencyServices?.hospital ? (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.hospital.name)}&query_place_id=${result.data.emergencyServices.hospital.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                        >
+                          <div>
+                            <div className="font-medium">Closest Hospital</div>
+                            <div className="text-primary-foreground/70">{Math.round(result.data.emergencyServices.hospital.distance)}m away</div>
+                          </div>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      ) : (
+                        <a
+                          href={`https://www.google.com/maps/search/hospital+near+${encodeURIComponent(result.locationName)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                        >
+                          <span className="font-medium">Closest Hospital</span>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Weather */}
                   <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
                     <h4 className="font-bold text-primary-foreground mb-2">Weather</h4>
@@ -789,45 +987,29 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Events */}
+                  {/* Upcoming Disruptive Events */}
                   <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-2">Events</h4>
-                    <div className="text-lg font-bold text-primary-foreground mb-1">
-                      {result.data.events.summary.total} upcoming
-                    </div>
-                    <div className="text-xs text-primary-foreground/80 mb-2">
-                      AI Generated
-                    </div>
-                    <div className="space-y-1">
-                      {result.data.events.events.length > 0 ? (
-                        result.data.events.events.slice(0, 2).map((event: any, idx: number) => (
-                          <div key={idx} className="text-xs text-primary-foreground/70">
-                            {event.title.substring(0, 15)}... {event.severity.toUpperCase()}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-xs text-primary-foreground/70">No events</div>
-                      )}
-                    </div>
+                    <h4 className="font-bold text-primary-foreground mb-3">Upcoming Disruptive Events</h4>
+                    {result.data.events.events.length > 0 ? (
+                      <>
+                        <div className="space-y-2 mb-3">
+                          {result.data.events.events.slice(0, 3).map((event: any, idx: number) => (
+                            <div key={idx} className="text-xs text-primary-foreground/80">
+                              • {event.title}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-xs text-primary-foreground/70 italic pt-2 border-t border-primary-foreground/20">
+                          {result.data.events.summary.total === 1 
+                            ? 'This event will be in the area. It might affect the trip. Be aware.'
+                            : `These ${result.data.events.summary.total} events will be in the area. They might affect the trip. Be aware.`}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-primary-foreground/70">No upcoming events</div>
+                    )}
                   </div>
 
-                  {/* Crime */}
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-2">Crime</h4>
-                    <div className="text-lg font-bold text-primary-foreground mb-1">
-                      {result.data.crime.summary.totalCrimes.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-primary-foreground/80 mb-2">
-                      Total incidents
-                    </div>
-                    <div className="space-y-1">
-                      {result.data.crime.summary.topCategories.slice(0, 2).map((cat, idx) => (
-                        <div key={idx} className="text-xs text-primary-foreground/70">
-                          {cat.category}: {cat.count}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
 
