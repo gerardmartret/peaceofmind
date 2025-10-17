@@ -20,12 +20,14 @@ interface TripLocation {
 
 interface GoogleTripMapProps {
   locations: TripLocation[];
+  height?: string;
+  compact?: boolean;
 }
 
-const mapContainerStyle = {
+const getMapContainerStyle = (height: string) => ({
   width: '100%',
-  height: '384px', // h-96 = 24rem = 384px
-};
+  height: height,
+});
 
 const defaultCenter = {
   lat: 51.5074,
@@ -106,7 +108,7 @@ const corporateMapStyle = [
   }
 ];
 
-export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
+export default function GoogleTripMap({ locations, height = '384px', compact = false }: GoogleTripMapProps) {
   const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
@@ -261,16 +263,16 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
   return (
     <div className="relative">
       <GoogleMap
-        mapContainerStyle={mapContainerStyle}
+        mapContainerStyle={getMapContainerStyle(height)}
         center={center}
-        zoom={13}
+        zoom={compact ? 10 : 13}
         onLoad={onLoad}
         onUnmount={onUnmount}
         options={{
-          zoomControl: true,
+          zoomControl: !compact,
           streetViewControl: false,
           mapTypeControl: false,
-          fullscreenControl: true,
+          fullscreenControl: !compact,
           styles: corporateMapStyle, // Apply corporate monochrome styling
         }}
       >
@@ -347,7 +349,7 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
       </GoogleMap>
 
       {/* Route Info Badge */}
-      {routeInfo && (
+      {routeInfo && !compact && (
         <div className="absolute top-4 left-4 bg-card border border-border rounded-lg shadow-lg p-3">
           <div className="flex items-center gap-3 text-sm">
             <div>
@@ -364,27 +366,31 @@ export default function GoogleTripMap({ locations }: GoogleTripMapProps) {
       )}
 
       {/* Traffic Toggle */}
-      <div className="absolute top-4 right-4">
-        <button
-          onClick={() => setShowTraffic(!showTraffic)}
-          className={`px-3 py-2 rounded-lg shadow-lg text-sm font-medium transition-all ${
-            showTraffic
-              ? 'bg-ring text-primary-foreground hover:bg-ring/90'
-              : 'bg-card text-card-foreground border-2 border-border hover:border-ring'
-          }`}
-          title="Toggle traffic layer"
-        >
-          🚦 Traffic {showTraffic ? 'ON' : 'OFF'}
-        </button>
-      </div>
+      {!compact && (
+        <div className="absolute top-4 right-4">
+          <button
+            onClick={() => setShowTraffic(!showTraffic)}
+            className={`px-3 py-2 rounded-lg shadow-lg text-sm font-medium transition-all ${
+              showTraffic
+                ? 'bg-ring text-primary-foreground hover:bg-ring/90'
+                : 'bg-card text-card-foreground border-2 border-border hover:border-ring'
+            }`}
+            title="Toggle traffic layer"
+          >
+            🚦 Traffic {showTraffic ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      )}
 
       {/* Google Maps Indicator */}
-      <div className="absolute bottom-4 left-4 bg-card border border-border rounded-lg shadow-lg px-3 py-1.5">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold text-primary">G</span>
-          <span className="text-muted-foreground">Google Maps</span>
+      {!compact && (
+        <div className="absolute bottom-4 left-4 bg-card border border-border rounded-lg shadow-lg px-3 py-1.5">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold text-primary">G</span>
+            <span className="text-muted-foreground">Google Maps</span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

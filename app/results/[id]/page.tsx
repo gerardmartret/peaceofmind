@@ -330,34 +330,6 @@ export default function ResultsPage() {
           <p className="text-muted-foreground text-lg mb-4">
             Complete safety, traffic & weather report for {tripDate}
           </p>
-
-          {/* Shareable Link */}
-          <div className="bg-secondary border-2 border-border rounded-lg p-4 mb-4 max-w-2xl mx-auto">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-secondary-foreground mb-1">Shareable Link</p>
-                <p className="text-sm text-muted-foreground font-mono truncate">
-                  {typeof window !== 'undefined' ? window.location.href : ''}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Copy this link to share with your driver
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    navigator.clipboard.writeText(window.location.href);
-                    alert('Link copied to clipboard!');
-                  }
-                }}
-                size="sm"
-                className="flex-shrink-0"
-              >
-                Copy
-              </Button>
-            </div>
-          </div>
-          
         </div>
 
         {/* Results Section */}
@@ -1025,27 +997,117 @@ export default function ResultsPage() {
                         Route: {numberToLetter(index + 1)} → {numberToLetter(index + 2)}
                       </div>
                     </div>
-                    <div className={`px-4 py-2 rounded-lg font-semibold ${
-                      (() => {
-                        const leg = trafficPredictions.data[index];
-                        const delay = leg.minutes - leg.minutesNoTraffic;
-                        if (delay < 5) return 'bg-ring/20 text-ring';
-                        if (delay < 10) return 'bg-destructive/20 text-destructive';
-                        return 'bg-destructive/30 text-destructive';
-                      })()
-                    }`}>
+                    <div 
+                      className="px-4 py-2 rounded-lg font-semibold"
+                      style={{
+                        backgroundColor: (() => {
+                          const leg = trafficPredictions.data[index];
+                          const delay = leg.minutes - leg.minutesNoTraffic;
+                          if (delay < 5) return '#18815A'; // Brand green for low
+                          if (delay < 10) return '#D4915C'; // Professional orange for moderate
+                          return '#AD5252'; // Brand red for high
+                        })(),
+                        color: '#FFFFFF'
+                      }}
+                    >
                       {(() => {
                         const leg = trafficPredictions.data[index];
                         const delay = leg.minutes - leg.minutesNoTraffic;
-                        if (delay < 5) return 'Low Risk';
-                        if (delay < 10) return 'Medium Risk';
-                        return 'High Risk';
+                        if (delay < 5) return 'Delay Risk: Low';
+                        if (delay < 10) return 'Delay Risk: Moderate';
+                        return 'Delay Risk: High';
                       })()}
+                    </div>
+                  </div>
+
+                  {/* Route Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {/* Left Column - Google Maps Route Preview */}
+                    <div className="rounded-lg overflow-hidden h-[200px] border border-border">
+                      <GoogleTripMap 
+                        height="200px"
+                        compact={true}
+                        locations={[
+                          {
+                            id: tripResults[index].locationId,
+                            name: tripResults[index].locationName,
+                            lat: result.data.crime.coordinates.lat,
+                            lng: result.data.crime.coordinates.lng,
+                            time: tripResults[index].time,
+                            safetyScore: result.data.crime.safetyScore,
+                          },
+                          {
+                            id: tripResults[index + 1].locationId,
+                            name: tripResults[index + 1].locationName,
+                            lat: tripResults[index + 1].data.crime.coordinates.lat,
+                            lng: tripResults[index + 1].data.crime.coordinates.lng,
+                            time: tripResults[index + 1].time,
+                            safetyScore: tripResults[index + 1].data.crime.safetyScore,
+                          }
+                        ]}
+                      />
+                    </div>
+                    
+                    {/* Right Column - Address Details */}
+                    <div>
+                      <div className="space-y-2">
+                        <div className="text-sm">
+                          <span className="font-semibold text-muted-foreground">From: </span>
+                          <span className="text-card-foreground">{tripResults[index].locationName}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-semibold text-muted-foreground">To: </span>
+                          <span className="text-card-foreground">{tripResults[index + 1].locationName}</span>
+                        </div>
+                      </div>
+                      {trafficPredictions.data[index].busyMinutes && (
+                        <div className="text-sm text-destructive mt-3 pt-3 border-t border-border/30">
+                          Busy traffic expected: +{trafficPredictions.data[index].busyMinutes - trafficPredictions.data[index].minutesNoTraffic} min additional delay
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Route Stats */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                    <div 
+                      className="rounded-lg p-4"
+                      style={{
+                        backgroundColor: (() => {
+                          const delay = trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic;
+                          if (delay < 5) return 'rgba(24, 129, 90, 0.2)'; // Brand green with opacity
+                          if (delay < 10) return 'rgba(212, 145, 92, 0.2)'; // Professional orange with opacity
+                          return 'rgba(173, 82, 82, 0.2)'; // Brand red with opacity
+                        })()
+                      }}
+                    >
+                      <div 
+                        className="text-sm mb-1"
+                        style={{
+                          color: (() => {
+                            const delay = trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic;
+                            if (delay < 5) return '#18815A';
+                            if (delay < 10) return '#D4915C';
+                            return '#AD5252';
+                          })()
+                        }}
+                      >
+                        Traffic Delay
+                      </div>
+                      <div 
+                        className="text-2xl font-bold"
+                        style={{
+                          color: (() => {
+                            const delay = trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic;
+                            if (delay < 5) return '#18815A';
+                            if (delay < 10) return '#D4915C';
+                            return '#AD5252';
+                          })()
+                        }}
+                      >
+                        +{trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic} min
+                      </div>
+                    </div>
                     <div className="bg-secondary/50 rounded-lg p-4">
                       <div className="text-sm text-muted-foreground mb-1">Travel Time</div>
                       <div className="text-2xl font-bold text-card-foreground">
@@ -1058,39 +1120,32 @@ export default function ResultsPage() {
                         {trafficPredictions.data[index].distance}
                       </div>
                     </div>
-                    <div className="bg-destructive/20 rounded-lg p-4">
-                      <div className="text-sm text-destructive mb-1">Traffic Delay</div>
-                      <div className="text-2xl font-bold text-destructive">
-                        +{trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic} min
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Route Details */}
-                  <div className="bg-secondary/30 rounded-lg p-4">
-                    <div className="text-sm text-muted-foreground">
-                      <span className="font-semibold text-card-foreground">{trafficPredictions.data[index].originName.split(',')[0]}</span>
-                      {' → '}
-                      <span className="font-semibold text-card-foreground">{trafficPredictions.data[index].destinationName.split(',')[0]}</span>
-                    </div>
-                    {trafficPredictions.data[index].busyMinutes && (
-                      <div className="text-sm text-destructive mt-2">
-                        Busy traffic expected: +{trafficPredictions.data[index].busyMinutes - trafficPredictions.data[index].minutesNoTraffic} min additional delay
-                      </div>
-                    )}
                   </div>
 
                   {/* Road Closures */}
                   {result.data.disruptions.disruptions.length > 0 && (
                     <div className="bg-secondary/30 rounded-lg p-4 mt-4">
-                      <div className="text-sm font-semibold mb-2 text-card-foreground">Road Closures</div>
-                      <div className="space-y-2">
+                      <div className="text-sm font-semibold mb-3 text-card-foreground">Road Closures</div>
+                      <div className="space-y-2 mb-3">
                         {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
-                          <div key={idx} className="text-xs text-muted-foreground">
-                            <div className="font-semibold text-card-foreground">{disruption.location.substring(0, 40)}...</div>
-                            <div className="text-destructive">{disruption.severity}</div>
+                          <div key={idx} className="text-xs">
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(disruption.location)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-card-foreground hover:underline flex items-center gap-1"
+                            >
+                              {disruption.location}
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                            <div className="text-destructive mt-1">{disruption.severity}</div>
                           </div>
                         ))}
+                      </div>
+                      <div className="text-xs text-muted-foreground italic pt-2 border-t border-border/30">
+                        Data from Transport for London
                       </div>
                     </div>
                   )}
@@ -1100,43 +1155,57 @@ export default function ResultsPage() {
             ))}
           </div>
 
-          {/* Risk Legend */}
-          <div className="bg-secondary rounded-md p-6 mt-6 border-2 border-border">
-            <h3 className="text-lg font-bold text-card-foreground mb-4">Risk Level Legend</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-3 bg-ring/10 rounded-md p-3 border-2 border-ring/20">
-                <div className="w-6 h-6 rounded-full bg-ring flex items-center justify-center">
-                  <div className="text-xs font-bold text-primary-foreground">L</div>
-                </div>
-                <div>
-                  <div className="font-semibold text-ring">Low Risk</div>
-                  <div className="text-xs text-muted-foreground">Safe conditions</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-destructive/5 rounded-md p-3 border-2 border-destructive/20">
-                <div className="w-6 h-6 rounded-full bg-destructive/80 flex items-center justify-center">
-                  <div className="text-xs font-bold text-primary-foreground">M</div>
-                </div>
-                <div>
-                  <div className="font-semibold text-destructive/80">Medium Risk</div>
-                  <div className="text-xs text-muted-foreground">Caution advised</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-destructive/10 rounded-md p-3 border-2 border-destructive">
-                <div className="w-6 h-6 rounded-full bg-destructive flex items-center justify-center">
-                  <div className="text-xs font-bold text-primary-foreground">H</div>
-                </div>
-                <div>
-                  <div className="font-semibold text-destructive">High Risk</div>
-                  <div className="text-xs text-muted-foreground">Extra vigilance needed</div>
-                </div>
-              </div>
+        </div>
+
+        {/* Shareable Link */}
+        <div className="bg-secondary border-2 border-border rounded-md p-6 mb-8">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-secondary-foreground mb-1">Shareable Link</p>
+              <p className="text-sm text-muted-foreground font-mono truncate">
+                {typeof window !== 'undefined' ? window.location.href : ''}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Copy this link to share with your driver
+              </p>
             </div>
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  navigator.clipboard.writeText(window.location.href);
+                  // Visual feedback with brand green
+                  const button = document.getElementById('copy-button');
+                  if (button) {
+                    const originalContent = button.innerHTML;
+                    button.innerHTML = `
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    `;
+                    button.style.color = '#18815A';
+                    setTimeout(() => {
+                      button.innerHTML = originalContent;
+                      button.style.color = '';
+                    }, 2000);
+                  }
+                }
+              }}
+              id="copy-button"
+              className="flex-shrink-0 p-2 rounded-md hover:bg-background/20 transition-colors"
+              title="Copy link"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
           </div>
         </div>
 
         {/* Footer Navigation */}
         <div className="text-center py-8">
+          <p className="text-lg font-medium text-foreground mb-4">
+            Drivania Labs wishes you a nice trip
+          </p>
           <div className="flex flex-wrap justify-center gap-3 mb-4">
             <Button
               onClick={handlePlanNewTrip}

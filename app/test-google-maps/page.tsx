@@ -19,17 +19,17 @@ export default function TestGoogleMaps() {
 
   useEffect(() => {
     // Check for API key in environment
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
     
     console.log('🔍 Checking Google Maps API key...');
-    console.log('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+    console.log('NEXT_PUBLIC_GOOGLE_API_KEY:', process.env.NEXT_PUBLIC_GOOGLE_API_KEY);
     console.log('GOOGLE_API_KEY:', process.env.GOOGLE_API_KEY);
     
     if (!apiKey) {
       setStatus(prev => ({
         ...prev,
         apiKeyFound: false,
-        error: 'API key not found. Make sure NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is set in .env.local',
+        error: 'API key not found. Make sure NEXT_PUBLIC_GOOGLE_API_KEY is set in .env.local',
       }));
       return;
     }
@@ -251,7 +251,7 @@ export default function TestGoogleMaps() {
               # In .env.local, use:
             </div>
             <div className="text-yellow-900 dark:text-yellow-200 font-bold mt-1">
-              NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyDiOF8u5Ly9iBB8P5RWKVLnmbOBMpGrbnc
+              NEXT_PUBLIC_GOOGLE_API_KEY=AIzaSyDiOF8u5Ly9iBB8P5RWKVLnmbOBMpGrbnc
             </div>
             <div className="text-yellow-700 dark:text-yellow-400 mt-2">
               # Not just:
