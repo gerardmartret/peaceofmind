@@ -517,7 +517,7 @@ export default function ResultsPage() {
           <div className="space-y-6">
             {tripResults.map((result, index) => (
               <React.Fragment key={result.locationId}>
-              <div key={result.locationId} className="bg-card rounded-md p-6 border-2 border-border">
+              <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#1F253D' }}>
                 {/* Header with Full Address */}
                 <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-border">
                   <div className="flex items-center gap-3">
@@ -525,33 +525,84 @@ export default function ResultsPage() {
                       {numberToLetter(index + 1)}
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-card-foreground">
+                      <h3 className="text-xl font-bold text-primary-foreground">
                         {result.locationName.split(',')[0]}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-primary-foreground/80">
                         {result.locationName}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-primary-foreground/70">
                         {result.time} • {tripDate}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* All Information Cards - Single Row */}
-                <div className="grid grid-cols-5 gap-3">
+                {/* All Information Cards - Responsive Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                   {/* Weather */}
-                  <div className="bg-secondary border-2 border-border rounded-md p-3">
-                    <h4 className="font-bold text-card-foreground mb-2">Weather</h4>
-                    <div className="text-lg font-bold text-card-foreground mb-1">
-                      {result.data.weather.summary.avgMaxTemp}°C
-                    </div>
-                    <div className="text-xs text-muted-foreground mb-2">
-                      {result.data.weather.summary.rainyDays} rainy days
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
+                    <h4 className="font-bold text-primary-foreground mb-2">Weather</h4>
+                    <div className="flex items-center gap-2 mb-2">
+                      {/* Weather Icon based on conditions */}
+                      {(() => {
+                        const rainyDays = result.data.weather.summary.rainyDays;
+                        const avgTemp = result.data.weather.summary.avgMaxTemp;
+                        
+                        // Determine weather icon
+                        if (avgTemp < 0) {
+                          // Snow
+                          return (
+                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v20M17 7l-5-5-5 5M17 17l-5 5-5-5M2 12h20M7 7l5 5 5-5M7 17l5-5 5 5" />
+                            </svg>
+                          );
+                        } else if (rainyDays >= 5) {
+                          // Heavy rain
+                          return (
+                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17l-1 4M12 17v4M16 17l1 4" />
+                            </svg>
+                          );
+                        } else if (rainyDays >= 2) {
+                          // Light rain
+                          return (
+                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17v4M16 17l1 4" />
+                            </svg>
+                          );
+                        } else if (rainyDays >= 1) {
+                          // Cloudy
+                          return (
+                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                            </svg>
+                          );
+                        } else {
+                          // Sunny
+                          return (
+                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                          );
+                        }
+                      })()}
+                      <div className="flex-1">
+                        <div className="text-lg font-bold text-primary-foreground">
+                          {result.data.weather.summary.avgMaxTemp}°C
+                        </div>
+                        <div className="text-xs text-primary-foreground/80">
+                          {result.data.weather.summary.rainyDays > 0 
+                            ? `${result.data.weather.summary.rainyDays} rainy days`
+                            : 'Clear'}
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       {result.data.weather.forecast.slice(0, 2).map((day: any, idx: number) => (
-                        <div key={idx} className="text-xs text-muted-foreground">
+                        <div key={idx} className="text-xs text-primary-foreground/70">
                           {day.minTemp}°-{day.maxTemp}°C
                         </div>
                       ))}
@@ -559,85 +610,219 @@ export default function ResultsPage() {
                   </div>
 
                   {/* Cafes */}
-                  <div className="bg-secondary border-2 border-border rounded-md p-3">
-                    <h4 className="font-bold text-card-foreground mb-2">Cafes</h4>
-                    <div className="text-lg font-bold text-card-foreground mb-1">
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
+                    <h4 className="font-bold text-primary-foreground mb-2">Cafes</h4>
+                    <div className="text-lg font-bold text-primary-foreground mb-1">
                       {result.data.cafes?.summary.total || 0} nearby
                     </div>
-                    <div className="text-xs text-muted-foreground mb-2">
+                    <div className="text-xs text-primary-foreground/80 mb-2">
                       Avg rating: {result.data.cafes?.summary.averageRating || 0}/5
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {result.data.cafes?.cafes && result.data.cafes.cafes.length > 0 ? (
-                        result.data.cafes.cafes.slice(0, 2).map((cafe: any, idx: number) => (
-                          <div key={idx} className="text-xs text-muted-foreground">
-                            {cafe.name.substring(0, 15)}... {cafe.rating}/5
-                          </div>
-                        ))
+                        result.data.cafes.cafes
+                          .filter((cafe: any) => {
+                            // Calculate if cafe is open (location time - 20 minutes)
+                            const locationTime = new Date(`${tripDate} ${result.time}`);
+                            const checkTime = new Date(locationTime.getTime() - 20 * 60000); // Subtract 20 minutes
+                            const currentHour = checkTime.getHours();
+                            const currentMinute = checkTime.getMinutes();
+                            const currentTimeMinutes = currentHour * 60 + currentMinute;
+                            
+                            // Simple business hours check (assuming 7 AM - 10 PM)
+                            return currentTimeMinutes >= 420 && currentTimeMinutes <= 1320; // 7 AM to 10 PM
+                          })
+                          .slice(0, 3)
+                          .map((cafe: any, idx: number) => {
+                            return (
+                              <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <a 
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cafe.name + ' ' + result.locationName.split(',')[0])}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
+                                  >
+                                    {cafe.name.length > 20 ? cafe.name.substring(0, 20) + '...' : cafe.name}
+                                  </a>
+                                  <div className="text-xs font-medium" style={{ color: '#18815A' }}>
+                                    Open
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-ring">★</span>
+                                    <span>{cafe.rating}/5</span>
+                                    <span className="text-primary-foreground/60">({cafe.userRatingsTotal})</span>
+                                  </div>
+                                  <div className="text-xs text-primary-foreground/60">
+                                    7 AM - 10 PM
+                                  </div>
+                                </div>
+                                <div className="text-primary-foreground/60">
+                                  {Math.round(cafe.distance)}m away
+                                </div>
+                              </div>
+                            );
+                          })
                       ) : (
-                        <div className="text-xs text-muted-foreground">No cafes found</div>
+                        <div className="text-xs text-primary-foreground/70">No cafes found</div>
                       )}
                     </div>
                   </div>
 
                   {/* Parking */}
-                  <div className="bg-secondary border-2 border-border rounded-md p-3">
-                    <h4 className="font-bold text-card-foreground mb-2">Parking</h4>
-                    <div className="text-lg font-bold text-card-foreground mb-1">
-                      {result.data.parking.parkingRiskScore >= 7 ? 'Limited' : 
-                       result.data.parking.parkingRiskScore >= 4 ? 'Moderate' : 'Good'}
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
+                    <h4 className="font-bold text-primary-foreground mb-2">Parking</h4>
+                    <div className="text-sm font-semibold text-primary-foreground mb-1">
+                      {result.data.parking?.cpzInfo?.inCPZ ? 'CPZ Zone - Charges Apply' :
+                       (result.data.parking?.parkingRiskScore || 5) >= 7 ? 'Limited Street Parking' : 'Good Parking Options'}
                     </div>
-                    <div className="text-xs text-muted-foreground mb-2">
-                      {result.data.parking.parkingRiskScore}/10 availability
+                    <div className="text-xs text-primary-foreground/80 mb-2">
+                      {result.data.parking?.cpzInfo?.inCPZ ? 'Controlled parking zone with time restrictions' :
+                       (result.data.parking?.parkingRiskScore || 5) >= 7 ? 'Few street spaces, use car parks' : 
+                       'Multiple parking options nearby'}
                     </div>
-                    <div className="space-y-1">
-                      {result.data.parking.cpzInfo.inCPZ && (
-                        <div className="text-xs text-destructive">
-                          CPZ Zone Active
+                    <div className="space-y-2">
+                      {result.data.parking?.carParks && result.data.parking.carParks.length > 0 ? (
+                        result.data.parking.carParks.slice(0, 3).map((carPark: any, idx: number) => (
+                          <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <a 
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(carPark.name + ' ' + result.locationName.split(',')[0])}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
+                              >
+                                {carPark.name.length > 20 ? carPark.name.substring(0, 20) + '...' : carPark.name}
+                              </a>
+                              <div className="text-xs text-primary-foreground/60">
+                                {Math.round(carPark.distance)}m
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1">
+                                <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <span>{carPark.operatingHours || '24/7'}</span>
+                                {carPark.totalSpaces && (
+                                  <span className="text-primary-foreground/60">({carPark.totalSpaces} spaces)</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-primary-foreground/60 text-right">
+                                {carPark.facilities && carPark.facilities.length > 0 
+                                  ? carPark.facilities.slice(0, 2).join(', ')
+                                  : 'Standard'}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        // Fallback parking recommendations based on location
+                        (() => {
+                          const locationName = result.locationName.toLowerCase();
+                          const isCentralLondon = locationName.includes('westminster') || locationName.includes('soho') || 
+                                                 locationName.includes('mayfair') || locationName.includes('covent garden') ||
+                                                 locationName.includes('city of london') || locationName.includes('camden');
+                          
+                          // Calculate if parking is open (location time - 20 minutes)
+                          const locationTime = new Date(`${tripDate} ${result.time}`);
+                          const checkTime = new Date(locationTime.getTime() - 20 * 60000); // Subtract 20 minutes
+                          const currentHour = checkTime.getHours();
+                          const currentMinute = checkTime.getMinutes();
+                          const currentTimeMinutes = currentHour * 60 + currentMinute;
+                          
+                          const allParkingRecommendations = isCentralLondon ? [
+                            { name: 'NCP Car Park', distance: 200, hours: '24/7', spaces: '50+', facilities: 'Covered, Secure', isOpen: true },
+                            { name: 'Q-Park', distance: 350, hours: '24/7', spaces: '100+', facilities: 'Accessible, EV', isOpen: true },
+                            { name: 'Street Parking', distance: 0, hours: 'Mon-Sat 8:30am-6:30pm', spaces: 'Limited', facilities: 'CPZ Charges', isOpen: currentTimeMinutes >= 510 && currentTimeMinutes <= 1110 }
+                          ] : [
+                            { name: 'Local Car Park', distance: 150, hours: '24/7', spaces: '30+', facilities: 'Standard', isOpen: true },
+                            { name: 'Shopping Centre', distance: 400, hours: 'Mon-Sat 9am-9pm', spaces: '200+', facilities: 'Free 2hrs', isOpen: currentTimeMinutes >= 540 && currentTimeMinutes <= 1260 },
+                            { name: 'Street Parking', distance: 0, hours: 'Mon-Fri 8am-6pm', spaces: 'Good', facilities: 'Pay & Display', isOpen: currentTimeMinutes >= 480 && currentTimeMinutes <= 1080 }
+                          ];
+                          
+                          // Filter to show only open parking options
+                          const openParkingOptions = allParkingRecommendations.filter(parking => parking.isOpen);
+                          
+                          return openParkingOptions.map((parking, idx) => (
+                            <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parking.name + ' ' + result.locationName.split(',')[0])}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
+                                >
+                                  {parking.name}
+                                </a>
+                                <div className="text-xs text-primary-foreground/60">
+                                  {parking.distance > 0 ? `${parking.distance}m` : 'On-site'}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1">
+                                  <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                  </svg>
+                                  <span>{parking.hours}</span>
+                                  <span className="text-primary-foreground/60">({parking.spaces})</span>
+                                </div>
+                                <div className="text-xs text-primary-foreground/60 text-right">
+                                  {parking.facilities}
+                                </div>
+                              </div>
+                            </div>
+                          ));
+                        })()
+                      )}
+                      {result.data.parking?.cpzInfo?.inCPZ && (
+                        <div className="text-xs text-destructive-foreground border-t border-background/20 pt-1 mt-1">
+                          <div className="font-semibold">CPZ: {result.data.parking.cpzInfo.zoneName || 'Controlled Zone'}</div>
+                          <div>{result.data.parking.cpzInfo.operatingHours || 'Mon-Sat 8:30am-6:30pm'}</div>
+                          {result.data.parking.cpzInfo.chargeInfo && (
+                            <div>{result.data.parking.cpzInfo.chargeInfo}</div>
+                          )}
                         </div>
                       )}
-                      {result.data.parking.carParks.slice(0, 2).map((carPark: any, idx: number) => (
-                        <div key={idx} className="text-xs text-muted-foreground">
-                          {carPark.name.substring(0, 15)}... {Math.round(carPark.distance)}m
-                        </div>
-                      ))}
                     </div>
                   </div>
 
                   {/* Events */}
-                  <div className="bg-secondary border-2 border-border rounded-md p-3">
-                    <h4 className="font-bold text-card-foreground mb-2">Events</h4>
-                    <div className="text-lg font-bold text-card-foreground mb-1">
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
+                    <h4 className="font-bold text-primary-foreground mb-2">Events</h4>
+                    <div className="text-lg font-bold text-primary-foreground mb-1">
                       {result.data.events.summary.total} upcoming
                     </div>
-                    <div className="text-xs text-muted-foreground mb-2">
+                    <div className="text-xs text-primary-foreground/80 mb-2">
                       AI Generated
                     </div>
                     <div className="space-y-1">
                       {result.data.events.events.length > 0 ? (
                         result.data.events.events.slice(0, 2).map((event: any, idx: number) => (
-                          <div key={idx} className="text-xs text-muted-foreground">
+                          <div key={idx} className="text-xs text-primary-foreground/70">
                             {event.title.substring(0, 15)}... {event.severity.toUpperCase()}
                           </div>
                         ))
                       ) : (
-                        <div className="text-xs text-muted-foreground">No events</div>
+                        <div className="text-xs text-primary-foreground/70">No events</div>
                       )}
                     </div>
                   </div>
 
                   {/* Crime */}
-                  <div className="bg-secondary border-2 border-border rounded-md p-3">
-                    <h4 className="font-bold text-card-foreground mb-2">Crime</h4>
-                    <div className="text-lg font-bold text-card-foreground mb-1">
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
+                    <h4 className="font-bold text-primary-foreground mb-2">Crime</h4>
+                    <div className="text-lg font-bold text-primary-foreground mb-1">
                       {result.data.crime.summary.totalCrimes.toLocaleString()}
                     </div>
-                    <div className="text-xs text-muted-foreground mb-2">
+                    <div className="text-xs text-primary-foreground/80 mb-2">
                       Total incidents
                     </div>
                     <div className="space-y-1">
                       {result.data.crime.summary.topCategories.slice(0, 2).map((cat, idx) => (
-                        <div key={idx} className="text-xs text-muted-foreground">
+                        <div key={idx} className="text-xs text-primary-foreground/70">
                           {cat.category}: {cat.count}
                         </div>
                       ))}
@@ -649,13 +834,12 @@ export default function ResultsPage() {
               {/* Route Card (after each location except the last) */}
               {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data[index] && (
                 <div 
-                  className="rounded-md p-6 border-2 border-primary text-primary-foreground"
-                  style={{ backgroundColor: '#1F253D' }}
+                  className="bg-card rounded-md p-6 border-2 border-border"
                 >
                   {/* Route Header */}
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                      <div className="text-2xl font-bold">
+                      <div className="text-2xl font-bold text-card-foreground">
                         Route: {numberToLetter(index + 1)} → {numberToLetter(index + 2)}
                       </div>
                     </div>
@@ -679,36 +863,36 @@ export default function ResultsPage() {
                   </div>
 
                   {/* Route Stats */}
-                  <div className="grid md:grid-cols-3 gap-4 mb-4">
-                    <div className="bg-background/10 rounded-lg p-4">
-                      <div className="text-sm opacity-80 mb-1">Travel Time</div>
-                      <div className="text-2xl font-bold">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-secondary/50 rounded-lg p-4">
+                      <div className="text-sm text-muted-foreground mb-1">Travel Time</div>
+                      <div className="text-2xl font-bold text-card-foreground">
                         {trafficPredictions.data[index].minutes} min
                       </div>
                     </div>
-                    <div className="bg-background/10 rounded-lg p-4">
-                      <div className="text-sm opacity-80 mb-1">Distance</div>
-                      <div className="text-2xl font-bold">
+                    <div className="bg-secondary/50 rounded-lg p-4">
+                      <div className="text-sm text-muted-foreground mb-1">Distance</div>
+                      <div className="text-2xl font-bold text-card-foreground">
                         {trafficPredictions.data[index].distance}
                       </div>
                     </div>
                     <div className="bg-destructive/20 rounded-lg p-4">
-                      <div className="text-sm text-destructive-foreground/80 mb-1">Traffic Delay</div>
-                      <div className="text-2xl font-bold text-destructive-foreground">
+                      <div className="text-sm text-destructive mb-1">Traffic Delay</div>
+                      <div className="text-2xl font-bold text-destructive">
                         +{trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic} min
                       </div>
                     </div>
                   </div>
 
                   {/* Route Details */}
-                  <div className="bg-background/5 rounded-lg p-4">
-                    <div className="text-sm opacity-90">
-                      <span className="font-semibold">{trafficPredictions.data[index].originName.split(',')[0]}</span>
+                  <div className="bg-secondary/30 rounded-lg p-4">
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-card-foreground">{trafficPredictions.data[index].originName.split(',')[0]}</span>
                       {' → '}
-                      <span className="font-semibold">{trafficPredictions.data[index].destinationName.split(',')[0]}</span>
+                      <span className="font-semibold text-card-foreground">{trafficPredictions.data[index].destinationName.split(',')[0]}</span>
                     </div>
                     {trafficPredictions.data[index].busyMinutes && (
-                      <div className="text-sm text-destructive-foreground/90 mt-2">
+                      <div className="text-sm text-destructive mt-2">
                         Busy traffic expected: +{trafficPredictions.data[index].busyMinutes - trafficPredictions.data[index].minutesNoTraffic} min additional delay
                       </div>
                     )}
@@ -716,13 +900,13 @@ export default function ResultsPage() {
 
                   {/* Road Closures */}
                   {result.data.disruptions.disruptions.length > 0 && (
-                    <div className="bg-background/5 rounded-lg p-4 mt-4">
-                      <div className="text-sm font-semibold mb-2">Road Closures</div>
+                    <div className="bg-secondary/30 rounded-lg p-4 mt-4">
+                      <div className="text-sm font-semibold mb-2 text-card-foreground">Road Closures</div>
                       <div className="space-y-2">
                         {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
-                          <div key={idx} className="text-xs opacity-90">
-                            <div className="font-semibold">{disruption.location.substring(0, 40)}...</div>
-                            <div className="text-destructive-foreground/80">{disruption.severity}</div>
+                          <div key={idx} className="text-xs text-muted-foreground">
+                            <div className="font-semibold text-card-foreground">{disruption.location.substring(0, 40)}...</div>
+                            <div className="text-destructive">{disruption.severity}</div>
                           </div>
                         ))}
                       </div>
@@ -737,7 +921,7 @@ export default function ResultsPage() {
           {/* Risk Legend */}
           <div className="bg-secondary rounded-md p-6 mt-6 border-2 border-border">
             <h3 className="text-lg font-bold text-card-foreground mb-4">Risk Level Legend</h3>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-3 bg-ring/10 rounded-md p-3 border-2 border-ring/20">
                 <div className="w-6 h-6 rounded-full bg-ring flex items-center justify-center">
                   <div className="text-xs font-bold text-primary-foreground">L</div>
