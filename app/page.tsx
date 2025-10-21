@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
+import GoogleTripMap from '@/components/GoogleTripMap';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -216,7 +217,7 @@ function SortableLocationItem({
   const getTimeLabel = () => {
     if (index === 0) return 'Pickup time';
     if (index === totalLocations - 1) return 'Dropoff time';
-    return 'Resume';
+    return 'Resume at';
   };
 
   return (
@@ -312,6 +313,7 @@ export default function Home() {
   
   // Multi-location trip state
   const [tripDate, setTripDate] = useState<Date | undefined>(undefined);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Array<{
@@ -322,11 +324,13 @@ export default function Home() {
     time: string;
   }>>([
     { id: '1', name: '', lat: 0, lng: 0, time: '09:00' },
-    { id: '2', name: '', lat: 0, lng: 0, time: '12:00' },
-    { id: '3', name: '', lat: 0, lng: 0, time: '15:00' },
+    { id: '2', name: '', lat: 0, lng: 0, time: '17:00' },
   ]);
   const [loadingTrip, setLoadingTrip] = useState(false);
   const [locationsReordered, setLocationsReordered] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0); // Smooth progress 0-100
+  const [tripId, setTripId] = useState<string | null>(null); // Store trip ID for manual navigation
   const [loadingSteps, setLoadingSteps] = useState<Array<{
     id: string;
     title: string;
@@ -581,8 +585,9 @@ export default function Home() {
     // Initialize loading steps
     const steps = generateLoadingSteps(validLocations);
     setLoadingSteps(steps);
+    setLoadingProgress(0);
 
-    // Simulate step-by-step loading with realistic timing
+    // Simulate step-by-step loading with realistic timing and smooth progress
     const simulateLoadingSteps = async () => {
       for (let i = 0; i < steps.length; i++) {
         // Mark current step as loading
@@ -590,18 +595,55 @@ export default function Home() {
           index === i ? { ...step, status: 'loading' } : step
         ));
 
-        // Wait 2-3 seconds for each step
-        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
+        // Calculate progress range for this step
+        const startProgress = (i / steps.length) * 100;
+        const endProgress = ((i + 1) / steps.length) * 100;
+        
+        // Variable duration for each step (2-3.5 seconds) to simulate different processing times
+        // Total target: ~10 seconds for all steps combined
+        const stepDurations = [2500, 3000, 2250, 2750, 3500, 2000, 3250, 2500]; // Faster durations
+        const baseDuration = stepDurations[i % stepDurations.length];
+        const stepDuration = baseDuration + Math.random() * 500;
+        
+        // Smoothly animate progress for this step with variable speed
+        const startTime = Date.now();
+        const animateProgress = () => {
+          const elapsed = Date.now() - startTime;
+          const stepProgress = Math.min(elapsed / stepDuration, 1);
+          
+          // Ease in-out curve for more natural feel
+          const eased = stepProgress < 0.5
+            ? 2 * stepProgress * stepProgress
+            : 1 - Math.pow(-2 * stepProgress + 2, 2) / 2;
+          
+          const currentProgress = startProgress + (endProgress - startProgress) * eased;
+          setLoadingProgress(currentProgress);
+          
+          if (stepProgress < 1) {
+            requestAnimationFrame(animateProgress);
+          }
+        };
+        
+        animateProgress();
+        
+        // Wait for step duration
+        await new Promise(resolve => setTimeout(resolve, stepDuration));
 
         // Mark current step as completed
         setLoadingSteps(prev => prev.map((step, index) => 
           index === i ? { ...step, status: 'completed' } : step
         ));
       }
+      
+      // Ensure we hit 100% at the end
+      setLoadingProgress(100);
     };
 
     // Start the loading simulation
     simulateLoadingSteps();
+
+    // Track when background process completes
+    let backgroundProcessComplete = false;
 
     try {
       const tripDateStr = tripDate ? tripDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
@@ -848,9 +890,34 @@ export default function Home() {
       console.log(`🔗 Trip ID: ${tripData.id}`);
       console.log(`📧 User email: ${userEmail}`);
 
-      // Redirect to shareable results page
-      console.log('🚀 Redirecting to shareable results page...');
-      router.push(`/results/${tripData.id}`);
+      // Store trip ID for manual navigation
+      setTripId(tripData.id);
+
+      // Mark background process as complete
+      backgroundProcessComplete = true;
+      console.log('✅ Background process complete');
+      
+      // Wait for visual animation to complete (ensure it reaches 100%)
+      console.log('🚀 Waiting for visual animation to complete...');
+      
+      const waitForCompletion = () => {
+        // Only redirect when BOTH conditions are met:
+        // 1. Background process is complete
+        // 2. Visual animation reaches 100%
+        if (backgroundProcessComplete && loadingProgress >= 100) {
+          console.log('✅ Both background process and visual animation complete, redirecting...');
+          // Small delay to show the green completion state
+          setTimeout(() => {
+            router.push(`/results/${tripData.id}`);
+          }, 500);
+        } else {
+          console.log(`Background complete: ${backgroundProcessComplete}, Progress: ${loadingProgress}%`);
+          setTimeout(waitForCompletion, 100);
+        }
+      };
+      
+      // Start checking for completion
+      setTimeout(waitForCompletion, 100);
 
     } catch (err) {
       console.error('❌ Error:', err);
@@ -1014,13 +1081,13 @@ export default function Home() {
           </div>
 
           {/* Trip Date and City Selector */}
-          <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#1F253D' }}>
+          <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="tripDate" className="block text-sm font-bold text-primary-foreground mb-2">
                   Trip Date
                 </label>
-                <Popover>
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -1038,7 +1105,10 @@ export default function Home() {
                     <Calendar
                       mode="single"
                       selected={tripDate}
-                      onSelect={setTripDate}
+                      onSelect={(date) => {
+                        setTripDate(date);
+                        setDatePickerOpen(false);
+                      }}
                       disabled={(date) => {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
@@ -1113,28 +1183,41 @@ export default function Home() {
             </Alert>
           )}
 
-          {/* Add Location & Analyze Buttons */}
-          <div className="flex gap-3">
-            <Button
-              onClick={addLocation}
-              variant="outline"
-              size="lg"
-              className="flex-1 sm:flex-initial border-dashed"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Location
-            </Button>
+           {/* Add Location, View Map & Analyze Buttons */}
+           <div className="flex gap-3">
+             <Button
+               onClick={addLocation}
+               variant="outline"
+               size="lg"
+               className="flex-1 sm:flex-initial border-dashed"
+             >
+               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+               </svg>
+               Add Location
+             </Button>
 
-            <Button
-              onClick={handleTripSubmit}
-              disabled={loadingTrip || !userEmail.trim() || !!emailError || locations.filter(l => l.name).length === 0}
-              variant={locationsReordered ? "destructive" : "default"}
-              size="lg"
-              className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
-              style={{ backgroundColor: '#1F253D', color: '#FFFFFF' }}
-            >
+             <Button
+               onClick={() => setMapOpen(true)}
+               variant="outline"
+               size="lg"
+               className="flex-1 sm:flex-initial"
+               disabled={locations.filter(l => l.name).length < 2}
+             >
+               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+               </svg>
+               View Map
+             </Button>
+
+             <Button
+               onClick={handleTripSubmit}
+               disabled={loadingTrip || !userEmail.trim() || !!emailError || locations.filter(l => l.name).length === 0}
+               variant={locationsReordered ? "destructive" : "default"}
+               size="lg"
+               className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
+               style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+             >
               {loadingTrip ? (
                 <>
                   <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -1152,79 +1235,226 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Professional Loading State - Vertical Carousel */}
+        {/* Professional Loading State - Overlay Modal */}
         {loadingTrip && (
-          <Card className="mb-8 shadow-xl">
-            <CardContent className="p-8">
-              {/* Vertical Carousel - Single Active Card */}
-              <div className="relative h-48 overflow-hidden">
-                {loadingSteps.map((step, index) => {
-                  const isActive = step.status === 'loading';
-                  const isCompleted = step.status === 'completed';
-                  const isPending = step.status === 'pending';
-                  
-                  return (
-                    <div
-                      key={step.id}
-                      className={`absolute inset-0 transition-all duration-700 ease-in-out ${
-                        isActive 
-                          ? 'opacity-100 translate-y-0' 
-                          : isCompleted 
-                            ? 'opacity-0 -translate-y-full pointer-events-none' 
-                            : 'opacity-0 translate-y-full pointer-events-none'
-                      }`}
-                    >
-                      <div className="flex items-start gap-6 p-6 rounded-md border-2 border-border bg-card">
-                        {/* Status Icon */}
-                        <div className="flex-shrink-0 mt-1">
-                          {isActive && (
-                            <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-                          )}
-                          {isCompleted && (
-                            <div className="w-12 h-12 rounded-full bg-ring flex items-center justify-center">
-                              <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Step Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-4 mb-3">
-                            <h4 className="text-lg font-bold text-card-foreground leading-tight">
-                              {step.title}
-                            </h4>
-                            <span className="text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0">
-                              {step.source}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            {step.description}
-                          </p>
-                          
-                          {/* Progress indicator */}
-                          <div className="mt-4 flex items-center gap-2">
-                            <div className="text-xs font-medium text-muted-foreground">
-                              Step {loadingSteps.filter(s => s.status === 'completed').length + 1} of {loadingSteps.length}
-                            </div>
-                            <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-primary transition-all duration-700 ease-out"
-                                style={{ 
-                                  width: `${((loadingSteps.filter(s => s.status === 'completed').length) / loadingSteps.length) * 100}%` 
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-300">
+              <CardContent className="p-8">
+                <div className="space-y-8">
+                  {/* Circular Progress Indicator */}
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-32 h-32">
+                      {/* Background Circle */}
+                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          fill="none"
+                          className="text-secondary"
+                        />
+                        {/* Progress Circle */}
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          fill="none"
+                          strokeDasharray="339.292"
+                          strokeDashoffset={339.292 * (1 - loadingProgress / 100)}
+                          className={loadingProgress >= 100 ? "text-green-500" : "text-primary"}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      {/* Percentage Text */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-3xl font-bold">
+                          {Math.round(loadingProgress)}%
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="text-center">
+                      <h3 className="text-xl font-semibold mb-1">Analyzing Your Trip</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {loadingSteps.filter(s => s.status === 'completed').length} of {loadingSteps.length} steps completed
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Steps List - Carousel View or Completion View */}
+                  <div className="relative h-[280px] overflow-hidden">
+                    {loadingProgress >= 100 ? (
+                      // Completion View - Show all completed steps with View Report button
+                      <div className="space-y-4">
+                        <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
+                          {loadingSteps.map((step, index) => (
+                            <div
+                              key={step.id}
+                              className="flex items-start gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5"
+                            >
+                              {/* Completed Icon */}
+                              <div className="flex-shrink-0 mt-0.5">
+                                <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              </div>
+                              
+                              {/* Step Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h4 className="text-sm font-semibold" style={{ color: '#05060A' }}>
+                                    {step.title}
+                                  </h4>
+                                  <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
+                                    {step.source}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* View Report Button */}
+                        <div className="flex justify-center pt-6">
+                          <Button
+                            onClick={() => {
+                              if (tripId) {
+                                console.log('View Report clicked - redirecting to results...');
+                                router.push(`/results/${tripId}`);
+                              } else {
+                                console.log('Trip ID not available yet');
+                              }
+                            }}
+                            size="lg"
+                            className="px-6 py-3 font-semibold"
+                            style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                            disabled={!tripId}
+                          >
+                            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            View Report
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      // Carousel View - Show current and previous steps only
+                      loadingSteps.map((step, index) => {
+                      const isActive = step.status === 'loading';
+                      const isCompleted = step.status === 'completed';
+                      const isPending = step.status === 'pending';
+                      
+                      // Calculate position relative to active step
+                      const activeIndex = loadingSteps.findIndex(s => s.status === 'loading');
+                      const position = index - activeIndex;
+                      
+                      // Determine visibility and styling
+                      let transform = '';
+                      let opacity = 0;
+                      let scale = 0.85;
+                      let zIndex = 0;
+                      let blur = 'blur(4px)';
+                      
+                      if (position === 0) {
+                        // Active step - center
+                        transform = 'translateY(0)';
+                        opacity = 1;
+                        scale = 1;
+                        zIndex = 30;
+                        blur = 'blur(0)';
+                      } else if (position === -1) {
+                        // Previous step - above (watermarked)
+                        transform = 'translateY(-90px)';
+                        opacity = 0.3;
+                        scale = 0.9;
+                        zIndex = 20;
+                        blur = 'blur(2px)';
+                      } else if (position === 1) {
+                        // Next step - hide completely (no watermark)
+                        transform = 'translateY(120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
+                      } else if (position < -1) {
+                        // Steps further above
+                        transform = 'translateY(-120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
+                      } else {
+                        // Steps further below
+                        transform = 'translateY(120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
+                      }
+                      
+                      return (
+                        <div
+                          key={step.id}
+                          className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out"
+                          style={{
+                            transform: `${transform} scale(${scale})`,
+                            opacity: opacity,
+                            zIndex: zIndex,
+                            filter: blur
+                          }}
+                        >
+                          <div
+                            className={`flex items-start gap-4 p-4 rounded-lg border-2 ${
+                              isActive 
+                                ? 'border-primary bg-primary/10' 
+                                : isCompleted
+                                  ? 'border-green-500/30 bg-green-500/5'
+                                  : 'border-border bg-muted/30'
+                            }`}
+                          >
+                            {/* Status Icon */}
+                            <div className="flex-shrink-0 mt-0.5">
+                              {isPending && (
+                                <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
+                              )}
+                              {isActive && (
+                                <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                              )}
+                              {isCompleted && (
+                                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Step Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <h4 className={`text-base font-semibold ${isActive ? 'text-primary' : ''}`}>
+                                  {step.title}
+                                </h4>
+                                <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
+                                  {step.source}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {step.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Error State */}
@@ -1237,6 +1467,49 @@ export default function Home() {
               <strong>Error Loading Data:</strong> {error}
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Map Popup */}
+        {mapOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg shadow-xl w-full max-w-4xl h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold">Route Map</h3>
+                <Button
+                  onClick={() => setMapOpen(false)}
+                  variant="ghost"
+                  size="sm"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
+              </div>
+              <div className="flex-1 p-4">
+                {locations.filter(l => l.name && l.lat !== 0 && l.lng !== 0).length > 0 ? (
+                  <div className="w-full h-full">
+                    <GoogleTripMap 
+                      locations={locations.filter(l => l.name && l.lat !== 0 && l.lng !== 0)}
+                      height="100%"
+                      compact={false}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-muted rounded-md flex items-center justify-center">
+                    <div className="text-center">
+                      <svg className="w-16 h-16 text-muted-foreground mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                      <p className="text-muted-foreground">Please select at least one location to view the map</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {locations.filter(l => l.name).length} location(s) selected
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
       </div>
