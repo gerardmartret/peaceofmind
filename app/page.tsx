@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
-import GoogleTripMap from '@/components/GoogleTripMap';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -947,15 +946,41 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen p-4 sm:p-8" style={{ backgroundColor: '#FBFAF9' }}>
+    <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           {/* Logo and Title */}
-          <div className="text-center mb-6">
-            <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
-              My Roadshow Planner
-            </h1>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <img src="/Logo.png" alt="My Roadshow Planner Logo" className="h-12 w-auto" />
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
+                My Roadshow Planner
+              </h1>
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <p className="text-muted-foreground text-lg mb-3">
+              Plan Your London Trip with Safety, Traffic, Weather & Top Cafes
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
+                <span>Crime</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
+                <span>Traffic</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
+                <span>Weather</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
+                <span>Cafes</span>
+              </div>
+              <div className="inline-flex items-center gap-2 bg-ring/20 text-ring px-3 py-1.5 rounded-md text-xs font-semibold border-2 border-ring">
+                <span>100% FREE</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -969,9 +994,9 @@ export default function Home() {
           </p>
           
           {/* User Email - Required Field */}
-          <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#D4D4DD' }}>
+          <div className="bg-ring/10 border-2 border-ring rounded-md p-4 mb-6">
             <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground mb-2">
-              Your Email <span style={{ color: '#1F253D' }}>*</span> (required to analyze)
+              Your Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
             </label>
             <Input
               type="email"
@@ -987,10 +1012,10 @@ export default function Home() {
           </div>
 
           {/* Trip Date and City Selector */}
-          <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#F4F2EE' }}>
+          <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#1F253D' }}>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="tripDate" className="block text-sm font-bold text-card-foreground mb-2">
+                <label htmlFor="tripDate" className="block text-sm font-bold text-primary-foreground mb-2">
                   Trip Date
                 </label>
                 <Input
@@ -1002,7 +1027,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label htmlFor="citySelect" className="block text-sm font-bold text-card-foreground mb-2">
+                <label htmlFor="citySelect" className="block text-sm font-bold text-primary-foreground mb-2">
                   City
                 </label>
                 <Select defaultValue="london">
@@ -1063,30 +1088,6 @@ export default function Home() {
             </Alert>
           )}
 
-          {/* Trip Map */}
-          {locations.filter(loc => loc.name && loc.lat && loc.lng).length > 0 && (
-            <div className="bg-card border border-border rounded-md p-6 mb-6">
-              <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-                Your Trip Route
-              </h2>
-              <GoogleTripMap
-                locations={locations
-                  .filter(loc => loc.name && loc.lat && loc.lng)
-                  .map((location, index) => ({
-                    id: location.id,
-                    name: location.name,
-                    lat: location.lat,
-                    lng: location.lng,
-                    time: location.time
-                  }))}
-                height="400px"
-              />
-            </div>
-          )}
-
           {/* Add Location & Analyze Buttons */}
           <div className="flex gap-3">
             <Button
@@ -1107,7 +1108,7 @@ export default function Home() {
               variant={locationsReordered ? "destructive" : "default"}
               size="lg"
               className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
-              style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+              style={{ backgroundColor: '#1F253D', color: '#FFFFFF' }}
             >
               {loadingTrip ? (
                 <>
