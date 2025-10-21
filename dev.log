@@ -1,0 +1,20 @@
+
+> peaceofmind@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.5.4 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://127.0.2.2:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 684ms
+ ○ Compiling /api/executive-report ...
+ ✓ Compiled /api/executive-report in 724ms
+
+🔍 Generating Executive Report...
+📍 Processing 1 location(s)
+📊 Analyzing trip data for executive report...
+✅ Executive report generated successfully
+🎯 Trip Risk Score: 0.3/10
+ POST /api/executive-report 200 in 1028ms

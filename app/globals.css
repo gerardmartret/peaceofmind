@@ -119,3 +119,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes slideArrow {
+  0% {
+    transform: translateX(-8px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(8px);
+    opacity: 1;
+  }
+}

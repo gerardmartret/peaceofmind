@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
@@ -199,6 +200,64 @@ export default function ResultsPage() {
   const [tripData, setTripData] = useState<TripData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const [editingLocationName, setEditingLocationName] = useState<string>('');
+  const [locationDisplayNames, setLocationDisplayNames] = useState<{[key: string]: string}>({});
+  const [expandedLocations, setExpandedLocations] = useState<{[key: string]: boolean}>({});
+  const [expandedRoutes, setExpandedRoutes] = useState<{[key: string]: boolean}>({});
+
+  const handleEditLocationName = (locationId: string, currentName: string) => {
+    setEditingLocationId(locationId);
+    // Get the current display name or use the first part of the full address
+    const currentDisplayName = locationDisplayNames[locationId] || currentName.split(',')[0];
+    setEditingLocationName(currentDisplayName);
+  };
+
+  const handleSaveLocationName = async (locationId: string) => {
+    if (!editingLocationName.trim()) {
+      setEditingLocationId(null);
+      setEditingLocationName('');
+      return;
+    }
+
+    try {
+      // Update only the display name, keep the original full address unchanged
+      setLocationDisplayNames(prev => ({
+        ...prev,
+        [locationId]: editingLocationName.trim()
+      }));
+
+      setEditingLocationId(null);
+      setEditingLocationName('');
+    } catch (error) {
+      console.error('Error saving location name:', error);
+      setEditingLocationId(null);
+      setEditingLocationName('');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent, locationId: string) => {
+    if (e.key === 'Enter') {
+      handleSaveLocationName(locationId);
+    } else if (e.key === 'Escape') {
+      setEditingLocationId(null);
+      setEditingLocationName('');
+    }
+  };
+
+  const toggleLocationExpansion = (locationId: string) => {
+    setExpandedLocations(prev => ({
+      ...prev,
+      [locationId]: !prev[locationId]
+    }));
+  };
+
+  const toggleRouteExpansion = (routeId: string) => {
+    setExpandedRoutes(prev => ({
+      ...prev,
+      [routeId]: !prev[routeId]
+    }));
+  };
 
   useEffect(() => {
     async function loadTripFromDatabase() {
@@ -351,23 +410,23 @@ export default function ResultsPage() {
                 <div className="text-center">
                   <div className="text-sm text-muted-foreground mb-1">Trip Risk Score</div>
                   <div className={`text-6xl font-bold ${
-                    executiveReport.tripRiskScore <= 3 ? 'text-ring' :
-                    executiveReport.tripRiskScore <= 6 ? 'text-muted-foreground' :
-                    executiveReport.tripRiskScore <= 8 ? 'text-destructive/80' :
+                    Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'text-ring' :
+                    Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'text-muted-foreground' :
+                    Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'text-destructive/80' :
                     'text-destructive'
                   }`}>
-                    {executiveReport.tripRiskScore}
+                    {Math.max(0, executiveReport.tripRiskScore)}
                     <span className="text-3xl text-muted-foreground">/10</span>
                   </div>
                   <div className={`text-xs font-semibold mt-1 ${
-                    executiveReport.tripRiskScore <= 3 ? 'text-ring' :
-                    executiveReport.tripRiskScore <= 6 ? 'text-muted-foreground' :
-                    executiveReport.tripRiskScore <= 8 ? 'text-destructive/80' :
+                    Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'text-ring' :
+                    Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'text-muted-foreground' :
+                    Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'text-destructive/80' :
                     'text-destructive'
                   }`}>
-                    {executiveReport.tripRiskScore <= 3 ? 'LOW RISK' :
-                     executiveReport.tripRiskScore <= 6 ? 'MODERATE RISK' :
-                     executiveReport.tripRiskScore <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                    {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                     Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                     Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
                   </div>
                 </div>
               </div>
@@ -489,11 +548,12 @@ export default function ResultsPage() {
           )}
 
           {/* Map View */}
-          <div className="bg-card border border-border rounded-md p-6 mb-6">
+          <div className="bg-card border border-border rounded-md p-6 mb-6" style={{ overflowAnchor: 'auto' }}>
             <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
               Your Trip Map
               <span className="text-sm font-normal text-muted-foreground">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
             </h2>
+            <div style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden', perspective: '1000px' }}>
             <GoogleTripMap 
               locations={tripResults.map((result, index) => {
                 const location = locations.find(l => l.id === result.locationId);
@@ -507,36 +567,191 @@ export default function ResultsPage() {
                 };
               })}
             />
+            </div>
           </div>
 
           {/* Chronological Journey Flow */}
-          <div className="space-y-6">
+          <div className="space-y-6" style={{ overflowAnchor: 'none' }}>
             {tripResults.map((result, index) => (
               <React.Fragment key={result.locationId}>
-              <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#1F253D' }}>
+              <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
                 {/* Header with Full Address */}
-                <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-border">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border" style={{ borderBottomWidth: '0.5px' }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
-                      {numberToLetter(index + 1)}
+                    <div className="relative" style={{ width: '40px', height: '50px' }}>
+                      <svg 
+                        viewBox="0 0 24 24" 
+                        fill="white" 
+                        stroke="#05060A" 
+                        strokeWidth="1.5"
+                        style={{ width: '100%', height: '100%' }}
+                      >
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '6px' }}>
+                        <span className="font-bold text-sm" style={{ color: '#05060A' }}>
+                          {numberToLetter(index + 1)}
+                        </span>
+                      </div>
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h3 className="text-xl font-bold text-primary-foreground">
-                        {result.locationName.split(',')[0]}
+                        <span className="text-primary-foreground/60">
+                          {index === 0 ? 'Pick up at' : index === tripResults.length - 1 ? 'Drop off at' : 'Resume at'}
+                        </span>
+                        {' '}
+                        {result.time}H
                       </h3>
-                      <p className="text-sm text-primary-foreground/80">
+                      
+                      {/* Editable Shortcut Name */}
+                      {editingLocationId === result.locationId ? (
+                        <Input
+                          value={editingLocationName}
+                          onChange={(e) => setEditingLocationName(e.target.value)}
+                          onKeyDown={(e) => handleKeyPress(e, result.locationId)}
+                          onBlur={() => handleSaveLocationName(result.locationId)}
+                          className="text-base font-semibold bg-background/20 border-primary-foreground/30 text-primary-foreground mt-1 mb-1"
+                          placeholder="Enter location shortcut"
+                          autoFocus
+                        />
+                      ) : (
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-base font-semibold text-primary-foreground">
+                            {locationDisplayNames[result.locationId] || result.locationName.split(',')[0]}
+                          </p>
+                          <button
+                            onClick={() => handleEditLocationName(result.locationId, result.locationName)}
+                            className="flex items-center gap-1 px-2 py-1 hover:bg-background/20 rounded transition-colors"
+                            title="Edit location shortcut"
+                          >
+                            <svg className="w-3 h-3 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span className="text-xs text-primary-foreground/70 hover:text-primary-foreground">Edit name</span>
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Full Address */}
+                      <p className="text-xs text-primary-foreground/70 mt-1">
                         {result.locationName}
                       </p>
-                      <p className="text-xs text-primary-foreground/70">
-                        {result.time} • {tripDate}
-                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    {/* Weather - Top Right */}
+                    <div className="flex items-center gap-3">
+                      {/* Weather Icon based on conditions */}
+                      {(() => {
+                        const rainyDays = result.data.weather.summary.rainyDays;
+                        const avgTemp = result.data.weather.summary.avgMaxTemp;
+                        
+                        // Determine weather icon
+                        if (avgTemp < 0) {
+                          // Snow
+                          return (
+                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v20M17 7l-5-5-5 5M17 17l-5 5-5-5M2 12h20M7 7l5 5 5-5M7 17l5-5 5 5" />
+                            </svg>
+                          );
+                        } else if (rainyDays >= 5) {
+                          // Heavy rain
+                          return (
+                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17l-1 4M12 17v4M16 17l1 4" />
+                            </svg>
+                          );
+                        } else if (rainyDays >= 2) {
+                          // Light rain
+                          return (
+                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17v4M16 17l1 4" />
+                            </svg>
+                          );
+                        } else if (rainyDays >= 1) {
+                          // Cloudy
+                          return (
+                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                            </svg>
+                          );
+                        } else {
+                          // Sunny
+                          return (
+                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                          );
+                        }
+                      })()}
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary-foreground">
+                          {result.data.weather.summary.avgMaxTemp}°C
+                        </div>
+                        <div className="text-sm text-primary-foreground/80">
+                          {result.data.weather.summary.rainyDays > 0 
+                            ? `${result.data.weather.summary.rainyDays} rainy days`
+                            : 'Clear'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expand/Collapse Button */}
+                    <button
+                      onClick={() => toggleLocationExpansion(result.locationId)}
+                      className="p-2 hover:bg-background/20 rounded transition-colors"
+                      title={expandedLocations[result.locationId] ? "Collapse details" : "Expand details"}
+                    >
+                      <svg 
+                        className={`w-5 h-5 text-primary-foreground transition-transform ${expandedLocations[result.locationId] ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Collapsed Summary - Always Visible */}
+                <div 
+                  className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                    !expandedLocations[result.locationId] ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-sm text-primary-foreground/80 py-2">
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        <span>Safety: {result.data.crime.safetyScore}/100</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span>{result.data.cafes?.summary.total || 0} Cafes</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                        <span>{result.data.parking?.carParks?.length || 0} Parking</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-primary-foreground/60">
+                      Click to expand for full details
                     </div>
                   </div>
                 </div>
 
-                {/* All Information Cards - Responsive Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {/* Personal Safety */}
+                {/* All Information Cards - Single Row - Only when expanded */}
+                <div 
+                  className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                    expandedLocations[result.locationId] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                  {/* Traveller Safety */}
                   <div 
                     className="border-2 rounded-md p-3"
                     style={{
@@ -554,7 +769,7 @@ export default function ResultsPage() {
                       })()
                     }}
                   >
-                    <h4 className="font-bold text-primary-foreground mb-2">Personal Safety</h4>
+                    <h4 className="font-bold text-primary-foreground mb-2">Traveller Safety</h4>
                     <div className="flex items-center gap-2 mb-2">
                       {(() => {
                         const safetyScore = result.data.crime.safetyScore;
@@ -710,84 +925,32 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Weather */}
+                  {/* Potential Disruptive Events */}
                   <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-2">Weather</h4>
-                    <div className="flex items-center gap-2 mb-2">
-                      {/* Weather Icon based on conditions */}
-                      {(() => {
-                        const rainyDays = result.data.weather.summary.rainyDays;
-                        const avgTemp = result.data.weather.summary.avgMaxTemp;
-                        
-                        // Determine weather icon
-                        if (avgTemp < 0) {
-                          // Snow
-                          return (
-                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v20M17 7l-5-5-5 5M17 17l-5 5-5-5M2 12h20M7 7l5 5 5-5M7 17l5-5 5 5" />
-                            </svg>
-                          );
-                        } else if (rainyDays >= 5) {
-                          // Heavy rain
-                          return (
-                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17l-1 4M12 17v4M16 17l1 4" />
-                            </svg>
-                          );
-                        } else if (rainyDays >= 2) {
-                          // Light rain
-                          return (
-                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17v4M16 17l1 4" />
-                            </svg>
-                          );
-                        } else if (rainyDays >= 1) {
-                          // Cloudy
-                          return (
-                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                            </svg>
-                          );
-                        } else {
-                          // Sunny
-                          return (
-                            <svg className="w-6 h-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                          );
-                        }
-                      })()}
-                      <div className="flex-1">
-                        <div className="text-lg font-bold text-primary-foreground">
-                          {result.data.weather.summary.avgMaxTemp}°C
+                    <h4 className="font-bold text-primary-foreground mb-3">Potential Disruptive Events</h4>
+                    {result.data.events.events.length > 0 ? (
+                      <>
+                        <div className="space-y-2 mb-3">
+                          {result.data.events.events.slice(0, 3).map((event: any, idx: number) => (
+                            <div key={idx} className="text-xs text-primary-foreground/80">
+                              • {event.title}
+                            </div>
+                          ))}
                         </div>
-                        <div className="text-xs text-primary-foreground/80">
-                          {result.data.weather.summary.rainyDays > 0 
-                            ? `${result.data.weather.summary.rainyDays} rainy days`
-                            : 'Clear'}
+                        <div className="text-xs text-primary-foreground/70 italic pt-2 border-t border-primary-foreground/20">
+                          {result.data.events.summary.total === 1 
+                            ? 'This event will be in the area. It might affect the trip. Be aware.'
+                            : `These ${result.data.events.summary.total} events will be in the area. They might affect the trip. Be aware.`}
                         </div>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      {result.data.weather.forecast.slice(0, 2).map((day: any, idx: number) => (
-                        <div key={idx} className="text-xs text-primary-foreground/70">
-                          {day.minTemp}°-{day.maxTemp}°C
-                        </div>
-                      ))}
-                    </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-primary-foreground/70">No upcoming events</div>
+                    )}
                   </div>
 
-                  {/* Cafes */}
+                  {/* Nearby Cafes */}
                   <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-2">Cafes</h4>
-                    <div className="text-lg font-bold text-primary-foreground mb-1">
-                      {result.data.cafes?.summary.total || 0} nearby
-                    </div>
-                    <div className="text-xs text-primary-foreground/80 mb-2">
-                      Avg rating: {result.data.cafes?.summary.averageRating || 0}/5
-                    </div>
+                    <h4 className="font-bold text-primary-foreground mb-2">Nearby Cafes</h4>
                     <div className="space-y-2">
                       {result.data.cafes?.cafes && result.data.cafes.cafes.length > 0 ? (
                         result.data.cafes.cafes
@@ -841,9 +1004,9 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Parking */}
+                  {/* Nearby Parking Spaces */}
                   <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-2">Parking</h4>
+                    <h4 className="font-bold text-primary-foreground mb-2">Nearby Parking Spaces</h4>
                     <div className="text-sm font-semibold text-primary-foreground mb-1">
                       {result.data.parking?.cpzInfo?.inCPZ ? 'CPZ Zone - Charges Apply' :
                        (result.data.parking?.parkingRiskScore || 5) >= 7 ? 'Limited Street Parking' : 'Good Parking Options'}
@@ -959,29 +1122,7 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Upcoming Disruptive Events */}
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-3">Upcoming Disruptive Events</h4>
-                    {result.data.events.events.length > 0 ? (
-                      <>
-                        <div className="space-y-2 mb-3">
-                          {result.data.events.events.slice(0, 3).map((event: any, idx: number) => (
-                            <div key={idx} className="text-xs text-primary-foreground/80">
-                              • {event.title}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="text-xs text-primary-foreground/70 italic pt-2 border-t border-primary-foreground/20">
-                          {result.data.events.summary.total === 1 
-                            ? 'This event will be in the area. It might affect the trip. Be aware.'
-                            : `These ${result.data.events.summary.total} events will be in the area. They might affect the trip. Be aware.`}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-xs text-primary-foreground/70">No upcoming events</div>
-                    )}
                   </div>
-
                 </div>
               </div>
 
@@ -991,34 +1132,93 @@ export default function ResultsPage() {
                   className="bg-card rounded-md p-6 border-2 border-border"
                 >
                   {/* Route Header */}
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="text-2xl font-bold text-card-foreground">
-                        Route: {numberToLetter(index + 1)} → {numberToLetter(index + 2)}
+                      <div className="text-2xl font-bold text-card-foreground flex items-center gap-2">
+                        <span>Route: {numberToLetter(index + 1)}</span>
+                        <span 
+                          className="inline-block text-lg animate-[slideArrow_2s_ease-in-out_infinite]"
+                        >
+                          →
+                        </span>
+                        <span>{numberToLetter(index + 2)}</span>
                       </div>
                     </div>
-                    <div 
-                      className="px-4 py-2 rounded-lg font-semibold"
-                      style={{
-                        backgroundColor: (() => {
+                    <div className="flex items-center gap-4">
+                      <div 
+                        className="px-4 py-2 rounded-lg font-semibold"
+                        style={{
+                          backgroundColor: (() => {
+                            const leg = trafficPredictions.data[index];
+                            const delay = Math.max(0, leg.minutes - leg.minutesNoTraffic);
+                            if (delay < 5) return '#18815A'; // Brand green for low
+                            if (delay < 10) return '#D4915C'; // Professional orange for moderate
+                            return '#AD5252'; // Brand red for high
+                          })(),
+                          color: '#FFFFFF'
+                        }}
+                      >
+                        {(() => {
                           const leg = trafficPredictions.data[index];
-                          const delay = leg.minutes - leg.minutesNoTraffic;
-                          if (delay < 5) return '#18815A'; // Brand green for low
-                          if (delay < 10) return '#D4915C'; // Professional orange for moderate
-                          return '#AD5252'; // Brand red for high
-                        })(),
-                        color: '#FFFFFF'
-                      }}
-                    >
-                      {(() => {
-                        const leg = trafficPredictions.data[index];
-                        const delay = leg.minutes - leg.minutesNoTraffic;
-                        if (delay < 5) return 'Delay Risk: Low';
-                        if (delay < 10) return 'Delay Risk: Moderate';
-                        return 'Delay Risk: High';
-                      })()}
+                          const delay = Math.max(0, leg.minutes - leg.minutesNoTraffic);
+                          if (delay < 5) return 'Delay Risk: Low';
+                          if (delay < 10) return 'Delay Risk: Moderate';
+                          return 'Delay Risk: High';
+                        })()}
+                      </div>
+                      
+                      {/* Expand/Collapse Button */}
+                      <button
+                        onClick={() => toggleRouteExpansion(`route-${index}`)}
+                        className="p-2 hover:bg-secondary/50 rounded transition-colors"
+                        title={expandedRoutes[`route-${index}`] ? "Collapse details" : "Expand details"}
+                      >
+                        <svg 
+                          className={`w-5 h-5 text-card-foreground transition-transform ${expandedRoutes[`route-${index}`] ? 'rotate-180' : ''}`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
+                  
+                  {/* Collapsed Summary */}
+                  <div 
+                    className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                      !expandedRoutes[`route-${index}`] ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-sm text-muted-foreground py-2">
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-card-foreground font-semibold">Travel Time:</span>
+                          <span>{trafficPredictions.data[index].minutes} min</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-card-foreground font-semibold">Distance:</span>
+                          <span>{trafficPredictions.data[index].distance}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-card-foreground font-semibold">Delay:</span>
+                          <span>-{Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic)} min</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground/60">
+                        Click to expand for full details
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Expanded Details */}
+                  <div 
+                    className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                      expandedRoutes[`route-${index}`] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <div className="pt-2">
 
                   {/* Route Details */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1062,7 +1262,7 @@ export default function ResultsPage() {
                       </div>
                       {trafficPredictions.data[index].busyMinutes && (
                         <div className="text-sm text-destructive mt-3 pt-3 border-t border-border/30">
-                          Busy traffic expected: +{trafficPredictions.data[index].busyMinutes - trafficPredictions.data[index].minutesNoTraffic} min additional delay
+                          Busy traffic expected: -{Math.max(0, trafficPredictions.data[index].busyMinutes - trafficPredictions.data[index].minutesNoTraffic)} min additional delay
                         </div>
                       )}
                     </div>
@@ -1074,7 +1274,7 @@ export default function ResultsPage() {
                       className="rounded-lg p-4"
                       style={{
                         backgroundColor: (() => {
-                          const delay = trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic;
+                          const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
                           if (delay < 5) return 'rgba(24, 129, 90, 0.2)'; // Brand green with opacity
                           if (delay < 10) return 'rgba(212, 145, 92, 0.2)'; // Professional orange with opacity
                           return 'rgba(173, 82, 82, 0.2)'; // Brand red with opacity
@@ -1085,7 +1285,7 @@ export default function ResultsPage() {
                         className="text-sm mb-1"
                         style={{
                           color: (() => {
-                            const delay = trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic;
+                            const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
                             if (delay < 5) return '#18815A';
                             if (delay < 10) return '#D4915C';
                             return '#AD5252';
@@ -1098,14 +1298,14 @@ export default function ResultsPage() {
                         className="text-2xl font-bold"
                         style={{
                           color: (() => {
-                            const delay = trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic;
+                            const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
                             if (delay < 5) return '#18815A';
                             if (delay < 10) return '#D4915C';
                             return '#AD5252';
                           })()
                         }}
                       >
-                        +{trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic} min
+                        -{Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic)} min
                       </div>
                     </div>
                     <div className="bg-secondary/50 rounded-lg p-4">
@@ -1149,6 +1349,9 @@ export default function ResultsPage() {
                       </div>
                     </div>
                   )}
+                  
+                    </div>
+                  </div>
                 </div>
               )}
               </React.Fragment>

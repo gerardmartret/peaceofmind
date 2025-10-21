@@ -8,6 +8,9 @@ export async function POST(request: Request) {
 
     console.log('\n🔍 Generating Executive Report...');
     console.log(`📍 Processing ${tripData.length} location(s)`);
+    console.log(`📅 Trip Date: ${tripDate}`);
+    console.log(`📏 Route Distance: ${routeDistance}`);
+    console.log(`⏱️ Route Duration: ${routeDuration} minutes`);
     if (trafficPredictions) {
       console.log(`🚦 Including ${trafficPredictions.length} traffic prediction leg(s)`);
     }
@@ -20,6 +23,11 @@ export async function POST(request: Request) {
       trafficPredictions
     );
 
+    console.log('✅ Report generated successfully!');
+    console.log(`🎯 Trip Risk Score: ${report.tripRiskScore}/10`);
+    console.log(`📊 Highlights: ${report.highlights.length} items`);
+    console.log(`📍 Location Analysis: ${report.locationAnalysis.length} locations`);
+
     return NextResponse.json({
       success: true,
       data: report,
@@ -27,10 +35,12 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('❌ Error generating report:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to generate report',
+      details: error instanceof Error ? error.stack : String(error),
     }, { status: 500 });
   }
 }

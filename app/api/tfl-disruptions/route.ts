@@ -99,13 +99,25 @@ export async function GET(request: Request) {
     console.log('\n' + '='.repeat(60));
     console.log('✅ TfL disruptions data retrieval completed!\n');
 
+    // Simplify disruptions data to reduce response size
+    const simplifiedDisruptions = disruptions.slice(0, 50).map(d => ({
+      id: d.id,
+      location: d.location,
+      category: d.category,
+      severity: d.severity,
+      comments: d.comments,
+      startDateTime: d.startDateTime,
+      endDateTime: d.endDateTime,
+      // Omit large fields like geometry, streets, corridors to reduce payload
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
         district: locationName,
         timeframe: `${daysAhead} days`,
         isAreaFiltered: isFiltered,
-        disruptions: disruptions.slice(0, 50), // Limit to 50 for performance
+        disruptions: simplifiedDisruptions,
         analysis,
       },
       message: `Found ${disruptions.length} disruptions for ${locationName}`,

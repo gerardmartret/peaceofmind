@@ -113,7 +113,7 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [showTraffic, setShowTraffic] = useState(true);
+  const [showTraffic, setShowTraffic] = useState(false);
 
   const { isLoaded, loadError } = useGoogleMaps();
 
@@ -218,16 +218,11 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
   }, [isLoaded, locations]);
 
   const getMarkerColor = (safetyScore?: number): string => {
-    if (!safetyScore) return '#18815A'; // Your success/ring color
-    if (safetyScore >= 70) return '#18815A'; // Your success/ring color
-    if (safetyScore >= 50) return '#AD5252'; // Your destructive color (medium risk)
-    return '#AD5252'; // Your destructive color (high risk)
+    return '#05060A'; // Custom dark color for all markers
   };
 
   const getSafetyColor = (score: number): string => {
-    if (score >= 70) return '#18815A'; // Your success/ring color
-    if (score >= 50) return '#AD5252'; // Your destructive color (medium risk)
-    return '#AD5252'; // Your destructive color (high risk)
+    return '#05060A'; // Custom dark color for all safety scores
   };
 
   if (loadError) {
@@ -291,12 +286,13 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
               fontWeight: 'bold',
             }}
             icon={{
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 18,
+              path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+              scale: 1.5,
               fillColor: getMarkerColor(location.safetyScore),
               fillOpacity: 1,
               strokeColor: 'white',
-              strokeWeight: 3,
+              strokeWeight: 2,
+              anchor: new google.maps.Point(12, 22),
             }}
           />
         ))}
@@ -362,23 +358,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
               <span className="font-bold text-card-foreground ml-1">{routeInfo.duration}</span>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Traffic Toggle */}
-      {!compact && (
-        <div className="absolute top-4 right-4">
-          <button
-            onClick={() => setShowTraffic(!showTraffic)}
-            className={`px-3 py-2 rounded-lg shadow-lg text-sm font-medium transition-all ${
-              showTraffic
-                ? 'bg-ring text-primary-foreground hover:bg-ring/90'
-                : 'bg-card text-card-foreground border-2 border-border hover:border-ring'
-            }`}
-            title="Toggle traffic layer"
-          >
-            🚦 Traffic {showTraffic ? 'ON' : 'OFF'}
-          </button>
         </div>
       )}
 
