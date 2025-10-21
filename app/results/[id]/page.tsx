@@ -386,14 +386,54 @@ export default function ResultsPage() {
           {/* Executive Report */}
           {executiveReport && (
             <>
-              {/* Risk Summary */}
+              {/* Risk Summary with Trip Risk Score */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-lg font-bold text-card-foreground mb-3">
-                  Risks Summary
-                </h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {executiveReport.riskScoreExplanation}
-                </p>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Risk Summary Text */}
+                  <div className="lg:col-span-2">
+                    <h3 className="text-lg font-bold text-card-foreground mb-3">
+                      Risks Summary
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {executiveReport.riskScoreExplanation}
+                    </p>
+                  </div>
+                  
+                  {/* Trip Risk Score */}
+                  <div className="flex items-center justify-center">
+                    <div className="text-center">
+                      <div 
+                        className="text-6xl font-bold mb-2"
+                        style={{
+                          color: (() => {
+                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
+                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
+                            return '#B22E2E'; // Error red - light bg
+                          })()
+                        }}
+                      >
+                        {Math.max(0, executiveReport.tripRiskScore)}
+                        <span className="text-3xl opacity-80">/10</span>
+                      </div>
+                      <div 
+                        className="text-sm font-semibold tracking-wide"
+                        style={{
+                          color: (() => {
+                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
+                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
+                            return '#B22E2E'; // Error red - light bg
+                          })()
+                        }}
+                      >
+                        {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                         Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                         Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Potential Trip Disruptions */}
@@ -467,53 +507,10 @@ export default function ResultsPage() {
                 </div>
               </div>
               
-              {/* Right Side: Risk Score + Delay Probability */}
-              <div className="lg:col-span-1 flex flex-col gap-4" style={{ minHeight: '500px' }}>
-                {/* Trip Risk Score */}
-                <div className="group relative bg-gradient-to-br from-card to-card/50 rounded-xl p-4 border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col justify-center" style={{ flex: '0.5' }}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-1.5 rounded-lg bg-primary/10">
-                      <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-sm font-bold text-card-foreground">Trip Risk Score</h4>
-                  </div>
-                  <div className="text-center flex-1 flex flex-col justify-center">
-                    <div 
-                      className="text-5xl font-bold mb-2"
-                      style={{
-                        color: (() => {
-                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#18815A';
-                          if (riskScore <= 6) return '#D97706';
-                          return '#B22E2E';
-                        })()
-                      }}
-                    >
-                      {Math.max(0, executiveReport.tripRiskScore)}
-                      <span className="text-2xl opacity-80">/10</span>
-                    </div>
-                    <div 
-                      className="text-xs font-semibold tracking-wide"
-                      style={{
-                        color: (() => {
-                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#18815A';
-                          if (riskScore <= 6) return '#D97706';
-                          return '#B22E2E';
-                        })()
-                      }}
-                    >
-                      {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
-                       Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
-                       Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
-                    </div>
-                  </div>
-                </div>
-
+              {/* Right Side: Delay Probability */}
+              <div className="lg:col-span-1">
                 {/* Delay Probability */}
-                <div className="group relative bg-gradient-to-br from-card to-card/50 rounded-xl p-4 border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col" style={{ flex: '0.75' }}>
+                <div className="group relative bg-gradient-to-br from-card to-card/50 rounded-xl p-6 border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg h-full flex flex-col">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="p-1.5 rounded-lg bg-primary/10">
                       <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -528,7 +525,7 @@ export default function ResultsPage() {
                       <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
                             <defs>
                               <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#D97706" stopOpacity="0.8"/>
+                                <stop offset="0%" stopColor="#D97706" stopOpacity="0.9"/>
                                 <stop offset="100%" stopColor="#B45309" stopOpacity="1"/>
                               </linearGradient>
                             </defs>
@@ -783,15 +780,15 @@ export default function ResultsPage() {
                       style={{
                         backgroundColor: (() => {
                           const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#18815A'; // Success green for safe
-                          if (safetyScore >= 40) return '#D97706'; // Warning orange for moderate
-                          return '#B22E2E'; // Error red for dangerous
+                          if (safetyScore >= 60) return '#45C48A'; // Success green - dark bg
+                          if (safetyScore >= 40) return '#F7A733'; // Warning orange - dark bg
+                          return '#E05A5A'; // Error red - dark bg
                         })(),
                         borderColor: (() => {
                           const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#18815A';
-                          if (safetyScore >= 40) return '#D97706';
-                          return '#B22E2E';
+                          if (safetyScore >= 60) return '#45C48A';
+                          if (safetyScore >= 40) return '#F7A733';
+                          return '#E05A5A';
                         })()
                       }}
                   >
@@ -1008,7 +1005,7 @@ export default function ResultsPage() {
                                   >
                                     {cafe.name.length > 20 ? cafe.name.substring(0, 20) + '...' : cafe.name}
                                   </a>
-                                  <div className="text-xs font-medium" style={{ color: '#18815A' }}>
+                                  <div className="text-xs font-medium" style={{ color: '#45C48A' }}>
                                     Open
                                   </div>
                                 </div>
@@ -1134,9 +1131,9 @@ export default function ResultsPage() {
                           backgroundColor: (() => {
                             const leg = trafficPredictions.data[index];
                             const delay = Math.max(0, leg.minutes - leg.minutesNoTraffic);
-                            if (delay < 5) return '#18815A'; // Success green for low
-                            if (delay < 10) return '#D97706'; // Warning orange for moderate
-                            return '#B22E2E'; // Error red for high
+                            if (delay < 5) return '#45C48A'; // Success green - dark bg (white text)
+                            if (delay < 10) return '#F7A733'; // Warning orange - dark bg (white text)
+                            return '#E05A5A'; // Error red - dark bg (white text)
                           })(),
                           color: '#FFFFFF'
                         }}
@@ -1269,9 +1266,9 @@ export default function ResultsPage() {
                         style={{
                           color: (() => {
                             const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
-                            if (delay < 5) return '#18815A';
-                            if (delay < 10) return '#D97706';
-                            return '#B22E2E';
+                            if (delay < 5) return '#18815A'; // Success green - light bg
+                            if (delay < 10) return '#D97706'; // Warning orange - light bg
+                            return '#B22E2E'; // Error red - light bg
                           })()
                         }}
                       >
@@ -1282,9 +1279,9 @@ export default function ResultsPage() {
                         style={{
                           color: (() => {
                             const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
-                            if (delay < 5) return '#18815A';
-                            if (delay < 10) return '#D97706';
-                            return '#B22E2E';
+                            if (delay < 5) return '#18815A'; // Success green - light bg
+                            if (delay < 10) return '#D97706'; // Warning orange - light bg
+                            return '#B22E2E'; // Error red - light bg
                           })()
                         }}
                       >
@@ -1370,7 +1367,7 @@ export default function ResultsPage() {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                       </svg>
                     `;
-                    button.style.color = '#18815A';
+                    button.style.color = '#18815A'; // Success green - light bg
                     setTimeout(() => {
                       button.innerHTML = originalContent;
                       button.style.color = '';
