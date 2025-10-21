@@ -380,57 +380,49 @@ export default function ResultsPage() {
     <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header with Navigation */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <h1 className="text-4xl sm:text-5xl font-bold text-foreground">
-              Your Trip Analysis
-            </h1>
-          </div>
-          <p className="text-muted-foreground text-lg mb-4">
-            Complete safety, traffic & weather report for {tripDate}
-          </p>
-        </div>
 
         {/* Results Section */}
         <div className="mb-8">
           {/* Executive Report */}
           {executiveReport && (
             <div className="bg-card rounded-md p-8 mb-6 border-2 border-border">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6 pb-6 border-b-4 border-border">
-                <div>
-                  <h2 className="text-3xl font-bold text-card-foreground">
-                    Peace of Mind Report
-                  </h2>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-1">Trip Risk Score</div>
-                  <div className={`text-6xl font-bold ${
-                    Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'text-ring' :
-                    Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'text-muted-foreground' :
-                    Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'text-destructive/80' :
-                    'text-destructive'
-                  }`}>
+              {/* Trip Risk Score and Risk Score Explanation */}
+              <div className="grid gap-6 mb-6" style={{ gridTemplateColumns: '1fr 3fr' }}>
+                <div 
+                  className="text-center rounded-xl p-6"
+                  style={{
+                    backgroundColor: (() => {
+                      const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                      if (riskScore <= 3) return '#18815A'; // Green for low risk
+                      if (riskScore <= 6) return '#D4915C'; // Orange for moderate risk
+                      return '#AD5252'; // Red for high/critical risk
+                    })(),
+                    color: 'white'
+                  }}
+                >
+                  <div className="text-sm text-white/80 mb-1">Trip Risk Score</div>
+                  <div className="text-6xl font-bold text-white">
                     {Math.max(0, executiveReport.tripRiskScore)}
-                    <span className="text-3xl text-muted-foreground">/10</span>
+                    <span className="text-3xl text-white/80">/10</span>
                   </div>
-                  <div className={`text-xs font-semibold mt-1 ${
-                    Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'text-ring' :
-                    Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'text-muted-foreground' :
-                    Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'text-destructive/80' :
-                    'text-destructive'
-                  }`}>
+                  <div className="text-xs font-semibold mt-1 text-white">
                     {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
                      Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
                      Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
                   </div>
                 </div>
+                <div className="rounded-xl p-6" style={{ backgroundColor: '#FBFAF9' }}>
+                  <h3 className="text-lg font-bold text-foreground mb-3">
+                    Risk Score Explanation
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {executiveReport.riskScoreExplanation}
+                  </p>
+                </div>
               </div>
 
-
-
               {/* Top Disruptor */}
-              <div className="rounded-xl p-6 mb-6 shadow-lg" style={{ backgroundColor: '#05060A' }}>
+              <div className="rounded-xl p-6 mb-6" style={{ backgroundColor: '#05060A' }}>
                 <h3 className="text-lg font-bold text-white mb-3">
                   Top Disruptor
                 </h3>
@@ -439,19 +431,10 @@ export default function ResultsPage() {
                 </p>
               </div>
 
-              {/* Risk Score Explanation */}
-              <div className="rounded-xl p-6 mb-6 shadow-lg" style={{ backgroundColor: '#FBFAF9' }}>
-                <h3 className="text-lg font-bold text-foreground mb-3">
-                  Risk Score Explanation
-                </h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {executiveReport.riskScoreExplanation}
-                </p>
-              </div>
 
 
               {/* Recommendations */}
-              <div className="rounded-xl p-6 shadow-lg mb-6" style={{ backgroundColor: '#05060A' }}>
+              <div className="rounded-xl p-6 mb-6" style={{ backgroundColor: '#05060A' }}>
                 <h3 className="text-xl font-bold text-white mb-4">
                   Recommendations
                 </h3>
@@ -469,7 +452,7 @@ export default function ResultsPage() {
 
               {/* Route Disruptions */}
               <div className="grid md:grid-cols-2 gap-4 mb-6">
-                <div className="rounded-xl p-5 shadow-lg" style={{ backgroundColor: '#FBFAF9' }}>
+                <div className="rounded-xl p-5" style={{ backgroundColor: '#FBFAF9' }}>
                   <h3 className="text-lg font-bold text-foreground mb-3">
                     Driving Risks
                   </h3>
@@ -482,7 +465,7 @@ export default function ResultsPage() {
                     ))}
                   </ul>
                 </div>
-                <div className="rounded-xl p-5 shadow-lg" style={{ backgroundColor: '#FBFAF9' }}>
+                <div className="rounded-xl p-5" style={{ backgroundColor: '#FBFAF9' }}>
                   <h3 className="text-lg font-bold text-foreground mb-3">
                     External Disruptions
                   </h3>
