@@ -385,86 +385,193 @@ export default function ResultsPage() {
         <div className="mb-8">
           {/* Executive Report */}
           {executiveReport && (
-            <div className="bg-card rounded-md p-8 mb-6 border-2 border-border">
-              {/* Trip Risk Score and Risk Score Explanation */}
-              <div className="rounded-xl p-6 mb-6" style={{ backgroundColor: '#05060A' }}>
-                <div className="grid gap-6" style={{ gridTemplateColumns: '3fr 1fr' }}>
-                  <div className="p-6">
-                    <h3 className="text-lg font-bold text-white mb-3">
-                      Risks Summary
-                    </h3>
-                    <p className="text-white/80 leading-relaxed">
-                      {executiveReport.riskScoreExplanation}
-                    </p>
-                  </div>
-                  <div 
-                    className="text-center rounded-md p-6"
-                    style={{
-                      backgroundColor: (() => {
-                        const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                        if (riskScore <= 3) return '#18815A'; // Green for low risk
-                        if (riskScore <= 6) return '#D4915C'; // Orange for moderate risk
-                        return '#AD5252'; // Red for high/critical risk
-                      })(),
-                      color: 'white'
-                    }}
-                  >
-                    <div className="text-sm text-white/80 mb-1">Trip Risk Score</div>
-                    <div className="text-6xl font-bold text-white">
-                      {Math.max(0, executiveReport.tripRiskScore)}
-                      <span className="text-3xl text-white/80">/10</span>
+            <>
+              {/* Risk Summary */}
+              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+                <h3 className="text-lg font-bold text-card-foreground mb-3">
+                  Risks Summary
+                </h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  {executiveReport.riskScoreExplanation}
+                </p>
+              </div>
+
+              {/* Potential Trip Disruptions */}
+              <div className="rounded-md p-6 border-2 border-primary text-primary-foreground mb-6" style={{ backgroundColor: '#05060A' }}>
+                <h3 className="text-lg font-bold text-primary-foreground mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  Potential Trip Disruptions
+                </h3>
+
+                {/* 3 Subboxes */}
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                      Top Disruptor
+                    </h4>
+                    <p className="text-sm text-primary-foreground/70 leading-relaxed">
+                  {executiveReport.topDisruptor}
+                </p>
+              </div>
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                    Driving Risks
+                    </h4>
+                  <ul className="space-y-2">
+                    {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
+                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
+                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
+                        <span>{risk}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                      Other Disruptions
+                    </h4>
+                  <ul className="space-y-2">
+                    {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
+                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
+                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
+                        <span>{disruption}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+
+          {/* Map View with Risk Score and Delay Probability */}
+              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Map - Left Side */}
+              <div className="lg:col-span-3">
+                <div style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden', perspective: '1000px', height: '100%', minHeight: '500px' }}>
+                  <GoogleTripMap 
+                    locations={tripResults.map((result, index) => {
+                      const location = locations.find(l => l.id === result.locationId);
+                      return {
+                        id: result.locationId,
+                        name: result.locationName,
+                        lat: location?.lat || 0,
+                        lng: location?.lng || 0,
+                        time: result.time,
+                        safetyScore: result.data.crime.safetyScore,
+                      };
+                    })}
+                  />
+                </div>
+              </div>
+              
+              {/* Right Side: Risk Score + Delay Probability */}
+              <div className="lg:col-span-1 flex flex-col gap-4" style={{ minHeight: '500px' }}>
+                {/* Trip Risk Score */}
+                <div className="group relative bg-gradient-to-br from-card to-card/50 rounded-xl p-4 border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col justify-center" style={{ flex: '0.5' }}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-primary/10">
+                      <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
                     </div>
-                    <div className="text-xs font-semibold mt-1 text-white">
+                    <h4 className="text-sm font-bold text-card-foreground">Trip Risk Score</h4>
+                  </div>
+                  <div className="text-center flex-1 flex flex-col justify-center">
+                    <div 
+                      className="text-5xl font-bold mb-2"
+                      style={{
+                        color: (() => {
+                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                          if (riskScore <= 3) return '#18815A';
+                          if (riskScore <= 6) return '#D97706';
+                          return '#B22E2E';
+                        })()
+                      }}
+                    >
+                      {Math.max(0, executiveReport.tripRiskScore)}
+                      <span className="text-2xl opacity-80">/10</span>
+                    </div>
+                    <div 
+                      className="text-xs font-semibold tracking-wide"
+                      style={{
+                        color: (() => {
+                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                          if (riskScore <= 3) return '#18815A';
+                          if (riskScore <= 6) return '#D97706';
+                          return '#B22E2E';
+                        })()
+                      }}
+                    >
                       {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
                        Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
                        Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Map View */}
-              <div className="mb-6" style={{ overflowAnchor: 'auto' }}>
-                <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
-                  Your Trip Map
-                  <span className="text-sm font-normal text-muted-foreground">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
-                </h2>
-                <div style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden', perspective: '1000px' }}>
-                <GoogleTripMap 
-                  locations={tripResults.map((result, index) => {
-                    const location = locations.find(l => l.id === result.locationId);
-                    return {
-                      id: result.locationId,
-                      name: result.locationName,
-                      lat: location?.lat || 0,
-                      lng: location?.lng || 0,
-                      time: result.time,
-                      safetyScore: result.data.crime.safetyScore,
-                    };
-                  })}
-                />
+                {/* Delay Probability */}
+                <div className="group relative bg-gradient-to-br from-card to-card/50 rounded-xl p-4 border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg flex flex-col" style={{ flex: '0.75' }}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 rounded-lg bg-primary/10">
+                      <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h4 className="text-sm font-bold text-card-foreground">Delay Probability</h4>
+                  </div>
+                  <div className="flex items-center justify-center flex-1">
+                    <div className="relative w-28 h-28">
+                      {/* Gauge SVG */}
+                      <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+                            <defs>
+                              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="#D97706" stopOpacity="0.8"/>
+                                <stop offset="100%" stopColor="#B45309" stopOpacity="1"/>
+                              </linearGradient>
+                            </defs>
+                        
+                        {/* Background arc */}
+                        <path d="M 20 100 A 80 80 0 1 1 180 100" 
+                              fill="none" stroke="#e5e7eb" strokeWidth="24" strokeLinecap="round"/>
+                        
+                        {/* Progress arc with gradient */}
+                        <path d="M 20 100 A 80 80 0 1 1 180 100" 
+                              fill="none" stroke="url(#gaugeGradient)" strokeWidth="24" strokeLinecap="round"
+                              strokeDasharray="251.2" strokeDashoffset="125.6"
+                              className="transition-all duration-1000"/>
+                        
+                        {/* Center circle background */}
+                        <circle cx="100" cy="100" r="50" fill="white" opacity="0.1"/>
+                        
+                        {/* Center text */}
+                        <text x="100" y="95" textAnchor="middle" className="text-xl font-bold fill-current">65%</text>
+                        <text x="100" y="115" textAnchor="middle" className="text-xs fill-current opacity-70">Delay Risk</text>
+                        
+                        {/* Decorative elements */}
+                        <circle cx="20" cy="100" r="6" fill="#e5e7eb"/>
+                        <circle cx="180" cy="100" r="6" fill="url(#gaugeGradient)"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-border/50">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">Low</span>
+                      <span className="text-muted-foreground">Moderate</span>
+                      <span className="font-semibold text-orange-600">High</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Top Disruptor */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-lg font-bold text-card-foreground mb-3 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  Potential Trip Disruptor
-                </h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {executiveReport.topDisruptor}
-                </p>
-              </div>
-
-
-
-              {/* Recommendations */}
+              {/* Recommendations for the Driver */}
               <div className="rounded-xl p-6 mb-6" style={{ backgroundColor: '#05060A' }}>
                 <h3 className="text-xl font-bold text-white mb-4">
-                  Recommendations
+                  Recommendations for the Driver
                 </h3>
                 <ul className="space-y-3">
                   {executiveReport.recommendations.map((rec: string, idx: number) => (
@@ -477,45 +584,15 @@ export default function ResultsPage() {
                   ))}
                 </ul>
               </div>
-
-              {/* Route Disruptions */}
-              <div className="grid md:grid-cols-2 gap-4 mb-6">
-                <div className="rounded-md p-6 border-2 border-border bg-card">
-                  <h3 className="text-lg font-bold text-card-foreground mb-3">
-                    Driving Risks
-                  </h3>
-                  <ul className="space-y-2">
-                    {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
-                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded-md p-6 border-2 border-border bg-card">
-                  <h3 className="text-lg font-bold text-card-foreground mb-3">
-                    External Disruptions
-                  </h3>
-                  <ul className="space-y-2">
-                    {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
-                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
-                        <span>{disruption}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
+            </>
           )}
 
           {/* Chronological Journey Flow */}
           <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
             {/* Connecting Line */}
             <div className="absolute left-6 top-3 bottom-0 w-0.5 bg-border"></div>
-              {tripResults.map((result, index) => (
-                <React.Fragment key={result.locationId}>
+            {tripResults.map((result, index) => (
+              <React.Fragment key={result.locationId}>
                 {/* Location Hour Display */}
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-32 text-right relative">
@@ -531,7 +608,7 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 <div className="flex-1">
-                  <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
+              <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
                 {/* Header with Full Address */}
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-border" style={{ borderBottomWidth: '0.5px' }}>
                   <div className="flex items-center gap-3">
@@ -551,33 +628,32 @@ export default function ResultsPage() {
                         </span>
                       </div>
                     </div>
-                     <div className="flex-1">
+                    <div className="flex-1">
                       
-                      {/* Editable Shortcut Name */}
+                       {/* Editable Location Name */}
                       {editingLocationId === result.locationId ? (
                         <Input
                           value={editingLocationName}
                           onChange={(e) => setEditingLocationName(e.target.value)}
                           onKeyDown={(e) => handleKeyPress(e, result.locationId)}
                           onBlur={() => handleSaveLocationName(result.locationId)}
-                          className="text-base font-semibold bg-background/20 border-primary-foreground/30 text-primary-foreground mt-1 mb-1"
-                          placeholder="Enter location shortcut"
+                           className="text-lg font-semibold bg-background/20 border-primary-foreground/30 text-primary-foreground mt-1 mb-1"
+                           placeholder="Enter location name"
                           autoFocus
                         />
                       ) : (
                         <div className="flex items-center gap-2 mt-1">
-                          <p className="text-base font-semibold text-primary-foreground">
-                            {locationDisplayNames[result.locationId] || result.locationName.split(',')[0]}
+                           <p className="text-lg font-semibold text-primary-foreground">
+                             {locationDisplayNames[result.locationId] || `Location ${index + 1}`}
                           </p>
                           <button
-                            onClick={() => handleEditLocationName(result.locationId, result.locationName)}
-                            className="flex items-center gap-1 px-2 py-1 hover:bg-background/20 rounded transition-colors"
-                            title="Edit location shortcut"
+                             onClick={() => handleEditLocationName(result.locationId, `Location ${index + 1}`)}
+                            className="p-1 hover:bg-background/20 rounded transition-colors"
+                             title="Edit location name"
                           >
-                            <svg className="w-3 h-3 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            <svg className="w-4 h-4 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                             </svg>
-                            <span className="text-xs text-primary-foreground/70 hover:text-primary-foreground">Edit name</span>
                           </button>
                         </div>
                       )}
@@ -700,24 +776,24 @@ export default function ResultsPage() {
                     expandedLocations[result.locationId] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                   }`}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                   {/* Traveller Safety */}
                   <div 
                     className="border-2 rounded-md p-3"
-                    style={{
-                      backgroundColor: (() => {
-                        const safetyScore = result.data.crime.safetyScore;
-                        if (safetyScore >= 60) return '#18815A'; // Brand green for safe
-                        if (safetyScore >= 40) return '#D4915C'; // Professional elegant orange for moderate
-                        return '#AD5252'; // Brand red for dangerous
-                      })(),
-                      borderColor: (() => {
-                        const safetyScore = result.data.crime.safetyScore;
-                        if (safetyScore >= 60) return '#18815A';
-                        if (safetyScore >= 40) return '#D4915C';
-                        return '#AD5252';
-                      })()
-                    }}
+                      style={{
+                        backgroundColor: (() => {
+                          const safetyScore = result.data.crime.safetyScore;
+                          if (safetyScore >= 60) return '#18815A'; // Success green for safe
+                          if (safetyScore >= 40) return '#D97706'; // Warning orange for moderate
+                          return '#B22E2E'; // Error red for dangerous
+                        })(),
+                        borderColor: (() => {
+                          const safetyScore = result.data.crime.safetyScore;
+                          if (safetyScore >= 60) return '#18815A';
+                          if (safetyScore >= 40) return '#D97706';
+                          return '#B22E2E';
+                        })()
+                      }}
                   >
                     <h4 className="font-bold text-primary-foreground mb-2">Traveller Safety</h4>
                     <div className="flex items-center gap-2 mb-2">
@@ -898,9 +974,13 @@ export default function ResultsPage() {
                     )}
                   </div>
 
-                  {/* Nearby Cafes */}
+                  {/* Nearby Cafes & Parking */}
                   <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-2">Nearby Cafes</h4>
+                    <h4 className="font-bold text-primary-foreground mb-3">Nearby Cafes & Parking</h4>
+                    
+                    {/* Cafes Section */}
+                    <div className="mb-4">
+                      <h5 className="text-sm font-semibold text-primary-foreground mb-2">Cafes</h5>
                     <div className="space-y-2">
                       {result.data.cafes?.cafes && result.data.cafes.cafes.length > 0 ? (
                         result.data.cafes.cafes
@@ -915,7 +995,7 @@ export default function ResultsPage() {
                             // Simple business hours check (assuming 7 AM - 10 PM)
                             return currentTimeMinutes >= 420 && currentTimeMinutes <= 1320; // 7 AM to 10 PM
                           })
-                          .slice(0, 3)
+                            .slice(0, 2)
                           .map((cafe: any, idx: number) => {
                             return (
                               <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
@@ -939,11 +1019,8 @@ export default function ResultsPage() {
                                     <span className="text-primary-foreground/60">({cafe.userRatingsTotal})</span>
                                   </div>
                                   <div className="text-xs text-primary-foreground/60">
-                                    7 AM - 10 PM
-                                  </div>
-                                </div>
-                                <div className="text-primary-foreground/60">
                                   {Math.round(cafe.distance)}m away
+                                    </div>
                                 </div>
                               </div>
                             );
@@ -954,21 +1031,16 @@ export default function ResultsPage() {
                     </div>
                   </div>
 
-                  {/* Nearby Parking Spaces */}
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-2">Nearby Parking Spaces</h4>
-                    <div className="text-sm font-semibold text-primary-foreground mb-1">
+                    {/* Parking Section */}
+                    <div>
+                      <h5 className="text-sm font-semibold text-primary-foreground mb-2">Parking</h5>
+                      <div className="text-xs text-primary-foreground/80 mb-2">
                       {result.data.parking?.cpzInfo?.inCPZ ? 'CPZ Zone - Charges Apply' :
                        (result.data.parking?.parkingRiskScore || 5) >= 7 ? 'Limited Street Parking' : 'Good Parking Options'}
                     </div>
-                    <div className="text-xs text-primary-foreground/80 mb-2">
-                      {result.data.parking?.cpzInfo?.inCPZ ? 'Controlled parking zone with time restrictions' :
-                       (result.data.parking?.parkingRiskScore || 5) >= 7 ? 'Few street spaces, use car parks' : 
-                       'Multiple parking options nearby'}
-                    </div>
                     <div className="space-y-2">
                       {result.data.parking?.carParks && result.data.parking.carParks.length > 0 ? (
-                        result.data.parking.carParks.slice(0, 3).map((carPark: any, idx: number) => (
+                          result.data.parking.carParks.slice(0, 2).map((carPark: any, idx: number) => (
                           <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
                             <div className="flex items-center justify-between mb-1">
                               <a 
@@ -1002,63 +1074,7 @@ export default function ResultsPage() {
                           </div>
                         ))
                       ) : (
-                        // Fallback parking recommendations based on location
-                        (() => {
-                          const locationName = result.locationName.toLowerCase();
-                          const isCentralLondon = locationName.includes('westminster') || locationName.includes('soho') || 
-                                                 locationName.includes('mayfair') || locationName.includes('covent garden') ||
-                                                 locationName.includes('city of london') || locationName.includes('camden');
-                          
-                          // Calculate if parking is open (location time - 20 minutes)
-                          const locationTime = new Date(`${tripDate} ${result.time}`);
-                          const checkTime = new Date(locationTime.getTime() - 20 * 60000); // Subtract 20 minutes
-                          const currentHour = checkTime.getHours();
-                          const currentMinute = checkTime.getMinutes();
-                          const currentTimeMinutes = currentHour * 60 + currentMinute;
-                          
-                          const allParkingRecommendations = isCentralLondon ? [
-                            { name: 'NCP Car Park', distance: 200, hours: '24/7', spaces: '50+', facilities: 'Covered, Secure', isOpen: true },
-                            { name: 'Q-Park', distance: 350, hours: '24/7', spaces: '100+', facilities: 'Accessible, EV', isOpen: true },
-                            { name: 'Street Parking', distance: 0, hours: 'Mon-Sat 8:30am-6:30pm', spaces: 'Limited', facilities: 'CPZ Charges', isOpen: currentTimeMinutes >= 510 && currentTimeMinutes <= 1110 }
-                          ] : [
-                            { name: 'Local Car Park', distance: 150, hours: '24/7', spaces: '30+', facilities: 'Standard', isOpen: true },
-                            { name: 'Shopping Centre', distance: 400, hours: 'Mon-Sat 9am-9pm', spaces: '200+', facilities: 'Free 2hrs', isOpen: currentTimeMinutes >= 540 && currentTimeMinutes <= 1260 },
-                            { name: 'Street Parking', distance: 0, hours: 'Mon-Fri 8am-6pm', spaces: 'Good', facilities: 'Pay & Display', isOpen: currentTimeMinutes >= 480 && currentTimeMinutes <= 1080 }
-                          ];
-                          
-                          // Filter to show only open parking options
-                          const openParkingOptions = allParkingRecommendations.filter(parking => parking.isOpen);
-                          
-                          return openParkingOptions.map((parking, idx) => (
-                            <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <a 
-                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parking.name + ' ' + result.locationName.split(',')[0])}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
-                                >
-                                  {parking.name}
-                                </a>
-                                <div className="text-xs text-primary-foreground/60">
-                                  {parking.distance > 0 ? `${parking.distance}m` : 'On-site'}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1">
-                                  <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                  </svg>
-                                  <span>{parking.hours}</span>
-                                  <span className="text-primary-foreground/60">({parking.spaces})</span>
-                                </div>
-                                <div className="text-xs text-primary-foreground/60 text-right">
-                                  {parking.facilities}
-                                </div>
-                              </div>
-                            </div>
-                          ));
-                        })()
+                          <div className="text-xs text-primary-foreground/70">No parking data available</div>
                       )}
                       {result.data.parking?.cpzInfo?.inCPZ && (
                         <div className="text-xs text-destructive-foreground border-t border-background/20 pt-1 mt-1">
@@ -1069,12 +1085,13 @@ export default function ResultsPage() {
                           )}
                         </div>
                       )}
+                      </div>
                     </div>
                   </div>
 
                   </div>
                 </div>
-              </div>
+                  </div>
                 </div>
               </div>
 
@@ -1094,9 +1111,9 @@ export default function ResultsPage() {
                     </div>
                   </div>
                   <div className="flex-1">
-                    <div 
-                      className="bg-card rounded-md p-6 border-2 border-border"
-                    >
+                <div 
+                  className="bg-card rounded-md p-6 border-2 border-border"
+                >
                   {/* Route Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -1117,9 +1134,9 @@ export default function ResultsPage() {
                           backgroundColor: (() => {
                             const leg = trafficPredictions.data[index];
                             const delay = Math.max(0, leg.minutes - leg.minutesNoTraffic);
-                            if (delay < 5) return '#18815A'; // Brand green for low
-                            if (delay < 10) return '#D4915C'; // Professional orange for moderate
-                            return '#AD5252'; // Brand red for high
+                            if (delay < 5) return '#18815A'; // Success green for low
+                            if (delay < 10) return '#D97706'; // Warning orange for moderate
+                            return '#B22E2E'; // Error red for high
                           })(),
                           color: '#FFFFFF'
                         }}
@@ -1253,8 +1270,8 @@ export default function ResultsPage() {
                           color: (() => {
                             const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
                             if (delay < 5) return '#18815A';
-                            if (delay < 10) return '#D4915C';
-                            return '#AD5252';
+                            if (delay < 10) return '#D97706';
+                            return '#B22E2E';
                           })()
                         }}
                       >
@@ -1266,8 +1283,8 @@ export default function ResultsPage() {
                           color: (() => {
                             const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
                             if (delay < 5) return '#18815A';
-                            if (delay < 10) return '#D4915C';
-                            return '#AD5252';
+                            if (delay < 10) return '#D97706';
+                            return '#B22E2E';
                           })()
                         }}
                       >
@@ -1382,7 +1399,8 @@ export default function ResultsPage() {
               onClick={handlePlanNewTrip}
               variant="default"
               size="lg"
-              className="bg-ring hover:bg-ring/90 text-primary-foreground"
+              className="text-white"
+              style={{ backgroundColor: '#05060A' }}
             >
               Plan New Trip
             </Button>
