@@ -28,7 +28,7 @@ export async function searchLocationEvents(
     const areaName = locationName.split(',')[0];
     const searchQuery = `${areaName} London strikes protests festivals road closures events ${date}`;
 
-    // Use OpenAI GPT-4o Search Preview with web search capability
+    // Use OpenAI GPT-4o Search Preview with web search capability (optimized)
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-search-preview',
       // @ts-ignore - web_search_options is a valid parameter for search-enabled models
@@ -36,34 +36,26 @@ export async function searchLocationEvents(
       messages: [
         {
           role: 'user',
-          content: `Search the web for ANY events happening near ${locationName} on or around ${date}.
+          content: `Search web for traffic disruptive events near ${locationName} on ${date}.
 
-Find ALL types of events:
-- Strikes, protests, demonstrations
-- Festivals, celebrations, parades
-- Concerts, shows, exhibitions
-- Road closures, construction
-- Public gatherings, rallies
-- Sports events, markets
-- Any public events
+Find: strikes, protests, festivals, road closures, construction, sports events, public gatherings.
 
-Location: ${locationName}
-Coordinates: ${lat}, ${lng}
+Location: ${locationName} (${lat}, ${lng})
 Date: ${date}
 
-Search the internet for real events. Return JSON with "events" array.
-Each event: {name: string, description: string, date: string, location: string}
-Return maximum 3 events. Include everything you find!`
+Return JSON only: {"events":[{"name":"str","description":"str","date":"str","location":"str"}]}
+Max 3 events.`
         }
       ],
-      max_tokens: 1000
+      max_tokens: 500
     });
 
     const responseText = completion.choices[0]?.message?.content || '';
     
     console.log(`\n🔧 Model used: ${completion.model}`);
     console.log(`📊 Tokens: ${completion.usage?.total_tokens}`);
-    console.log(`\n📝 GPT-4o Response (first 300 chars):`);
+    console.log(`💰 Estimated cost: $${((completion.usage?.prompt_tokens || 0) * 2.50 / 1000000 + (completion.usage?.completion_tokens || 0) * 10.00 / 1000000).toFixed(6)}`);
+    console.log(`\n📝 GPT-4o-search Response (first 300 chars):`);
     console.log(responseText.substring(0, 300) + '...');
     
     try {

@@ -112,86 +112,58 @@ export async function generateExecutiveReport(
 
 TRIP DETAILS:
 Date: ${tripDate}
-${routeDistance ? `Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} minutes driving` : ''}
+${routeDistance ? `Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} minutes` : ''}
 Locations: ${tripData.length} stops
 
-${trafficPredictions ? `
-TRAFFIC PREDICTIONS (Historical-based):
+${trafficPredictions ? `TRAFFIC PREDICTIONS:
 ${JSON.stringify(trafficPredictions.map(leg => ({
   leg: leg.leg,
   route: `${leg.originName.split(',')[0]} → ${leg.destinationName.split(',')[0]}`,
-  travelTime: `${leg.minutes} min (${leg.minutesNoTraffic} min without traffic)`,
-  distance: leg.distance,
-  trafficDelay: `${leg.minutes - leg.minutesNoTraffic} min delay`
-})), null, 2)}
+  minutes: leg.minutes,
+  noTrafficMinutes: leg.minutesNoTraffic,
+  delay: leg.minutes - leg.minutesNoTraffic
+})))}
 ` : ''}
 
-DATA FOR EACH LOCATION:
-${JSON.stringify(dataSummary, null, 2)}
+LOCATION DATA:
+${JSON.stringify(dataSummary)}
 
-ANALYZE THIS VIP TRIP AND PROVIDE:
+ANALYSIS REQUIREMENTS:
 
-1. TRIP RISK SCORE (1-10): Rate overall disruption risk
-   - 1-3: Low risk, smooth trip expected
-   - 4-6: Moderate risk, some disruptions possible
-   - 7-8: High risk, significant disruptions likely
-   - 9-10: Critical risk, trip may need rescheduling
-   - Include parking difficulty in overall score (10-15% weight)
+1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
+   Include parking difficulty (10-15% weight)
 
-2. LOCATION-BY-LOCATION ANALYSIS:
-   For each stop, identify:
+2. LOCATION ANALYSIS: For each stop provide:
    - Risk level (high/medium/low)
-   - Key safety/disruption concerns
-   - Specific data points from crime/traffic/weather/events
-   - **PARKING CHALLENGES**: If parking risk score > 6, mention limited parking availability
-   - **CPZ RESTRICTIONS**: Warn about Controlled Parking Zones and operating hours
-   - **TOP CAFES**: If available, mention best cafes within 5 min walking distance (250m)
+   - Key safety/disruption findings with data sources
+   - Mention parking challenges if risk score > 6
+   - Note CPZ restrictions and operating hours
+   - Recommend top cafes within 250m if available
 
 3. ROUTE DISRUPTIONS:
-   - Driving risks (traffic, road closures, weather impact on driving)
-   - External disruptions (protests blocking routes, events causing detours)
-   ${trafficPredictions ? '- Historical traffic delays and timing predictions' : ''}
-   - **PARKING LOGISTICS**: Mention if any location has challenging parking
+   - Driving risks (traffic, road closures, weather)
+   - External disruptions (protests, events causing detours)${trafficPredictions ? '\n   - Historical traffic delays' : ''}
 
-4. RECOMMENDATIONS:
-   - 3-5 specific actionable recommendations
-   - Time adjustments if needed
-   - Route alternatives if applicable
-   - **PARKING ADVICE**: Suggest arrival times to avoid CPZ charges (e.g., arrive before 8:30am or after 6:30pm)
-   - **ALTERNATIVE PARKING**: Recommend specific car parks if destination parking is limited
-   - **CAFE RECOMMENDATIONS**: Suggest top-rated cafes within 250m for convenience and refreshments if available
+4. RECOMMENDATIONS: 3-5 actionable items including:
+   - Timing adjustments for traffic
+   - Parking advice (CPZ hours, e.g., arrive before 8:30am or after 6:30pm)
+   - Specific car parks if parking is limited
+   - Top-rated cafes for convenience
 
-5. KEY HIGHLIGHTS:
-   - 4-6 most important points
-   - Mark as: danger (red), warning (yellow), info (blue), success (green)
-   - Include parking warnings if risk score > 7
+5. KEY HIGHLIGHTS: 4-6 critical points
+   Type: danger (high risk), warning (moderate), info (neutral), success (positive)
 
-FORMAT AS JSON:
+Return JSON:
 {
   "tripRiskScore": number,
-  "overallSummary": "2-3 sentences about the trip",
-  "locationAnalysis": [
-    {
-      "locationName": "Name",
-      "riskLevel": "high|medium|low",
-      "keyFindings": ["Finding 1 with data source", "Finding 2 with data source"]
-    }
-  ],
-  "routeDisruptions": {
-    "drivingRisks": ["Risk 1 with source", "Risk 2 with source"],
-    "externalDisruptions": ["Disruption 1 with source"]
-  },
-  "recommendations": ["Recommendation 1", "Recommendation 2"],
-  "highlights": [
-    {"type": "danger|warning|info|success", "message": "Message with source"}
-  ]
+  "overallSummary": "2-3 sentences",
+  "locationAnalysis": [{"locationName": "str", "riskLevel": "high|medium|low", "keyFindings": ["str with source"]}],
+  "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
+  "recommendations": ["str"],
+  "highlights": [{"type": "danger|warning|info|success", "message": "str with source"}]
 }
 
-IMPORTANT:
-- CITE DATA SOURCES (e.g., "78 violent crimes reported - UK Police Data")
-- Be specific about WHY each risk exists
-- Use actual numbers from the data
-- Focus on VIP trip disruption potential`;
+Cite sources (e.g., "78 crimes - UK Police Data"). Use actual data numbers.`;
 
     // Use GPT-4o-mini for comprehensive executive analysis (proven working, 90% cost reduction)
     console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
