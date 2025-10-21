@@ -387,46 +387,74 @@ export default function ResultsPage() {
           {executiveReport && (
             <div className="bg-card rounded-md p-8 mb-6 border-2 border-border">
               {/* Trip Risk Score and Risk Score Explanation */}
-              <div className="grid gap-6 mb-6" style={{ gridTemplateColumns: '1fr 3fr' }}>
-                <div 
-                  className="text-center rounded-xl p-6"
-                  style={{
-                    backgroundColor: (() => {
-                      const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                      if (riskScore <= 3) return '#18815A'; // Green for low risk
-                      if (riskScore <= 6) return '#D4915C'; // Orange for moderate risk
-                      return '#AD5252'; // Red for high/critical risk
-                    })(),
-                    color: 'white'
-                  }}
-                >
-                  <div className="text-sm text-white/80 mb-1">Trip Risk Score</div>
-                  <div className="text-6xl font-bold text-white">
-                    {Math.max(0, executiveReport.tripRiskScore)}
-                    <span className="text-3xl text-white/80">/10</span>
+              <div className="rounded-xl p-6 mb-6" style={{ backgroundColor: '#05060A' }}>
+                <div className="grid gap-6" style={{ gridTemplateColumns: '3fr 1fr' }}>
+                  <div className="p-6">
+                    <h3 className="text-lg font-bold text-white mb-3">
+                      Risks Summary
+                    </h3>
+                    <p className="text-white/80 leading-relaxed">
+                      {executiveReport.riskScoreExplanation}
+                    </p>
                   </div>
-                  <div className="text-xs font-semibold mt-1 text-white">
-                    {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
-                     Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
-                     Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                  <div 
+                    className="text-center rounded-md p-6"
+                    style={{
+                      backgroundColor: (() => {
+                        const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                        if (riskScore <= 3) return '#18815A'; // Green for low risk
+                        if (riskScore <= 6) return '#D4915C'; // Orange for moderate risk
+                        return '#AD5252'; // Red for high/critical risk
+                      })(),
+                      color: 'white'
+                    }}
+                  >
+                    <div className="text-sm text-white/80 mb-1">Trip Risk Score</div>
+                    <div className="text-6xl font-bold text-white">
+                      {Math.max(0, executiveReport.tripRiskScore)}
+                      <span className="text-3xl text-white/80">/10</span>
+                    </div>
+                    <div className="text-xs font-semibold mt-1 text-white">
+                      {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                       Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                       Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                    </div>
                   </div>
                 </div>
-                <div className="rounded-xl p-6" style={{ backgroundColor: '#FBFAF9' }}>
-                  <h3 className="text-lg font-bold text-foreground mb-3">
-                    Risk Score Explanation
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {executiveReport.riskScoreExplanation}
-                  </p>
+              </div>
+
+              {/* Map View */}
+              <div className="mb-6" style={{ overflowAnchor: 'auto' }}>
+                <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
+                  Your Trip Map
+                  <span className="text-sm font-normal text-muted-foreground">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
+                </h2>
+                <div style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden', perspective: '1000px' }}>
+                <GoogleTripMap 
+                  locations={tripResults.map((result, index) => {
+                    const location = locations.find(l => l.id === result.locationId);
+                    return {
+                      id: result.locationId,
+                      name: result.locationName,
+                      lat: location?.lat || 0,
+                      lng: location?.lng || 0,
+                      time: result.time,
+                      safetyScore: result.data.crime.safetyScore,
+                    };
+                  })}
+                />
                 </div>
               </div>
 
               {/* Top Disruptor */}
-              <div className="rounded-xl p-6 mb-6" style={{ backgroundColor: '#05060A' }}>
-                <h3 className="text-lg font-bold text-white mb-3">
-                  Top Disruptor
+              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+                <h3 className="text-lg font-bold text-card-foreground mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  Potential Trip Disruptor
                 </h3>
-                <p className="text-white/80 leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   {executiveReport.topDisruptor}
                 </p>
               </div>
@@ -452,27 +480,27 @@ export default function ResultsPage() {
 
               {/* Route Disruptions */}
               <div className="grid md:grid-cols-2 gap-4 mb-6">
-                <div className="rounded-xl p-5" style={{ backgroundColor: '#FBFAF9' }}>
-                  <h3 className="text-lg font-bold text-foreground mb-3">
+                <div className="rounded-md p-6 border-2 border-border bg-card">
+                  <h3 className="text-lg font-bold text-card-foreground mb-3">
                     Driving Risks
                   </h3>
                   <ul className="space-y-2">
                     {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-foreground flex-shrink-0 mt-1">▸</span>
+                        <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
                         <span>{risk}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="rounded-xl p-5" style={{ backgroundColor: '#FBFAF9' }}>
-                  <h3 className="text-lg font-bold text-foreground mb-3">
+                <div className="rounded-md p-6 border-2 border-border bg-card">
+                  <h3 className="text-lg font-bold text-card-foreground mb-3">
                     External Disruptions
                   </h3>
                   <ul className="space-y-2">
                     {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-foreground flex-shrink-0 mt-1">▸</span>
+                        <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
                         <span>{disruption}</span>
                       </li>
                     ))}
@@ -482,34 +510,28 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {/* Map View */}
-          <div className="bg-card border border-border rounded-md p-6 mb-6" style={{ overflowAnchor: 'auto' }}>
-            <h2 className="text-xl font-bold text-card-foreground mb-4 flex items-center gap-2">
-              Your Trip Map
-              <span className="text-sm font-normal text-muted-foreground">({tripResults.length} location{tripResults.length > 1 ? 's' : ''})</span>
-            </h2>
-            <div style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden', perspective: '1000px' }}>
-            <GoogleTripMap 
-              locations={tripResults.map((result, index) => {
-                const location = locations.find(l => l.id === result.locationId);
-                return {
-                  id: result.locationId,
-                  name: result.locationName,
-                  lat: location?.lat || 0,
-                  lng: location?.lng || 0,
-                  time: result.time,
-                  safetyScore: result.data.crime.safetyScore,
-                };
-              })}
-            />
-            </div>
-          </div>
-
           {/* Chronological Journey Flow */}
-          <div className="space-y-6" style={{ overflowAnchor: 'none' }}>
-            {tripResults.map((result, index) => (
-              <React.Fragment key={result.locationId}>
-              <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
+          <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
+            {/* Connecting Line */}
+            <div className="absolute left-6 top-3 bottom-0 w-0.5 bg-border"></div>
+              {tripResults.map((result, index) => (
+                <React.Fragment key={result.locationId}>
+                {/* Location Hour Display */}
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-32 text-right relative">
+                    {/* Timeline Dot for Location */}
+                    <div className="absolute left-2 top-0 w-8 h-8 rounded-full bg-primary border-2 border-background flex items-center justify-center z-10">
+                      <span className="text-base font-bold text-primary-foreground">{numberToLetter(index + 1)}</span>
+                    </div>
+                    <div className="text-base font-bold text-foreground ml-6">
+                      {result.time}H
+                    </div>
+                    <div className="text-sm text-muted-foreground ml-2">
+                      {index === 0 ? 'Pick up' : index === tripResults.length - 1 ? 'Drop off' : 'Resume'}
+                    </div>
+                  </div>
+                <div className="flex-1">
+                  <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
                 {/* Header with Full Address */}
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-border" style={{ borderBottomWidth: '0.5px' }}>
                   <div className="flex items-center gap-3">
@@ -529,14 +551,7 @@ export default function ResultsPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-primary-foreground">
-                        <span className="text-primary-foreground/60">
-                          {index === 0 ? 'Pick up at' : index === tripResults.length - 1 ? 'Drop off at' : 'Resume at'}
-                        </span>
-                        {' '}
-                        {result.time}H
-                      </h3>
+                     <div className="flex-1">
                       
                       {/* Editable Shortcut Name */}
                       {editingLocationId === result.locationId ? (
@@ -1060,12 +1075,28 @@ export default function ResultsPage() {
                   </div>
                 </div>
               </div>
+                </div>
+              </div>
 
               {/* Route Card (after each location except the last) */}
               {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data[index] && (
-                <div 
-                  className="bg-card rounded-md p-6 border-2 border-border"
-                >
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-32 text-right relative">
+                    {/* Timeline Dot for Route */}
+                    <div className="absolute left-2 top-0 w-8 h-8 rounded-full bg-card border-2 border-border flex items-center justify-center z-10">
+                      <span className="text-base font-bold text-card-foreground">→</span>
+                    </div>
+                    <div className="text-base font-bold text-foreground ml-6">
+                      {result.time}H
+                    </div>
+                    <div className="text-sm text-muted-foreground ml-2">
+                      Route
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div 
+                      className="bg-card rounded-md p-6 border-2 border-border"
+                    >
                   {/* Route Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -1285,6 +1316,8 @@ export default function ResultsPage() {
                     </div>
                   )}
                   
+                    </div>
+                  </div>
                     </div>
                   </div>
                 </div>
