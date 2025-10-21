@@ -314,8 +314,6 @@ export default function Home() {
   // Multi-location trip state
   const [tripDate, setTripDate] = useState<Date | undefined>(undefined);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Array<{
     id: string;
     name: string;
@@ -324,13 +322,16 @@ export default function Home() {
     time: string;
   }>>([
     { id: '1', name: '', lat: 0, lng: 0, time: '09:00' },
-    { id: '2', name: '', lat: 0, lng: 0, time: '17:00' },
+    { id: '2', name: '', lat: 0, lng: 0, time: '12:00' },
+    { id: '3', name: '', lat: 0, lng: 0, time: '17:00' },
   ]);
   const [loadingTrip, setLoadingTrip] = useState(false);
   const [locationsReordered, setLocationsReordered] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0); // Smooth progress 0-100
   const [tripId, setTripId] = useState<string | null>(null); // Store trip ID for manual navigation
+  const [userEmail, setUserEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [loadingSteps, setLoadingSteps] = useState<Array<{
     id: string;
     title: string;
@@ -551,23 +552,15 @@ export default function Home() {
       const validation = validateBusinessEmail(userEmail);
       if (!validation.isValid) {
         setEmailError(validation.error || 'Invalid email address');
+      } else {
+        setEmailError(null);
       }
     }
   };
 
   const handleTripSubmit = async () => {
-    // Validate email
-    if (!userEmail || !userEmail.trim()) {
-      setEmailError('Please enter your email address');
-      return;
-    }
-
-    // Business email validation
-    const validation = validateBusinessEmail(userEmail);
-    if (!validation.isValid) {
-      setEmailError(validation.error || 'Invalid email address');
-      return;
-    }
+    // Use user's email if provided, otherwise default
+    const emailToUse = userEmail.trim() || 'anonymous@peaceofmind.com';
 
     // Validate all locations are filled
     const validLocations = locations.filter(loc => loc.name && loc.lat !== 0 && loc.lng !== 0);
@@ -844,12 +837,12 @@ export default function Home() {
 
       // Save user to database (upsert - add if new, ignore if exists)
       console.log('💾 Saving user to database...');
-      console.log('   Email:', userEmail);
+      console.log('   Email:', emailToUse);
       
       const { data: userData, error: userError } = await supabase
         .from('users')
         .upsert({ 
-          email: userEmail,
+          email: emailToUse,
           marketing_consent: true 
         })
         .select();
@@ -863,14 +856,14 @@ export default function Home() {
 
       // Save trip to database
       console.log('💾 Saving trip to database...');
-      console.log('   User:', userEmail);
+      console.log('   User:', emailToUse);
       console.log('   Date:', tripDateStr);
       console.log('   Locations:', validLocations.length);
       
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
         .insert({
-          user_email: userEmail,
+          user_email: emailToUse,
           trip_date: tripDateStr,
           locations: validLocations as any,
           trip_results: results as any,
@@ -888,7 +881,7 @@ export default function Home() {
 
       console.log('✅ Trip saved to database');
       console.log(`🔗 Trip ID: ${tripData.id}`);
-      console.log(`📧 User email: ${userEmail}`);
+      console.log(`📧 User email: ${emailToUse}`);
 
       // Store trip ID for manual navigation
       setTripId(tripData.id);
@@ -1052,33 +1045,6 @@ export default function Home() {
             Add multiple locations to analyze safety, traffic, and weather for your entire journey
           </p>
           
-          {/* User Email - Required Field */}
-          <div className="bg-ring/10 border-2 border-ring rounded-md p-4 mb-6">
-            <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground mb-2">
-              Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
-            </label>
-            <Input
-              type="email"
-              id="userEmail"
-              value={userEmail}
-              onChange={(e) => handleEmailChange(e.target.value)}
-              onBlur={handleEmailBlur}
-              placeholder="name@company.com"
-              className={cn(
-                "w-full max-w-md bg-card placeholder:text-muted-foreground/40",
-                emailError && "border-destructive focus-visible:ring-destructive"
-              )}
-            />
-            {emailError ? (
-              <p className="text-xs text-destructive mt-2 font-medium">
-                {emailError}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-2">
-                Business email required. Personal emails (Gmail, Yahoo, etc.) are not accepted.
-              </p>
-            )}
-          </div>
 
           {/* Trip Date and City Selector */}
           <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
@@ -1183,7 +1149,7 @@ export default function Home() {
             </Alert>
           )}
 
-           {/* Add Location, View Map & Analyze Buttons */}
+           {/* Add Location, Analyze Trip & View Map Buttons */}
            <div className="flex gap-3">
              <Button
                onClick={addLocation}
@@ -1198,21 +1164,8 @@ export default function Home() {
              </Button>
 
              <Button
-               onClick={() => setMapOpen(true)}
-               variant="outline"
-               size="lg"
-               className="flex-1 sm:flex-initial"
-               disabled={locations.filter(l => l.name).length < 2}
-             >
-               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-               </svg>
-               View Map
-             </Button>
-
-             <Button
                onClick={handleTripSubmit}
-               disabled={loadingTrip || !userEmail.trim() || !!emailError || locations.filter(l => l.name).length === 0}
+               disabled={loadingTrip || locations.filter(l => l.name).length === 0}
                variant={locationsReordered ? "destructive" : "default"}
                size="lg"
                className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
@@ -1232,13 +1185,26 @@ export default function Home() {
                 </>
               )}
             </Button>
+
+            <Button
+              onClick={() => setMapOpen(true)}
+              variant="outline"
+              size="lg"
+              className="flex-1 sm:flex-initial ml-auto"
+              disabled={locations.filter(l => l.name).length < 2}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              View Route
+            </Button>
           </div>
         </div>
 
         {/* Professional Loading State - Overlay Modal */}
         {loadingTrip && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-300">
+            <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto">
               <CardContent className="p-8">
                 <div className="space-y-8">
                   {/* Circular Progress Indicator */}
@@ -1285,63 +1251,61 @@ export default function Home() {
                   </div>
 
                   {/* Steps List - Carousel View or Completion View */}
-                  <div className="relative h-[280px] overflow-hidden">
-                    {loadingProgress >= 100 ? (
-                      // Completion View - Show all completed steps with View Report button
-                      <div className="space-y-4">
-                        <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
-                          {loadingSteps.map((step, index) => (
-                            <div
-                              key={step.id}
-                              className="flex items-start gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5"
-                            >
-                              {/* Completed Icon */}
-                              <div className="flex-shrink-0 mt-0.5">
-                                <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </div>
-                              </div>
-                              
-                              {/* Step Content */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <h4 className="text-sm font-semibold" style={{ color: '#05060A' }}>
-                                    {step.title}
-                                  </h4>
-                                  <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0">
-                                    {step.source}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* View Report Button */}
-                        <div className="flex justify-center pt-6">
-                          <Button
-                            onClick={() => {
-                              if (tripId) {
-                                console.log('View Report clicked - redirecting to results...');
-                                router.push(`/results/${tripId}`);
-                              } else {
-                                console.log('Trip ID not available yet');
-                              }
-                            }}
-                            size="lg"
-                            className="px-6 py-3 font-semibold"
-                            style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
-                            disabled={!tripId}
-                          >
-                            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            View Report
-                          </Button>
-                        </div>
-                      </div>
+                  <div className="relative h-[200px] overflow-hidden">
+        {loadingProgress >= 100 ? (
+          // Completion View - Show email field and View Report button only
+          <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
+            {/* Email Field and View Report Button */}
+            <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
+              <div className="flex flex-col items-center space-y-4">
+                <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground text-center">
+                  Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
+                </label>
+                <Input
+                  type="email"
+                  id="userEmail"
+                  value={userEmail}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  onBlur={handleEmailBlur}
+                  placeholder="name@company.com"
+                  className={cn(
+                    "w-full max-w-xs bg-card placeholder:text-muted-foreground/40",
+                    emailError && "border-destructive focus-visible:ring-destructive"
+                  )}
+                />
+                {emailError ? (
+                  <p className="text-xs text-destructive font-medium text-center">
+                    {emailError}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Business email required. Personal emails (Gmail, Yahoo, etc.) are not accepted.
+                  </p>
+                )}
+                
+                {/* View Report Button */}
+                <Button
+                  onClick={() => {
+                    if (tripId) {
+                      console.log('View Report clicked - redirecting to results...');
+                      router.push(`/results/${tripId}`);
+                    } else {
+                      console.log('Trip ID not available yet');
+                    }
+                  }}
+                  size="lg"
+                  className="px-6 py-3 font-semibold hover:scale-105 transition-transform"
+                  style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                  disabled={!tripId || !userEmail.trim() || !!emailError}
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  View Report
+                </Button>
+              </div>
+            </div>
+          </div>
                     ) : (
                       // Carousel View - Show current and previous steps only
                       loadingSteps.map((step, index) => {
@@ -1368,12 +1332,11 @@ export default function Home() {
                         zIndex = 30;
                         blur = 'blur(0)';
                       } else if (position === -1) {
-                        // Previous step - above (watermarked)
-                        transform = 'translateY(-90px)';
-                        opacity = 0.3;
-                        scale = 0.9;
-                        zIndex = 20;
-                        blur = 'blur(2px)';
+                        // Previous step - hide completely (no watermark)
+                        transform = 'translateY(-120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
                       } else if (position === 1) {
                         // Next step - hide completely (no watermark)
                         transform = 'translateY(120px)';
