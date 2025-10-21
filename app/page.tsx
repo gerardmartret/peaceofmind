@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { TimePicker } from '@/components/ui/time-picker';
+import { cn } from '@/lib/utils';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
 import { searchEmergencyServices } from '@/lib/google-emergency-services';
@@ -238,17 +244,15 @@ function SortableLocationItem({
           </div>
 
           {/* Time Picker and Location Search */}
-          <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
+          <div className="flex-1 grid sm:grid-cols-[160px_1fr] gap-3">
             {/* Time Picker */}
             <div>
               <Label className="text-xs font-medium text-secondary-foreground mb-1">
                 {getTimeLabel()}
               </Label>
-              <Input
-                type="time"
+              <TimePicker
                 value={location.time}
-                onChange={(e) => onTimeChange(location.id, e.target.value)}
-                className="w-full h-9"
+                onChange={(value) => onTimeChange(location.id, value)}
               />
             </div>
 
@@ -305,7 +309,7 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
   
   // Multi-location trip state
-  const [tripDate, setTripDate] = useState('');
+  const [tripDate, setTripDate] = useState<Date | undefined>(undefined);
   const [userEmail, setUserEmail] = useState('');
   const [locations, setLocations] = useState<Array<{
     id: string;
@@ -363,7 +367,7 @@ export default function Home() {
     const futureDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     setStartDate(today.toISOString().split('T')[0]);
     setEndDate(futureDate.toISOString().split('T')[0]);
-    setTripDate(today.toISOString().split('T')[0]);
+    setTripDate(today);
   }, []);
 
   const toggleDistrict = (districtId: string) => {
@@ -579,8 +583,10 @@ export default function Home() {
     simulateLoadingSteps();
 
     try {
+      const tripDateStr = tripDate ? tripDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      
       console.log(`\n${'='.repeat(80)}`);
-      console.log(`🗓️  Trip Date: ${tripDate}`);
+      console.log(`🗓️  Trip Date: ${tripDateStr}`);
       console.log(`📍 Analyzing ${validLocations.length} location(s)`);
       console.log(`${'='.repeat(80)}\n`);
 
@@ -597,7 +603,7 @@ export default function Home() {
             fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
             fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
             fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
-            fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDate}`),
+            fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDateStr}`),
             fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`)
           ]);
 
@@ -714,7 +720,7 @@ export default function Home() {
       console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
       try {
-        trafficData = await getTrafficPredictions(validLocations, tripDate);
+        trafficData = await getTrafficPredictions(validLocations, tripDateStr);
         
         if (trafficData.success) {
           console.log('✅ Traffic predictions completed successfully');
@@ -750,7 +756,7 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             tripData: reportData,
-            tripDate,
+            tripDate: tripDateStr,
             routeDistance: trafficData?.totalDistance || '0 km',
             routeDuration: trafficData?.totalMinutes || 0,
             trafficPredictions: trafficData?.success ? trafficData.data : null,
@@ -795,14 +801,14 @@ export default function Home() {
       // Save trip to database
       console.log('💾 Saving trip to database...');
       console.log('   User:', userEmail);
-      console.log('   Date:', tripDate);
+      console.log('   Date:', tripDateStr);
       console.log('   Locations:', validLocations.length);
       
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
         .insert({
           user_email: userEmail,
-          trip_date: tripDate,
+          trip_date: tripDateStr,
           locations: validLocations as any,
           trip_results: results as any,
           traffic_predictions: trafficData as any,
@@ -1018,13 +1024,36 @@ export default function Home() {
                 <label htmlFor="tripDate" className="block text-sm font-bold text-primary-foreground mb-2">
                   Trip Date
                 </label>
-                <Input
-                  type="date"
-                  id="tripDate"
-                  value={tripDate}
-                  onChange={(e) => setTripDate(e.target.value)}
-                  className="w-full bg-card"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      id="tripDate"
+                      className={cn(
+                        "w-full justify-start text-left font-normal bg-card",
+                        !tripDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {tripDate ? format(tripDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={tripDate}
+                      onSelect={setTripDate}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
+                      defaultMonth={new Date()}
+                      showOutsideDays={false}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label htmlFor="citySelect" className="block text-sm font-bold text-primary-foreground mb-2">
