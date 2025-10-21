@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { Clock } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
@@ -11,74 +12,66 @@ interface TimePickerProps {
   id?: string
 }
 
-// Generate hours (00-23)
-const generateHours = () => {
-  const hours: string[] = []
+// Generate time slots with 5-minute intervals in a user-friendly format
+const generateTimeSlots = () => {
+  const slots: { value: string; label: string }[] = []
+  
   for (let hour = 0; hour < 24; hour++) {
-    hours.push(hour.toString().padStart(2, '0'))
+    for (let minute = 0; minute < 60; minute += 5) {
+      const hourStr = hour.toString().padStart(2, '0')
+      const minuteStr = minute.toString().padStart(2, '0')
+      const timeValue = `${hourStr}:${minuteStr}`
+      
+      // Format for display (12-hour format with AM/PM)
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+      const ampm = hour < 12 ? 'AM' : 'PM'
+      const displayMinute = minuteStr
+      
+      slots.push({
+        value: timeValue,
+        label: `${displayHour}:${displayMinute} ${ampm}`
+      })
+    }
   }
-  return hours
-}
-
-// Generate minutes with 5-minute intervals (00, 05, 10, ..., 55)
-const generateMinutes = () => {
-  const minutes: string[] = []
-  for (let minute = 0; minute < 60; minute += 5) {
-    minutes.push(minute.toString().padStart(2, '0'))
-  }
-  return minutes
+  
+  return slots
 }
 
 export function TimePicker({ value, onChange, className, id }: TimePickerProps) {
-  const hours = generateHours()
-  const minutes = generateMinutes()
+  const timeSlots = generateTimeSlots()
 
-  // Parse the current value
-  const [hour, minute] = value ? value.split(':').slice(0, 2) : ['09', '00']
+  // Ensure the value is in HH:MM format (remove seconds if present)
+  const normalizedValue = value ? value.split(':').slice(0, 2).join(':') : ''
 
-  const handleHourChange = (newHour: string) => {
-    onChange(`${newHour}:${minute}`)
-  }
-
-  const handleMinuteChange = (newMinute: string) => {
-    onChange(`${hour}:${newMinute}`)
+  // Format the display value for the trigger
+  const getDisplayValue = () => {
+    if (!normalizedValue) return ''
+    const [hour, minute] = normalizedValue.split(':')
+    const hourNum = parseInt(hour)
+    const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum
+    const ampm = hourNum < 12 ? 'AM' : 'PM'
+    return `${displayHour}:${minute} ${ampm}`
   }
 
   return (
-    <div className={cn("flex gap-2", className)}>
-      {/* Hour Selector */}
-      <Select value={hour} onValueChange={handleHourChange}>
-        <SelectTrigger 
-          id={id}
-          className="w-full bg-card"
-        >
-          <SelectValue placeholder="HH" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[200px]">
-          {hours.map((h) => (
-            <SelectItem key={h} value={h}>
-              {h}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <span className="flex items-center text-muted-foreground font-medium">:</span>
-
-      {/* Minute Selector */}
-      <Select value={minute} onValueChange={handleMinuteChange}>
-        <SelectTrigger className="w-full bg-card">
-          <SelectValue placeholder="MM" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[200px]">
-          {minutes.map((m) => (
-            <SelectItem key={m} value={m}>
-              {m}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={normalizedValue} onValueChange={onChange}>
+      <SelectTrigger 
+        id={id}
+        className={cn("w-full bg-card", className)}
+      >
+        <Clock className="mr-2 h-4 w-4" />
+        <SelectValue placeholder="Select time">
+          {getDisplayValue()}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="max-h-[300px]">
+        {timeSlots.map((slot) => (
+          <SelectItem key={slot.value} value={slot.value}>
+            {slot.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 

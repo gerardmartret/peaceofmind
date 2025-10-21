@@ -19,6 +19,7 @@ import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
 import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { supabase } from '@/lib/supabase';
+import { validateBusinessEmail } from '@/lib/email-validation';
 import {
   DndContext,
   closestCenter,
@@ -244,7 +245,7 @@ function SortableLocationItem({
           </div>
 
           {/* Time Picker and Location Search */}
-          <div className="flex-1 grid sm:grid-cols-[160px_1fr] gap-3">
+          <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
             {/* Time Picker */}
             <div>
               <Label className="text-xs font-medium text-secondary-foreground mb-1">
@@ -253,6 +254,7 @@ function SortableLocationItem({
               <TimePicker
                 value={location.time}
                 onChange={(value) => onTimeChange(location.id, value)}
+                className="h-9"
               />
             </div>
 
@@ -311,6 +313,7 @@ export default function Home() {
   // Multi-location trip state
   const [tripDate, setTripDate] = useState<Date | undefined>(undefined);
   const [userEmail, setUserEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [locations, setLocations] = useState<Array<{
     id: string;
     name: string;
@@ -531,17 +534,34 @@ export default function Home() {
     return steps;
   };
 
+  const handleEmailChange = (email: string) => {
+    setUserEmail(email);
+    // Clear error when user starts typing
+    if (emailError) {
+      setEmailError(null);
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (userEmail.trim()) {
+      const validation = validateBusinessEmail(userEmail);
+      if (!validation.isValid) {
+        setEmailError(validation.error || 'Invalid email address');
+      }
+    }
+  };
+
   const handleTripSubmit = async () => {
     // Validate email
     if (!userEmail || !userEmail.trim()) {
-      setError('Please enter your email address');
+      setEmailError('Please enter your email address');
       return;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(userEmail)) {
-      setError('Please enter a valid email address');
+    // Business email validation
+    const validation = validateBusinessEmail(userEmail);
+    if (!validation.isValid) {
+      setEmailError(validation.error || 'Invalid email address');
       return;
     }
 
@@ -555,6 +575,7 @@ export default function Home() {
 
     setLoadingTrip(true);
     setError(null);
+    setEmailError(null);
     setLocationsReordered(false); // Clear reorder indicator
 
     // Initialize loading steps
@@ -954,41 +975,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          {/* Logo and Title */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <img src="/Logo.png" alt="My Roadshow Planner Logo" className="h-12 w-auto" />
-              <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
-                My Roadshow Planner
-              </h1>
-            </div>
-          </div>
-          
-          <div className="text-center">
-            <p className="text-muted-foreground text-lg mb-3">
-              Plan Your London Trip with Safety, Traffic, Weather & Top Cafes
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
-                <span>Crime</span>
-              </div>
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
-                <span>Traffic</span>
-              </div>
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
-                <span>Weather</span>
-              </div>
-              <div className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-1.5 rounded-md text-xs font-medium">
-                <span>Cafes</span>
-              </div>
-              <div className="inline-flex items-center gap-2 bg-ring/20 text-ring px-3 py-1.5 rounded-md text-xs font-semibold border-2 border-ring">
-                <span>100% FREE</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Multi-Location Trip Planner */}
         <div className="bg-card rounded-md p-6 mb-8 border border-border">
@@ -1002,19 +988,29 @@ export default function Home() {
           {/* User Email - Required Field */}
           <div className="bg-ring/10 border-2 border-ring rounded-md p-4 mb-6">
             <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground mb-2">
-              Your Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
+              Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
             </label>
             <Input
               type="email"
               id="userEmail"
               value={userEmail}
-              onChange={(e) => setUserEmail(e.target.value)}
-              placeholder="your.email@example.com"
-              className="w-full max-w-md bg-card"
+              onChange={(e) => handleEmailChange(e.target.value)}
+              onBlur={handleEmailBlur}
+              placeholder="name@company.com"
+              className={cn(
+                "w-full max-w-md bg-card placeholder:text-muted-foreground/40",
+                emailError && "border-destructive focus-visible:ring-destructive"
+              )}
             />
-            <p className="text-xs text-muted-foreground mt-2">
-              We'll use this to send you your trip analysis report
-            </p>
+            {emailError ? (
+              <p className="text-xs text-destructive mt-2 font-medium">
+                {emailError}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-2">
+                Business email required. Personal emails (Gmail, Yahoo, etc.) are not accepted.
+              </p>
+            )}
           </div>
 
           {/* Trip Date and City Selector */}
@@ -1133,7 +1129,7 @@ export default function Home() {
 
             <Button
               onClick={handleTripSubmit}
-              disabled={loadingTrip || !userEmail.trim() || locations.filter(l => l.name).length === 0}
+              disabled={loadingTrip || !userEmail.trim() || !!emailError || locations.filter(l => l.name).length === 0}
               variant={locationsReordered ? "destructive" : "default"}
               size="lg"
               className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
@@ -1160,14 +1156,6 @@ export default function Home() {
         {loadingTrip && (
           <Card className="mb-8 shadow-xl">
             <CardContent className="p-8">
-              <div className="text-center mb-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <h3 className="text-xl font-bold text-card-foreground mb-2">Analyzing Your Trip</h3>
-                <p className="text-muted-foreground">
-                  Gathering comprehensive data from official sources for accurate risk assessment
-                </p>
-              </div>
-              
               {/* Vertical Carousel - Single Active Card */}
               <div className="relative h-48 overflow-hidden">
                 {loadingSteps.map((step, index) => {
@@ -1178,7 +1166,7 @@ export default function Home() {
                   return (
                     <div
                       key={step.id}
-                      className={`absolute inset-0 transition-all duration-500 ease-in-out ${
+                      className={`absolute inset-0 transition-all duration-700 ease-in-out ${
                         isActive 
                           ? 'opacity-100 translate-y-0' 
                           : isCompleted 
@@ -1222,7 +1210,7 @@ export default function Home() {
                             </div>
                             <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
                               <div 
-                                className="h-full bg-primary transition-all duration-500 ease-out"
+                                className="h-full bg-primary transition-all duration-700 ease-out"
                                 style={{ 
                                   width: `${((loadingSteps.filter(s => s.status === 'completed').length) / loadingSteps.length) * 100}%` 
                                 }}
