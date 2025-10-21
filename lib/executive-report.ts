@@ -31,11 +31,8 @@ export interface TrafficPrediction {
 export interface ExecutiveReport {
   tripRiskScore: number; // 1-10
   overallSummary: string;
-  locationAnalysis: Array<{
-    locationName: string;
-    riskLevel: 'high' | 'medium' | 'low';
-    keyFindings: string[];
-  }>;
+  riskScoreExplanation: string;
+  topDisruptor: string;
   routeDisruptions: {
     drivingRisks: string[];
     externalDisruptions: string[];
@@ -133,33 +130,32 @@ ANALYSIS REQUIREMENTS:
 1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
    Include parking difficulty (10-15% weight)
 
-2. LOCATION ANALYSIS: For each stop provide:
-   - Risk level (high/medium/low)
-   - Key safety/disruption findings with data sources
-   - Mention parking challenges if risk score > 6
-   - Note CPZ restrictions and operating hours
-   - Recommend top cafes within 250m if available
+2. Exaplain why the trip risk score is what it is. Explain which data is used and how it is used to calculate the score.
+3. Give the ONE thing that most likely to disrupt the trip. Explain why.
 
-3. ROUTE DISRUPTIONS:
+
+4. ROUTE DISRUPTIONS:
    - Driving risks (traffic, road closures, weather)
    - External disruptions (protests, events causing detours)${trafficPredictions ? '\n   - Historical traffic delays' : ''}
 
-4. RECOMMENDATIONS: 3-5 actionable items including:
+5. RECOMMENDATIONS: 3-5 actionable items including:
    - Timing adjustments for traffic
    - Parking advice (CPZ hours, e.g., arrive before 8:30am or after 6:30pm)
    - Specific car parks if parking is limited
    - Top-rated cafes for convenience
+   - Clothing advice for the weather like raincoats, umbrellas, etc.
 
-5. KEY HIGHLIGHTS: 4-6 critical points
+6. KEY HIGHLIGHTS: 4-6 critical points
    Type: danger (high risk), warning (moderate), info (neutral), success (positive)
 
 Return JSON:
 {
   "tripRiskScore": number,
   "overallSummary": "2-3 sentences",
-  "locationAnalysis": [{"locationName": "str", "riskLevel": "high|medium|low", "keyFindings": ["str with source"]}],
+  "riskScoreExplanation": "Explain why score is X/10, which data used and how calculated",
+  "topDisruptor": "The ONE thing most likely to disrupt trip and why",
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
-  "recommendations": ["str"],
+  "recommendations": ["3-5 items: timing, parking CPZ advice, car parks, cafes, weather clothing (raincoats/umbrellas)"],
   "highlights": [{"type": "danger|warning|info|success", "message": "str with source"}]
 }
 
@@ -221,6 +217,8 @@ Cite sources (e.g., "78 crimes - UK Police Data"). Use actual data numbers.`;
 
     console.log(`\n✅ Executive Report Generated!`);
     console.log(`🎯 Trip Risk Score: ${report.tripRiskScore}/10`);
+    console.log(`📝 Risk Explanation: ${report.riskScoreExplanation.substring(0, 100)}...`);
+    console.log(`⚠️ Top Disruptor: ${report.topDisruptor.substring(0, 100)}...`);
     console.log(`📋 Highlights: ${report.highlights.length}`);
     console.log(`💡 Recommendations: ${report.recommendations.length}`);
     console.log('='.repeat(80) + '\n');

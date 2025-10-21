@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     console.log('✅ Report generated successfully!');
     console.log(`🎯 Trip Risk Score: ${report.tripRiskScore}/10`);
     console.log(`📊 Highlights: ${report.highlights.length} items`);
-    console.log(`📍 Location Analysis: ${report.locationAnalysis.length} locations`);
+    console.log(`⚠️ Top Disruptor: ${report.topDisruptor}`);
 
     return NextResponse.json({
       success: true,

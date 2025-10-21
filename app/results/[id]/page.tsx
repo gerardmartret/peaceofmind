@@ -467,35 +467,26 @@ export default function ResultsPage() {
                 ))}
               </div>
 
-              {/* Location Analysis */}
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {executiveReport.locationAnalysis.map((loc: any, idx: number) => (
-                  <div key={idx} className="bg-background rounded-xl p-5 shadow-lg border border-border">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-bold text-foreground flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">
-                          {idx + 1}
-                        </span>
-                        {loc.locationName.split(',')[0]}
-                      </h4>
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                        loc.riskLevel === 'high' ? 'bg-destructive/10 text-destructive' :
-                        loc.riskLevel === 'medium' ? 'bg-destructive/5 text-destructive/80' :
-                        'bg-ring/10 text-ring'
-                      }`}>
-                        {loc.riskLevel.toUpperCase()}
-                      </span>
-                    </div>
-                    <ul className="space-y-2">
-                      {loc.keyFindings.map((finding: string, fIdx: number) => (
-                        <li key={fIdx} className="text-xs text-muted-foreground leading-tight flex items-start gap-1">
-                          <span className="text-primary flex-shrink-0 mt-0.5">•</span>
-                          <span>{finding}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+              {/* Risk Score Explanation */}
+              <div className="bg-background rounded-xl p-6 mb-6 shadow-lg border-l-4 border-ring">
+                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="text-ring">📊</span>
+                  Risk Score Explanation
+                </h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  {executiveReport.riskScoreExplanation}
+                </p>
+              </div>
+
+              {/* Top Disruptor */}
+              <div className="bg-background rounded-xl p-6 mb-6 shadow-lg border-l-4 border-destructive/70">
+                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="text-destructive">⚠️</span>
+                  Top Disruptor
+                </h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  {executiveReport.topDisruptor}
+                </p>
               </div>
 
               {/* Route Disruptions */}
