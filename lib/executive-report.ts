@@ -130,8 +130,8 @@ ANALYSIS REQUIREMENTS:
 1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
    Include parking difficulty (10-15% weight)
 
-2. Exaplain why the trip risk score is what it is. Explain which data is used and how it is used to calculate the score.
-3. Give the ONE thing that most likely to disrupt the trip. Explain why.
+2. Give the ONE thing that most likely to disrupt the trip. Explain why.
+3. Explain why the trip risk score is what it is. Explain which data is used and how it is used to calculate the score.
 
 
 4. ROUTE DISRUPTIONS:

@@ -399,13 +399,9 @@ export default function ResultsPage() {
               {/* Header */}
               <div className="flex items-center justify-between mb-6 pb-6 border-b-4 border-border">
                 <div>
-                  <h2 className="text-3xl font-bold text-card-foreground flex items-center gap-3">
+                  <h2 className="text-3xl font-bold text-card-foreground">
                     Peace of Mind Report
-                    <span className="text-sm font-normal text-muted-foreground bg-secondary px-3 py-1 rounded-full">AI-Powered</span>
                   </h2>
-                  <p className="text-muted-foreground mt-2">
-                    Executive Summary • {tripDate} • {tripResults.length} Location{tripResults.length > 1 ? 's' : ''}
-                  </p>
                 </div>
                 <div className="text-center">
                   <div className="text-sm text-muted-foreground mb-1">Trip Risk Score</div>
@@ -431,46 +427,21 @@ export default function ResultsPage() {
                 </div>
               </div>
 
-              {/* Overall Summary */}
-              <div className="bg-background rounded-xl p-6 mb-6 shadow-lg border-l-4 border-primary">
-                <h3 className="text-lg font-bold text-foreground mb-3">
-                  Executive Summary
+
+
+              {/* Top Disruptor */}
+              <div className="rounded-xl p-6 mb-6 shadow-lg" style={{ backgroundColor: '#05060A' }}>
+                <h3 className="text-lg font-bold text-white mb-3">
+                  Top Disruptor
                 </h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {executiveReport.overallSummary}
+                <p className="text-white/80 leading-relaxed">
+                  {executiveReport.topDisruptor}
                 </p>
               </div>
 
-              {/* Key Highlights */}
-              <div className="grid md:grid-cols-2 gap-4 mb-6">
-                {executiveReport.highlights.map((highlight: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className={`rounded-xl p-4 shadow-lg border-l-4 ${
-                      highlight.type === 'danger' ? 'bg-destructive/10 border-destructive' :
-                      highlight.type === 'warning' ? 'bg-destructive/5 border-destructive/50' :
-                      highlight.type === 'success' ? 'bg-ring/10 border-ring' :
-                      'bg-secondary border-border'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <p className={`text-sm font-medium leading-snug ${
-                        highlight.type === 'danger' ? 'text-destructive' :
-                        highlight.type === 'warning' ? 'text-destructive/80' :
-                        highlight.type === 'success' ? 'text-ring' :
-                        'text-foreground'
-                      }`}>
-                        {highlight.message}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
               {/* Risk Score Explanation */}
-              <div className="bg-background rounded-xl p-6 mb-6 shadow-lg border-l-4 border-ring">
-                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-                  <span className="text-ring">📊</span>
+              <div className="rounded-xl p-6 mb-6 shadow-lg" style={{ backgroundColor: '#FBFAF9' }}>
+                <h3 className="text-lg font-bold text-foreground mb-3">
                   Risk Score Explanation
                 </h3>
                 <p className="text-muted-foreground leading-relaxed">
@@ -478,62 +449,52 @@ export default function ResultsPage() {
                 </p>
               </div>
 
-              {/* Top Disruptor */}
-              <div className="bg-background rounded-xl p-6 mb-6 shadow-lg border-l-4 border-destructive/70">
-                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-                  <span className="text-destructive">⚠️</span>
-                  Top Disruptor
+
+              {/* Recommendations */}
+              <div className="rounded-xl p-6 shadow-lg mb-6" style={{ backgroundColor: '#05060A' }}>
+                <h3 className="text-xl font-bold text-white mb-4">
+                  Recommendations
                 </h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {executiveReport.topDisruptor}
-                </p>
+                <ul className="space-y-3">
+                  {executiveReport.recommendations.map((rec: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold text-white">
+                        {idx + 1}
+                      </span>
+                      <span className="text-white/95 leading-relaxed">{rec}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               {/* Route Disruptions */}
               <div className="grid md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-background rounded-xl p-5 shadow-lg border-l-4 border-destructive/70 border border-border">
+                <div className="rounded-xl p-5 shadow-lg" style={{ backgroundColor: '#FBFAF9' }}>
                   <h3 className="text-lg font-bold text-foreground mb-3">
                     Driving Risks
                   </h3>
                   <ul className="space-y-2">
                     {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-destructive/70 flex-shrink-0 mt-1">▸</span>
+                        <span className="text-foreground flex-shrink-0 mt-1">▸</span>
                         <span>{risk}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="bg-background rounded-xl p-5 shadow-lg border-l-4 border-primary border border-border">
+                <div className="rounded-xl p-5 shadow-lg" style={{ backgroundColor: '#FBFAF9' }}>
                   <h3 className="text-lg font-bold text-foreground mb-3">
                     External Disruptions
                   </h3>
                   <ul className="space-y-2">
                     {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
                       <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-primary flex-shrink-0 mt-1">▸</span>
+                        <span className="text-foreground flex-shrink-0 mt-1">▸</span>
                         <span>{disruption}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              </div>
-
-              {/* Recommendations */}
-              <div className="bg-primary rounded-xl p-6 shadow-xl text-primary-foreground">
-                <h3 className="text-xl font-bold mb-4">
-                  Recommendations
-                </h3>
-                <ul className="space-y-3">
-                  {executiveReport.recommendations.map((rec: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-background/20 flex items-center justify-center text-sm font-bold">
-                        {idx + 1}
-                      </span>
-                      <span className="text-primary-foreground/95 leading-relaxed">{rec}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
             </div>
           )}
