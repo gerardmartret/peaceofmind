@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -341,6 +341,31 @@ export default function Home() {
     locationIndex?: number;
   }>>([]);
 
+  // Email/text extraction state
+  const [extractionText, setExtractionText] = useState('');
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [extractedLocations, setExtractedLocations] = useState<Array<{
+    location: string;
+    time: string;
+    confidence: string;
+    verified: boolean;
+    formattedAddress: string;
+    lat: number;
+    lng: number;
+    placeId: string | null;
+  }> | null>(null);
+  const [extractedDate, setExtractedDate] = useState<string | null>(null);
+  const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
+  const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
+
+
+  // Refs for debouncing timeouts
+  const locationEditTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeEditTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+
+
   const londonDistricts = [
     { id: 'westminster', name: 'Westminster' },
     { id: 'city-of-london', name: 'City of London' },
@@ -376,6 +401,40 @@ export default function Home() {
     setStartDate(today.toISOString().split('T')[0]);
     setEndDate(futureDate.toISOString().split('T')[0]);
     setTripDate(today);
+    
+    // Restore extracted data from session storage
+    console.log('🔄 [FRONTEND] Checking session storage for saved data...');
+    if (typeof window !== 'undefined') {
+      const savedData = sessionStorage.getItem('extractedTripData');
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          console.log('📦 [FRONTEND] Found saved extraction data:', parsed);
+          console.log('📅 [FRONTEND] Saved timestamp:', parsed.timestamp);
+          
+          // Restore the data
+          setExtractionText(parsed.text || '');
+          setExtractedLocations(parsed.locations || null);
+          setExtractedDate(parsed.date || null);
+          
+          console.log('✅ [FRONTEND] Restored extraction data from session storage');
+        } catch (error) {
+          console.error('❌ [FRONTEND] Error parsing session storage data:', error);
+        }
+      } else {
+        console.log('ℹ️ [FRONTEND] No saved extraction data found in session storage');
+      }
+    }
+
+    // Cleanup timeouts on unmount
+    return () => {
+      if (locationEditTimeoutRef.current) {
+        clearTimeout(locationEditTimeoutRef.current);
+      }
+      if (timeEditTimeoutRef.current) {
+        clearTimeout(timeEditTimeoutRef.current);
+      }
+    };
   }, []);
 
   const toggleDistrict = (districtId: string) => {
@@ -1025,6 +1084,174 @@ export default function Home() {
     return 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
   };
 
+  // Handle text extraction for trip planning
+  const handleExtractTrip = async () => {
+    console.log('🚀 [FRONTEND] Starting extraction...');
+    console.log('📝 [FRONTEND] Input text:', extractionText.substring(0, 100) + '...');
+    
+    if (!extractionText.trim()) {
+      console.log('❌ [FRONTEND] Empty text provided');
+      setExtractionError('Please enter some text to extract trip information.');
+      return;
+    }
+
+    setIsExtracting(true);
+    setExtractionError(null);
+    setExtractedLocations(null);
+    setExtractedDate(null);
+
+    try {
+      console.log('📡 [FRONTEND] Sending request to /api/extract-trip...');
+      const response = await fetch('/api/extract-trip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: extractionText }),
+      });
+
+      console.log('📥 [FRONTEND] Response status:', response.status);
+      const data = await response.json();
+      console.log('📥 [FRONTEND] Response data:', data);
+
+      if (!data.success) {
+        console.log('❌ [FRONTEND] Extraction failed:', data.error);
+        setExtractionError(data.error || 'Failed to extract trip information.');
+        return;
+      }
+
+      console.log('✅ [FRONTEND] Extraction successful!');
+      console.log(`📍 [FRONTEND] Extracted ${data.locations?.length || 0} locations`);
+      console.log('📍 [FRONTEND] Locations:', data.locations);
+      
+      setExtractedLocations(data.locations);
+      setExtractedDate(data.date);
+
+      // Save to session storage
+      console.log('💾 [FRONTEND] Saving to session storage...');
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('extractedTripData', JSON.stringify({
+          text: extractionText,
+          locations: data.locations,
+          date: data.date,
+          timestamp: new Date().toISOString(),
+        }));
+        console.log('✅ [FRONTEND] Saved to session storage');
+      }
+    } catch (error) {
+      console.error('❌ [FRONTEND] Error extracting trip:', error);
+      setExtractionError('An error occurred while extracting trip information.');
+    } finally {
+      setIsExtracting(false);
+      console.log('🏁 [FRONTEND] Extraction process complete');
+    }
+  };
+
+
+  // Handle clearing extraction results
+  const handleClearExtraction = () => {
+    console.log('🧹 [FRONTEND] Clearing extraction results...');
+    setExtractedLocations(null);
+    setExtractedDate(null);
+    setExtractionText('');
+    setExtractionError(null);
+    
+    // Clear from session storage
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('extractedTripData');
+      console.log('✅ [FRONTEND] Cleared session storage');
+    }
+  };
+
+
+  // Handle manual location edit
+  const handleLocationEdit = (index: number, value: string) => {
+    console.log(`✏️ [FRONTEND] Manual location edit for index ${index}: "${value}"`);
+    if (extractedLocations) {
+      const updatedLocations = [...extractedLocations];
+      updatedLocations[index] = {
+        ...updatedLocations[index],
+        location: value,
+        formattedAddress: value,
+        verified: false,
+        lat: 0,
+        lng: 0,
+        placeId: null,
+      };
+      setExtractedLocations(updatedLocations);
+      
+      // Save to session storage with debouncing
+      if (typeof window !== 'undefined') {
+        // Clear any existing timeout
+        if (locationEditTimeoutRef.current) {
+          clearTimeout(locationEditTimeoutRef.current);
+        }
+        
+        // Set new timeout for saving
+        locationEditTimeoutRef.current = setTimeout(() => {
+          sessionStorage.setItem('extractedTripData', JSON.stringify({
+            text: extractionText,
+            locations: updatedLocations,
+            date: extractedDate,
+            timestamp: new Date().toISOString(),
+          }));
+          console.log('💾 [FRONTEND] Saved manual location edit to session storage');
+        }, 500); // Save after 500ms of no typing
+      }
+    }
+  };
+
+  // Handle time edit
+  const handleTimeEdit = (index: number, value: string) => {
+    if (extractedLocations) {
+      const updatedLocations = [...extractedLocations];
+      updatedLocations[index] = {
+        ...updatedLocations[index],
+        time: value,
+      };
+      setExtractedLocations(updatedLocations);
+      
+      // Save to session storage with debouncing
+      if (typeof window !== 'undefined') {
+        // Clear any existing timeout
+        if (timeEditTimeoutRef.current) {
+          clearTimeout(timeEditTimeoutRef.current);
+        }
+        
+        // Set new timeout for saving
+        timeEditTimeoutRef.current = setTimeout(() => {
+          sessionStorage.setItem('extractedTripData', JSON.stringify({
+            text: extractionText,
+            locations: updatedLocations,
+            date: extractedDate,
+            timestamp: new Date().toISOString(),
+          }));
+          console.log('💾 [FRONTEND] Saved time edit to session storage');
+        }, 500); // Save after 500ms of no typing
+      }
+    }
+  };
+
+  // Handle date edit
+  const handleDateEdit = (value: string) => {
+    setExtractedDate(value);
+    
+    // Save to session storage
+    if (typeof window !== 'undefined' && extractedLocations) {
+      sessionStorage.setItem('extractedTripData', JSON.stringify({
+        text: extractionText,
+        locations: extractedLocations,
+        date: value,
+        timestamp: new Date().toISOString(),
+      }));
+    }
+  };
+
+  // Get time label based on position in the trip
+  const getTimeLabel = (index: number, totalLocations: number) => {
+    if (index === 0) return 'Pickup Time';
+    if (index === totalLocations - 1) return 'Drop Off Time';
+    return 'Resume At';
+  };
+
   const getSafetyLabel = (score: number) => {
     if (score >= 80) return 'Very Safe';
     if (score >= 60) return 'Moderately Safe';
@@ -1035,6 +1262,235 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
+
+        {/* Email/Text Import Section */}
+        <div className="bg-card rounded-md p-6 mb-8 border border-border">
+          <div className="flex items-center gap-2 mb-4">
+            <svg className="w-5 h-5 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <h2 className="text-xl font-bold text-card-foreground">
+              Import Trip from Email or Text
+            </h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you.
+          </p>
+
+          <div className="space-y-4">
+            {/* Textarea */}
+            <div>
+              <textarea
+                value={extractionText}
+                onChange={(e) => setExtractionText(e.target.value)}
+                placeholder="Example: Pick me up from Heathrow at 9am, then we go to the office at 123 Baker Street at 11am, and finally drop off at Kings Cross at 3pm on December 25th."
+                className="w-full min-h-[150px] p-3 rounded-md border-2 border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
+              />
+            </div>
+
+            {/* Extract Button */}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleExtractTrip}
+                disabled={isExtracting || !extractionText.trim()}
+                size="lg"
+                className="flex items-center gap-2"
+                style={{ backgroundColor: '#18815A', color: '#FFFFFF' }}
+              >
+                {isExtracting ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Extracting...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Extract Locations & Times
+                  </>
+                )}
+              </Button>
+              {extractedLocations && (
+                <Button
+                  onClick={handleClearExtraction}
+                  variant="outline"
+                  size="lg"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            {/* Error Message */}
+            {extractionError && (
+              <Alert variant="destructive">
+                <AlertDescription>{extractionError}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Extracted Results Table */}
+            {extractedLocations && extractedLocations.length > 0 && (
+              <div className="rounded-md border-2 border-border bg-secondary/20 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <h3 className="text-lg font-bold text-card-foreground">
+                      Found {extractedLocations.length} stop{extractedLocations.length > 1 ? 's' : ''} in chronological order
+                    </h3>
+                  </div>
+                  {extractedDate && (
+                    <div className="text-sm text-muted-foreground">
+                      Date: {format(new Date(extractedDate), "PPP")}
+                    </div>
+                  )}
+                </div>
+
+                {/* Date Editor */}
+                {extractedDate && (
+                  <div className="mb-4 p-3 bg-secondary/20 rounded-md">
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-semibold text-card-foreground">Trip Date:</Label>
+                      <Input
+                        type="date"
+                        value={extractedDate}
+                        onChange={(e) => handleDateEdit(e.target.value)}
+                        className="h-8 w-40"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Results Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-card-foreground">#</th>
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-card-foreground">Location</th>
+                        <th className="text-left py-2 px-3 text-sm font-semibold text-card-foreground">Time & Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {extractedLocations.map((loc, index) => (
+                        <tr key={index} className="border-b border-border/50 last:border-b-0">
+                          <td className="py-3 px-3 text-sm font-medium text-card-foreground">
+                            {numberToLetter(index + 1)}
+                          </td>
+                          <td className="py-3 px-3">
+                            {editingExtractedIndex === index && editingExtractedField === 'location' ? (
+                              <GoogleLocationSearch
+                                onLocationSelect={(loc) => {
+                                  console.log(`📍 [FRONTEND] Location ${numberToLetter(index + 1)} selected:`, loc);
+                                  const updatedLocations = [...extractedLocations];
+                                  updatedLocations[index] = {
+                                    ...updatedLocations[index],
+                                    location: loc.name,
+                                    formattedAddress: loc.name,
+                                    lat: loc.lat,
+                                    lng: loc.lng,
+                                    placeId: null, // GoogleLocationSearch doesn't provide place_id
+                                    verified: true,
+                                  };
+                                  setExtractedLocations(updatedLocations);
+                                  setEditingExtractedIndex(null);
+                                  setEditingExtractedField(null);
+                                  
+                                  // Save to session storage immediately
+                                  if (typeof window !== 'undefined') {
+                                    sessionStorage.setItem('extractedTripData', JSON.stringify({
+                                      text: extractionText,
+                                      locations: updatedLocations,
+                                      date: extractedDate,
+                                      timestamp: new Date().toISOString(),
+                                    }));
+                                    console.log('💾 [FRONTEND] Saved Google Maps selection to session storage');
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                {loc.verified && (
+                                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                )}
+                                <span 
+                                  className="text-sm text-card-foreground cursor-pointer hover:bg-secondary/50 px-2 py-1 rounded"
+                                  onClick={() => {
+                                    setEditingExtractedIndex(index);
+                                    setEditingExtractedField('location');
+                                  }}
+                                >
+                                  {loc.verified ? loc.formattedAddress : loc.location}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground font-medium">
+                                {getTimeLabel(index, extractedLocations.length)}
+                              </div>
+                              {editingExtractedIndex === index && editingExtractedField === 'time' ? (
+                                <Input
+                                  type="time"
+                                  value={loc.time}
+                                  onChange={(e) => handleTimeEdit(index, e.target.value)}
+                                  onBlur={() => {
+                                    setEditingExtractedIndex(null);
+                                    setEditingExtractedField(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      setEditingExtractedIndex(null);
+                                      setEditingExtractedField(null);
+                                    }
+                                  }}
+                                  autoFocus
+                                  className="h-8 w-24"
+                                />
+                              ) : (
+                                <span 
+                                  className="text-sm text-card-foreground font-mono cursor-pointer hover:bg-secondary/50 px-2 py-1 rounded block"
+                                  onClick={() => {
+                                    setEditingExtractedIndex(index);
+                                    setEditingExtractedField('time');
+                                  }}
+                                >
+                                  {loc.time}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Clear Button */}
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    onClick={handleClearExtraction}
+                    variant="outline"
+                    size="lg"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Multi-Location Trip Planner */}
         <div className="bg-card rounded-md p-6 mb-8 border border-border">

@@ -36,8 +36,23 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
         return;
       }
 
+      // Create a display name that includes both business name and address
+      let displayName = '';
+      if (place.name && place.formatted_address) {
+        // If we have both name and address, show "Name, Address"
+        displayName = `${place.name}, ${place.formatted_address}`;
+      } else if (place.name) {
+        // If we only have the name
+        displayName = place.name;
+      } else if (place.formatted_address) {
+        // If we only have the address
+        displayName = place.formatted_address;
+      } else {
+        displayName = 'Unknown location';
+      }
+
       const location: SearchResult = {
-        name: place.formatted_address || place.name || 'Unknown location',
+        name: displayName,
         lat: place.geometry.location.lat(),
         lng: place.geometry.location.lng(),
       };
