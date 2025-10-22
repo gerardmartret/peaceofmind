@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import GoogleTripMap from '@/components/GoogleTripMap';
+import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -187,6 +188,10 @@ interface SortableLocationItemProps {
   onTimeChange: (id: string, time: string) => void;
   onRemove: (id: string) => void;
   canRemove: boolean;
+  editingIndex: number | null;
+  editingField: 'location' | 'time' | null;
+  onEditStart: (id: string, field: 'location' | 'time') => void;
+  onEditEnd: () => void;
 }
 
 function SortableLocationItem({
@@ -197,6 +202,10 @@ function SortableLocationItem({
   onTimeChange,
   onRemove,
   canRemove,
+  editingIndex,
+  editingField,
+  onEditStart,
+  onEditEnd,
 }: SortableLocationItemProps) {
   const {
     attributes,
@@ -221,78 +230,87 @@ function SortableLocationItem({
   };
 
   return (
-    <Card
+    <div
       ref={setNodeRef}
       style={style}
-      className="border-2 relative"
+      className="bg-card rounded-md p-4 border border-border relative"
     >
-      {/* ABC Letter in top-left corner */}
+      {/* Letter Label - Top Left */}
       <div className="absolute top-2 left-2 text-muted-foreground/40 text-xs font-normal">
         {numberToLetter(index + 1)}
       </div>
       
-      <CardContent className="py-1.5 px-4">
-        <div className="flex items-center gap-3">
-          {/* Drag Handle */}
-          <div
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors flex items-center"
-            title="Drag to reorder"
-          >
-            <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-            </svg>
+      <div className="flex items-center gap-3">
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors flex items-center"
+          title="Drag to reorder"
+        >
+          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+
+        {/* Time Picker and Location Search */}
+        <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
+          {/* Time Picker */}
+          <div>
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">
+              {getTimeLabel()}
+            </Label>
+            <TimePicker
+              value={location.time}
+              onChange={(value) => onTimeChange(location.id, value)}
+              className="h-9"
+            />
           </div>
 
-          {/* Time Picker and Location Search */}
-          <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
-            {/* Time Picker */}
-            <div>
-              <Label className="text-xs font-medium text-secondary-foreground mb-1">
-                {getTimeLabel()}
-              </Label>
-              <TimePicker
-                value={location.time}
-                onChange={(value) => onTimeChange(location.id, value)}
-                className="h-9"
-              />
-            </div>
-
-            {/* Location Search */}
-            <div className="min-w-0">
-              <Label className="text-xs font-medium text-secondary-foreground mb-1">
-                Location
-              </Label>
+          {/* Location Search */}
+          <div className="min-w-0">
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
+            {editingIndex === index && editingField === 'location' ? (
               <GoogleLocationSearch
                 onLocationSelect={(loc) => {
-                  console.log(`Location ${numberToLetter(index + 1)} selected:`, loc);
-                  onLocationSelect(location.id, {
-                    name: loc.name,
-                    lat: loc.lat,
-                    lng: loc.lng,
-                  });
+                  onLocationSelect(location.id, loc);
+                  onEditEnd();
                 }}
               />
-            </div>
+            ) : (
+              <div 
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                onClick={() => onEditStart(location.id, 'location')}
+              >
+                <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="flex-1 truncate text-base md:text-sm">
+                  {location.name || "Search hotels, restaurants, landmarks, or any location..."}
+                </span>
+                {location.name && (
+                  <svg className="w-4 h-4 text-green-600 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Remove Button */}
-          <Button
+        {/* Delete Button - Far Right */}
+        {canRemove && (
+          <button 
+            className="flex-shrink-0 p-2 text-muted-foreground hover:text-destructive transition-colors"
             onClick={() => onRemove(location.id)}
-            disabled={!canRemove}
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:bg-muted hover:text-foreground h-8 w-8"
-            title="Remove location"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -447,6 +465,7 @@ const numberToLetter = (num: number): string => {
 
 export default function Home() {
   const router = useRouter();
+  const { isLoaded: isGoogleMapsLoaded } = useGoogleMaps();
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Array<{ district: string; data: CombinedData }>>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>(['westminster']);
@@ -487,6 +506,7 @@ export default function Home() {
 
   // Email/text extraction state
   const [extractionText, setExtractionText] = useState('');
+  const [lastExtractedText, setLastExtractedText] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [extractedLocations, setExtractedLocations] = useState<Array<{
@@ -504,6 +524,13 @@ export default function Home() {
   const [extractedDriverSummary, setExtractedDriverSummary] = useState<string | null>(null);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
+  
+  // View toggle state
+  const [showManualForm, setShowManualForm] = useState(false);
+  
+  // Manual form editing state
+  const [editingManualIndex, setEditingManualIndex] = useState<number | null>(null);
+  const [editingManualField, setEditingManualField] = useState<'location' | 'time' | null>(null);
 
 
   // Refs for debouncing timeouts
@@ -629,9 +656,18 @@ export default function Home() {
   };
 
   const updateLocationTime = (id: string, time: string) => {
-    setLocations(locations.map(loc => 
+    const updatedLocations = locations.map(loc => 
       loc.id === id ? { ...loc, time } : loc
-    ));
+    );
+    
+    // Sort locations by time
+    const sortedLocations = updatedLocations.sort((a, b) => {
+      const timeA = a.time || '00:00';
+      const timeB = b.time || '00:00';
+      return timeA.localeCompare(timeB);
+    });
+    
+    setLocations(sortedLocations);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -673,14 +709,25 @@ export default function Home() {
       const oldIndex = extractedLocations.findIndex((item) => item.location === active.id);
       const newIndex = extractedLocations.findIndex((item) => item.location === over.id);
 
+      // Store the times in their current positions before reordering
+      const timesByPosition = extractedLocations.map(item => item.time);
+      
+      // Reorder the locations
       const reorderedLocations = arrayMove(extractedLocations, oldIndex, newIndex);
-      setExtractedLocations(reorderedLocations);
+      
+      // Reassign times based on new positions (times stay with positions, not locations)
+      const locationsWithSwappedTimes = reorderedLocations.map((item, index) => ({
+        ...item,
+        time: timesByPosition[index]
+      }));
+      
+      setExtractedLocations(locationsWithSwappedTimes);
 
       // Save to session storage
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('extractedTripData', JSON.stringify({
           text: extractionText,
-          locations: reorderedLocations,
+          locations: locationsWithSwappedTimes,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
           timestamp: new Date().toISOString(),
@@ -859,6 +906,12 @@ export default function Home() {
     emailToUse: string,
     driverSummary?: string | null
   ) => {
+    // Check if Google Maps API is loaded
+    if (!isGoogleMapsLoaded) {
+      setError('Google Maps API is not loaded. Please refresh the page and try again.');
+      return;
+    }
+
     setLoadingTrip(true);
     setError(null);
     setEmailError(null);
@@ -977,6 +1030,10 @@ export default function Home() {
           console.log(`☕ Searching for top cafes near ${location.name}...`);
           let cafeData = null;
           try {
+            if (!isGoogleMapsLoaded) {
+              console.warn('⚠️ Google Maps API not loaded, skipping cafe search');
+              throw new Error('Google Maps API not loaded');
+            }
             cafeData = await searchNearbyCafes(location.lat, location.lng, location.name);
             console.log(`✅ Found ${cafeData.cafes.length} cafes`);
           } catch (cafeError) {
@@ -994,6 +1051,10 @@ export default function Home() {
           console.log(`🚨 Searching for emergency services near ${location.name}...`);
           let emergencyServicesData = null;
           try {
+            if (!isGoogleMapsLoaded) {
+              console.warn('⚠️ Google Maps API not loaded, skipping emergency services search');
+              throw new Error('Google Maps API not loaded');
+            }
             emergencyServicesData = await searchEmergencyServices(location.lat, location.lng, location.name);
             console.log(`✅ Found emergency services`);
           } catch (emergencyError) {
@@ -1364,6 +1425,7 @@ export default function Home() {
       setExtractedLocations(data.locations);
       setExtractedDate(data.date);
       setExtractedDriverSummary(data.driverSummary);
+      setLastExtractedText(extractionText);
 
       // Save to session storage
       console.log('💾 [FRONTEND] Saving to session storage...');
@@ -1394,6 +1456,7 @@ export default function Home() {
     setExtractedDate(null);
     setExtractedDriverSummary(null);
     setExtractionText('');
+    setLastExtractedText('');
     setExtractionError(null);
     
     // Clear from session storage
@@ -1449,7 +1512,15 @@ export default function Home() {
         ...updatedLocations[index],
         time: value,
       };
-      setExtractedLocations(updatedLocations);
+      
+      // Sort locations by time
+      const sortedLocations = updatedLocations.sort((a, b) => {
+        const timeA = a.time || '00:00';
+        const timeB = b.time || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+      
+      setExtractedLocations(sortedLocations);
       
       // Save to session storage with debouncing
       if (typeof window !== 'undefined') {
@@ -1552,10 +1623,15 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-background p-4 sm:p-8 flex items-center justify-center">
+      <div className="max-w-4xl mx-auto w-full">
+        {/* Title */}
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-bold text-foreground">My Safe Roadshow</h1>
+        </div>
 
         {/* Email/Text Import Section */}
+        {!showManualForm && !extractedLocations && (
         <div className="bg-card rounded-md p-6 mb-8 border border-border">
           <div className="flex items-center gap-2 mb-4">
             <svg className="w-5 h-5 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1575,28 +1651,18 @@ export default function Home() {
               <textarea
                 value={extractionText}
                 onChange={(e) => setExtractionText(e.target.value)}
-                placeholder="Example: Pick me up from Heathrow at 9am, then we go to the office at 123 Baker Street at 11am, and finally drop off at Kings Cross at 3pm on December 25th."
-                className="w-full min-h-[150px] p-3 rounded-md border-2 border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
+                placeholder="Example: Pick Mr. Jones up from Heathrow at 9am, then we go to the office at 123 Baker Street at 11am, and finally drop off at Kings Cross at 3pm on December 25th."
+                className="w-full min-h-[150px] p-3 rounded-md border-2 border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
               />
             </div>
 
             {/* Extract Button */}
             <div className="flex items-center gap-3">
               <Button
-                onClick={() => {
-                  // Scroll to the manual form section
-                  const manualFormSection = document.getElementById('manual-form-section');
-                  if (manualFormSection) {
-                    manualFormSection.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
+                onClick={() => setShowManualForm(true)}
                 variant="outline"
                 size="lg"
-                className="flex-1 sm:flex-initial"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
                 Create Trip Manually
               </Button>
 
@@ -1605,34 +1671,14 @@ export default function Home() {
                 disabled={isExtracting || !extractionText.trim()}
                 size="lg"
                 className="flex items-center gap-2"
-                style={{ backgroundColor: '#18815A', color: '#FFFFFF' }}
+                style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
               >
                 {isExtracting ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Extracting...</span>
-                  </>
+                  <span>Extracting...</span>
                 ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    Extract Locations & Times
-                  </>
+                  <span>Extract Locations & Times</span>
                 )}
               </Button>
-              {extractedLocations && (
-                <Button
-                  onClick={handleClearExtraction}
-                  variant="outline"
-                  size="lg"
-                >
-                  Clear
-                </Button>
-              )}
             </div>
 
             {/* Error Message */}
@@ -1641,9 +1687,12 @@ export default function Home() {
                 <AlertDescription>{extractionError}</AlertDescription>
               </Alert>
             )}
+          </div>
+        </div>
+        )}
 
-            {/* Extracted Results - Matching Manual Form Design */}
-            {extractedLocations && extractedLocations.length > 0 && (
+        {/* Extracted Results - Matching Manual Form Design */}
+        {!showManualForm && extractedLocations && extractedLocations.length > 0 && (
               <div className="bg-card rounded-md p-6 mb-8 border border-border">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -1654,11 +1703,13 @@ export default function Home() {
                       Route Proposal
                     </h2>
                   </div>
-                  {extractedDate && (
-                    <div className="text-sm text-muted-foreground">
-                      {format(new Date(extractedDate), "PPP")}
-                    </div>
-                  )}
+                  <Button
+                    onClick={handleClearExtraction}
+                    variant="outline"
+                    size="sm"
+                  >
+                    ← Back to Import
+                  </Button>
                 </div>
                 <p className="text-sm text-muted-foreground mb-6">
                   Found {extractedLocations.length} stop{extractedLocations.length > 1 ? 's' : ''} in chronological order. Review and edit as needed.
@@ -1740,7 +1791,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Add Location and Analyze Trip Buttons */}
+                {/* Add Location and Create Chauffeur Brief Buttons */}
                 <div className="mt-4 flex gap-3">
                   <Button
                     onClick={() => {
@@ -1802,7 +1853,7 @@ export default function Home() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                         </svg>
-                        Analyze Trip
+                        Create Chauffeur Brief
                       </>
                     )}
                   </Button>
@@ -1821,15 +1872,25 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Multi-Location Trip Planner */}
+        {showManualForm && (
         <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8 border border-border">
-          <h2 className="text-xl font-bold text-card-foreground mb-4">
-            Plan Your Roadshow
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-card-foreground">
+                Plan Your Roadshow
+              </h2>
+            </div>
+            <Button
+              onClick={() => setShowManualForm(false)}
+              variant="outline"
+              size="sm"
+            >
+              ← Back to Import
+            </Button>
+          </div>
           <p className="text-sm text-muted-foreground mb-4">
             Add multiple locations to analyze safety, traffic, and weather for your entire journey
           </p>
@@ -1915,6 +1976,17 @@ export default function Home() {
                       onTimeChange={updateLocationTime}
                       onRemove={removeLocation}
                       canRemove={locations.length > 1}
+                      editingIndex={editingManualIndex}
+                      editingField={editingManualField}
+                      onEditStart={(id, field) => {
+                        const locationIndex = locations.findIndex(loc => loc.id === id);
+                        setEditingManualIndex(locationIndex);
+                        setEditingManualField(field);
+                      }}
+                      onEditEnd={() => {
+                        setEditingManualIndex(null);
+                        setEditingManualField(null);
+                      }}
                     />
                   ))}
                 </div>
@@ -1933,12 +2005,12 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <AlertDescription className="text-destructive">
-                Locations reordered! Click "Analyze Trip" to update the route.
+                Locations reordered! Click "Create Chauffeur Brief" to update the route.
               </AlertDescription>
             </Alert>
           )}
 
-           {/* Add Location, Analyze Trip & View Map Buttons */}
+           {/* Add Location, Create Chauffeur Brief & View Map Buttons */}
            <div className="flex gap-3">
              <Button
                onClick={addLocation}
@@ -1970,7 +2042,7 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  Analyze Trip
+                  Create Chauffeur Brief
                 </>
               )}
             </Button>
@@ -1989,6 +2061,7 @@ export default function Home() {
             </Button>
           </div>
         </div>
+        )}
 
         {/* Professional Loading State - Overlay Modal */}
         {loadingTrip && (
@@ -2032,7 +2105,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-center">
-                      <h3 className="text-xl font-semibold mb-1">Analyzing Your Trip</h3>
+                        <h3 className="text-xl font-semibold mb-1">Creating Chauffeur Brief</h3>
                       <p className="text-sm text-muted-foreground">
                         {loadingSteps.filter(s => s.status === 'completed').length} of {loadingSteps.length} steps completed
                       </p>
@@ -2042,9 +2115,9 @@ export default function Home() {
                   {/* Steps List - Carousel View or Completion View */}
                   <div className="relative h-[200px] overflow-hidden">
         {loadingProgress >= 100 ? (
-          // Completion View - Show email field and View Report button only
+          // Completion View - Show email field and View Chauffeur Brief button only
           <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
-            {/* Email Field and View Report Button */}
+            {/* Email Field and View Chauffeur Brief Button */}
             <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
               <div className="flex flex-col items-center space-y-4">
                 <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground text-center">
@@ -2072,7 +2145,7 @@ export default function Home() {
                   </p>
                 )}
                 
-                {/* View Report Button */}
+                {/* View Chauffeur Brief Button */}
                 <Button
                   onClick={() => {
                     if (tripId) {
@@ -2090,7 +2163,7 @@ export default function Home() {
                   <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  View Report
+                  View Chauffeur Brief
                 </Button>
               </div>
             </div>
