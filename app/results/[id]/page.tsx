@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import TripRiskBreakdown from '@/components/TripRiskBreakdown';
@@ -187,6 +187,7 @@ interface TripData {
   tripResults: Array<{
     locationId: string;
     locationName: string;
+    fullAddress?: string;
     time: string;
     data: CombinedData;
   }>;
@@ -203,6 +204,7 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [editingLocationName, setEditingLocationName] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const [locationDisplayNames, setLocationDisplayNames] = useState<{[key: string]: string}>({});
   const [expandedLocations, setExpandedLocations] = useState<{[key: string]: boolean}>({});
   const [expandedRoutes, setExpandedRoutes] = useState<{[key: string]: boolean}>({});
@@ -216,6 +218,13 @@ export default function ResultsPage() {
     // Get the current display name or use the first part of the full address
     const currentDisplayName = locationDisplayNames[locationId] || currentName.split(',')[0];
     setEditingLocationName(currentDisplayName);
+    
+    // Select all text in the input field after it's rendered
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.select();
+      }
+    }, 0);
   };
 
   const handleSaveLocationName = async (locationId: string) => {
@@ -368,8 +377,9 @@ export default function ResultsPage() {
         // Populate location display names from database
         const displayNames: {[key: string]: string} = {};
         tripData.locations.forEach((loc: any) => {
-          if (loc.displayName) {
-            displayNames[loc.id] = loc.displayName;
+          // Use the location name (which is now the purpose) as the display name
+          if (loc.name) {
+            displayNames[loc.id] = loc.name;
           }
         });
         setLocationDisplayNames(displayNames);
@@ -556,86 +566,6 @@ export default function ResultsPage() {
             </div>
 
 
-          {/* Map View with Risk Score and Delay Probability */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Map - Left Side */}
-              <div className="lg:col-span-3">
-                <div style={{ transform: 'translate3d(0,0,0)', backfaceVisibility: 'hidden', perspective: '1000px', height: '100%', minHeight: '500px' }}>
-                  <GoogleTripMap 
-                    locations={tripResults.map((result, index) => {
-                      const location = locations.find(l => l.id === result.locationId);
-                      return {
-                        id: result.locationId,
-                        name: result.locationName,
-                        lat: location?.lat || 0,
-                        lng: location?.lng || 0,
-                        time: result.time,
-                        safetyScore: result.data.crime.safetyScore,
-                      };
-                    })}
-                  />
-                </div>
-              </div>
-              
-              {/* Right Side: Delay Probability */}
-              <div className="lg:col-span-1">
-                {/* Delay Probability */}
-                <div className="group relative bg-gradient-to-br from-card to-card/50 rounded-xl p-6 border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg h-full flex flex-col">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-1.5 rounded-lg bg-primary/10">
-                      <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-sm font-bold text-card-foreground">Delay Probability</h4>
-                  </div>
-                  <div className="flex items-center justify-center flex-1">
-                    <div className="relative w-28 h-28">
-                      {/* Gauge SVG */}
-                      <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
-                            <defs>
-                              <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#D97706" stopOpacity="0.9"/>
-                                <stop offset="100%" stopColor="#B45309" stopOpacity="1"/>
-                              </linearGradient>
-                            </defs>
-                        
-                        {/* Background arc */}
-                        <path d="M 20 100 A 80 80 0 1 1 180 100" 
-                              fill="none" stroke="#e5e7eb" strokeWidth="24" strokeLinecap="round"/>
-                        
-                        {/* Progress arc with gradient */}
-                        <path d="M 20 100 A 80 80 0 1 1 180 100" 
-                              fill="none" stroke="url(#gaugeGradient)" strokeWidth="24" strokeLinecap="round"
-                              strokeDasharray="251.2" strokeDashoffset="125.6"
-                              className="transition-all duration-1000"/>
-                        
-                        {/* Center circle background */}
-                        <circle cx="100" cy="100" r="50" fill="white" opacity="0.1"/>
-                        
-                        {/* Center text */}
-                        <text x="100" y="95" textAnchor="middle" className="text-xl font-bold fill-current">65%</text>
-                        <text x="100" y="115" textAnchor="middle" className="text-xs fill-current opacity-70">Delay Risk</text>
-                        
-                        {/* Decorative elements */}
-                        <circle cx="20" cy="100" r="6" fill="#e5e7eb"/>
-                        <circle cx="180" cy="100" r="6" fill="url(#gaugeGradient)"/>
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-border/50">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-muted-foreground">Low</span>
-                      <span className="text-muted-foreground">Moderate</span>
-                      <span className="font-semibold text-orange-600">High</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
               {/* Notes for the Driver */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
                 <div className="flex items-center justify-between mb-4">
@@ -749,11 +679,11 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 <div className="flex-1">
-              <div key={result.locationId} className="rounded-md p-6 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
+              <div key={result.locationId} className="rounded-md p-3 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
                 {/* Header with Full Address */}
-                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border" style={{ borderBottomWidth: '0.5px' }}>
+                <div className="flex items-center justify-between mb-2 pb-2">
                   <div className="flex items-center gap-3">
-                    <div className="relative" style={{ width: '40px', height: '50px' }}>
+                    <div className="relative" style={{ width: '30px', height: '35px' }}>
                       <svg 
                         viewBox="0 0 24 24" 
                         fill="white" 
@@ -763,8 +693,8 @@ export default function ResultsPage() {
                       >
                         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                       </svg>
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '6px' }}>
-                        <span className="font-bold text-sm" style={{ color: '#05060A' }}>
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '4px' }}>
+                        <span className="font-bold text-xs" style={{ color: '#05060A' }}>
                           {numberToLetter(index + 1)}
                         </span>
                       </div>
@@ -774,26 +704,27 @@ export default function ResultsPage() {
                        {/* Editable Location Name */}
                       {editingLocationId === result.locationId ? (
                         <Input
+                          ref={inputRef}
                           value={editingLocationName}
                           onChange={(e) => setEditingLocationName(e.target.value)}
                           onKeyDown={(e) => handleKeyPress(e, result.locationId)}
                           onBlur={() => handleSaveLocationName(result.locationId)}
-                           className="text-lg font-semibold bg-background/20 border-primary-foreground/30 text-primary-foreground mt-1 mb-1"
+                           className="text-base font-semibold bg-background/20 border-primary-foreground/30 text-primary-foreground mt-1 mb-1"
                            placeholder="Enter location name"
                           autoFocus
                         />
                       ) : (
                         <div className="flex items-center gap-2 mt-1">
-                           <p className="text-lg font-semibold text-primary-foreground">
-                             {locationDisplayNames[result.locationId] || `Location ${index + 1}`}
+                           <p className="text-base font-semibold text-primary-foreground">
+                             {locationDisplayNames[result.locationId] || `Stop ${index + 1}`}
                           </p>
                           <button
-                             onClick={() => handleEditLocationName(result.locationId, `Location ${index + 1}`)}
+                             onClick={() => handleEditLocationName(result.locationId, `Stop ${index + 1}`)}
                             className="p-1 hover:bg-background/20 rounded transition-colors"
                              title="Edit location name"
                           >
                             <svg className="w-4 h-4 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
                           </button>
                         </div>
@@ -801,71 +732,28 @@ export default function ResultsPage() {
                       
                       {/* Full Address */}
                       <p className="text-xs text-primary-foreground/70 mt-1">
-                        {result.locationName}
+                        {result.fullAddress || result.locationName}
                       </p>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-4">
-                    {/* Weather - Top Right */}
-                    <div className="flex items-center gap-3">
-                      {/* Weather Icon based on conditions */}
-                      {(() => {
-                        const rainyDays = result.data.weather.summary.rainyDays;
-                        const avgTemp = result.data.weather.summary.avgMaxTemp;
-                        
-                        // Determine weather icon
-                        if (avgTemp < 0) {
-                          // Snow
-                          return (
-                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v20M17 7l-5-5-5 5M17 17l-5 5-5-5M2 12h20M7 7l5 5 5-5M7 17l5-5 5 5" />
-                            </svg>
-                          );
-                        } else if (rainyDays >= 5) {
-                          // Heavy rain
-                          return (
-                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17l-1 4M12 17v4M16 17l1 4" />
-                            </svg>
-                          );
-                        } else if (rainyDays >= 2) {
-                          // Light rain
-                          return (
-                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17v4M16 17l1 4" />
-                            </svg>
-                          );
-                        } else if (rainyDays >= 1) {
-                          // Cloudy
-                          return (
-                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                            </svg>
-                          );
-                        } else {
-                          // Sunny
-                          return (
-                            <svg className="w-8 h-8 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                          );
-                        }
-                      })()}
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-primary-foreground">
-                          {result.data.weather.summary.avgMaxTemp}°C
-                        </div>
-                        <div className="text-sm text-primary-foreground/80">
-                          {result.data.weather.summary.rainyDays > 0 
-                            ? `${result.data.weather.summary.rainyDays} rainy days`
-                            : 'Clear'}
-                        </div>
+                    {/* Safety, Cafes, Parking Info */}
+                    <div className="flex items-center gap-4 text-xs text-primary-foreground/80">
+                      <div className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        <span>Safety: {result.data.crime.safetyScore}/100</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span>{result.data.cafes?.summary.total || 0} Cafes</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                        <span>{result.data.parking?.carParks?.length || 0} Parking</span>
                       </div>
                     </div>
-
+                    
                     {/* Expand/Collapse Button */}
                     <button
                       onClick={() => toggleLocationExpansion(result.locationId)}
@@ -884,32 +772,6 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* Collapsed Summary - Always Visible */}
-                <div 
-                  className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                    !expandedLocations[result.locationId] ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-sm text-primary-foreground/80 py-2">
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span>Safety: {result.data.crime.safetyScore}/100</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        <span>{result.data.cafes?.summary.total || 0} Cafes</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                        <span>{result.data.parking?.carParks?.length || 0} Parking</span>
-                      </div>
-                    </div>
-                    <div className="text-xs text-primary-foreground/60">
-                      Click to expand for full details
-                    </div>
-                  </div>
-                </div>
 
                 {/* All Information Cards - Single Row - Only when expanded */}
                 <div 

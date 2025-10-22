@@ -105,19 +105,21 @@ Extract:
 2. Associated times for each location
 3. Trip date if mentioned
 4. A professional summary for the driver (2-3 sentences max)
+5. Specific details for each location: person names, company names, venue names, meeting types, etc.
 
 Return a JSON object with this exact structure:
 {
   "success": true,
   "date": "YYYY-MM-DD or null if not mentioned",
   "driverSummary": "Professional 2-3 sentence summary for the driver about the trip, passenger expectations, and key details",
-  "locations": [
-    {
-      "location": "Full location name in London",
-      "time": "HH:MM in 24-hour format",
-      "confidence": "high/medium/low"
-    }
-  ]
+          "locations": [
+            {
+              "location": "Full location name in London",
+              "time": "HH:MM in 24-hour format",
+              "confidence": "high/medium/low",
+              "purpose": "Comprehensive short name that summarizes the purpose with specific details (e.g., 'Pick up at Gatwick Airport', 'Investment Meeting at UBS Bank with Mr John', 'Dinner at Belladonna with Mr. Smith', 'Hotel check-in at The Savoy')"
+            }
+          ]
 }
 
 Rules for extraction:
@@ -129,6 +131,24 @@ Rules for extraction:
 - Only include locations in London area
 - If no locations found, return {"success": false, "error": "No London locations found"}
 - If date is mentioned in various formats, convert to YYYY-MM-DD
+- Pay attention to context around each location: who is involved, what type of activity, company names, venue names
+- Look for clues like "meeting with", "dinner at", "pickup from", "drop-off at", "check-in at", etc.
+
+Rules for location purpose:
+- Create comprehensive, descriptive names that include specific details from the email
+- Include relevant information: location name, person names, company names, event types, etc.
+- Format: "[Action] at [Location] [with/for Additional Details]"
+- Examples:
+  * "Pick up at Gatwick Airport" (for airport pickups)
+  * "Investment Meeting at UBS Bank with Mr John" (for business meetings)
+  * "Dinner at Belladonna with Mr. Smith" (for restaurant visits)
+  * "Hotel check-in at The Savoy" (for accommodation)
+  * "Drop-off at Heathrow Terminal 5" (for airport drop-offs)
+  * "Lunch at The Shard with Board Members" (for business meals)
+  * "Meeting at Canary Wharf Office" (for office visits)
+- Keep names concise but informative (3-8 words typically)
+- Include person names, company names, or venue names when mentioned in the email
+- If specific details are unclear, use the location name with the action
 
 Rules for driver summary:
 - Keep it to 2-3 sentences maximum
@@ -179,6 +199,7 @@ Rules for driver summary:
           location: loc.location, // Original extracted text
           time: loc.time,
           confidence: loc.confidence,
+          purpose: loc.purpose || 'Visit', // Default purpose if not provided
           verified: googleData.verified,
           formattedAddress: googleData.formattedAddress,
           lat: googleData.lat,

@@ -349,6 +349,7 @@ export default function Home() {
     location: string;
     time: string;
     confidence: string;
+    purpose: string;
     verified: boolean;
     formattedAddress: string;
     lat: number;
@@ -640,10 +641,11 @@ export default function Home() {
     // Map extracted locations to the format expected by the analysis pipeline
     const mappedLocations = validExtractedLocations.map((loc, idx) => ({
       id: (idx + 1).toString(),
-      name: loc.formattedAddress, // Use Google-verified address
+      name: loc.purpose || `Location ${idx + 1}`, // Use AI-generated purpose as the name
       lat: loc.lat,
       lng: loc.lng,
-      time: loc.time
+      time: loc.time,
+      fullAddress: loc.formattedAddress // Keep full address for reference
     }));
 
     // Set the trip date from extracted data or use today
@@ -683,7 +685,7 @@ export default function Home() {
   };
 
   const performTripAnalysis = async (
-    validLocations: Array<{ id: string; name: string; lat: number; lng: number; time: string }>,
+    validLocations: Array<{ id: string; name: string; lat: number; lng: number; time: string; fullAddress?: string }>,
     tripDateObj: Date,
     emailToUse: string,
     driverSummary?: string | null
@@ -870,6 +872,7 @@ export default function Home() {
             return {
               locationId: location.id,
               locationName: location.name,
+              fullAddress: location.fullAddress || location.name, // Use fullAddress if available, fallback to name
               time: location.time,
               data: {
                 crime: crimeData.data,
