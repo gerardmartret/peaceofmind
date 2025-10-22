@@ -65,6 +65,7 @@ export type Database = {
       trips: {
         Row: {
           created_at: string | null
+          driver_notes: string | null
           executive_report: Json | null
           id: string
           locations: Json
@@ -76,6 +77,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          driver_notes?: string | null
           executive_report?: Json | null
           id?: string
           locations: Json
@@ -87,6 +89,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          driver_notes?: string | null
           executive_report?: Json | null
           id?: string
           locations?: Json
