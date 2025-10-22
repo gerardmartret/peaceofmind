@@ -617,6 +617,44 @@ export default function Home() {
     }
   };
 
+  const handleExtractedTripSubmit = async () => {
+    // Use user's email if provided, otherwise default
+    const emailToUse = userEmail.trim() || 'anonymous@peaceofmind.com';
+
+    // Validate extracted locations
+    if (!extractedLocations || extractedLocations.length === 0) {
+      setExtractionError('No locations to analyze. Please extract locations first.');
+      return;
+    }
+
+    // Validate all extracted locations have coordinates
+    const validExtractedLocations = extractedLocations.filter(loc => loc.verified && loc.lat !== 0 && loc.lng !== 0);
+    
+    if (validExtractedLocations.length === 0) {
+      setExtractionError('All locations need to be verified. Please check the locations.');
+      return;
+    }
+
+    // Map extracted locations to the format expected by the analysis pipeline
+    const mappedLocations = validExtractedLocations.map((loc, idx) => ({
+      id: (idx + 1).toString(),
+      name: loc.formattedAddress, // Use Google-verified address
+      lat: loc.lat,
+      lng: loc.lng,
+      time: loc.time
+    }));
+
+    // Set the trip date from extracted data or use today
+    const tripDateToUse = extractedDate ? new Date(extractedDate) : new Date();
+
+    console.log('\n🚀 Starting analysis for EXTRACTED trip data...');
+    console.log(`📍 ${mappedLocations.length} locations mapped from extraction`);
+    console.log(`📅 Trip date: ${tripDateToUse.toISOString().split('T')[0]}`);
+
+    // Now call the same trip submission logic with mapped data
+    await performTripAnalysis(mappedLocations, tripDateToUse, emailToUse);
+  };
+
   const handleTripSubmit = async () => {
     // Use user's email if provided, otherwise default
     const emailToUse = userEmail.trim() || 'anonymous@peaceofmind.com';
@@ -629,9 +667,25 @@ export default function Home() {
       return;
     }
 
+    const tripDateToUse = tripDate || new Date();
+
+    console.log('\n🚀 Starting analysis for MANUAL trip data...');
+    console.log(`📍 ${validLocations.length} locations from manual form`);
+    console.log(`📅 Trip date: ${tripDateToUse.toISOString().split('T')[0]}`);
+
+    // Call the trip analysis with manual form data
+    await performTripAnalysis(validLocations, tripDateToUse, emailToUse);
+  };
+
+  const performTripAnalysis = async (
+    validLocations: Array<{ id: string; name: string; lat: number; lng: number; time: string }>,
+    tripDateObj: Date,
+    emailToUse: string
+  ) => {
     setLoadingTrip(true);
     setError(null);
     setEmailError(null);
+    setExtractionError(null); // Clear extraction errors too
     setLocationsReordered(false); // Clear reorder indicator
 
     // Initialize loading steps
@@ -698,7 +752,7 @@ export default function Home() {
     let backgroundProcessComplete = false;
 
     try {
-      const tripDateStr = tripDate ? tripDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const tripDateStr = tripDateObj.toISOString().split('T')[0];
       
       console.log(`\n${'='.repeat(80)}`);
       console.log(`🗓️  Trip Date: ${tripDateStr}`);
@@ -1474,8 +1528,8 @@ export default function Home() {
                   </table>
                 </div>
 
-                {/* Clear Button */}
-                <div className="mt-4 flex justify-end">
+                {/* Action Buttons */}
+                <div className="mt-4 flex justify-between items-center gap-3">
                   <Button
                     onClick={handleClearExtraction}
                     variant="outline"
@@ -1485,6 +1539,32 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                     Clear
+                  </Button>
+                  
+                  {/* Analyze Extracted Trip Button */}
+                  <Button
+                    onClick={handleExtractedTripSubmit}
+                    disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified)}
+                    size="lg"
+                    className="flex items-center gap-2"
+                    style={{ backgroundColor: '#18815A', color: '#FFFFFF' }}
+                  >
+                    {loadingTrip ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Analyzing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        Analyze Trip
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
