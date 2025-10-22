@@ -27,6 +27,9 @@ interface GoogleTripMapProps {
 const getMapContainerStyle = (height: string) => ({
   width: '100%',
   height: height,
+  minHeight: '300px', // Ensure minimum height
+  borderRadius: '8px', // Add some styling
+  display: 'block',
 });
 
 const defaultCenter = {
@@ -117,9 +120,20 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
   const { isLoaded, loadError } = useGoogleMaps();
 
+  // Calculate valid locations at the top level
+  const validLocations = locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name);
+
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
     console.log('🗺️ Google Maps loaded successfully');
+    
+    // Ensure the map is properly sized and visible
+    setTimeout(() => {
+      if (map) {
+        google.maps.event.trigger(map, 'resize');
+        console.log('🗺️ Map resized and ready');
+      }
+    }, 100);
   }, []);
 
   const onUnmount = useCallback(() => {
@@ -128,94 +142,148 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
   // Calculate route when locations change
   useEffect(() => {
-    if (!isLoaded || locations.length === 0) return;
+    if (!isLoaded || locations.length === 0) {
+      console.log('⏸️ Google Maps not loaded or no locations');
+      return;
+    }
 
     const validLocations = locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name);
     
     if (validLocations.length === 0) {
       console.log('⏸️ No valid locations to map');
+      setDirectionsResponse(null);
+      setRouteInfo(null);
       return;
     }
 
     if (validLocations.length === 1) {
       console.log('📍 Single location, no route needed');
       setDirectionsResponse(null);
+      setRouteInfo(null);
       return;
     }
 
-    // Calculate route with Google Directions API
-    const directionsService = new google.maps.DirectionsService();
-    
-    const origin = { lat: validLocations[0].lat, lng: validLocations[0].lng };
-    const destination = { 
-      lat: validLocations[validLocations.length - 1].lat, 
-      lng: validLocations[validLocations.length - 1].lng 
-    };
-    
-    const waypoints = validLocations.slice(1, -1).map(loc => ({
-      location: { lat: loc.lat, lng: loc.lng },
-      stopover: true,
-    }));
-
-    console.log(`🚗 Calculating route: ${validLocations.length} locations`);
-    console.log(`   Origin (${numberToLetter(1)}): ${validLocations[0].name.split(',')[0]}`);
-    console.log(`   Waypoints: ${waypoints.length}`);
-    console.log(`   Destination (${numberToLetter(validLocations.length)}): ${validLocations[validLocations.length - 1].name.split(',')[0]}`);
-
-    directionsService.route(
-      {
-        origin,
-        destination,
-        waypoints,
-        travelMode: google.maps.TravelMode.DRIVING,
-        drivingOptions: {
-          departureTime: new Date(), // Current time for traffic data
-          trafficModel: google.maps.TrafficModel.BEST_GUESS,
-        },
-      },
-      (result, status) => {
-        if (status === google.maps.DirectionsStatus.OK && result) {
-          console.log('✅ Route calculated successfully');
-          
-          setDirectionsResponse(result);
-
-          // Calculate total distance and duration
-          let totalDistance = 0;
-          let totalDuration = 0;
-
-          result.routes[0].legs.forEach(leg => {
-            totalDistance += leg.distance?.value || 0;
-            // Use duration_in_traffic if available, otherwise use duration
-            totalDuration += leg.duration_in_traffic?.value || leg.duration?.value || 0;
-          });
-
-          const distanceKm = (totalDistance / 1000).toFixed(1);
-          const durationMin = Math.round(totalDuration / 60);
-
-          setRouteInfo({
-            distance: `${distanceKm} km`,
-            duration: `${durationMin} min`,
-          });
-
-          console.log(`   📏 Distance: ${distanceKm} km`);
-          console.log(`   ⏱️  Duration (with traffic): ${durationMin} min`);
-
-          // Log if traffic data affected the time
-          const normalDuration = result.routes[0].legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
-          const trafficDuration = result.routes[0].legs.reduce((sum, leg) => sum + (leg.duration_in_traffic?.value || leg.duration?.value || 0), 0);
-          const trafficDelay = Math.round((trafficDuration - normalDuration) / 60);
-          
-          if (trafficDelay > 0) {
-            console.log(`   🚦 Traffic delay: +${trafficDelay} min`);
-          }
-
-        } else {
-          console.error('❌ Directions request failed:', status);
-          setDirectionsResponse(null);
-        }
+    // Add a small delay to ensure the map is fully loaded
+    const calculateRoute = () => {
+      if (!window.google || !window.google.maps) {
+        console.error('❌ Google Maps API not available');
+        return;
       }
-    );
+
+      // Calculate route with Google Directions API
+      const directionsService = new google.maps.DirectionsService();
+      
+      const origin = { lat: validLocations[0].lat, lng: validLocations[0].lng };
+      const destination = { 
+        lat: validLocations[validLocations.length - 1].lat, 
+        lng: validLocations[validLocations.length - 1].lng 
+      };
+      
+      const waypoints = validLocations.slice(1, -1).map(loc => ({
+        location: { lat: loc.lat, lng: loc.lng },
+        stopover: true,
+      }));
+
+      console.log(`🚗 Calculating route: ${validLocations.length} locations`);
+      console.log(`   Origin (${numberToLetter(1)}): ${validLocations[0].name.split(',')[0]}`);
+      console.log(`   Waypoints: ${waypoints.length}`);
+      console.log(`   Destination (${numberToLetter(validLocations.length)}): ${validLocations[validLocations.length - 1].name.split(',')[0]}`);
+
+      directionsService.route(
+        {
+          origin,
+          destination,
+          waypoints,
+          travelMode: google.maps.TravelMode.DRIVING,
+          drivingOptions: {
+            departureTime: new Date(), // Current time for traffic data
+            trafficModel: google.maps.TrafficModel.BEST_GUESS,
+          },
+        },
+        (result, status) => {
+          if (status === google.maps.DirectionsStatus.OK && result) {
+            console.log('✅ Route calculated successfully');
+            
+            setDirectionsResponse(result);
+
+            // Calculate total distance and duration
+            let totalDistance = 0;
+            let totalDuration = 0;
+
+            result.routes[0].legs.forEach(leg => {
+              totalDistance += leg.distance?.value || 0;
+              // Use duration_in_traffic if available, otherwise use duration
+              totalDuration += leg.duration_in_traffic?.value || leg.duration?.value || 0;
+            });
+
+            const distanceKm = (totalDistance / 1000).toFixed(1);
+            const durationMin = Math.round(totalDuration / 60);
+
+            setRouteInfo({
+              distance: `${distanceKm} km`,
+              duration: `${durationMin} min`,
+            });
+
+            console.log(`   📏 Distance: ${distanceKm} km`);
+            console.log(`   ⏱️  Duration (with traffic): ${durationMin} min`);
+
+            // Log if traffic data affected the time
+            const normalDuration = result.routes[0].legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
+            const trafficDuration = result.routes[0].legs.reduce((sum, leg) => sum + (leg.duration_in_traffic?.value || leg.duration?.value || 0), 0);
+            const trafficDelay = Math.round((trafficDuration - normalDuration) / 60);
+            
+            if (trafficDelay > 0) {
+              console.log(`   🚦 Traffic delay: +${trafficDelay} min`);
+            }
+
+          } else {
+            console.error('❌ Directions request failed:', status);
+            setDirectionsResponse(null);
+            setRouteInfo(null);
+          }
+        }
+      );
+    };
+
+    // Add a small delay to ensure the map is fully rendered
+    const timeoutId = setTimeout(calculateRoute, 500);
+    
+    return () => clearTimeout(timeoutId);
   }, [isLoaded, locations]);
+
+  // Fit map bounds when directions are calculated
+  useEffect(() => {
+    if (directionsResponse && map && validLocations.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      validLocations.forEach(location => {
+        bounds.extend(new google.maps.LatLng(location.lat, location.lng));
+      });
+      map.fitBounds(bounds, { 
+        top: 50, 
+        right: 50, 
+        bottom: 50, 
+        left: 50 
+      });
+      console.log('🗺️ Map bounds fitted to show all locations');
+    }
+  }, [directionsResponse, map, validLocations]);
+
+  // Also fit bounds when map loads with valid locations
+  useEffect(() => {
+    if (map && validLocations.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      validLocations.forEach(location => {
+        bounds.extend(new google.maps.LatLng(location.lat, location.lng));
+      });
+      map.fitBounds(bounds, { 
+        top: 50, 
+        right: 50, 
+        bottom: 50, 
+        left: 50 
+      });
+      console.log('🗺️ Map bounds fitted to show all locations on load');
+    }
+  }, [map, validLocations]);
 
   const getMarkerColor = (safetyScore?: number): string => {
     return '#05060A'; // Custom dark color for all markers
@@ -250,13 +318,23 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
     );
   }
 
-  const validLocations = locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name);
-  const center = validLocations.length > 0 
-    ? { lat: validLocations[0].lat, lng: validLocations[0].lng }
-    : defaultCenter;
+  // Calculate center point to show all locations
+  const calculateCenter = () => {
+    if (validLocations.length === 0) return defaultCenter;
+    if (validLocations.length === 1) {
+      return { lat: validLocations[0].lat, lng: validLocations[0].lng };
+    }
+    
+    // Calculate center of all locations
+    const avgLat = validLocations.reduce((sum, loc) => sum + loc.lat, 0) / validLocations.length;
+    const avgLng = validLocations.reduce((sum, loc) => sum + loc.lng, 0) / validLocations.length;
+    return { lat: avgLat, lng: avgLng };
+  };
+  
+  const center = calculateCenter();
 
   return (
-    <div className="relative">
+    <div className="relative w-full h-full" style={{ width: '100%', height: '100%' }}>
       <GoogleMap
         mapContainerStyle={getMapContainerStyle(height)}
         center={center}
@@ -274,8 +352,8 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
         {/* Traffic Layer */}
         {showTraffic && <TrafficLayer />}
 
-        {/* Show markers only if no route (single location) */}
-        {validLocations.length === 1 && validLocations.map((location, index) => (
+        {/* Show markers for all locations */}
+        {validLocations.map((location, index) => (
           <Marker
             key={location.id}
             position={{ lat: location.lat, lng: location.lng }}

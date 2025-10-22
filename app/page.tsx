@@ -1435,8 +1435,8 @@ export default function Home() {
         {/* Map Popup */}
         {mapOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg shadow-xl w-full max-w-4xl h-[80vh] flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b">
+            <div className="bg-card rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
                 <h3 className="text-lg font-semibold">Route Map</h3>
                 <Button
                   onClick={() => setMapOpen(false)}
@@ -1448,7 +1448,7 @@ export default function Home() {
                   </svg>
                 </Button>
               </div>
-              <div className="flex-1 p-4">
+              <div className="flex-1 overflow-hidden">
                 {locations.filter(l => l.name && l.lat !== 0 && l.lng !== 0).length > 0 ? (
                   <div className="w-full h-full">
                     <GoogleTripMap 
