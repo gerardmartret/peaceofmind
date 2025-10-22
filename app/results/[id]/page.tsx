@@ -179,6 +179,7 @@ interface TripData {
   locations: Array<{
     id: string;
     name: string;
+    displayName?: string; // Custom user-defined name
     lat: number;
     lng: number;
     time: string;
@@ -218,14 +219,39 @@ export default function ResultsPage() {
   };
 
   const handleSaveLocationName = async (locationId: string) => {
-    if (!editingLocationName.trim()) {
+    if (!editingLocationName.trim() || !tripData) {
       setEditingLocationId(null);
       setEditingLocationName('');
       return;
     }
 
     try {
-      // Update only the display name, keep the original full address unchanged
+      // Update the locations array with the new display name
+      const updatedLocations = tripData.locations.map(loc => 
+        loc.id === locationId 
+          ? { ...loc, displayName: editingLocationName.trim() }
+          : loc
+      );
+
+      // Save to database
+      const { error: updateError } = await supabase
+        .from('trips')
+        .update({ locations: updatedLocations })
+        .eq('id', tripId);
+
+      if (updateError) {
+        console.error('Error saving location name:', updateError);
+        setEditingLocationId(null);
+        setEditingLocationName('');
+        return;
+      }
+
+      // Update local state
+      setTripData({
+        ...tripData,
+        locations: updatedLocations
+      });
+
       setLocationDisplayNames(prev => ({
         ...prev,
         [locationId]: editingLocationName.trim()
@@ -338,6 +364,16 @@ export default function ResultsPage() {
 
         setTripData(tripData);
         setDriverNotes(data.driver_notes || '');
+        
+        // Populate location display names from database
+        const displayNames: {[key: string]: string} = {};
+        tripData.locations.forEach((loc: any) => {
+          if (loc.displayName) {
+            displayNames[loc.id] = loc.displayName;
+          }
+        });
+        setLocationDisplayNames(displayNames);
+        
         setLoading(false);
       } catch (err) {
         console.error('❌ Unexpected error:', err);
