@@ -296,6 +296,150 @@ function SortableLocationItem({
   );
 }
 
+interface SortableExtractedLocationItemProps {
+  location: {
+    location: string;
+    time: string;
+    confidence: string;
+    purpose: string;
+    verified: boolean;
+    formattedAddress: string;
+    lat: number;
+    lng: number;
+    placeId: string | null;
+  };
+  index: number;
+  totalLocations: number;
+  onLocationSelect: (index: number, location: any) => void;
+  onTimeChange: (index: number, time: string) => void;
+  onRemove: (index: number) => void;
+  canRemove: boolean;
+  editingIndex: number | null;
+  editingField: 'location' | 'time' | null;
+  onEditStart: (index: number, field: 'location' | 'time') => void;
+  onEditEnd: () => void;
+}
+
+function SortableExtractedLocationItem({
+  location,
+  index,
+  totalLocations,
+  onLocationSelect,
+  onTimeChange,
+  onRemove,
+  canRemove,
+  editingIndex,
+  editingField,
+  onEditStart,
+  onEditEnd,
+}: SortableExtractedLocationItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: location.location });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  // Determine time label based on position
+  const getTimeLabel = () => {
+    if (index === 0) return 'Pickup time';
+    if (index === totalLocations - 1) return 'Dropoff time';
+    return 'Resume at';
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-card rounded-md p-4 border border-border relative"
+    >
+      {/* Letter Label - Top Left */}
+      <div className="absolute top-2 left-2 text-muted-foreground/40 text-xs font-normal">
+        {numberToLetter(index + 1)}
+      </div>
+      
+      <div className="flex items-center gap-3">
+        {/* Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors flex items-center"
+          title="Drag to reorder"
+        >
+          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+
+        {/* Time Picker and Location Search */}
+        <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
+          {/* Time Picker */}
+          <div>
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">
+              {getTimeLabel()}
+            </Label>
+            <TimePicker
+              value={location.time}
+              onChange={(value) => onTimeChange(index, value)}
+              className="h-9"
+            />
+          </div>
+
+          {/* Location Search */}
+          <div className="min-w-0">
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
+            {editingIndex === index && editingField === 'location' ? (
+              <GoogleLocationSearch
+                onLocationSelect={(loc) => {
+                  onLocationSelect(index, loc);
+                  onEditEnd();
+                }}
+              />
+            ) : (
+              <div 
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                onClick={() => onEditStart(index, 'location')}
+              >
+                <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="flex-1 truncate text-base md:text-sm">
+                  {location.verified ? location.formattedAddress : location.location}
+                </span>
+                {location.verified && (
+                  <svg className="w-4 h-4 text-green-600 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Delete Button - Far Right */}
+        {canRemove && (
+          <button 
+            className="flex-shrink-0 p-2 text-muted-foreground hover:text-destructive transition-colors"
+            onClick={() => onRemove(index)}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
   return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
@@ -518,6 +662,31 @@ export default function Home() {
         
         return itemsWithSwappedTimes;
       });
+    }
+  };
+
+  // Handle drag end for extracted locations
+  const handleExtractedDragEnd = (event: any) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id && extractedLocations) {
+      const oldIndex = extractedLocations.findIndex((item) => item.location === active.id);
+      const newIndex = extractedLocations.findIndex((item) => item.location === over.id);
+
+      const reorderedLocations = arrayMove(extractedLocations, oldIndex, newIndex);
+      setExtractedLocations(reorderedLocations);
+
+      // Save to session storage
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('extractedTripData', JSON.stringify({
+          text: extractionText,
+          locations: reorderedLocations,
+          date: extractedDate,
+          driverSummary: extractedDriverSummary,
+          timestamp: new Date().toISOString(),
+        }));
+        console.log('💾 [FRONTEND] Saved reordered extracted locations to session storage');
+      }
     }
   };
 
@@ -1313,8 +1482,58 @@ export default function Home() {
         text: extractionText,
         locations: extractedLocations,
         date: value,
+        driverSummary: extractedDriverSummary,
         timestamp: new Date().toISOString(),
       }));
+    }
+  };
+
+  // Handle extracted location selection
+  const handleExtractedLocationSelect = (index: number, location: any) => {
+    if (extractedLocations) {
+      const updatedLocations = [...extractedLocations];
+      updatedLocations[index] = {
+        ...updatedLocations[index],
+        location: location.name,
+        formattedAddress: location.name,
+        lat: location.lat,
+        lng: location.lng,
+        placeId: null,
+        verified: true,
+      };
+      setExtractedLocations(updatedLocations);
+      
+      // Save to session storage immediately
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('extractedTripData', JSON.stringify({
+          text: extractionText,
+          locations: updatedLocations,
+          date: extractedDate,
+          driverSummary: extractedDriverSummary,
+          timestamp: new Date().toISOString(),
+        }));
+        console.log('💾 [FRONTEND] Saved Google Maps selection to session storage');
+      }
+    }
+  };
+
+  // Handle extracted location removal
+  const handleExtractedLocationRemove = (index: number) => {
+    if (extractedLocations && extractedLocations.length > 1) {
+      const updatedLocations = extractedLocations.filter((_, i) => i !== index);
+      setExtractedLocations(updatedLocations);
+      
+      // Save to session storage
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('extractedTripData', JSON.stringify({
+          text: extractionText,
+          locations: updatedLocations,
+          date: extractedDate,
+          driverSummary: extractedDriverSummary,
+          timestamp: new Date().toISOString(),
+        }));
+        console.log('💾 [FRONTEND] Saved location removal to session storage');
+      }
     }
   };
 
@@ -1364,6 +1583,24 @@ export default function Home() {
             {/* Extract Button */}
             <div className="flex items-center gap-3">
               <Button
+                onClick={() => {
+                  // Scroll to the manual form section
+                  const manualFormSection = document.getElementById('manual-form-section');
+                  if (manualFormSection) {
+                    manualFormSection.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                variant="outline"
+                size="lg"
+                className="flex-1 sm:flex-initial"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                Create Trip Manually
+              </Button>
+
+              <Button
                 onClick={handleExtractTrip}
                 disabled={isExtracting || !extractionText.trim()}
                 size="lg"
@@ -1405,172 +1642,156 @@ export default function Home() {
               </Alert>
             )}
 
-            {/* Extracted Results Table */}
+            {/* Extracted Results - Matching Manual Form Design */}
             {extractedLocations && extractedLocations.length > 0 && (
-              <div className="rounded-md border-2 border-border bg-secondary/20 p-4">
+              <div className="bg-card rounded-md p-6 mb-8 border border-border">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <h3 className="text-lg font-bold text-card-foreground">
-                      Found {extractedLocations.length} stop{extractedLocations.length > 1 ? 's' : ''} in chronological order
-                    </h3>
+                    <h2 className="text-xl font-bold text-card-foreground">
+                      Route Proposal
+                    </h2>
                   </div>
                   {extractedDate && (
                     <div className="text-sm text-muted-foreground">
-                      Date: {format(new Date(extractedDate), "PPP")}
+                      {format(new Date(extractedDate), "PPP")}
                     </div>
                   )}
                 </div>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Found {extractedLocations.length} stop{extractedLocations.length > 1 ? 's' : ''} in chronological order. Review and edit as needed.
+                </p>
 
-                {/* Date Editor */}
-                {extractedDate && (
-                  <div className="mb-4 p-3 bg-secondary/20 rounded-md">
-                    <div className="flex items-center gap-3">
-                      <Label className="text-sm font-semibold text-card-foreground">Trip Date:</Label>
-                      <Input
-                        type="date"
-                        value={extractedDate}
-                        onChange={(e) => handleDateEdit(e.target.value)}
-                        className="h-8 w-40"
-                      />
+                {/* Dark Header Section - Trip Date & City */}
+                <div className="bg-black rounded-md p-4 mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <Label className="text-white font-bold text-sm mb-2 block">Trip Date</Label>
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={extractedDate || ''}
+                          onChange={(e) => handleDateEdit(e.target.value)}
+                          className="bg-white text-gray-900 border-gray-300 rounded-md h-9 pl-10"
+                        />
+                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
                     </div>
+                    <div className="flex-1">
+                      <Label className="text-white font-bold text-sm mb-2 block">City</Label>
+                      <div className="relative">
+                        <Input
+                          value="London"
+                          readOnly
+                          className="bg-white text-gray-900 border-gray-300 rounded-md h-9 pr-10"
+                        />
+                        <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Location Cards with Drag and Drop */}
+                {isMounted ? (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleExtractedDragEnd}
+                  >
+                    <SortableContext
+                      items={extractedLocations.map(loc => loc.location)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-4">
+                        {extractedLocations.map((loc, index) => (
+                          <SortableExtractedLocationItem
+                            key={loc.location}
+                            location={loc}
+                            index={index}
+                            totalLocations={extractedLocations.length}
+                            onLocationSelect={handleExtractedLocationSelect}
+                            onTimeChange={handleTimeEdit}
+                            onRemove={handleExtractedLocationRemove}
+                            canRemove={extractedLocations.length > 1}
+                            editingIndex={editingExtractedIndex}
+                            editingField={editingExtractedField}
+                            onEditStart={(index, field) => {
+                              setEditingExtractedIndex(index);
+                              setEditingExtractedField(field);
+                            }}
+                            onEditEnd={() => {
+                              setEditingExtractedIndex(null);
+                              setEditingExtractedField(null);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-center py-8 text-muted-foreground">Loading...</div>
                   </div>
                 )}
 
-                {/* Results Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-3 text-sm font-semibold text-card-foreground">#</th>
-                        <th className="text-left py-2 px-3 text-sm font-semibold text-card-foreground">Location</th>
-                        <th className="text-left py-2 px-3 text-sm font-semibold text-card-foreground">Time & Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {extractedLocations.map((loc, index) => (
-                        <tr key={index} className="border-b border-border/50 last:border-b-0">
-                          <td className="py-3 px-3 text-sm font-medium text-card-foreground">
-                            {numberToLetter(index + 1)}
-                          </td>
-                          <td className="py-3 px-3">
-                            {editingExtractedIndex === index && editingExtractedField === 'location' ? (
-                              <GoogleLocationSearch
-                                onLocationSelect={(loc) => {
-                                  console.log(`📍 [FRONTEND] Location ${numberToLetter(index + 1)} selected:`, loc);
-                                  const updatedLocations = [...extractedLocations];
-                                  updatedLocations[index] = {
-                                    ...updatedLocations[index],
-                                    location: loc.name,
-                                    formattedAddress: loc.name,
-                                    lat: loc.lat,
-                                    lng: loc.lng,
-                                    placeId: null, // GoogleLocationSearch doesn't provide place_id
-                                    verified: true,
-                                  };
-                                  setExtractedLocations(updatedLocations);
-                                  setEditingExtractedIndex(null);
-                                  setEditingExtractedField(null);
-                                  
-                                  // Save to session storage immediately
-                                  if (typeof window !== 'undefined') {
-                                    sessionStorage.setItem('extractedTripData', JSON.stringify({
-                                      text: extractionText,
-                                      locations: updatedLocations,
-                                      date: extractedDate,
-                                      timestamp: new Date().toISOString(),
-                                    }));
-                                    console.log('💾 [FRONTEND] Saved Google Maps selection to session storage');
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                {loc.verified && (
-                                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                )}
-                                <span 
-                                  className="text-sm text-card-foreground cursor-pointer hover:bg-secondary/50 px-2 py-1 rounded"
-                                  onClick={() => {
-                                    setEditingExtractedIndex(index);
-                                    setEditingExtractedField('location');
-                                  }}
-                                >
-                                  {loc.verified ? loc.formattedAddress : loc.location}
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-3">
-                            <div className="space-y-1">
-                              <div className="text-xs text-muted-foreground font-medium">
-                                {getTimeLabel(index, extractedLocations.length)}
-                              </div>
-                              {editingExtractedIndex === index && editingExtractedField === 'time' ? (
-                                <Input
-                                  type="time"
-                                  value={loc.time}
-                                  onChange={(e) => handleTimeEdit(index, e.target.value)}
-                                  onBlur={() => {
-                                    setEditingExtractedIndex(null);
-                                    setEditingExtractedField(null);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      setEditingExtractedIndex(null);
-                                      setEditingExtractedField(null);
-                                    }
-                                  }}
-                                  autoFocus
-                                  className="h-8 w-24"
-                                />
-                              ) : (
-                                <span 
-                                  className="text-sm text-card-foreground font-mono cursor-pointer hover:bg-secondary/50 px-2 py-1 rounded block"
-                                  onClick={() => {
-                                    setEditingExtractedIndex(index);
-                                    setEditingExtractedField('time');
-                                  }}
-                                >
-                                  {loc.time}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="mt-4 flex justify-between items-center gap-3">
+                {/* Add Location and Analyze Trip Buttons */}
+                <div className="mt-4 flex gap-3">
                   <Button
-                    onClick={handleClearExtraction}
+                    onClick={() => {
+                      if (extractedLocations) {
+                        const newLocation = {
+                          location: '',
+                          time: '12:00',
+                          confidence: 'low',
+                          purpose: `Location ${extractedLocations.length + 1}`,
+                          verified: false,
+                          formattedAddress: '',
+                          lat: 0,
+                          lng: 0,
+                          placeId: null,
+                        };
+                        setExtractedLocations([...extractedLocations, newLocation]);
+                        
+                        // Save to session storage
+                        if (typeof window !== 'undefined') {
+                          const updatedLocations = [...extractedLocations, newLocation];
+                          sessionStorage.setItem('extractedTripData', JSON.stringify({
+                            text: extractionText,
+                            locations: updatedLocations,
+                            date: extractedDate,
+                            driverSummary: extractedDriverSummary,
+                            timestamp: new Date().toISOString(),
+                          }));
+                          console.log('💾 [FRONTEND] Saved new location to session storage');
+                        }
+                      }
+                    }}
                     variant="outline"
                     size="lg"
+                    className="flex-1 sm:flex-initial border-dashed"
                   >
-                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Clear
+                    Add Location
                   </Button>
-                  
-                  {/* Analyze Extracted Trip Button */}
+
                   <Button
                     onClick={handleExtractedTripSubmit}
                     disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified)}
                     size="lg"
-                    className="flex items-center gap-2"
-                    style={{ backgroundColor: '#18815A', color: '#FFFFFF' }}
+                    className="flex items-center gap-2 text-white"
+                    style={{ backgroundColor: '#05060A' }}
                   >
                     {loadingTrip ? (
                       <>
-                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
@@ -1578,12 +1799,25 @@ export default function Home() {
                       </>
                     ) : (
                       <>
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                         </svg>
                         Analyze Trip
                       </>
                     )}
+                  </Button>
+
+                  <Button
+                    onClick={() => setMapOpen(true)}
+                    variant="outline"
+                    size="lg"
+                    className="flex-1 sm:flex-initial ml-auto"
+                    disabled={!extractedLocations || extractedLocations.filter(loc => loc.verified).length < 2}
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    View Route
                   </Button>
                 </div>
               </div>
@@ -1592,7 +1826,7 @@ export default function Home() {
         </div>
 
         {/* Multi-Location Trip Planner */}
-        <div className="bg-card rounded-md p-6 mb-8 border border-border">
+        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8 border border-border">
           <h2 className="text-xl font-bold text-card-foreground mb-4">
             Plan Your Roadshow
           </h2>
@@ -2004,10 +2238,22 @@ export default function Home() {
                 </Button>
               </div>
               <div className="flex-1 overflow-hidden">
-                {locations.filter(l => l.name && l.lat !== 0 && l.lng !== 0).length > 0 ? (
+                {(() => {
+                  // Use extracted locations if available, otherwise use manual locations
+                  const locationsToShow = extractedLocations && extractedLocations.length > 0 
+                    ? extractedLocations.filter(loc => loc.verified && loc.lat !== 0 && loc.lng !== 0)
+                    : locations.filter(l => l.name && l.lat !== 0 && l.lng !== 0);
+                  
+                  return locationsToShow.length > 0 ? (
                   <div className="w-full h-full">
                     <GoogleTripMap 
-                      locations={locations.filter(l => l.name && l.lat !== 0 && l.lng !== 0)}
+                      locations={locationsToShow.map((loc, index) => ({
+                        id: (index + 1).toString(),
+                        name: 'name' in loc ? loc.name : (loc.purpose || `Location ${index + 1}`),
+                        lat: loc.lat,
+                        lng: loc.lng,
+                        time: loc.time || '12:00'
+                      }))}
                       height="100%"
                       compact={false}
                     />
@@ -2020,11 +2266,12 @@ export default function Home() {
                       </svg>
                       <p className="text-muted-foreground">Please select at least one location to view the map</p>
                       <p className="text-sm text-muted-foreground mt-2">
-                        {locations.filter(l => l.name).length} location(s) selected
+                        {locationsToShow.length} location(s) selected
                       </p>
                     </div>
                   </div>
-                )}
+                );
+                })()}
               </div>
             </div>
           </div>
