@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🤖 [API] Calling OpenAI for extraction...');
-    // Call OpenAI to extract locations, times, and date
+    console.log('🤖 [API] Calling OpenAI for extraction and summary generation...');
+    // Call OpenAI to extract locations, times, date, AND generate professional summary
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       response_format: { type: 'json_object' },
@@ -104,11 +104,13 @@ Extract:
 1. All locations in London (addresses, landmarks, stations, airports, etc.)
 2. Associated times for each location
 3. Trip date if mentioned
+4. A professional summary for the driver (2-3 sentences max)
 
 Return a JSON object with this exact structure:
 {
   "success": true,
   "date": "YYYY-MM-DD or null if not mentioned",
+  "driverSummary": "Professional 2-3 sentence summary for the driver about the trip, passenger expectations, and key details",
   "locations": [
     {
       "location": "Full location name in London",
@@ -118,7 +120,7 @@ Return a JSON object with this exact structure:
   ]
 }
 
-Rules:
+Rules for extraction:
 - Sort locations chronologically by time
 - Convert all times to 24-hour format (e.g., "3pm" -> "15:00", "9am" -> "09:00")
 - If time is relative (e.g., "2 hours later"), calculate based on previous time
@@ -126,7 +128,14 @@ Rules:
 - Expand abbreviated locations (e.g., "LHR" -> "Heathrow Airport, London")
 - Only include locations in London area
 - If no locations found, return {"success": false, "error": "No London locations found"}
-- If date is mentioned in various formats, convert to YYYY-MM-DD`,
+- If date is mentioned in various formats, convert to YYYY-MM-DD
+
+Rules for driver summary:
+- Keep it to 2-3 sentences maximum
+- Professional and concise tone
+- Include: passenger name (if mentioned), purpose of trip, any special requirements
+- Focus on what the driver needs to know
+- Example: "VIP client Mr. Johns requires pickup from Heathrow at 9am for a London roadshow with multiple stops. The itinerary includes meetings at premium locations throughout the day. Please ensure punctuality and professional service."`,
         },
         {
           role: 'user',
@@ -144,7 +153,12 @@ Rules:
       success: parsed.success,
       locationCount: parsed.locations?.length || 0,
       date: parsed.date,
+      hasSummary: !!parsed.driverSummary,
     });
+    
+    if (parsed.driverSummary) {
+      console.log('📝 [API] Driver summary generated:', parsed.driverSummary.substring(0, 100) + '...');
+    }
 
     // Validate the response
     if (!parsed.success || !parsed.locations || parsed.locations.length === 0) {
@@ -185,6 +199,7 @@ Rules:
     const response = {
       success: true,
       date: parsed.date || null,
+      driverSummary: parsed.driverSummary || null,
       locations: verifiedLocations,
     };
     console.log('📤 [API] Final response:', JSON.stringify(response, null, 2));

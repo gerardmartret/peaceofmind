@@ -356,6 +356,7 @@ export default function Home() {
     placeId: string | null;
   }> | null>(null);
   const [extractedDate, setExtractedDate] = useState<string | null>(null);
+  const [extractedDriverSummary, setExtractedDriverSummary] = useState<string | null>(null);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
 
@@ -416,6 +417,7 @@ export default function Home() {
           setExtractionText(parsed.text || '');
           setExtractedLocations(parsed.locations || null);
           setExtractedDate(parsed.date || null);
+          setExtractedDriverSummary(parsed.driverSummary || null);
           
           console.log('✅ [FRONTEND] Restored extraction data from session storage');
         } catch (error) {
@@ -650,9 +652,12 @@ export default function Home() {
     console.log('\n🚀 Starting analysis for EXTRACTED trip data...');
     console.log(`📍 ${mappedLocations.length} locations mapped from extraction`);
     console.log(`📅 Trip date: ${tripDateToUse.toISOString().split('T')[0]}`);
+    if (extractedDriverSummary) {
+      console.log(`📝 Driver summary will be saved: ${extractedDriverSummary.substring(0, 50)}...`);
+    }
 
-    // Now call the same trip submission logic with mapped data
-    await performTripAnalysis(mappedLocations, tripDateToUse, emailToUse);
+    // Now call the same trip submission logic with mapped data and driver summary
+    await performTripAnalysis(mappedLocations, tripDateToUse, emailToUse, extractedDriverSummary);
   };
 
   const handleTripSubmit = async () => {
@@ -680,7 +685,8 @@ export default function Home() {
   const performTripAnalysis = async (
     validLocations: Array<{ id: string; name: string; lat: number; lng: number; time: string }>,
     tripDateObj: Date,
-    emailToUse: string
+    emailToUse: string,
+    driverSummary?: string | null
   ) => {
     setLoadingTrip(true);
     setError(null);
@@ -972,6 +978,9 @@ export default function Home() {
       console.log('   User:', emailToUse);
       console.log('   Date:', tripDateStr);
       console.log('   Locations:', validLocations.length);
+      if (driverSummary) {
+        console.log('   Driver Summary:', driverSummary.substring(0, 100) + '...');
+      }
       
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
@@ -981,7 +990,8 @@ export default function Home() {
           locations: validLocations as any,
           trip_results: results as any,
           traffic_predictions: trafficData as any,
-          executive_report: executiveReportData as any
+          executive_report: executiveReportData as any,
+          driver_notes: driverSummary || null
         })
         .select()
         .single();
@@ -1175,9 +1185,13 @@ export default function Home() {
       console.log('✅ [FRONTEND] Extraction successful!');
       console.log(`📍 [FRONTEND] Extracted ${data.locations?.length || 0} locations`);
       console.log('📍 [FRONTEND] Locations:', data.locations);
+      if (data.driverSummary) {
+        console.log('📝 [FRONTEND] Driver summary:', data.driverSummary);
+      }
       
       setExtractedLocations(data.locations);
       setExtractedDate(data.date);
+      setExtractedDriverSummary(data.driverSummary);
 
       // Save to session storage
       console.log('💾 [FRONTEND] Saving to session storage...');
@@ -1186,6 +1200,7 @@ export default function Home() {
           text: extractionText,
           locations: data.locations,
           date: data.date,
+          driverSummary: data.driverSummary,
           timestamp: new Date().toISOString(),
         }));
         console.log('✅ [FRONTEND] Saved to session storage');
@@ -1205,6 +1220,7 @@ export default function Home() {
     console.log('🧹 [FRONTEND] Clearing extraction results...');
     setExtractedLocations(null);
     setExtractedDate(null);
+    setExtractedDriverSummary(null);
     setExtractionText('');
     setExtractionError(null);
     
