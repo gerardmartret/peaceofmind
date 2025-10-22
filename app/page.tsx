@@ -1663,7 +1663,7 @@ export default function Home() {
                 variant="outline"
                 size="lg"
               >
-                Create Trip Manually
+                Go to Manual Form
               </Button>
 
               <Button

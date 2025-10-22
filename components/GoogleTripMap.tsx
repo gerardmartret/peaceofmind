@@ -358,19 +358,23 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
             key={location.id}
             position={{ lat: location.lat, lng: location.lng }}
             onClick={() => setSelectedMarker(index)}
-            label={{
-              text: numberToLetter(index + 1),
-              color: 'white',
-              fontWeight: 'bold',
-            }}
             icon={{
-              path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
-              scale: 1.5,
-              fillColor: getMarkerColor(location.safetyScore),
-              fillOpacity: 1,
-              strokeColor: 'white',
-              strokeWeight: 2,
-              anchor: new google.maps.Point(12, 22),
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                <svg width="40" height="50" viewBox="0 0 40 50" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20 2C12.26 2 6 8.26 6 16c0 10 14 24 14 24s14-14 14-24c0-7.74-6.26-14-14-14z" 
+                        fill="#05060A" 
+                        stroke="white" 
+                        stroke-width="2"/>
+                  <text x="20" y="22" 
+                        text-anchor="middle" 
+                        font-family="Arial, sans-serif" 
+                        font-size="12" 
+                        font-weight="bold" 
+                        fill="white">${numberToLetter(index + 1)}</text>
+                </svg>
+              `)}`,
+              scaledSize: new google.maps.Size(40, 50),
+              anchor: new google.maps.Point(20, 50),
             }}
           />
         ))}
@@ -411,7 +415,7 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
           <DirectionsRenderer
             directions={directionsResponse}
             options={{
-              suppressMarkers: false, // Show A, B markers
+              suppressMarkers: true, // Hide Google's default red markers
               polylineOptions: {
                 strokeColor: '#18815A', // Your success/ring color
                 strokeWeight: 5,
