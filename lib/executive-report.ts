@@ -107,6 +107,100 @@ export async function generateExecutiveReport(
 
     const prompt = `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in London.
 
+PASSENGER INFORMATION:
+${(() => {
+  // Extract passenger name from trip data
+  const extractPassengerName = (tripData: any[]): string | null => {
+    for (const loc of tripData) {
+      if (loc.driverNotes) {
+        const patterns = [
+          /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+          /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+          /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+          /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+        ];
+        
+        for (const pattern of patterns) {
+          const match = loc.driverNotes.match(pattern);
+          if (match && match[1]) {
+            return match[1].trim();
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  // Extract number of passengers
+  const extractPassengerCount = (tripData: any[]): number => {
+    for (const loc of tripData) {
+      if (loc.driverNotes) {
+        const patterns = [
+          /(\d+)\s*(?:passengers?|people|guests?)/i,
+          /(?:x|×)\s*(\d+)/i,
+          /(\d+)\s*(?:pax|persons?)/i,
+        ];
+        
+        for (const pattern of patterns) {
+          const match = loc.driverNotes.match(pattern);
+          if (match && match[1]) {
+            const count = parseInt(match[1]);
+            if (count > 0 && count <= 20) return count;
+          }
+        }
+      }
+    }
+    return 1;
+  };
+
+  // Get city from first location
+  const getCity = (): string => {
+    if (tripData.length > 0) {
+      const firstLocation = tripData[0];
+      if (firstLocation.locationName) {
+        const parts = firstLocation.locationName.split(',');
+        if (parts.length >= 2) {
+          return parts[parts.length - 1].trim();
+        }
+      }
+    }
+    return 'Location';
+  };
+
+  const passengerName = extractPassengerName(tripData) || 'Passenger';
+  const passengerCount = extractPassengerCount(tripData);
+  const city = getCity();
+  const passengerText = passengerCount === 1 ? 'passenger' : 'passengers';
+  
+  // Extract vehicle type
+  const extractVehicleType = (tripData: any[]): string => {
+    for (const loc of tripData) {
+      if (loc.driverNotes) {
+        const vehiclePatterns = [
+          /(?:vehicle|car|sedan|limo|limousine|suv|van|minivan|bus|coach|taxi|cab)\s*:?\s*([^.,\n]+)/i,
+          /(?:request|need|want|require)\s+(?:a\s+)?([^.,\n]+?)\s+(?:vehicle|car|sedan|limo|limousine|suv|van|minivan|bus|coach|taxi|cab)/i,
+          /(?:luxury|premium|executive|standard|economy|compact|full-size|mid-size|large|small)\s+(?:sedan|limo|limousine|suv|van|minivan|bus|coach|taxi|cab)/i,
+        ];
+        
+        for (const pattern of vehiclePatterns) {
+          const match = loc.driverNotes.match(pattern);
+          if (match && match[1]) {
+            const vehicle = match[1].trim();
+            if (vehicle.length > 2 && vehicle.length < 50) {
+              return vehicle;
+            }
+          }
+        }
+      }
+    }
+    return 'Luxury Sedan'; // Default vehicle type
+  };
+
+  const vehicleType = extractVehicleType(tripData);
+  
+  return `${passengerName} x${passengerCount} ${passengerText} in ${city}\nVehicle: ${vehicleType}`;
+})()}
+
 TRIP DETAILS:
 Date: ${tripDate}
 ${routeDistance ? `Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} minutes` : ''}
@@ -151,7 +245,7 @@ ANALYSIS REQUIREMENTS:
 Return JSON:
 {
   "tripRiskScore": number,
-  "overallSummary": "2-3 sentences",
+  "overallSummary": "Start with: '[Passenger Name] x[number] passengers in [City]' on first line, then 'Vehicle: [Vehicle Type]' on second line, followed by 2-3 sentences about the trip",
   "riskScoreExplanation": "Explain why score is X/10, which data used and how calculated",
   "topDisruptor": "The ONE thing most likely to disrupt trip and why",
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
