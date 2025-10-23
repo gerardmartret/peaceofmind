@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import TripRiskBreakdown from '@/components/TripRiskBreakdown';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -199,9 +200,11 @@ export default function ResultsPage() {
   const router = useRouter();
   const params = useParams();
   const tripId = params.id as string;
+  const { user, isAuthenticated } = useAuth();
   const [tripData, setTripData] = useState<TripData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState<boolean>(false);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [editingLocationName, setEditingLocationName] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -403,6 +406,18 @@ export default function ResultsPage() {
 
         console.log('✅ Trip loaded from database');
         
+        // Check ownership: if user is authenticated and their ID matches the trip's user_id
+        const tripUserId = data.user_id;
+        const currentUserId = user?.id;
+        
+        if (isAuthenticated && currentUserId && tripUserId === currentUserId) {
+          setIsOwner(true);
+          console.log('🔐 User is the owner of this trip - editing enabled');
+        } else {
+          setIsOwner(false);
+          console.log('👁️ User is NOT the owner - read-only mode');
+        }
+        
         // Transform database data to match expected TripData format
         const tripData: TripData = {
           tripDate: data.trip_date,
@@ -435,9 +450,9 @@ export default function ResultsPage() {
         setLoading(false);
       }
     }
-
+    
     loadTripFromDatabase();
-  }, [tripId, router]);
+  }, [tripId, router, user, isAuthenticated]);
 
   const handlePlanNewTrip = () => {
     // Redirect to home for new trip
@@ -526,43 +541,57 @@ export default function ResultsPage() {
                         <span>Saved successfully!</span>
                       </div>
                     )}
-                    {!isEditingNotes ? (
-                      <Button
-                        onClick={() => setIsEditingNotes(true)}
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                        Edit
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleSaveNotes}
-                        disabled={isSavingNotes}
-                        size="sm"
-                        className="flex items-center gap-2"
-                        style={{ backgroundColor: '#18815A', color: '#FFFFFF' }}
-                      >
-                        {isSavingNotes ? (
-                          <>
-                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <>
+                    {/* Only show edit/save buttons for trip owners */}
+                    {isOwner && (
+                      <>
+                        {!isEditingNotes ? (
+                          <Button
+                            onClick={() => setIsEditingNotes(true)}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
-                            Save
-                          </>
+                            Edit
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={handleSaveNotes}
+                            disabled={isSavingNotes}
+                            size="sm"
+                            className="flex items-center gap-2"
+                            style={{ backgroundColor: '#18815A', color: '#FFFFFF' }}
+                          >
+                            {isSavingNotes ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <span>Saving...</span>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Save
+                              </>
+                            )}
+                          </Button>
                         )}
-                      </Button>
+                      </>
+                    )}
+                    {/* Show read-only indicator for non-owners */}
+                    {!isOwner && (
+                      <span className="text-xs text-muted-foreground italic flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Read-only
+                      </span>
                     )}
                   </div>
                 </div>
@@ -783,8 +812,8 @@ export default function ResultsPage() {
                     </div>
                     <div className="flex-1">
                       
-                       {/* Editable Location Name */}
-                      {editingLocationId === result.locationId ? (
+                       {/* Editable Location Name - Only for owners */}
+                      {isOwner && editingLocationId === result.locationId ? (
                         <Input
                           ref={inputRef}
                           value={editingLocationName}
@@ -800,15 +829,18 @@ export default function ResultsPage() {
                            <p className="text-base font-semibold text-primary-foreground">
                              {locationDisplayNames[result.locationId] || `Stop ${index + 1}`}
                           </p>
-                          <button
-                             onClick={() => handleEditLocationName(result.locationId, `Stop ${index + 1}`)}
-                            className="p-1 hover:bg-background/20 rounded transition-colors"
-                             title="Edit location name"
-                          >
-                            <svg className="w-4 h-4 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
+                          {/* Only show edit button for owners */}
+                          {isOwner && (
+                            <button
+                               onClick={() => handleEditLocationName(result.locationId, `Stop ${index + 1}`)}
+                              className="p-1 hover:bg-background/20 rounded transition-colors"
+                               title="Edit location name"
+                            >
+                              <svg className="w-4 h-4 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       )}
                       

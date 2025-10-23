@@ -22,6 +22,7 @@ import { searchNearbyCafes } from '@/lib/google-cafes';
 import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { supabase } from '@/lib/supabase';
 import { validateBusinessEmail } from '@/lib/email-validation';
+import { useAuth } from '@/lib/auth-context';
 import {
   DndContext,
   closestCenter,
@@ -466,6 +467,7 @@ const numberToLetter = (num: number): string => {
 export default function Home() {
   const router = useRouter();
   const { isLoaded: isGoogleMapsLoaded } = useGoogleMaps();
+  const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Array<{ district: string; data: CombinedData }>>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>(['westminster']);
@@ -844,8 +846,10 @@ export default function Home() {
   };
 
   const handleExtractedTripSubmit = async () => {
-    // Use user's email if provided, otherwise default
-    const emailToUse = userEmail.trim() || 'anonymous@peaceofmind.com';
+    // Use authenticated user's email if logged in, otherwise use provided email or default
+    const emailToUse = isAuthenticated && user?.email 
+      ? user.email 
+      : (userEmail.trim() || 'anonymous@peaceofmind.com');
 
     // Validate extracted locations
     if (!extractedLocations || extractedLocations.length === 0) {
@@ -886,8 +890,10 @@ export default function Home() {
   };
 
   const handleTripSubmit = async () => {
-    // Use user's email if provided, otherwise default
-    const emailToUse = userEmail.trim() || 'anonymous@peaceofmind.com';
+    // Use authenticated user's email if logged in, otherwise use provided email or default
+    const emailToUse = isAuthenticated && user?.email 
+      ? user.email 
+      : (userEmail.trim() || 'anonymous@peaceofmind.com');
 
     // Validate all locations are filled
     const validLocations = locations.filter(loc => loc.name && loc.lat !== 0 && loc.lng !== 0);
@@ -1221,25 +1227,37 @@ export default function Home() {
       // Save trip to database
       console.log('💾 Saving trip to database...');
       console.log('   User:', emailToUse);
+      console.log('   Authenticated:', isAuthenticated);
       console.log('   Date:', tripDateStr);
       console.log('   Locations:', validLocations.length);
       if (driverSummary) {
         console.log('   Driver Summary:', driverSummary.substring(0, 100) + '...');
       }
       
+      // Prepare trip data with user_id for authenticated users
+      const tripInsertData: any = {
+        user_email: emailToUse,
+        trip_date: tripDateStr,
+        locations: validLocations as any,
+        trip_results: results as any,
+        traffic_predictions: trafficData as any,
+        executive_report: executiveReportData as any,
+        driver_notes: driverSummary || null,
+        trip_purpose: tripPurpose || null,
+        special_remarks: specialRemarks || null
+      };
+
+      // Add user_id for authenticated users
+      if (isAuthenticated && user?.id) {
+        tripInsertData.user_id = user.id;
+        console.log('   User ID:', user.id);
+      } else {
+        console.log('   Guest user (no user_id)');
+      }
+      
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
-        .insert({
-          user_email: emailToUse,
-          trip_date: tripDateStr,
-          locations: validLocations as any,
-          trip_results: results as any,
-          traffic_predictions: trafficData as any,
-          executive_report: executiveReportData as any,
-          driver_notes: driverSummary || null,
-          trip_purpose: tripPurpose || null,
-          special_remarks: specialRemarks || null
-        })
+        .insert(tripInsertData)
         .select()
         .single();
 
@@ -1260,27 +1278,35 @@ export default function Home() {
       backgroundProcessComplete = true;
       console.log('✅ Background process complete');
       
-      // Wait for visual animation to complete (ensure it reaches 100%)
-      console.log('🚀 Waiting for visual animation to complete...');
-      
-      const waitForCompletion = () => {
-        // Only redirect when BOTH conditions are met:
-        // 1. Background process is complete
-        // 2. Visual animation reaches 100%
-        if (backgroundProcessComplete && loadingProgress >= 100) {
-          console.log('✅ Both background process and visual animation complete, redirecting...');
-          // Small delay to show the green completion state
-          setTimeout(() => {
-            router.push(`/results/${tripData.id}`);
-          }, 500);
-        } else {
-          console.log(`Background complete: ${backgroundProcessComplete}, Progress: ${loadingProgress}%`);
-          setTimeout(waitForCompletion, 100);
-        }
-      };
-      
-      // Start checking for completion
-      setTimeout(waitForCompletion, 100);
+      // For authenticated users: auto-redirect when complete
+      // For guest users: show email field and button
+      if (isAuthenticated) {
+        console.log('🔐 Authenticated user - will auto-redirect when animation completes');
+        
+        // Wait for visual animation to complete (ensure it reaches 100%)
+        const waitForCompletion = () => {
+          // Only redirect when BOTH conditions are met:
+          // 1. Background process is complete
+          // 2. Visual animation reaches 100%
+          if (backgroundProcessComplete && loadingProgress >= 100) {
+            console.log('✅ Both background process and visual animation complete, redirecting...');
+            // Small delay to show the green completion state
+            setTimeout(() => {
+              router.push(`/results/${tripData.id}`);
+            }, 500);
+          } else {
+            console.log(`Background complete: ${backgroundProcessComplete}, Progress: ${loadingProgress}%`);
+            setTimeout(waitForCompletion, 100);
+          }
+        };
+        
+        // Start checking for completion
+        setTimeout(waitForCompletion, 100);
+      } else {
+        console.log('👤 Guest user - will show email field and View Report button');
+        // For guest users, don't auto-redirect
+        // They will manually click "View Report" button after entering email
+      }
 
     } catch (err) {
       console.error('❌ Error:', err);
@@ -1656,9 +1682,21 @@ export default function Home() {
     <div className="min-h-screen bg-background p-4 sm:p-8 flex items-center justify-center">
       <div className="max-w-4xl mx-auto w-full">
         {/* Title */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-foreground">My Safe Roadshow</h1>
         </div>
+
+        {/* Authentication Status */}
+        {isAuthenticated && user?.email && (
+          <div className="mb-8 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Authenticated as <strong>{user.email}</strong></span>
+            </div>
+          </div>
+        )}
 
         {/* Email/Text Import Section */}
         {!showManualForm && !extractedLocations && (
@@ -2147,58 +2185,77 @@ export default function Home() {
                   {/* Steps List - Carousel View or Completion View */}
                   <div className="relative h-[200px] overflow-hidden">
         {loadingProgress >= 100 ? (
-          // Completion View - Show email field and View Chauffeur Brief button only
+          // Completion View - For guests: show email field and button. For authenticated: show message
           <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
-            {/* Email Field and View Chauffeur Brief Button */}
-            <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
-              <div className="flex flex-col items-center space-y-4">
-                <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground text-center">
-                  Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
-                </label>
-                <Input
-                  type="email"
-                  id="userEmail"
-                  value={userEmail}
-                  onChange={(e) => handleEmailChange(e.target.value)}
-                  onBlur={handleEmailBlur}
-                  placeholder="name@company.com"
-                  className={cn(
-                    "w-full max-w-xs bg-card placeholder:text-muted-foreground/40",
-                    emailError && "border-destructive focus-visible:ring-destructive"
-                  )}
-                />
-                {emailError ? (
-                  <p className="text-xs text-destructive font-medium text-center">
-                    {emailError}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center">
-                    Business email required. Personal emails (Gmail, Yahoo, etc.) are not accepted.
-                  </p>
-                )}
-                
-                {/* View Chauffeur Brief Button */}
-                <Button
-                  onClick={() => {
-                    if (tripId) {
-                      console.log('View Report clicked - redirecting to results...');
-                      router.push(`/results/${tripId}`);
-                    } else {
-                      console.log('Trip ID not available yet');
-                    }
-                  }}
-                  size="lg"
-                  className="px-6 py-3 font-semibold hover:scale-105 transition-transform"
-                  style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
-                  disabled={!tripId || !userEmail.trim() || !!emailError}
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  View Chauffeur Brief
-                </Button>
+            {isAuthenticated ? (
+              // Authenticated users: Show redirect message
+              <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="text-center">
+                    <svg className="w-12 h-12 mx-auto mb-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="text-lg font-semibold text-card-foreground mb-2">
+                      Analysis Complete!
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Redirecting to your Chauffeur Brief...
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              // Guest users: Show email field and View Report button
+              <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
+                <div className="flex flex-col items-center space-y-4">
+                  <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground text-center">
+                    Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
+                  </label>
+                  <Input
+                    type="email"
+                    id="userEmail"
+                    value={userEmail}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    onBlur={handleEmailBlur}
+                    placeholder="name@company.com"
+                    className={cn(
+                      "w-full max-w-xs bg-card placeholder:text-muted-foreground/40",
+                      emailError && "border-destructive focus-visible:ring-destructive"
+                    )}
+                  />
+                  {emailError ? (
+                    <p className="text-xs text-destructive font-medium text-center">
+                      {emailError}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Business email required. Personal emails (Gmail, Yahoo, etc.) are not accepted.
+                    </p>
+                  )}
+                  
+                  {/* View Chauffeur Brief Button - Only for guest users */}
+                  <Button
+                    onClick={() => {
+                      if (tripId) {
+                        console.log('View Report clicked - redirecting to results...');
+                        router.push(`/results/${tripId}`);
+                      } else {
+                        console.log('Trip ID not available yet');
+                      }
+                    }}
+                    size="lg"
+                    className="px-6 py-3 font-semibold hover:scale-105 transition-transform"
+                    style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                    disabled={!tripId || !userEmail.trim() || !!emailError}
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    View Chauffeur Brief
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
                     ) : (
                       // Carousel View - Show current and previous steps only
