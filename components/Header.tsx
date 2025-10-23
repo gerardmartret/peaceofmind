@@ -16,7 +16,7 @@ export default function Header() {
 
   if (loading) {
     return (
-      <header className="w-full border-b bg-white">
+      <header className="w-full border-b" style={{ backgroundColor: '#FBFAF9' }}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-end items-center gap-2">
             <div className="h-9 w-20 bg-gray-200 animate-pulse rounded"></div>
@@ -27,12 +27,23 @@ export default function Header() {
   }
 
   return (
-    <header className="w-full border-b bg-white">
+    <header className="w-full border-b" style={{ backgroundColor: '#FBFAF9' }}>
       <div className="container mx-auto px-4 py-4">
-        <div className="flex justify-end items-center gap-2">
+        <div className="flex justify-between items-center">
+          {/* Logo */}
+          <Link href="/" className="flex items-center">
+            <img 
+              src="/logo-roadshow-pos.png" 
+              alt="my ROADSHOW" 
+              className="h-12 w-auto"
+            />
+          </Link>
+          
+          {/* Navigation */}
+          <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
-              <span className="text-sm text-gray-600 mr-2">
+              <span className="text-sm mr-2" style={{ color: '#05060A' }}>
                 {user?.email}
               </span>
               <Link href="/my-trips">
@@ -62,6 +73,7 @@ export default function Header() {
               </Link>
             </>
           )}
+          </div>
         </div>
       </div>
     </header>

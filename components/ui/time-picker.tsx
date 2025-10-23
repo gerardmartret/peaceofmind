@@ -69,7 +69,7 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
         <Button
           variant="outline"
           id={id}
-          className={cn("w-full justify-start text-left font-normal bg-card", className)}
+          className={cn("w-full justify-start text-left font-normal bg-white", className)}
         >
           <Clock className="mr-2 h-4 w-4" />
           {value ? getDisplayValue() : <span>Select time</span>}

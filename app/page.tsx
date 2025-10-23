@@ -273,6 +273,7 @@ function SortableLocationItem({
             <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
             {editingIndex === index && editingField === 'location' ? (
               <GoogleLocationSearch
+                currentLocation={location.name}
                 onLocationSelect={(loc) => {
                   onLocationSelect(location.id, loc);
                   onEditEnd();
@@ -280,7 +281,7 @@ function SortableLocationItem({
               />
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
                 onClick={() => onEditStart(location.id, 'location')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -417,6 +418,7 @@ function SortableExtractedLocationItem({
             <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
             {editingIndex === index && editingField === 'location' ? (
               <GoogleLocationSearch
+                currentLocation={`${location.location} - ${location.formattedAddress || location.location}`}
                 onLocationSelect={(loc) => {
                   onLocationSelect(index, loc);
                   onEditEnd();
@@ -424,14 +426,14 @@ function SortableExtractedLocationItem({
               />
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
                 onClick={() => onEditStart(index, 'location')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <span className="flex-1 truncate text-base md:text-sm">
-                  {location.verified ? location.formattedAddress : location.location}
+                  {location.location}
                 </span>
                 {location.verified && (
                   <svg className="w-4 h-4 text-green-600 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -640,7 +642,7 @@ export default function Home() {
   };
 
   const addLocation = () => {
-    const newId = (locations.length + 1).toString();
+    const newId = `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setLocations([...locations, {
       id: newId,
       name: '',
@@ -1321,22 +1323,15 @@ export default function Home() {
         console.log(`🔗 Trip ID: ${tripData.id}`);
         
         // Store trip ID for navigation
-        setTripId(tripData.id);
-      } else {
-        console.log('👤 Guest user - storing trip data for later save (after email entry)');
+        const savedTripId = tripData.id;
+        setTripId(savedTripId);
         
-        // Store the trip data to save later when guest enters email
-        setPendingTripData(tripInsertData);
-      }
-
-      // Mark background process as complete
-      backgroundProcessComplete = true;
-      console.log('✅ Background process complete');
-      
-      // For authenticated users: auto-redirect when complete
-      // For guest users: show email field and button
-      if (isAuthenticated) {
+        // For authenticated users: auto-redirect when complete
         console.log('🔐 Authenticated user - will auto-redirect when animation completes');
+        
+        // Mark background process as complete
+        backgroundProcessComplete = true;
+        console.log('✅ Background process complete');
         
         // Wait for visual animation to complete (ensure it reaches 100%)
         const waitForCompletion = () => {
@@ -1347,12 +1342,11 @@ export default function Home() {
             console.log('✅ Both background process and visual animation complete, redirecting...');
             // Small delay to show the green completion state
             setTimeout(() => {
-              if (tripId) {
-                router.push(`/results/${tripId}`);
-              }
+              console.log(`🚀 Redirecting to /results/${savedTripId}`);
+              router.push(`/results/${savedTripId}`);
             }, 500);
           } else {
-            console.log(`Background complete: ${backgroundProcessComplete}, Progress: ${loadingProgress}%`);
+            console.log(`⏳ Background complete: ${backgroundProcessComplete}, Progress: ${loadingProgress}%`);
             setTimeout(waitForCompletion, 100);
           }
         };
@@ -1360,6 +1354,14 @@ export default function Home() {
         // Start checking for completion
         setTimeout(waitForCompletion, 100);
       } else {
+        console.log('👤 Guest user - storing trip data for later save (after email entry)');
+        
+        // Store the trip data to save later when guest enters email
+        setPendingTripData(tripInsertData);
+        
+        // Mark background process as complete
+        backgroundProcessComplete = true;
+        console.log('✅ Background process complete');
         console.log('👤 Guest user - will show email field and View Report button');
         // For guest users, don't auto-redirect
         // They will manually click "View Report" button after entering email
@@ -1736,12 +1738,8 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-8 flex items-center justify-center">
+    <div className="min-h-screen bg-white p-4 sm:p-8 flex items-center justify-center">
       <div className="max-w-4xl mx-auto w-full">
-        {/* Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-foreground">My Safe Roadshow</h1>
-        </div>
 
         {/* Authentication Status */}
         {isAuthenticated && user?.email && (
@@ -1755,20 +1753,30 @@ export default function Home() {
           </div>
         )}
 
+        {/* Logo and Tagline for Homepage */}
+        <div className="mb-12 text-center -mt-2">
+          <img
+            src="/logo-roadshow-pos.png"
+            alt="my ROADSHOW"
+            className="mx-auto h-10 w-auto mb-8"
+          />
+          <p className="text-4xl font-light" style={{ color: '#05060A' }}>
+            Your roadshow planner,<br />
+            ready at your fingertips.
+          </p>
+        </div>
+
         {/* Email/Text Import Section */}
         {!showManualForm && !extractedLocations && (
-        <div className="bg-card rounded-md p-6 mb-8 border border-border">
+        <div className="bg-white rounded-md p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <svg className="w-5 h-5 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <h2 className="text-xl font-bold text-card-foreground">
+            <h2 className="text-xl font-bold" style={{ color: '#05060A' }}>
               Import Trip from Email or Text
             </h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you.
-          </p>
 
           <div className="space-y-4">
             {/* Textarea */}
@@ -1776,8 +1784,9 @@ export default function Home() {
               <textarea
                 value={extractionText}
                 onChange={(e) => setExtractionText(e.target.value)}
-                placeholder="Example: Pick Mr. Jones up from Heathrow at 9am, then we go to the office at 123 Baker Street at 11am, and finally drop off at Kings Cross at 3pm on December 25th."
-                className="w-full min-h-[150px] p-3 rounded-md border-2 border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
+                placeholder="Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you."
+                className="w-full min-h-[150px] p-3 rounded-md border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
+                style={{ borderColor: '#D2CBC2' }}
               />
             </div>
 
@@ -1818,7 +1827,7 @@ export default function Home() {
 
         {/* Extracted Results - Matching Manual Form Design */}
         {!showManualForm && extractedLocations && extractedLocations.length > 0 && (
-              <div className="bg-card rounded-md p-6 mb-8 border border-border">
+              <div className="bg-white rounded-md p-6 mb-8">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1850,7 +1859,8 @@ export default function Home() {
                           type="date"
                           value={extractedDate || ''}
                           onChange={(e) => handleDateEdit(e.target.value)}
-                          className="bg-white text-gray-900 border-gray-300 rounded-md h-9 pl-10"
+                          className="bg-white border-gray-300 rounded-md h-9 pl-10"
+                          style={{ color: '#05060A' }}
                         />
                         <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1863,7 +1873,8 @@ export default function Home() {
                         <Input
                           value="London"
                           readOnly
-                          className="bg-white text-gray-900 border-gray-300 rounded-md h-9 pr-10"
+                          className="bg-white border-gray-300 rounded-md h-9 pr-10"
+                          style={{ color: '#05060A' }}
                         />
                         <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1916,7 +1927,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Add Location and Create Chauffeur Brief Buttons */}
+                {/* Add Location and Create Trip Brief Buttons */}
                 <div className="mt-4 flex gap-3">
                   <Button
                     onClick={() => {
@@ -1980,7 +1991,7 @@ export default function Home() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                         </svg>
-                        Create Chauffeur Brief
+                        Create Trip Brief
                       </>
                     )}
                   </Button>
@@ -2003,7 +2014,7 @@ export default function Home() {
 
         {/* Multi-Location Trip Planner */}
         {showManualForm && (
-        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8 border border-border">
+        <div id="manual-form-section" className="bg-white rounded-md p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-xl font-bold text-card-foreground">
@@ -2132,12 +2143,12 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <AlertDescription className="text-destructive">
-                Locations reordered! Click "Create Chauffeur Brief" to update the route.
+                Locations reordered! Click "Create Trip Brief" to update the route.
               </AlertDescription>
             </Alert>
           )}
 
-           {/* Add Location, Create Chauffeur Brief & View Map Buttons */}
+           {/* Add Location, Create Trip Brief & View Map Buttons */}
            <div className="flex gap-3">
              <Button
                onClick={addLocation}
@@ -2169,7 +2180,7 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  Create Chauffeur Brief
+                  Create Trip Brief
                 </>
               )}
             </Button>

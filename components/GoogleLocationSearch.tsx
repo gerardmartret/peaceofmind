@@ -13,9 +13,10 @@ interface SearchResult {
 
 interface GoogleLocationSearchProps {
   onLocationSelect?: (location: SearchResult) => void;
+  currentLocation?: string;
 }
 
-export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocationSearchProps) {
+export default function GoogleLocationSearch({ onLocationSelect, currentLocation }: GoogleLocationSearchProps) {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<SearchResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -107,7 +108,7 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
           type="text"
           disabled
           placeholder="Loading Google Places..."
-          className="w-full pr-10 h-9"
+          className="w-full pr-10 h-9 bg-white"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <svg className="animate-spin h-5 w-5 text-gray-400" viewBox="0 0 24 24">
@@ -144,8 +145,9 @@ export default function GoogleLocationSearch({ onLocationSelect }: GoogleLocatio
           <Input
             ref={inputRef}
             type="text"
-            placeholder="Search hotels, restaurants, landmarks, or any location..."
-            className="w-full pr-10 h-9"
+            placeholder={currentLocation || "Search hotels, restaurants, landmarks, or any location..."}
+            defaultValue={currentLocation}
+            className="w-full pr-10 h-9 bg-white"
           />
         </Autocomplete>
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
