@@ -497,6 +497,7 @@ export default function Home() {
   const [tripId, setTripId] = useState<string | null>(null); // Store trip ID for manual navigation
   const [userEmail, setUserEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [pendingTripData, setPendingTripData] = useState<any>(null); // Store trip data for guest users before saving
   const [loadingSteps, setLoadingSteps] = useState<Array<{
     id: string;
     title: string;
@@ -845,11 +846,75 @@ export default function Home() {
     }
   };
 
+  // Save guest trip to database after email is entered
+  const handleGuestTripSave = async () => {
+    if (!pendingTripData || !userEmail.trim() || emailError) {
+      console.error('Cannot save trip: missing data or invalid email');
+      return;
+    }
+
+    try {
+      console.log('💾 Saving guest trip to database...');
+      console.log('   Email:', userEmail);
+
+      // Validate email one more time
+      const validation = validateBusinessEmail(userEmail);
+      if (!validation.isValid) {
+        setEmailError(validation.error || null);
+        return;
+      }
+
+      // Update pending trip data with the actual email
+      const tripDataWithEmail = {
+        ...pendingTripData,
+        user_email: userEmail.trim(),
+      };
+
+      // Save user to database
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert({ 
+          email: userEmail.trim(),
+          marketing_consent: true 
+        });
+
+      if (userError) {
+        console.error('❌ Error saving user:', userError);
+      }
+
+      // Save trip to database
+      const { data: tripData, error: tripError } = await supabase
+        .from('trips')
+        .insert(tripDataWithEmail)
+        .select()
+        .single();
+
+      if (tripError || !tripData) {
+        console.error('❌ Error saving trip:', tripError);
+        setError('Failed to save trip. Please try again.');
+        return;
+      }
+
+      console.log('✅ Guest trip saved to database');
+      console.log(`🔗 Trip ID: ${tripData.id}`);
+      console.log(`📧 Guest email: ${userEmail}`);
+
+      // Clear pending data
+      setPendingTripData(null);
+
+      // Redirect to results page
+      router.push(`/results/${tripData.id}`);
+    } catch (err) {
+      console.error('Error saving guest trip:', err);
+      setError('Failed to save trip. Please try again.');
+    }
+  };
+
   const handleExtractedTripSubmit = async () => {
-    // Use authenticated user's email if logged in, otherwise use provided email or default
+    // Use authenticated user's email if logged in, otherwise use placeholder (will be replaced by actual email later)
     const emailToUse = isAuthenticated && user?.email 
       ? user.email 
-      : (userEmail.trim() || 'anonymous@peaceofmind.com');
+      : 'guest@pending.com'; // Placeholder for guest users
 
     // Validate extracted locations
     if (!extractedLocations || extractedLocations.length === 0) {
@@ -890,10 +955,10 @@ export default function Home() {
   };
 
   const handleTripSubmit = async () => {
-    // Use authenticated user's email if logged in, otherwise use provided email or default
+    // Use authenticated user's email if logged in, otherwise use placeholder (will be replaced by actual email later)
     const emailToUse = isAuthenticated && user?.email 
       ? user.email 
-      : (userEmail.trim() || 'anonymous@peaceofmind.com');
+      : 'guest@pending.com'; // Placeholder for guest users
 
     // Validate all locations are filled
     const validLocations = locations.filter(loc => loc.name && loc.lat !== 0 && loc.lng !== 0);
@@ -1205,36 +1270,7 @@ export default function Home() {
         // Don't fail the whole trip analysis if report fails
       }
 
-      // Save user to database (upsert - add if new, ignore if exists)
-      console.log('💾 Saving user to database...');
-      console.log('   Email:', emailToUse);
-      
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .upsert({ 
-          email: emailToUse,
-          marketing_consent: true 
-        })
-        .select();
-
-      if (userError) {
-        console.error('❌ Error saving user:', userError);
-        console.error('   Details:', JSON.stringify(userError, null, 2));
-        throw new Error(`Failed to save user to database: ${userError.message || 'Unknown error'}`);
-      }
-      console.log('✅ User saved/updated:', userData);
-
-      // Save trip to database
-      console.log('💾 Saving trip to database...');
-      console.log('   User:', emailToUse);
-      console.log('   Authenticated:', isAuthenticated);
-      console.log('   Date:', tripDateStr);
-      console.log('   Locations:', validLocations.length);
-      if (driverSummary) {
-        console.log('   Driver Summary:', driverSummary.substring(0, 100) + '...');
-      }
-      
-      // Prepare trip data with user_id for authenticated users
+      // Prepare trip data
       const tripInsertData: any = {
         user_email: emailToUse,
         trip_date: tripDateStr,
@@ -1250,29 +1286,48 @@ export default function Home() {
       // Add user_id for authenticated users
       if (isAuthenticated && user?.id) {
         tripInsertData.user_id = user.id;
-        console.log('   User ID:', user.id);
+      }
+
+      // For authenticated users: Save trip immediately
+      // For guest users: Store data and wait for email input
+      if (isAuthenticated) {
+        console.log('🔐 Authenticated user - saving trip to database immediately');
+        
+        // Save user to database
+        const { error: userError } = await supabase
+          .from('users')
+          .upsert({ 
+            email: emailToUse,
+            marketing_consent: true 
+          });
+
+        if (userError) {
+          console.error('❌ Error saving user:', userError);
+        }
+
+        // Save trip to database
+        const { data: tripData, error: tripError } = await supabase
+          .from('trips')
+          .insert(tripInsertData)
+          .select()
+          .single();
+
+        if (tripError || !tripData) {
+          console.error('❌ Error saving trip:', tripError);
+          throw new Error(`Failed to save trip to database: ${tripError?.message || 'Unknown error'}`);
+        }
+
+        console.log('✅ Trip saved to database');
+        console.log(`🔗 Trip ID: ${tripData.id}`);
+        
+        // Store trip ID for navigation
+        setTripId(tripData.id);
       } else {
-        console.log('   Guest user (no user_id)');
+        console.log('👤 Guest user - storing trip data for later save (after email entry)');
+        
+        // Store the trip data to save later when guest enters email
+        setPendingTripData(tripInsertData);
       }
-      
-      const { data: tripData, error: tripError } = await supabase
-        .from('trips')
-        .insert(tripInsertData)
-        .select()
-        .single();
-
-      if (tripError || !tripData) {
-        console.error('❌ Error saving trip:', tripError);
-        console.error('   Details:', JSON.stringify(tripError, null, 2));
-        throw new Error(`Failed to save trip to database: ${tripError?.message || 'Unknown error'}`);
-      }
-
-      console.log('✅ Trip saved to database');
-      console.log(`🔗 Trip ID: ${tripData.id}`);
-      console.log(`📧 User email: ${emailToUse}`);
-
-      // Store trip ID for manual navigation
-      setTripId(tripData.id);
 
       // Mark background process as complete
       backgroundProcessComplete = true;
@@ -1292,7 +1347,9 @@ export default function Home() {
             console.log('✅ Both background process and visual animation complete, redirecting...');
             // Small delay to show the green completion state
             setTimeout(() => {
-              router.push(`/results/${tripData.id}`);
+              if (tripId) {
+                router.push(`/results/${tripId}`);
+              }
             }, 500);
           } else {
             console.log(`Background complete: ${backgroundProcessComplete}, Progress: ${loadingProgress}%`);
@@ -2235,18 +2292,11 @@ export default function Home() {
                   
                   {/* View Chauffeur Brief Button - Only for guest users */}
                   <Button
-                    onClick={() => {
-                      if (tripId) {
-                        console.log('View Report clicked - redirecting to results...');
-                        router.push(`/results/${tripId}`);
-                      } else {
-                        console.log('Trip ID not available yet');
-                      }
-                    }}
+                    onClick={handleGuestTripSave}
                     size="lg"
                     className="px-6 py-3 font-semibold hover:scale-105 transition-transform"
                     style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
-                    disabled={!tripId || !userEmail.trim() || !!emailError}
+                    disabled={!pendingTripData || !userEmail.trim() || !!emailError}
                   >
                     <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
