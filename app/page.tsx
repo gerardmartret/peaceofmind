@@ -272,13 +272,15 @@ function SortableLocationItem({
           <div className="min-w-0">
             <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
             {editingIndex === index && editingField === 'location' ? (
-              <GoogleLocationSearch
-                currentLocation={location.name}
-                onLocationSelect={(loc) => {
-                  onLocationSelect(location.id, loc);
-                  onEditEnd();
-                }}
-              />
+              <div className="editing-location" data-editing="true">
+                <GoogleLocationSearch
+                  currentLocation={location.name}
+                  onLocationSelect={(loc) => {
+                    onLocationSelect(location.id, loc);
+                    onEditEnd();
+                  }}
+                />
+              </div>
             ) : (
               <div 
                 className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
@@ -417,13 +419,15 @@ function SortableExtractedLocationItem({
           <div className="min-w-0">
             <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
             {editingIndex === index && editingField === 'location' ? (
-              <GoogleLocationSearch
-                currentLocation={`${location.location} - ${location.formattedAddress || location.location}`}
-                onLocationSelect={(loc) => {
-                  onLocationSelect(index, loc);
-                  onEditEnd();
-                }}
-              />
+              <div className="editing-location" data-editing="true">
+                <GoogleLocationSearch
+                  currentLocation={`${location.location} - ${location.formattedAddress || location.location}`}
+                  onLocationSelect={(loc) => {
+                    onLocationSelect(index, loc);
+                    onEditEnd();
+                  }}
+                />
+              </div>
             ) : (
               <div 
                 className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
@@ -531,6 +535,31 @@ export default function Home() {
   const [specialRemarks, setSpecialRemarks] = useState<string>('');
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
+
+  // Handle click outside to close editing mode
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      
+      // Check if click is outside any editing elements
+      const isClickOnEditingElement = target.closest('.editing-location') || 
+                                    target.closest('.editing-time') ||
+                                    target.closest('[data-editing="true"]');
+      
+      if (!isClickOnEditingElement) {
+        // Close any open editing modes for extracted locations
+        if (editingExtractedIndex !== null) {
+          setEditingExtractedIndex(null);
+          setEditingExtractedField(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [editingExtractedIndex]);
   
   // View toggle state
   const [showManualForm, setShowManualForm] = useState(false);
@@ -538,6 +567,31 @@ export default function Home() {
   // Manual form editing state
   const [editingManualIndex, setEditingManualIndex] = useState<number | null>(null);
   const [editingManualField, setEditingManualField] = useState<'location' | 'time' | null>(null);
+
+  // Handle click outside for manual form editing
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      
+      // Check if click is outside any editing elements
+      const isClickOnEditingElement = target.closest('.editing-location') || 
+                                    target.closest('.editing-time') ||
+                                    target.closest('[data-editing="true"]');
+      
+      if (!isClickOnEditingElement) {
+        // Close any open editing modes for manual form
+        if (editingManualIndex !== null) {
+          setEditingManualIndex(null);
+          setEditingManualField(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [editingManualIndex]);
 
 
   // Refs for debouncing timeouts
@@ -1333,26 +1387,18 @@ export default function Home() {
         backgroundProcessComplete = true;
         console.log('✅ Background process complete');
         
-        // Wait for visual animation to complete (ensure it reaches 100%)
-        const waitForCompletion = () => {
-          // Only redirect when BOTH conditions are met:
-          // 1. Background process is complete
-          // 2. Visual animation reaches 100%
-          if (backgroundProcessComplete && loadingProgress >= 100) {
-            console.log('✅ Both background process and visual animation complete, redirecting...');
-            // Small delay to show the green completion state
-            setTimeout(() => {
-              console.log(`🚀 Redirecting to /results/${savedTripId}`);
-              router.push(`/results/${savedTripId}`);
-            }, 500);
-          } else {
-            console.log(`⏳ Background complete: ${backgroundProcessComplete}, Progress: ${loadingProgress}%`);
-            setTimeout(waitForCompletion, 100);
-          }
-        };
+        // Force progress to 100% and redirect after a short delay
+        setLoadingProgress(100);
         
-        // Start checking for completion
-        setTimeout(waitForCompletion, 100);
+        // Wait for visual animation to complete and then redirect
+        setTimeout(() => {
+          console.log('✅ Background process complete, redirecting...');
+          // Small delay to show the green completion state
+          setTimeout(() => {
+            console.log(`🚀 Redirecting to /results/${savedTripId}`);
+            router.push(`/results/${savedTripId}`);
+          }, 1000); // Show completion state for 1 second
+        }, 500);
       } else {
         console.log('👤 Guest user - storing trip data for later save (after email entry)');
         
@@ -1741,28 +1787,12 @@ export default function Home() {
     <div className="min-h-screen bg-white p-4 sm:p-8 flex items-center justify-center">
       <div className="max-w-4xl mx-auto w-full">
 
-        {/* Authentication Status */}
-        {isAuthenticated && user?.email && (
-          <div className="mb-8 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Authenticated as <strong>{user.email}</strong></span>
-            </div>
-          </div>
-        )}
 
-        {/* Logo and Tagline for Homepage */}
+        {/* Tagline for Homepage */}
         <div className="mb-12 text-center -mt-2">
-          <img
-            src="/logo-roadshow-pos.png"
-            alt="my ROADSHOW"
-            className="mx-auto h-10 w-auto mb-8"
-          />
-          <p className="text-4xl font-light" style={{ color: '#05060A' }}>
-            Your roadshow planner,<br />
-            ready at your fingertips.
+          <p className="text-5xl font-light" style={{ color: '#05060A' }}>
+            Plan and update your trip,<br />
+            with one shareable link.
           </p>
         </div>
 
@@ -1773,9 +1803,9 @@ export default function Home() {
             <svg className="w-5 h-5 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <h2 className="text-xl font-bold" style={{ color: '#05060A' }}>
-              Import Trip from Email or Text
-            </h2>
+                    <h2 className="text-xl font-medium" style={{ color: '#05060A' }}>
+                      Import Trip from Email or Text
+                    </h2>
           </div>
 
           <div className="space-y-4">
@@ -1833,7 +1863,7 @@ export default function Home() {
                     <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <h2 className="text-xl font-bold text-card-foreground">
+                    <h2 className="text-xl font-medium text-card-foreground">
                       Route Proposal
                     </h2>
                   </div>
@@ -1853,7 +1883,7 @@ export default function Home() {
                 <div className="bg-black rounded-md p-4 mb-6">
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
-                      <Label className="text-white font-bold text-sm mb-2 block">Trip Date</Label>
+                      <Label className="text-white font-medium text-sm mb-2 block">Trip Date</Label>
                       <div className="relative">
                         <Input
                           type="date"
@@ -1868,7 +1898,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex-1">
-                      <Label className="text-white font-bold text-sm mb-2 block">City</Label>
+                      <Label className="text-white font-medium text-sm mb-2 block">City</Label>
                       <div className="relative">
                         <Input
                           value="London"
@@ -2017,7 +2047,7 @@ export default function Home() {
         <div id="manual-form-section" className="bg-white rounded-md p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-xl font-bold text-card-foreground">
+              <h2 className="text-xl font-medium text-card-foreground">
                 Plan Your Roadshow
               </h2>
             </div>
@@ -2038,7 +2068,7 @@ export default function Home() {
           <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="tripDate" className="block text-sm font-bold text-primary-foreground mb-2">
+                <label htmlFor="tripDate" className="block text-sm font-medium text-primary-foreground mb-2">
                   Trip Date
                 </label>
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -2076,7 +2106,7 @@ export default function Home() {
                 </Popover>
               </div>
               <div>
-                <label htmlFor="citySelect" className="block text-sm font-bold text-primary-foreground mb-2">
+                <label htmlFor="citySelect" className="block text-sm font-medium text-primary-foreground mb-2">
                   City
                 </label>
                 <Select defaultValue="london">
@@ -2243,7 +2273,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-center">
-                        <h3 className="text-xl font-semibold mb-1">Creating Chauffeur Brief</h3>
+                        <h3 className="text-xl font-semibold mb-1">Creating Trip Brief</h3>
                       <p className="text-sm text-muted-foreground">
                         {loadingSteps.filter(s => s.status === 'completed').length} of {loadingSteps.length} steps completed
                       </p>
@@ -2267,7 +2297,7 @@ export default function Home() {
                       Analysis Complete!
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Redirecting to your Chauffeur Brief...
+                      Redirecting to your Trip Brief...
                     </p>
                   </div>
                 </div>
@@ -2276,7 +2306,7 @@ export default function Home() {
               // Guest users: Show email field and View Report button
               <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
                 <div className="flex flex-col items-center space-y-4">
-                  <label htmlFor="userEmail" className="block text-sm font-bold text-card-foreground text-center">
+                  <label htmlFor="userEmail" className="block text-sm font-medium text-card-foreground text-center">
                     Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
                   </label>
                   <Input
@@ -2301,7 +2331,7 @@ export default function Home() {
                     </p>
                   )}
                   
-                  {/* View Chauffeur Brief Button - Only for guest users */}
+                  {/* View Trip Brief Button - Only for guest users */}
                   <Button
                     onClick={handleGuestTripSave}
                     size="lg"
@@ -2312,7 +2342,7 @@ export default function Home() {
                     <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    View Chauffeur Brief
+                    View Trip Brief
                   </Button>
                 </div>
               </div>

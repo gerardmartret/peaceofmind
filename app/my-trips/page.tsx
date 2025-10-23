@@ -15,6 +15,8 @@ interface Trip {
   created_at: string | null;
   locations: any;
   trip_purpose: string | null;
+  driver_notes: string | null;
+  special_remarks: string | null;
 }
 
 export default function MyTripsPage() {
@@ -40,7 +42,7 @@ export default function MyTripsPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from('trips')
-          .select('id, trip_date, created_at, locations, trip_purpose')
+          .select('id, trip_date, created_at, locations, trip_purpose, driver_notes, special_remarks')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
@@ -102,6 +104,102 @@ export default function MyTripsPage() {
     } catch {
       return 0;
     }
+  };
+
+  // Generate one-sentence trip description from available data
+  const generateTripName = (trip: Trip) => {
+    // Try to extract passenger name from driver_notes or special_remarks
+    const extractPassengerName = (text: string | null): string | null => {
+      if (!text) return null;
+      
+      // Look for common patterns like "Mr. Smith", "John Doe", "Client: Name", etc.
+      const patterns = [
+        /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+        /(?:Client|Passenger|Guest|VIP):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+        /(?:for|with|picking up|collecting)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+        /(?:passenger|client)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/, // First word if capitalized
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:trip|journey|transfer|pickup)/, // Name followed by trip words
+      ];
+      
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          const name = match[1].trim();
+          // Filter out common false positives
+          const falsePositives = ['VIP', 'Business', 'Client', 'Passenger', 'Guest', 'Meeting', 'Conference', 'Appointment'];
+          if (!falsePositives.includes(name)) {
+            return name;
+          }
+        }
+      }
+      return null;
+    };
+
+    // Try to get passenger name from various fields
+    const passengerName = extractPassengerName(trip.driver_notes) || 
+                         extractPassengerName(trip.special_remarks) ||
+                         extractPassengerName(trip.trip_purpose);
+
+    // Get location count for context
+    const locationCount = getLocationCount(trip.locations);
+    const locationText = locationCount === 1 ? '1 location' : `${locationCount} locations`;
+
+    // Try to get purpose keywords for context
+    const getPurposeKeywords = (text: string | null): string | null => {
+      if (!text) return null;
+      
+      // Look for common business/personal keywords
+      const keywords = [
+        'meeting', 'conference', 'appointment', 'interview', 'lunch', 'dinner',
+        'airport', 'hotel', 'office', 'client', 'business', 'personal',
+        'wedding', 'event', 'celebration', 'shopping', 'medical', 'transfer'
+      ];
+      
+      const lowerText = text.toLowerCase();
+      for (const keyword of keywords) {
+        if (lowerText.includes(keyword)) {
+          return keyword.charAt(0).toUpperCase() + keyword.slice(1);
+        }
+      }
+      return null;
+    };
+
+    const purposeKeyword = getPurposeKeywords(trip.trip_purpose) || 
+                          getPurposeKeywords(trip.driver_notes) ||
+                          getPurposeKeywords(trip.special_remarks);
+
+    // Generate one-sentence description based on available data
+    // ALWAYS prioritize passenger name when available
+    if (passengerName && purposeKeyword) {
+      return `${passengerName} ${purposeKeyword.toLowerCase()} trip with ${locationText}`;
+    } else if (passengerName) {
+      return `${passengerName} trip with ${locationText}`;
+    } else if (purposeKeyword) {
+      return `${purposeKeyword} trip with ${locationText}`;
+    } else if (trip.trip_purpose) {
+      // Try one more time to extract passenger name from trip_purpose
+      const additionalPassengerName = extractPassengerName(trip.trip_purpose);
+      if (additionalPassengerName) {
+        return `${additionalPassengerName} trip with ${locationText}`;
+      }
+      
+      // Use first sentence of trip_purpose if it's reasonable length
+      const sentences = trip.trip_purpose.split(/[.!?]+/);
+      const firstSentence = sentences[0]?.trim();
+      if (firstSentence && firstSentence.length <= 80) {
+        return `${firstSentence} (${locationText})`;
+      } else if (firstSentence) {
+        // Truncate if too long
+        const truncated = firstSentence.substring(0, 77) + '...';
+        return `${truncated} (${locationText})`;
+      }
+    }
+    
+    // Fallback to date-based description
+    const date = new Date(trip.trip_date);
+    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return `Trip on ${dateStr} with ${locationText}`;
   };
 
   return (
@@ -168,7 +266,7 @@ export default function MyTripsPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-lg">
-                          {trip.trip_purpose || 'Trip Analysis'}
+                          {generateTripName(trip)}
                         </CardTitle>
                         <CardDescription className="mt-1">
                           {formatDate(trip.created_at)}

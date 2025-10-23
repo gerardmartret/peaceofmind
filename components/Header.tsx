@@ -32,11 +32,11 @@ export default function Header() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <img 
-              src="/logo-roadshow-pos.png" 
-              alt="my ROADSHOW" 
-              className="h-12 w-auto"
-            />
+                  <img 
+                    src="/myroadshow-logo.png" 
+                    alt="my ROADSHOW" 
+                    className="h-11 w-auto"
+                  />
           </Link>
           
           {/* Navigation */}

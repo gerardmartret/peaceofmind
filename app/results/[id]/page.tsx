@@ -214,6 +214,7 @@ export default function ResultsPage() {
   const [driverNotes, setDriverNotes] = useState<string>('');
   const [tripPurpose, setTripPurpose] = useState<string>('');
   const [specialRemarks, setSpecialRemarks] = useState<string>('');
+  const [showTimeline, setShowTimeline] = useState<boolean>(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
@@ -523,6 +524,204 @@ export default function ResultsPage() {
 
         {/* Results Section */}
         <div className="mb-8">
+          {/* Trip Summary Box */}
+          <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+            <h2 className="text-xl font-bold text-card-foreground mb-4">Trip Summary</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Trip Date */}
+              <div className="bg-secondary/50 rounded-md p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-sm font-medium text-card-foreground">Date</span>
+                </div>
+                <p className="text-lg font-bold text-card-foreground">
+                  {new Date(tripDate).toLocaleDateString('en-GB', { 
+                    weekday: 'long', 
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
+                </p>
+              </div>
+
+              {/* Pickup Time */}
+              <div className="bg-secondary/50 rounded-md p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm font-medium text-card-foreground">Pickup Time</span>
+                </div>
+                <p className="text-lg font-bold text-card-foreground">
+                  {locations[0]?.time || 'N/A'}
+                </p>
+              </div>
+
+              {/* Passenger Name */}
+              <div className="bg-secondary/50 rounded-md p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span className="text-sm font-medium text-card-foreground">Passenger</span>
+                </div>
+                <p className="text-lg font-bold text-card-foreground">
+                  {driverNotes ? (() => {
+                    // Try to extract passenger name from driver notes
+                    const patterns = [
+                      /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                      /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                      /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                      /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                    ];
+                    
+                    for (const pattern of patterns) {
+                      const match = driverNotes.match(pattern);
+                      if (match && match[1]) {
+                        return match[1].trim();
+                      }
+                    }
+                    return 'Not specified';
+                  })() : 'Not specified'}
+                </p>
+              </div>
+
+              {/* Estimated Duration */}
+              <div className="bg-secondary/50 rounded-md p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="text-sm font-medium text-card-foreground">Duration</span>
+                </div>
+                <p className="text-lg font-bold text-card-foreground">
+                  {trafficPredictions?.success && trafficPredictions.data ? 
+                    `${Math.round(trafficPredictions.data.reduce((total: number, route: any) => total + route.minutes, 0) / 60)}h ${Math.round(trafficPredictions.data.reduce((total: number, route: any) => total + route.minutes, 0) % 60)}m` :
+                    'Calculating...'
+                  }
+                </p>
+              </div>
+
+              {/* Estimated Mileage */}
+              <div className="bg-secondary/50 rounded-md p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-sm font-medium text-card-foreground">Distance</span>
+                </div>
+                <p className="text-lg font-bold text-card-foreground">
+                  {trafficPredictions?.success && trafficPredictions.data ? 
+                    trafficPredictions.data.reduce((total: number, route: any) => {
+                      const distance = parseFloat(route.distance.replace(/[^\d.]/g, ''));
+                      return total + (isNaN(distance) ? 0 : distance);
+                    }, 0).toFixed(1) + ' miles' :
+                    'Calculating...'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Driver Warnings Box */}
+          <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white">Driver Warnings</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Special Remarks */}
+              {specialRemarks && specialRemarks.trim() && (
+                <div className="bg-white/10 border border-white/20 rounded-md p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h4 className="font-semibold text-white mb-1">Special Instructions</h4>
+                      <p className="text-sm text-white/90 leading-relaxed">{specialRemarks}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Smart Warning Detection */}
+              {(() => {
+                const warnings = [];
+                const notes = driverNotes?.toLowerCase() || '';
+                const purpose = tripPurpose?.toLowerCase() || '';
+                
+                // Check driver notes for warning patterns
+                if (notes.includes('wait') || notes.includes('standby')) {
+                  warnings.push('⏰ WAIT INSTRUCTIONS: Driver may need to wait at specific locations');
+                }
+                if (notes.includes('pickup') || notes.includes('collect') || notes.includes('fetch')) {
+                  warnings.push('📦 PICKUP REQUIRED: Driver needs to collect items before or during trip');
+                }
+                if (notes.includes('vehicle') || notes.includes('car') || notes.includes('specific')) {
+                  warnings.push('🚗 VEHICLE REQUIREMENTS: Special vehicle or equipment needed');
+                }
+                if (notes.includes('onboard') || notes.includes('in car') || notes.includes('during trip')) {
+                  warnings.push('🚙 ONBOARD SERVICES: Special services required during the journey');
+                }
+                if (notes.includes('security') || notes.includes('bodyguard') || notes.includes('protection')) {
+                  warnings.push('🛡️ SECURITY: Special security measures required');
+                }
+                if (notes.includes('time') && (notes.includes('strict') || notes.includes('exact') || notes.includes('precise'))) {
+                  warnings.push('⏱️ TIME CRITICAL: Strict timing requirements must be followed');
+                }
+                if (notes.includes('access') || notes.includes('restricted') || notes.includes('permit')) {
+                  warnings.push('🚧 ACCESS RESTRICTIONS: Special access or permits may be required');
+                }
+                if (notes.includes('payment') || notes.includes('cash') || notes.includes('tip')) {
+                  warnings.push('💰 PAYMENT: Special payment arrangements or cash handling required');
+                }
+                if (notes.includes('language') || notes.includes('translate') || notes.includes('interpreter')) {
+                  warnings.push('🗣️ LANGUAGE: Translation or language assistance needed');
+                }
+                if (notes.includes('medical') || notes.includes('health') || notes.includes('assistance')) {
+                  warnings.push('🏥 MEDICAL: Health considerations or assistance required');
+                }
+
+                // Check trip purpose for additional warnings
+                if (purpose.includes('airport') && (purpose.includes('international') || purpose.includes('terminal'))) {
+                  warnings.push('✈️ AIRPORT TERMINAL: Check specific terminal and international requirements');
+                }
+                if (purpose.includes('hospital') || purpose.includes('medical')) {
+                  warnings.push('🏥 MEDICAL FACILITY: Special access and parking considerations');
+                }
+                if (purpose.includes('wedding') || purpose.includes('ceremony')) {
+                  warnings.push('💒 WEDDING EVENT: Formal attire and timing requirements');
+                }
+                if (purpose.includes('business') && purpose.includes('meeting')) {
+                  warnings.push('💼 BUSINESS MEETING: Professional appearance and punctuality critical');
+                }
+                if (purpose.includes('school') || purpose.includes('university')) {
+                  warnings.push('🎓 EDUCATIONAL INSTITUTION: Check access restrictions and timing');
+                }
+
+                return warnings.length > 0 ? warnings.map((warning, index) => (
+                  <div key={index} className="bg-white/10 border border-white/20 rounded-md p-3">
+                    <p className="text-sm text-white font-medium">{warning}</p>
+                  </div>
+                )) : (
+                  <div className="bg-white/10 border border-white/20 rounded-md p-4 text-center">
+                    <p className="text-sm text-white/70">No specific warnings detected</p>
+                  </div>
+                );
+              })()}
+
+            </div>
+          </div>
+
           {/* Executive Report */}
           {executiveReport && (
             <>
@@ -597,7 +796,7 @@ export default function ResultsPage() {
                 </div>
                 
                 {/* Two Subboxes */}
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   {/* Trip Purpose & Expectations */}
                   <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
                     <h4 className="text-base font-bold text-card-foreground mb-3 flex items-center gap-2">
@@ -652,9 +851,29 @@ export default function ResultsPage() {
                 </div>
               </div>
 
+              {/* Recommendations for the Driver */}
+              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+                <h3 className="text-lg font-bold text-card-foreground mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Recommendations for the Driver
+                </h3>
+                <ul className="space-y-3">
+                  {executiveReport.recommendations.map((rec: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-sm font-bold text-card-foreground">
+                        {idx + 1}
+                      </span>
+                      <span className="text-muted-foreground leading-relaxed">{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               {/* Potential Trip Disruptions */}
-              <div className="rounded-md p-6 border-2 border-primary text-primary-foreground mb-6" style={{ backgroundColor: '#05060A' }}>
-                <h3 className="text-lg font-bold text-primary-foreground mb-4 flex items-center gap-2">
+              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+                <h3 className="text-lg font-bold text-card-foreground mb-4 flex items-center gap-2">
                   <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
@@ -663,35 +882,35 @@ export default function ResultsPage() {
 
                 {/* 3 Subboxes */}
                 <div className="grid md:grid-cols-3 gap-4">
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                  <div className="bg-secondary/50 border-2 border-border rounded-md p-4">
+                    <h4 className="text-base font-bold text-card-foreground mb-3">
                       Top Disruptor
                     </h4>
-                    <p className="text-sm text-primary-foreground/70 leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                   {executiveReport.topDisruptor}
                 </p>
               </div>
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                  <div className="bg-secondary/50 border-2 border-border rounded-md p-4">
+                    <h4 className="text-base font-bold text-card-foreground mb-3">
                     Driving Risks
                     </h4>
                   <ul className="space-y-2">
                     {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
-                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
-                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
                         <span>{risk}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                  <div className="bg-secondary/50 border-2 border-border rounded-md p-4">
+                    <h4 className="text-base font-bold text-card-foreground mb-3">
                       Other Disruptions
                     </h4>
                   <ul className="space-y-2">
                     {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
-                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
-                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
                         <span>{disruption}</span>
                       </li>
                     ))}
@@ -706,39 +925,42 @@ export default function ResultsPage() {
                   {/* Risk Summary Text */}
                   <div className="lg:col-span-2">
                     <h3 className="text-lg font-bold text-card-foreground mb-3">
-                      Risks Summary
+                      Trip Risk Assessment
                     </h3>
                     <p className="text-muted-foreground leading-relaxed">
                       {executiveReport.riskScoreExplanation}
                     </p>
                   </div>
                   
-                  {/* Trip Risk Score */}
+                  {/* Trip Risk Score - Simple Square Design */}
                   <div className="flex items-center justify-center">
-                    <div className="text-center">
+                    <div className="bg-secondary/50 border-2 border-border rounded-md p-6 text-center min-w-[140px]">
                       <div 
-                        className="text-6xl font-bold mb-2"
+                        className="text-5xl font-bold mb-2"
                         style={{
                           color: (() => {
                             const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
-                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
-                            return '#B22E2E'; // Error red - light bg
+                            if (riskScore <= 3) return '#18815A'; // Success green
+                            if (riskScore <= 6) return '#D97706'; // Warning orange
+                            return '#B22E2E'; // Error red
                           })()
                         }}
                       >
                         {Math.max(0, executiveReport.tripRiskScore)}
-                        <span className="text-3xl opacity-80">/10</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground font-medium mb-2">
+                        out of 10
                       </div>
                       <div 
-                        className="text-sm font-semibold tracking-wide"
+                        className="text-xs font-semibold tracking-wide px-3 py-1 rounded"
                         style={{
-                          color: (() => {
+                          backgroundColor: (() => {
                             const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
-                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
-                            return '#B22E2E'; // Error red - light bg
-                          })()
+                            if (riskScore <= 3) return '#18815A'; // Success green
+                            if (riskScore <= 6) return '#D97706'; // Warning orange
+                            return '#B22E2E'; // Error red
+                          })(),
+                          color: '#FFFFFF'
                         }}
                       >
                         {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
@@ -751,17 +973,17 @@ export default function ResultsPage() {
               </div>
 
               {/* Recommendations for the Driver */}
-              <div className="rounded-xl p-6 mb-6" style={{ backgroundColor: '#05060A' }}>
-                <h3 className="text-xl font-bold text-white mb-4">
+              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+                <h3 className="text-lg font-bold text-card-foreground mb-4">
                   Recommendations for the Driver
                 </h3>
                 <ul className="space-y-3">
                   {executiveReport.recommendations.map((rec: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold text-white">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-sm font-bold text-card-foreground">
                         {idx + 1}
                       </span>
-                      <span className="text-white/95 leading-relaxed">{rec}</span>
+                      <span className="text-muted-foreground leading-relaxed">{rec}</span>
                     </li>
                   ))}
                 </ul>
@@ -769,7 +991,23 @@ export default function ResultsPage() {
             </>
           )}
 
+          {/* Timeline Toggle Button */}
+          <div className="text-center mb-6">
+            <Button
+              onClick={() => setShowTimeline(!showTimeline)}
+              variant="outline"
+              size="lg"
+              className="px-6 py-3"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {showTimeline ? 'Hide Timeline' : 'Show Timeline'}
+            </Button>
+          </div>
+
           {/* Chronological Journey Flow */}
+          {showTimeline && (
           <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
             {/* Connecting Line */}
             <div className="absolute left-6 top-3 bottom-0 w-0.5 bg-border"></div>
@@ -1459,6 +1697,7 @@ export default function ResultsPage() {
               </React.Fragment>
             ))}
           </div>
+          )}
 
         </div>
 
