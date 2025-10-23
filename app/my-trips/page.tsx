@@ -14,7 +14,7 @@ interface Trip {
   trip_date: string;
   created_at: string | null;
   locations: any;
-  trip_purpose?: string;
+  trip_purpose: string | null;
 }
 
 export default function MyTripsPage() {
