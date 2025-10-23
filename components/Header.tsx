@@ -33,9 +33,9 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center">
                   <img 
-                    src="/myroadshow-logo.png" 
-                    alt="my ROADSHOW" 
-                    className="h-11 w-auto"
+                    src="/driverbrief-logo.png" 
+                    alt="Driverbrief" 
+                    className="h-6 w-auto"
                   />
           </Link>
           

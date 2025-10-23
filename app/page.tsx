@@ -1789,9 +1789,14 @@ export default function Home() {
 
 
         {/* Tagline for Homepage */}
-        <div className="mb-12 text-center -mt-2">
+        <div className={`mb-12 text-center ${(showManualForm || (extractedLocations && extractedLocations.length > 0)) ? 'mt-4' : '-mt-8'}`}>
+          <img 
+            src="/driverbrief-logo-light.png" 
+            alt="Driverbrief" 
+            className="mx-auto h-6 w-auto mb-6"
+          />
           <p className="text-5xl font-light" style={{ color: '#05060A' }}>
-            Plan and update your trip,<br />
+            Plan and update your trips,<br />
             with one shareable link.
           </p>
         </div>
@@ -1816,7 +1821,7 @@ export default function Home() {
                 onChange={(e) => setExtractionText(e.target.value)}
                 placeholder="Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you."
                 className="w-full min-h-[150px] p-3 rounded-md border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
-                style={{ borderColor: '#D2CBC2' }}
+                style={{ borderColor: '#E6E2DC' }}
               />
             </div>
 
@@ -1880,7 +1885,7 @@ export default function Home() {
                 </p>
 
                 {/* Dark Header Section - Trip Date & City */}
-                <div className="bg-black rounded-md p-4 mb-6">
+                 <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#363b4c' }}>
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <Label className="text-white font-medium text-sm mb-2 block">Trip Date</Label>
@@ -1957,7 +1962,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Add Location and Create Trip Brief Buttons */}
+                {/* Add Location and Create Driver Brief Buttons */}
                 <div className="mt-4 flex gap-3">
                   <Button
                     onClick={() => {
@@ -2021,7 +2026,7 @@ export default function Home() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                         </svg>
-                        Create Trip Brief
+                        Create Driver Brief
                       </>
                     )}
                   </Button>
@@ -2173,12 +2178,12 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <AlertDescription className="text-destructive">
-                Locations reordered! Click "Create Trip Brief" to update the route.
+                Locations reordered! Click "Create Driver Brief" to update the route.
               </AlertDescription>
             </Alert>
           )}
 
-           {/* Add Location, Create Trip Brief & View Map Buttons */}
+           {/* Add Location, Create Driver Brief & View Map Buttons */}
            <div className="flex gap-3">
              <Button
                onClick={addLocation}
@@ -2210,7 +2215,7 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  Create Trip Brief
+                  Create Driver Brief
                 </>
               )}
             </Button>
@@ -2273,7 +2278,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-center">
-                        <h3 className="text-xl font-semibold mb-1">Creating Trip Brief</h3>
+                        <h3 className="text-xl font-semibold mb-1">Creating Driver Brief</h3>
                       <p className="text-sm text-muted-foreground">
                         {loadingSteps.filter(s => s.status === 'completed').length} of {loadingSteps.length} steps completed
                       </p>
@@ -2297,7 +2302,7 @@ export default function Home() {
                       Analysis Complete!
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Redirecting to your Trip Brief...
+                      Redirecting to your Driver Brief...
                     </p>
                   </div>
                 </div>
@@ -2331,7 +2336,7 @@ export default function Home() {
                     </p>
                   )}
                   
-                  {/* View Trip Brief Button - Only for guest users */}
+                  {/* View Driver Brief Button - Only for guest users */}
                   <Button
                     onClick={handleGuestTripSave}
                     size="lg"
@@ -2342,7 +2347,7 @@ export default function Home() {
                     <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    View Trip Brief
+                    View Driver Brief
                   </Button>
                 </div>
               </div>

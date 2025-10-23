@@ -214,7 +214,6 @@ export default function ResultsPage() {
   const [driverNotes, setDriverNotes] = useState<string>('');
   const [tripPurpose, setTripPurpose] = useState<string>('');
   const [specialRemarks, setSpecialRemarks] = useState<string>('');
-  const [showTimeline, setShowTimeline] = useState<boolean>(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
@@ -524,12 +523,87 @@ export default function ResultsPage() {
 
         {/* Results Section */}
         <div className="mb-8">
+          {/* Trip Title */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-medium text-foreground mb-2">
+              {(() => {
+                // Extract passenger name from driver notes
+                const extractPassengerName = (text: string | null): string | null => {
+                  if (!text) return null;
+                  const patterns = [
+                    /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                    /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                    /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                    /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                  ];
+                  
+                  for (const pattern of patterns) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                      return match[1].trim();
+                    }
+                  }
+                  return null;
+                };
+
+                const passengerName = extractPassengerName(driverNotes) || 
+                                    extractPassengerName(specialRemarks) || 
+                                    extractPassengerName(tripPurpose) || 
+                                    'Passenger';
+
+                // Extract number of passengers (default to 1 if not specified)
+                const extractPassengerCount = (text: string | null): number => {
+                  if (!text) return 1;
+                  const patterns = [
+                    /(\d+)\s*(?:passengers?|people|guests?)/i,
+                    /(?:x|×)\s*(\d+)/i,
+                    /(\d+)\s*(?:pax|persons?)/i,
+                  ];
+                  
+                  for (const pattern of patterns) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                      const count = parseInt(match[1]);
+                      if (count > 0 && count <= 20) return count;
+                    }
+                  }
+                  return 1;
+                };
+
+                const passengerCount = extractPassengerCount(driverNotes) || 
+                                    extractPassengerCount(specialRemarks) || 
+                                    extractPassengerCount(tripPurpose) || 
+                                    1;
+
+                // Get city from first location
+                const getCity = (): string => {
+                  if (locations && locations.length > 0) {
+                    const firstLocation = locations[0];
+                    if (firstLocation.name) {
+                      // Try to extract city from location name
+                      const parts = firstLocation.name.split(',');
+                      if (parts.length >= 2) {
+                        return parts[parts.length - 1].trim();
+                      }
+                    }
+                  }
+                  return 'Location';
+                };
+
+                const city = getCity();
+                const passengerText = passengerCount === 1 ? 'passenger' : 'passengers';
+                
+                return `${passengerName} x${passengerCount} ${passengerText} in ${city}`;
+              })()}
+            </h1>
+          </div>
+
           {/* Trip Summary Box */}
           <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-            <h2 className="text-xl font-bold text-card-foreground mb-4">Trip Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <h2 className="text-xl font-medium text-card-foreground mb-4">Trip Summary</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Trip Date */}
-              <div className="bg-secondary/50 rounded-md p-4">
+              <div className="rounded-md p-4" style={{ backgroundColor: '#F4F2EE' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -547,7 +621,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Pickup Time */}
-              <div className="bg-secondary/50 rounded-md p-4">
+              <div className="rounded-md p-4" style={{ backgroundColor: '#F4F2EE' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -559,37 +633,9 @@ export default function ResultsPage() {
                 </p>
               </div>
 
-              {/* Passenger Name */}
-              <div className="bg-secondary/50 rounded-md p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span className="text-sm font-medium text-card-foreground">Passenger</span>
-                </div>
-                <p className="text-lg font-bold text-card-foreground">
-                  {driverNotes ? (() => {
-                    // Try to extract passenger name from driver notes
-                    const patterns = [
-                      /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                      /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                      /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                      /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                    ];
-                    
-                    for (const pattern of patterns) {
-                      const match = driverNotes.match(pattern);
-                      if (match && match[1]) {
-                        return match[1].trim();
-                      }
-                    }
-                    return 'Not specified';
-                  })() : 'Not specified'}
-                </p>
-              </div>
 
               {/* Estimated Duration */}
-              <div className="bg-secondary/50 rounded-md p-4">
+              <div className="rounded-md p-4" style={{ backgroundColor: '#F4F2EE' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -605,7 +651,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Estimated Mileage */}
-              <div className="bg-secondary/50 rounded-md p-4">
+              <div className="rounded-md p-4" style={{ backgroundColor: '#F4F2EE' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -629,18 +675,16 @@ export default function ResultsPage() {
           {/* Driver Warnings Box */}
           <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-white">Driver Warnings</h3>
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <h3 className="text-xl font-medium text-white">Driver Warnings</h3>
             </div>
             
             <div className="space-y-3">
               {/* Special Remarks */}
               {specialRemarks && specialRemarks.trim() && (
-                <div className="bg-white/10 border border-white/20 rounded-md p-4">
+                 <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
                   <div className="flex items-start gap-3">
                     <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -725,135 +769,10 @@ export default function ResultsPage() {
           {/* Executive Report */}
           {executiveReport && (
             <>
-              {/* Notes for the Driver */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-card-foreground">
-                    Notes for the Driver
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {showNotesSuccess && (
-                      <div className="flex items-center gap-2 text-sm font-medium animate-fadeIn" style={{ color: '#18815A' }}>
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Saved successfully!</span>
-                      </div>
-                    )}
-                    {/* Only show edit/save buttons for trip owners */}
-                    {isOwner && (
-                      <>
-                        {!isEditingNotes ? (
-                          <Button
-                            onClick={() => setIsEditingNotes(true)}
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            Edit
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={handleSaveNotes}
-                            disabled={isSavingNotes}
-                            size="sm"
-                            className="flex items-center gap-2"
-                            style={{ backgroundColor: '#18815A', color: '#FFFFFF' }}
-                          >
-                            {isSavingNotes ? (
-                              <>
-                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                <span>Saving...</span>
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                Save
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      </>
-                    )}
-                    {/* Show read-only indicator for non-owners */}
-                    {!isOwner && (
-                      <span className="text-xs text-muted-foreground italic flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Read-only
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Two Subboxes */}
-                <div className="space-y-4">
-                  {/* Trip Purpose & Expectations */}
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-card-foreground mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Operational Details
-                    </h4>
-                    {isEditingNotes ? (
-                      <textarea
-                        value={tripPurpose}
-                        onChange={(e) => setTripPurpose(e.target.value)}
-                        placeholder="Describe operational details: service requirements, timing constraints, client expectations, and protocols the driver needs to know..."
-                        className="w-full min-h-[100px] p-3 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y text-sm"
-                      />
-                    ) : (
-                      <div className="min-h-[100px] p-3 rounded-md border border-border bg-background/50">
-                        {tripPurpose ? (
-                          <p className="text-muted-foreground whitespace-pre-wrap text-sm">{tripPurpose}</p>
-                        ) : (
-                          <p className="text-muted-foreground/50 italic text-sm">No operational details specified yet.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Special Remarks */}
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-card-foreground mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      Special Remarks
-                    </h4>
-                    {isEditingNotes ? (
-                      <textarea
-                        value={specialRemarks}
-                        onChange={(e) => setSpecialRemarks(e.target.value)}
-                        placeholder="Add any special instructions, sensitivities, or important details for the driver..."
-                        className="w-full min-h-[100px] p-3 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y text-sm"
-                      />
-                    ) : (
-                      <div className="min-h-[100px] p-3 rounded-md border border-border bg-background/50">
-                        {specialRemarks ? (
-                          <p className="text-muted-foreground whitespace-pre-wrap text-sm">{specialRemarks}</p>
-                        ) : (
-                          <p className="text-muted-foreground/50 italic text-sm">No special remarks added yet.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
 
               {/* Recommendations for the Driver */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-lg font-bold text-card-foreground mb-4 flex items-center gap-2">
+                <h3 className="text-xl font-medium text-card-foreground mb-4 flex items-center gap-2">
                   <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -873,7 +792,7 @@ export default function ResultsPage() {
 
               {/* Potential Trip Disruptions */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-lg font-bold text-card-foreground mb-4 flex items-center gap-2">
+                <h3 className="text-xl font-medium text-card-foreground mb-4 flex items-center gap-2">
                   <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
@@ -924,7 +843,7 @@ export default function ResultsPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Risk Summary Text */}
                   <div className="lg:col-span-2">
-                    <h3 className="text-lg font-bold text-card-foreground mb-3">
+                    <h3 className="text-xl font-medium text-card-foreground mb-3">
                       Trip Risk Assessment
                     </h3>
                     <p className="text-muted-foreground leading-relaxed">
@@ -974,7 +893,7 @@ export default function ResultsPage() {
 
               {/* Recommendations for the Driver */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-lg font-bold text-card-foreground mb-4">
+                <h3 className="text-xl font-medium text-card-foreground mb-4">
                   Recommendations for the Driver
                 </h3>
                 <ul className="space-y-3">
@@ -991,23 +910,7 @@ export default function ResultsPage() {
             </>
           )}
 
-          {/* Timeline Toggle Button */}
-          <div className="text-center mb-6">
-            <Button
-              onClick={() => setShowTimeline(!showTimeline)}
-              variant="outline"
-              size="lg"
-              className="px-6 py-3"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {showTimeline ? 'Hide Timeline' : 'Show Timeline'}
-            </Button>
-          </div>
-
           {/* Chronological Journey Flow */}
-          {showTimeline && (
           <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
             {/* Connecting Line */}
             <div className="absolute left-6 top-3 bottom-0 w-0.5 bg-border"></div>
@@ -1467,10 +1370,10 @@ export default function ResultsPage() {
                   </div>
                   <div className="flex-1">
                 <div 
-                  className="bg-card rounded-md p-6 border-2 border-border"
+                  className="bg-card rounded-md p-8 border-2 border-border"
                 >
                   {/* Route Header */}
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <div className="text-2xl font-bold text-card-foreground flex items-center gap-2">
                         <span>Route: {numberToLetter(index + 1)}</span>
@@ -1525,27 +1428,27 @@ export default function ResultsPage() {
                   
                   {/* Collapsed Summary */}
                   <div 
-                    className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                      !expandedRoutes[`route-${index}`] ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
-                    }`}
+                      className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                        !expandedRoutes[`route-${index}`] ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'
+                      }`}
                   >
-                    <div className="flex items-center justify-between text-sm text-muted-foreground py-2">
-                      <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-2">
-                          <span className="text-card-foreground font-semibold">Travel Time:</span>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground py-3">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <span className="text-card-foreground font-medium">Time:</span>
                           <span>{trafficPredictions.data[index].minutes} min</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-card-foreground font-semibold">Distance:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-card-foreground font-medium">Distance:</span>
                           <span>{trafficPredictions.data[index].distance}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-card-foreground font-semibold">Delay:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-card-foreground font-medium">Delay:</span>
                           <span>-{Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic)} min</span>
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground/60">
-                        Click to expand for full details
+                        Click to expand
                       </div>
                     </div>
                   </div>
@@ -1697,7 +1600,6 @@ export default function ResultsPage() {
               </React.Fragment>
             ))}
           </div>
-          )}
 
         </div>
 

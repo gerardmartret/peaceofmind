@@ -207,9 +207,9 @@ export default function MyTripsPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">My Trips</h1>
+          <h1 className="text-3xl font-medium text-foreground mb-2">My Trips</h1>
           <p className="text-muted-foreground">
-            View all your previously analyzed trips
+            View all your driver briefs
           </p>
         </div>
 
