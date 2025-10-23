@@ -788,13 +788,14 @@ export default function Home() {
       status: 'pending' as const
     });
 
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Scanning Major Events`,
-      description: `Identifying concerts, sports events, and gatherings affecting traffic`,
-      source: 'Event Intelligence Network',
-      status: 'pending' as const
-    });
+    // DISABLED: Event search to reduce OpenAI costs
+    // steps.push({
+    //   id: `step-${stepId++}`,
+    //   title: `Scanning Major Events`,
+    //   description: `Identifying concerts, sports events, and gatherings affecting traffic`,
+    //   source: 'Event Intelligence Network',
+    //   status: 'pending' as const
+    // });
 
     steps.push({
       id: `step-${stepId++}`,
@@ -1004,17 +1005,18 @@ export default function Home() {
           
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
-          const [crimeResponse, disruptionsResponse, weatherResponse, eventsResponse, parkingResponse] = await Promise.all([
+          const [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse] = await Promise.all([
             fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
             fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
             fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
-            fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDateStr}`),
+            // DISABLED: Event search to reduce OpenAI costs
+            // fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDateStr}`),
             fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`)
           ]);
 
           // Check if any response failed
-          const responses = [crimeResponse, disruptionsResponse, weatherResponse, eventsResponse, parkingResponse];
-          const responseNames = ['crime', 'disruptions', 'weather', 'events', 'parking'];
+          const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
+          const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
           
           for (let i = 0; i < responses.length; i++) {
             if (!responses[i].ok) {
@@ -1024,13 +1026,24 @@ export default function Home() {
             }
           }
 
-          const [crimeData, disruptionsData, weatherData, eventsData, parkingData] = await Promise.all([
+          const [crimeData, disruptionsData, weatherData, parkingData] = await Promise.all([
             crimeResponse.json(),
             disruptionsResponse.json(),
             weatherResponse.json(),
-            eventsResponse.json(),
             parkingResponse.json()
           ]);
+
+          // Create placeholder events data to maintain compatibility
+          const eventsData = {
+            success: true,
+            data: {
+              location: location.name,
+              coordinates: { lat: location.lat, lng: location.lng },
+              date: tripDateStr,
+              events: [],
+              summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 }
+            }
+          };
 
           // Fetch cafes using Google Places API (client-side)
           console.log(`☕ Searching for top cafes near ${location.name}...`);
@@ -1072,18 +1085,11 @@ export default function Home() {
             };
           }
 
-          if (crimeData.success && disruptionsData.success && weatherData.success && eventsData.success && parkingData.success) {
-            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: ${eventsData.data.events.length}, Parking Risk: ${parkingData.data.parkingRiskScore}/10, Cafes: ${cafeData.cafes.length}`);
+          if (crimeData.success && disruptionsData.success && weatherData.success && parkingData.success) {
+            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: DISABLED (cost optimization), Parking Risk: ${parkingData.data.parkingRiskScore}/10, Cafes: ${cafeData.cafes.length}`);
             
-            // Log events to browser console
-            if (eventsData.data.events.length > 0) {
-              console.log(`\n📰 Events found for ${location.name}:`);
-              eventsData.data.events.forEach((event: any, idx: number) => {
-                console.log(`  ${idx + 1}. ${event.title} (${event.type}, ${event.severity})`);
-              });
-            } else {
-              console.log(`📰 No events found for ${location.name}`);
-            }
+            // Events search disabled for cost optimization
+            console.log(`📰 Events search disabled for ${location.name} (OpenAI cost optimization)`);
 
             // Log parking summary
             console.log(`\n🅿️  Parking at ${location.name}:`);

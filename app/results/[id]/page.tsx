@@ -1055,7 +1055,7 @@ export default function ResultsPage() {
                         </div>
                       </>
                     ) : (
-                      <div className="text-xs text-primary-foreground/70">No upcoming events</div>
+                      <div className="text-xs text-primary-foreground/70">No events found</div>
                     )}
                   </div>
 

@@ -9,8 +9,9 @@ export interface Event {
 }
 
 /**
- * Search for upcoming events that might affect a VIP trip
+ * DISABLED: Search for upcoming events that might affect a VIP trip
  * Uses web search + OpenAI to find and filter relevant events
+ * DISABLED FOR COST OPTIMIZATION - gpt-4o-search-preview is expensive
  */
 export async function searchLocationEvents(
   locationName: string,
@@ -18,6 +19,11 @@ export async function searchLocationEvents(
   lng: number,
   date: string
 ): Promise<Event[]> {
+  // DISABLED: Return empty events to avoid expensive web search calls
+  console.log(`🚫 Event search disabled for cost optimization: ${locationName}`);
+  return [];
+  
+  /* DISABLED CODE - Original expensive web search implementation
   try {
     console.log(`\n🔍 Searching events for: ${locationName}`);
     console.log(`📅 Date: ${date}`);
@@ -130,6 +136,7 @@ Max 3 events.`
     console.error('Error searching events:', error);
     return [];
   }
+  */
 }
 
 /**
