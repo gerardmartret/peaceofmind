@@ -454,6 +454,11 @@ export default function ResultsPage() {
     loadTripFromDatabase();
   }, [tripId, router, user, isAuthenticated]);
 
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const handlePlanNewTrip = () => {
     // Redirect to home for new trip
     router.push('/');
@@ -744,6 +749,76 @@ export default function ResultsPage() {
             </div>
           </div>
 
+          {/* Trip Locations */}
+          <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+            <h3 className="text-xl font-medium text-card-foreground mb-4">Trip Locations</h3>
+            <div className="relative">
+              {/* Connecting Line */}
+              <div 
+                className="absolute w-px bg-primary/30"
+                style={{ 
+                  height: `${(locations.length - 1) * 4.5}rem - 1.5rem`,
+                  left: '0.75rem',
+                  top: '0.75rem'
+                }}
+              ></div>
+              
+              {/* Transparent Line After Drop-off */}
+              <div 
+                className="absolute w-px bg-transparent"
+                style={{ 
+                  height: '1.5rem',
+                  left: '0.75rem',
+                  top: `${(locations.length - 1) * 4.5}rem`
+                }}
+              ></div>
+              
+              <div className="space-y-3">
+                {locations.map((location: any, index: number) => (
+                  <div key={location.id || index} className="flex items-start gap-3 relative z-10">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground border-2 border-background">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start">
+                        <div className="w-24 flex-shrink-0">
+                          <div className="text-sm font-medium text-muted-foreground mb-1">
+                            {index === 0 ? 'Pickup' : 
+                             index === locations.length - 1 ? 'Drop-off' : 
+                             'Resume at'}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {location.time}H
+                          </div>
+                        </div>
+                        <div className="flex-1 ml-4">
+                          <button 
+                            onClick={() => {
+                              const address = location.formattedAddress || location.fullAddress || location.address || location.name;
+                              const encodedAddress = encodeURIComponent(address);
+                              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+                              
+                              // Calculate center position for popup
+                              const width = 800;
+                              const height = 600;
+                              const left = (screen.width - width) / 2;
+                              const top = (screen.height - height) / 2;
+                              
+                              window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+                            }}
+                            className="text-lg text-card-foreground font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
+                          >
+                            {location.formattedAddress || location.fullAddress || location.address || location.name}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Driver Warnings Box */}
           <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
             <div className="flex items-center gap-3 mb-4">
@@ -818,7 +893,22 @@ export default function ResultsPage() {
                   warnings.push('💒 WEDDING EVENT: Formal attire and timing requirements');
                 }
                 if (purpose.includes('business') && purpose.includes('meeting')) {
-                  warnings.push('💼 BUSINESS MEETING: Professional appearance and punctuality critical');
+                  // Show driver recommendations instead of business meeting warning
+                  return (
+                    <div className="bg-white/10 border border-white/20 rounded-md p-4">
+                      <h4 className="text-sm font-semibold text-white mb-3">Recommendations for the Driver</h4>
+                      <div className="space-y-2">
+                        {executiveReport.recommendations.map((rec: string, idx: number) => (
+                          <div key={idx} className="flex items-start gap-3">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+                              {idx + 1}
+                            </span>
+                            <p className="text-sm text-white/90 leading-relaxed">{rec}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
                 }
                 if (purpose.includes('school') || purpose.includes('university')) {
                   warnings.push('🎓 EDUCATIONAL INSTITUTION: Check access restrictions and timing');
@@ -851,95 +941,7 @@ export default function ResultsPage() {
           {/* Executive Report */}
           {executiveReport && (
             <>
-              {/* Trip Locations */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-xl font-medium text-card-foreground mb-4">Trip Locations</h3>
-                <div className="relative">
-                  {/* Connecting Line */}
-                  <div 
-                    className="absolute w-px bg-primary/30"
-                    style={{ 
-                      height: `${(locations.length - 1) * 4.5}rem - 1.5rem`,
-                      left: '0.75rem',
-                      top: '0.75rem'
-                    }}
-                  ></div>
-                  
-                  {/* Transparent Line After Drop-off */}
-                  <div 
-                    className="absolute w-px bg-transparent"
-                    style={{ 
-                      height: '1.5rem',
-                      left: '0.75rem',
-                      top: `${(locations.length - 1) * 4.5}rem`
-                    }}
-                  ></div>
-                  
-                  <div className="space-y-3">
-                    {locations.map((location: any, index: number) => (
-                      <div key={location.id || index} className="flex items-start gap-3 relative z-10">
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground border-2 border-background">
-                          {String.fromCharCode(65 + index)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start">
-                            <div className="w-24 flex-shrink-0">
-                              <div className="text-sm font-medium text-muted-foreground mb-1">
-                                {index === 0 ? 'Pickup' : 
-                                 index === locations.length - 1 ? 'Drop-off' : 
-                                 'Resume at'}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {location.time}H
-                              </div>
-                            </div>
-                              <div className="flex-1 ml-4">
-                                  <button 
-                                    onClick={() => {
-                                      const address = location.formattedAddress || location.fullAddress || location.address || location.name;
-                                      const encodedAddress = encodeURIComponent(address);
-                                      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-                                      
-                                      // Calculate center position for popup
-                                      const width = 800;
-                                      const height = 600;
-                                      const left = (screen.width - width) / 2;
-                                      const top = (screen.height - height) / 2;
-                                      
-                                      window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
-                                    }}
-                                    className="text-lg text-card-foreground font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
-                                  >
-                                    {location.formattedAddress || location.fullAddress || location.address || location.name}
-                                  </button>
-                              </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
 
-              {/* Recommendations for the Driver */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-xl font-medium text-card-foreground mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Recommendations for the Driver
-                </h3>
-                <ul className="space-y-3">
-                  {executiveReport.recommendations.map((rec: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-sm font-bold text-card-foreground">
-                        {idx + 1}
-                      </span>
-                      <span className="text-muted-foreground leading-relaxed">{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
 
               {/* Potential Trip Disruptions */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
