@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 interface Trip {
   id: string;
   trip_date: string;
-  created_at: string;
+  created_at: string | null;
   locations: any;
   trip_purpose?: string;
 }
@@ -76,7 +76,8 @@ export default function MyTripsPage() {
   }
 
   // Format date for display
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('en-GB', {
