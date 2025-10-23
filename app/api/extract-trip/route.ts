@@ -104,14 +104,16 @@ Extract:
 1. All locations in London (addresses, landmarks, stations, airports, etc.)
 2. Associated times for each location
 3. Trip date if mentioned
-4. A professional summary for the driver (2-3 sentences max)
-5. Specific details for each location: person names, company names, venue names, meeting types, etc.
+4. Trip purpose and expectations for the driver
+5. Special remarks and sensitivities for the driver
+6. Specific details for each location: person names, company names, venue names, meeting types, etc.
 
 Return a JSON object with this exact structure:
 {
   "success": true,
   "date": "YYYY-MM-DD or null if not mentioned",
-  "driverSummary": "Professional 2-3 sentence summary for the driver about the trip, passenger expectations, and key details",
+  "tripPurpose": "Operational details for the driver: service requirements, timing constraints, client expectations, and specific protocols needed to perform the job effectively",
+  "specialRemarks": "Special instructions, sensitivities, or important details the driver needs to know (VIP client, time constraints, special requirements, etc.)",
           "locations": [
             {
               "location": "Full location name in London",
@@ -150,12 +152,20 @@ Rules for location purpose:
 - Include person names, company names, or venue names when mentioned in the email
 - If specific details are unclear, use the location name with the action
 
-Rules for driver summary:
-- Keep it to 2-3 sentences maximum
-- Professional and concise tone
-- Include: passenger name (if mentioned), purpose of trip, any special requirements
-- Focus on what the driver needs to know
-- Example: "VIP client Mr. Johns requires pickup from Heathrow at 9am for a London roadshow with multiple stops. The itinerary includes meetings at premium locations throughout the day. Please ensure punctuality and professional service."`,
+Rules for trip purpose:
+- Focus on operational details the driver needs to know to do their job well
+- Include specific service requirements, timing constraints, and client expectations
+- Mention any special protocols, waiting times, or service standards
+- Include passenger details, meeting types, or business context that affects driving
+- Keep it practical and actionable (2-3 sentences)
+- Example: "VIP business client with back-to-back meetings. Driver must maintain strict punctuality, wait at each location, and provide discretion. Client expects premium vehicle and professional service throughout the day."
+
+Rules for special remarks:
+- Extract any special instructions, sensitivities, or important details
+- Include VIP status, time constraints, special requirements, dietary needs, accessibility needs
+- Mention any specific protocols or expectations
+- Include any warnings or important considerations
+- Example: "VIP client - ensure discretion and professionalism. Client has tight schedule - punctuality critical. No smoking in vehicle."`,
         },
         {
           role: 'user',
@@ -173,11 +183,15 @@ Rules for driver summary:
       success: parsed.success,
       locationCount: parsed.locations?.length || 0,
       date: parsed.date,
-      hasSummary: !!parsed.driverSummary,
+      hasTripPurpose: !!parsed.tripPurpose,
+      hasSpecialRemarks: !!parsed.specialRemarks,
     });
     
-    if (parsed.driverSummary) {
-      console.log('📝 [API] Driver summary generated:', parsed.driverSummary.substring(0, 100) + '...');
+    if (parsed.tripPurpose) {
+      console.log('📝 [API] Trip purpose generated:', parsed.tripPurpose.substring(0, 100) + '...');
+    }
+    if (parsed.specialRemarks) {
+      console.log('⚠️ [API] Special remarks generated:', parsed.specialRemarks.substring(0, 100) + '...');
     }
 
     // Validate the response
@@ -220,7 +234,8 @@ Rules for driver summary:
     const response = {
       success: true,
       date: parsed.date || null,
-      driverSummary: parsed.driverSummary || null,
+      tripPurpose: parsed.tripPurpose || null,
+      specialRemarks: parsed.specialRemarks || null,
       locations: verifiedLocations,
     };
     console.log('📤 [API] Final response:', JSON.stringify(response, null, 2));

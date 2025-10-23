@@ -522,6 +522,8 @@ export default function Home() {
   }> | null>(null);
   const [extractedDate, setExtractedDate] = useState<string | null>(null);
   const [extractedDriverSummary, setExtractedDriverSummary] = useState<string | null>(null);
+  const [tripPurpose, setTripPurpose] = useState<string>('');
+  const [specialRemarks, setSpecialRemarks] = useState<string>('');
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
   
@@ -590,6 +592,8 @@ export default function Home() {
           setExtractedLocations(parsed.locations || null);
           setExtractedDate(parsed.date || null);
           setExtractedDriverSummary(parsed.driverSummary || null);
+          setTripPurpose(parsed.tripPurpose || '');
+          setSpecialRemarks(parsed.specialRemarks || '');
           
           console.log('✅ [FRONTEND] Restored extraction data from session storage');
         } catch (error) {
@@ -730,6 +734,8 @@ export default function Home() {
           locations: locationsWithSwappedTimes,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
+          tripPurpose: tripPurpose,
+          specialRemarks: specialRemarks,
           timestamp: new Date().toISOString(),
         }));
         console.log('💾 [FRONTEND] Saved reordered extracted locations to session storage');
@@ -1224,7 +1230,9 @@ export default function Home() {
           trip_results: results as any,
           traffic_predictions: trafficData as any,
           executive_report: executiveReportData as any,
-          driver_notes: driverSummary || null
+          driver_notes: driverSummary || null,
+          trip_purpose: tripPurpose || null,
+          special_remarks: specialRemarks || null
         })
         .select()
         .single();
@@ -1425,6 +1433,8 @@ export default function Home() {
       setExtractedLocations(data.locations);
       setExtractedDate(data.date);
       setExtractedDriverSummary(data.driverSummary);
+      setTripPurpose(data.tripPurpose || '');
+      setSpecialRemarks(data.specialRemarks || '');
       setLastExtractedText(extractionText);
 
       // Save to session storage
@@ -1435,6 +1445,8 @@ export default function Home() {
           locations: data.locations,
           date: data.date,
           driverSummary: data.driverSummary,
+          tripPurpose: data.tripPurpose,
+          specialRemarks: data.specialRemarks,
           timestamp: new Date().toISOString(),
         }));
         console.log('✅ [FRONTEND] Saved to session storage');
@@ -1496,6 +1508,9 @@ export default function Home() {
             text: extractionText,
             locations: updatedLocations,
             date: extractedDate,
+            driverSummary: extractedDriverSummary,
+            tripPurpose: tripPurpose,
+            specialRemarks: specialRemarks,
             timestamp: new Date().toISOString(),
           }));
           console.log('💾 [FRONTEND] Saved manual location edit to session storage');
@@ -1535,6 +1550,9 @@ export default function Home() {
             text: extractionText,
             locations: updatedLocations,
             date: extractedDate,
+            driverSummary: extractedDriverSummary,
+            tripPurpose: tripPurpose,
+            specialRemarks: specialRemarks,
             timestamp: new Date().toISOString(),
           }));
           console.log('💾 [FRONTEND] Saved time edit to session storage');
@@ -1554,6 +1572,8 @@ export default function Home() {
         locations: extractedLocations,
         date: value,
         driverSummary: extractedDriverSummary,
+        tripPurpose: tripPurpose,
+        specialRemarks: specialRemarks,
         timestamp: new Date().toISOString(),
       }));
     }
@@ -1581,6 +1601,8 @@ export default function Home() {
           locations: updatedLocations,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
+          tripPurpose: tripPurpose,
+          specialRemarks: specialRemarks,
           timestamp: new Date().toISOString(),
         }));
         console.log('💾 [FRONTEND] Saved Google Maps selection to session storage');
@@ -1601,6 +1623,8 @@ export default function Home() {
           locations: updatedLocations,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
+          tripPurpose: tripPurpose,
+          specialRemarks: specialRemarks,
           timestamp: new Date().toISOString(),
         }));
         console.log('💾 [FRONTEND] Saved location removal to session storage');
@@ -1817,6 +1841,8 @@ export default function Home() {
                             locations: updatedLocations,
                             date: extractedDate,
                             driverSummary: extractedDriverSummary,
+                            tripPurpose: tripPurpose,
+                            specialRemarks: specialRemarks,
                             timestamp: new Date().toISOString(),
                           }));
                           console.log('💾 [FRONTEND] Saved new location to session storage');

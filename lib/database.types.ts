@@ -69,8 +69,10 @@ export type Database = {
           executive_report: Json | null
           id: string
           locations: Json
+          special_remarks: string | null
           traffic_predictions: Json | null
           trip_date: string
+          trip_purpose: string | null
           trip_results: Json
           updated_at: string | null
           user_email: string
@@ -81,8 +83,10 @@ export type Database = {
           executive_report?: Json | null
           id?: string
           locations: Json
+          special_remarks?: string | null
           traffic_predictions?: Json | null
           trip_date: string
+          trip_purpose?: string | null
           trip_results: Json
           updated_at?: string | null
           user_email: string
@@ -93,8 +97,10 @@ export type Database = {
           executive_report?: Json | null
           id?: string
           locations?: Json
+          special_remarks?: string | null
           traffic_predictions?: Json | null
           trip_date?: string
+          trip_purpose?: string | null
           trip_results?: Json
           updated_at?: string | null
           user_email?: string

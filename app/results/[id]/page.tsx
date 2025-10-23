@@ -209,6 +209,8 @@ export default function ResultsPage() {
   const [expandedLocations, setExpandedLocations] = useState<{[key: string]: boolean}>({});
   const [expandedRoutes, setExpandedRoutes] = useState<{[key: string]: boolean}>({});
   const [driverNotes, setDriverNotes] = useState<string>('');
+  const [tripPurpose, setTripPurpose] = useState<string>('');
+  const [specialRemarks, setSpecialRemarks] = useState<string>('');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
@@ -304,13 +306,53 @@ export default function ResultsPage() {
     try {
       setIsSavingNotes(true);
       
+      console.log('Saving notes with values:', {
+        driverNotes,
+        tripPurpose,
+        specialRemarks,
+        tripId
+      });
+      
+      const updateData: any = {
+        driver_notes: driverNotes
+      };
+      
+      // Only include new fields if they have values
+      if (tripPurpose) {
+        updateData.trip_purpose = tripPurpose;
+      }
+      if (specialRemarks) {
+        updateData.special_remarks = specialRemarks;
+      }
+      
+      console.log('Update data:', updateData);
+      
+      // First check if the trip exists
+      const { data: existingTrip, error: fetchError } = await supabase
+        .from('trips')
+        .select('id')
+        .eq('id', tripId)
+        .single();
+        
+      if (fetchError) {
+        console.error('Error fetching trip:', fetchError);
+        return;
+      }
+      
+      if (!existingTrip) {
+        console.error('Trip not found with ID:', tripId);
+        return;
+      }
+      
       const { error: updateError } = await supabase
         .from('trips')
-        .update({ driver_notes: driverNotes })
+        .update(updateData)
         .eq('id', tripId);
 
       if (updateError) {
         console.error('Error saving notes:', updateError);
+        console.error('Update data:', updateData);
+        console.error('Trip ID:', tripId);
         return;
       }
 
@@ -373,6 +415,8 @@ export default function ResultsPage() {
 
         setTripData(tripData);
         setDriverNotes(data.driver_notes || '');
+        setTripPurpose(data.trip_purpose || '');
+        setSpecialRemarks(data.special_remarks || '');
         
         // Populate location display names from database
         const displayNames: {[key: string]: string} = {};
@@ -467,105 +511,6 @@ export default function ResultsPage() {
           {/* Executive Report */}
           {executiveReport && (
             <>
-              {/* Risk Summary with Trip Risk Score */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Risk Summary Text */}
-                  <div className="lg:col-span-2">
-                    <h3 className="text-lg font-bold text-card-foreground mb-3">
-                      Risks Summary
-                    </h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {executiveReport.riskScoreExplanation}
-                    </p>
-                  </div>
-                  
-                  {/* Trip Risk Score */}
-                  <div className="flex items-center justify-center">
-                    <div className="text-center">
-                      <div 
-                        className="text-6xl font-bold mb-2"
-                        style={{
-                          color: (() => {
-                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
-                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
-                            return '#B22E2E'; // Error red - light bg
-                          })()
-                        }}
-                      >
-                        {Math.max(0, executiveReport.tripRiskScore)}
-                        <span className="text-3xl opacity-80">/10</span>
-                      </div>
-                      <div 
-                        className="text-sm font-semibold tracking-wide"
-                        style={{
-                          color: (() => {
-                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
-                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
-                            return '#B22E2E'; // Error red - light bg
-                          })()
-                        }}
-                      >
-                        {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
-                         Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
-                         Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Potential Trip Disruptions */}
-              <div className="rounded-md p-6 border-2 border-primary text-primary-foreground mb-6" style={{ backgroundColor: '#05060A' }}>
-                <h3 className="text-lg font-bold text-primary-foreground mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  Potential Trip Disruptions
-                </h3>
-
-                {/* 3 Subboxes */}
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-primary-foreground mb-3">
-                      Top Disruptor
-                    </h4>
-                    <p className="text-sm text-primary-foreground/70 leading-relaxed">
-                  {executiveReport.topDisruptor}
-                </p>
-              </div>
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-primary-foreground mb-3">
-                    Driving Risks
-                    </h4>
-                  <ul className="space-y-2">
-                    {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
-                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
-                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
-                    <h4 className="text-base font-bold text-primary-foreground mb-3">
-                      Other Disruptions
-                    </h4>
-                  <ul className="space-y-2">
-                    {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
-                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
-                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
-                        <span>{disruption}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-
               {/* Notes for the Driver */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
                 <div className="flex items-center justify-between mb-4">
@@ -621,22 +566,159 @@ export default function ResultsPage() {
                     )}
                   </div>
                 </div>
-                {isEditingNotes ? (
-                  <textarea
-                    value={driverNotes}
-                    onChange={(e) => setDriverNotes(e.target.value)}
-                    placeholder="Add notes for the driver here..."
-                    className="w-full min-h-[120px] p-3 rounded-md border-2 border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
-                  />
-                ) : (
-                  <div className="min-h-[120px] p-3 rounded-md border-2 border-border bg-secondary/20">
-                    {driverNotes ? (
-                      <p className="text-muted-foreground whitespace-pre-wrap">{driverNotes}</p>
+                
+                {/* Two Subboxes */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Trip Purpose & Expectations */}
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-card-foreground mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Operational Details
+                    </h4>
+                    {isEditingNotes ? (
+                      <textarea
+                        value={tripPurpose}
+                        onChange={(e) => setTripPurpose(e.target.value)}
+                        placeholder="Describe operational details: service requirements, timing constraints, client expectations, and protocols the driver needs to know..."
+                        className="w-full min-h-[100px] p-3 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y text-sm"
+                      />
                     ) : (
-                      <p className="text-muted-foreground/50 italic">No notes added yet. Click "Edit" to add notes for the driver.</p>
+                      <div className="min-h-[100px] p-3 rounded-md border border-border bg-background/50">
+                        {tripPurpose ? (
+                          <p className="text-muted-foreground whitespace-pre-wrap text-sm">{tripPurpose}</p>
+                        ) : (
+                          <p className="text-muted-foreground/50 italic text-sm">No operational details specified yet.</p>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
+
+                  {/* Special Remarks */}
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-card-foreground mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Special Remarks
+                    </h4>
+                    {isEditingNotes ? (
+                      <textarea
+                        value={specialRemarks}
+                        onChange={(e) => setSpecialRemarks(e.target.value)}
+                        placeholder="Add any special instructions, sensitivities, or important details for the driver..."
+                        className="w-full min-h-[100px] p-3 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y text-sm"
+                      />
+                    ) : (
+                      <div className="min-h-[100px] p-3 rounded-md border border-border bg-background/50">
+                        {specialRemarks ? (
+                          <p className="text-muted-foreground whitespace-pre-wrap text-sm">{specialRemarks}</p>
+                        ) : (
+                          <p className="text-muted-foreground/50 italic text-sm">No special remarks added yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Potential Trip Disruptions */}
+              <div className="rounded-md p-6 border-2 border-primary text-primary-foreground mb-6" style={{ backgroundColor: '#05060A' }}>
+                <h3 className="text-lg font-bold text-primary-foreground mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  Potential Trip Disruptions
+                </h3>
+
+                {/* 3 Subboxes */}
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                      Top Disruptor
+                    </h4>
+                    <p className="text-sm text-primary-foreground/70 leading-relaxed">
+                  {executiveReport.topDisruptor}
+                </p>
+              </div>
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                    Driving Risks
+                    </h4>
+                  <ul className="space-y-2">
+                    {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
+                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
+                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
+                        <span>{risk}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-4">
+                    <h4 className="text-base font-bold text-primary-foreground mb-3">
+                      Other Disruptions
+                    </h4>
+                  <ul className="space-y-2">
+                    {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
+                        <li key={idx} className="text-sm text-primary-foreground/70 flex items-start gap-2">
+                          <span className="text-primary-foreground flex-shrink-0 mt-1">▸</span>
+                        <span>{disruption}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+              {/* Risk Summary with Trip Risk Score */}
+              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Risk Summary Text */}
+                  <div className="lg:col-span-2">
+                    <h3 className="text-lg font-bold text-card-foreground mb-3">
+                      Risks Summary
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {executiveReport.riskScoreExplanation}
+                    </p>
+                  </div>
+                  
+                  {/* Trip Risk Score */}
+                  <div className="flex items-center justify-center">
+                    <div className="text-center">
+                      <div 
+                        className="text-6xl font-bold mb-2"
+                        style={{
+                          color: (() => {
+                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
+                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
+                            return '#B22E2E'; // Error red - light bg
+                          })()
+                        }}
+                      >
+                        {Math.max(0, executiveReport.tripRiskScore)}
+                        <span className="text-3xl opacity-80">/10</span>
+                      </div>
+                      <div 
+                        className="text-sm font-semibold tracking-wide"
+                        style={{
+                          color: (() => {
+                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                            if (riskScore <= 3) return '#18815A'; // Success green - light bg
+                            if (riskScore <= 6) return '#D97706'; // Warning orange - light bg
+                            return '#B22E2E'; // Error red - light bg
+                          })()
+                        }}
+                      >
+                        {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                         Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                         Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Recommendations for the Driver */}
