@@ -23,6 +23,7 @@ import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { supabase } from '@/lib/supabase';
 import { validateBusinessEmail } from '@/lib/email-validation';
 import { useAuth } from '@/lib/auth-context';
+import { useHomepageContext } from '@/lib/homepage-context';
 import {
   DndContext,
   closestCenter,
@@ -474,6 +475,7 @@ export default function Home() {
   const router = useRouter();
   const { isLoaded: isGoogleMapsLoaded } = useGoogleMaps();
   const { user, isAuthenticated } = useAuth();
+  const { setResetToImport } = useHomepageContext();
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Array<{ district: string; data: CombinedData }>>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>(['westminster']);
@@ -627,6 +629,12 @@ export default function Home() {
     { id: 'stratford', name: 'Stratford' },
     { id: 'wimbledon', name: 'Wimbledon' },
   ];
+
+  // Register reset function with context
+  useEffect(() => {
+    setResetToImport(() => handleResetToImport);
+    return () => setResetToImport(null);
+  }, [setResetToImport]);
 
   // Set default date range and handle client-side mounting
   useEffect(() => {
@@ -1649,6 +1657,51 @@ export default function Home() {
     }
   };
 
+  // Handle resetting to initial import state (for logo click)
+  const handleResetToImport = () => {
+    console.log('🏠 [FRONTEND] Resetting to initial import state...');
+    
+    // Reset extraction state
+    setExtractedLocations(null);
+    setExtractedDate(null);
+    setExtractedDriverSummary(null);
+    setExtractionText('');
+    setLastExtractedText('');
+    setExtractionError(null);
+    
+    // Reset manual form state
+    setShowManualForm(false);
+    setLocations([]);
+    setTripDate(undefined);
+    setPassengerCount(1);
+    setTripDestination('');
+    setPassengerNames([]);
+    setEditingManualIndex(null);
+    setEditingManualField(null);
+    
+    // Reset trip analysis state
+    setResults([]);
+    setSelectedDistricts(['westminster']);
+    setStartDate('');
+    setEndDate('');
+    setError(null);
+    setLoadingTrip(false);
+    setLocationsReordered(false);
+    setMapOpen(false);
+    setLoadingProgress(0);
+    setTripId(null);
+    setUserEmail('');
+    setEmailError(null);
+    setPendingTripData(null);
+    setLoadingSteps([]);
+    
+    // Clear session storage
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('extractedTripData');
+      console.log('✅ [FRONTEND] Cleared session storage');
+    }
+  };
+
 
   // Handle manual location edit
   const handleLocationEdit = (index: number, value: string) => {
@@ -1924,7 +1977,7 @@ export default function Home() {
                 </p>
 
                 {/* Dark Header Section - Trip Date & City */}
-                 <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#363b4c' }}>
+                 <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <Label className="text-white font-medium text-sm mb-2 block">Trip Date</Label>

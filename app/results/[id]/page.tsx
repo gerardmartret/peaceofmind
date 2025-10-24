@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
+import { Car } from 'lucide-react';
 
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
@@ -310,6 +311,45 @@ export default function ResultsPage() {
     return flightMap;
   };
 
+  // Function to extract service introduction from driver notes
+  const extractServiceIntroduction = (notes: string): string => {
+    if (!notes) {
+      return 'Executive transportation service';
+    }
+    
+    // Extract key operational details
+    const serviceType = notes.toLowerCase().includes('full day') ? 'Full day hourly-based journey' : 
+                       notes.toLowerCase().includes('hourly') ? 'Hourly-based journey' :
+                       notes.toLowerCase().includes('chauffeur') ? 'Chauffeur service' :
+                       'Executive transportation service';
+    
+    // Extract client name
+    const nameMatch = notes.match(/\b(Mr\.|Mrs\.|Ms\.|Dr\.|Sir|Lady)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/);
+    const clientName = nameMatch ? `${nameMatch[1]} ${nameMatch[2]}` : 'Client';
+    
+    // Extract location context
+    const locationContext = notes.toLowerCase().includes('london') ? 'in London' : 'in the specified area';
+    
+    // Count stops
+    const stopCount = locations?.length || 0;
+    const stopText = stopCount === 1 ? 'stop' : 'stops';
+    
+    // Extract start and end times from locations
+    let timeInfo = '';
+    if (locations && locations.length > 0) {
+      const startTime = locations[0]?.time ? `${locations[0].time}H` : '';
+      const endTime = locations[locations.length - 1]?.time ? `${locations[locations.length - 1].time}H` : '';
+      
+      if (startTime && endTime && startTime !== endTime) {
+        timeInfo = ` starting at ${startTime} and finishing at ${endTime}`;
+      } else if (startTime) {
+        timeInfo = ` starting at ${startTime}`;
+      }
+    }
+    
+    return `${serviceType} for ${clientName} with ${stopCount} ${stopText} ${locationContext}${timeInfo}`;
+  };
+
   // Function to extract car information from driver notes
   const extractCarInfo = (notes: string): string | null => {
     if (!notes) {
@@ -321,14 +361,16 @@ export default function ResultsPage() {
     console.log('🚗 [CAR DEBUG] Input driver notes:', notes);
     console.log('🚗 [CAR DEBUG] Notes length:', notes.length);
     
-    // Common car patterns - more comprehensive
+    // Enhanced car patterns - prioritize full specifications (brand + model)
     const carPatterns = [
-      // Brand only
-      /\b(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\b/gi,
-      // Color + Brand
+      // Color + Brand + Model (highest priority)
+      /\b(black|white|silver|grey|gray|blue|red|green|gold|champagne)\s+(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\s+(s-class|e-class|c-class|a-class|x5|x3|x1|x7|a4|a6|a8|q5|q7|q8|model\s*s|model\s*x|es|ls|gs|rx|gx|lx|continental|flying\s*spur|ghost|phantom|911|cayenne|macan|boxster|carrera|488|f8|huracan|aventador|granturismo|quattroporte|db11|vantage|rapide)\b/gi,
+      // Brand + Model (high priority)
+      /\b(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\s+(s-class|e-class|c-class|a-class|x5|x3|x1|x7|a4|a6|a8|q5|q7|q8|model\s*s|model\s*x|es|ls|gs|rx|gx|lx|continental|flying\s*spur|ghost|phantom|911|cayenne|macan|boxster|carrera|488|f8|huracan|aventador|granturismo|quattroporte|db11|vantage|rapide)\b/gi,
+      // Color + Brand (medium priority)
       /\b(black|white|silver|grey|gray|blue|red|green|gold|champagne)\s+(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\b/gi,
-      // Brand + Model
-      /\b(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\s+(s-class|e-class|c-class|a-class|x5|x3|x1|a4|a6|a8|q5|q7|model\s*s|model\s*x|es|ls|gs|rx|gx|lx|continental|flying\s*spur|ghost|phantom|911|cayenne|macan|boxster|carrera|488|f8|huracan|aventador|granturismo|quattroporte|db11|vantage|rapide)\b/gi,
+      // Brand only (lowest priority)
+      /\b(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\b/gi,
       // Vehicle type
       /\b(executive|luxury|premium|vip|chauffeur|limousine|sedan|saloon|suv|coupe|convertible|estate|wagon)\s+(car|vehicle|auto)\b/gi,
       // Requirements
@@ -348,6 +390,10 @@ export default function ResultsPage() {
     console.log('🚗 [CAR DEBUG] Sentences found:', sentences.length);
     console.log('🚗 [CAR DEBUG] Sentences:', sentences);
     
+    // Track the best match (most complete specification)
+    let bestMatch = null;
+    let bestMatchScore = 0;
+    
     for (let i = 0; i < sentences.length; i++) {
       const sentence = sentences[i].trim();
       console.log(`🚗 [CAR DEBUG] Checking sentence ${i + 1}:`, sentence);
@@ -362,25 +408,79 @@ export default function ResultsPage() {
           console.log('🚗 [CAR DEBUG] Matches:', matches);
           console.log('🚗 [CAR DEBUG] Pattern that matched:', pattern);
           
-          // Clean up and format the car mention
-          let carMention = matches[0].trim();
-          console.log('🚗 [CAR DEBUG] Raw match:', carMention);
+          // Calculate match score (higher score = more complete specification)
+          let matchScore = 0;
+          const match = matches[0].trim().toLowerCase();
           
-          // Capitalize first letter of each word
-          carMention = carMention.replace(/\b\w/g, l => l.toUpperCase());
-          console.log('🚗 [CAR DEBUG] After capitalization:', carMention);
+          // Score based on pattern priority (earlier patterns = higher priority)
+          matchScore += (carPatterns.length - j) * 10;
           
-          // Clean up common formatting issues
-          carMention = carMention.replace(/\s+/g, ' ');
-          carMention = carMention.replace(/\bCar\b/g, 'car');
-          carMention = carMention.replace(/\bVehicle\b/g, 'vehicle');
-          carMention = carMention.replace(/\bAuto\b/g, 'auto');
+          // Bonus points for brand + model combinations
+          if (match.includes('s-class') || match.includes('e-class') || match.includes('a-class') || 
+              match.includes('a4') || match.includes('a6') || match.includes('a8') ||
+              match.includes('x5') || match.includes('x3') || match.includes('x1') ||
+              match.includes('q5') || match.includes('q7') || match.includes('q8')) {
+            matchScore += 20;
+          }
           
-          console.log('🚗 [CAR DEBUG] Final formatted car mention:', carMention);
-          console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION SUCCESS =====');
-          return carMention;
+          // Bonus points for color specification
+          if (match.includes('black') || match.includes('white') || match.includes('silver') ||
+              match.includes('grey') || match.includes('gray') || match.includes('blue') ||
+              match.includes('red') || match.includes('green') || match.includes('gold') ||
+              match.includes('champagne')) {
+            matchScore += 10;
+          }
+          
+          console.log('🚗 [CAR DEBUG] Match score:', matchScore);
+          
+          // Keep the best match
+          if (matchScore > bestMatchScore) {
+            bestMatch = matches[0].trim();
+            bestMatchScore = matchScore;
+            console.log('🚗 [CAR DEBUG] New best match:', bestMatch);
+          }
         }
       }
+    }
+    
+    // Process the best match if found
+    if (bestMatch) {
+      console.log('🚗 [CAR DEBUG] ✅ BEST MATCH SELECTED!');
+      console.log('🚗 [CAR DEBUG] Best match:', bestMatch);
+      console.log('🚗 [CAR DEBUG] Best match score:', bestMatchScore);
+      
+      // Clean up and format the car mention
+      let carMention = bestMatch;
+      console.log('🚗 [CAR DEBUG] Raw best match:', carMention);
+      
+      // Capitalize first letter of each word
+      carMention = carMention.replace(/\b\w/g, l => l.toUpperCase());
+      console.log('🚗 [CAR DEBUG] After capitalization:', carMention);
+      
+      // Clean up common formatting issues
+      carMention = carMention.replace(/\s+/g, ' ');
+      carMention = carMention.replace(/\bCar\b/g, 'car');
+      carMention = carMention.replace(/\bVehicle\b/g, 'vehicle');
+      carMention = carMention.replace(/\bAuto\b/g, 'auto');
+      
+      // Format brand + model combinations properly
+      carMention = carMention.replace(/\bMercedes\s+S-Class\b/gi, 'Mercedes S-Class');
+      carMention = carMention.replace(/\bMercedes\s+E-Class\b/gi, 'Mercedes E-Class');
+      carMention = carMention.replace(/\bMercedes\s+C-Class\b/gi, 'Mercedes C-Class');
+      carMention = carMention.replace(/\bMercedes\s+A-Class\b/gi, 'Mercedes A-Class');
+      carMention = carMention.replace(/\bAudi\s+A4\b/gi, 'Audi A4');
+      carMention = carMention.replace(/\bAudi\s+A6\b/gi, 'Audi A6');
+      carMention = carMention.replace(/\bAudi\s+A8\b/gi, 'Audi A8');
+      carMention = carMention.replace(/\bBMW\s+X5\b/gi, 'BMW X5');
+      carMention = carMention.replace(/\bBMW\s+X3\b/gi, 'BMW X3');
+      carMention = carMention.replace(/\bBMW\s+X1\b/gi, 'BMW X1');
+      carMention = carMention.replace(/\bAudi\s+Q5\b/gi, 'Audi Q5');
+      carMention = carMention.replace(/\bAudi\s+Q7\b/gi, 'Audi Q7');
+      carMention = carMention.replace(/\bAudi\s+Q8\b/gi, 'Audi Q8');
+      
+      console.log('🚗 [CAR DEBUG] Final formatted car mention:', carMention);
+      console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION SUCCESS =====');
+      return carMention;
     }
     
     console.log('🚗 [CAR DEBUG] ❌ No car information found in any sentence');
@@ -540,6 +640,47 @@ export default function ResultsPage() {
     });
 
     return closestIndex;
+  };
+
+  // Check if trip is within 1 hour of starting
+  const isTripWithinOneHour = (): boolean => {
+    if (!tripData?.tripDate || !tripData?.locations || tripData.locations.length === 0) {
+      return false;
+    }
+
+    const now = new Date();
+    const tripDateTime = new Date(tripData.tripDate);
+    
+    // Get the timezone for the trip city (default to London)
+    const getCityTimezone = () => {
+      const cityTimezones: {[key: string]: string} = {
+        'London': 'Europe/London',
+        'Birmingham': 'Europe/London',
+        'Manchester': 'Europe/London',
+        'Liverpool': 'Europe/London',
+        'Leeds': 'Europe/London',
+        'Sheffield': 'Europe/London',
+        'Bristol': 'Europe/London',
+        'Newcastle': 'Europe/London',
+        'Nottingham': 'Europe/London',
+        'Leicester': 'Europe/London',
+        'Coventry': 'Europe/London',
+        'Bradford': 'Europe/London',
+        'Cardiff': 'Europe/London',
+        'Belfast': 'Europe/London',
+        'Glasgow': 'Europe/London',
+        'Edinburgh': 'Europe/London'
+      };
+      return cityTimezones['London'] || 'Europe/London';
+    };
+
+    const timezone = getCityTimezone();
+    
+    // Convert trip date to local time in the trip city
+    const tripLocalTime = new Date(tripDateTime.toLocaleString("en-US", {timeZone: timezone}));
+    const oneHourBefore = new Date(tripLocalTime.getTime() - 60 * 60 * 1000);
+    
+    return now >= oneHourBefore;
   };
 
 
@@ -898,215 +1039,227 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {/* Trip Title */}
-          <div className="mb-6 flex items-start justify-between">
-            <div className="flex-1">
-              <h1 className="text-3xl font-medium text-foreground mb-2">
-                {(() => {
-                  // Extract passenger name from driver notes
-                  const extractPassengerName = (text: string | null): string | null => {
-                    if (!text) return null;
-                    const patterns = [
-                      /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                      /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                      /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                      /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                    ];
-                    
-                    for (const pattern of patterns) {
-                      const match = text.match(pattern);
-                      if (match && match[1]) {
-                        return match[1].trim();
-                      }
-                    }
-                    return null;
-                  };
 
-                  const passengerName = passengerNames && passengerNames.length > 0 
-                                      ? passengerNames[0] 
-                                      : extractPassengerName(driverNotes) || 'Passenger';
-
-                  // Extract number of passengers (default to 1 if not specified)
-                  const extractPassengerCount = (text: string | null): number => {
-                    if (!text) return 1;
-                    const patterns = [
-                      /(\d+)\s*(?:passengers?|people|guests?)/i,
-                      /(?:x|×)\s*(\d+)/i,
-                      /(\d+)\s*(?:pax|persons?)/i,
-                    ];
-                    
-                    for (const pattern of patterns) {
-                      const match = text.match(pattern);
-                      if (match && match[1]) {
-                        const count = parseInt(match[1]);
-                        if (count > 0 && count <= 20) return count;
-                      }
-                    }
-                    return 1;
-                  };
-
-                  const extractedPassengerCount = passengerCount || 
-                                      extractPassengerCount(driverNotes) || 
-                                      1;
-
-                  // Get city from first location
-                  const getCity = (): string => {
-                    if (locations && locations.length > 0) {
-                      const firstLocation = locations[0];
-                      if (firstLocation.name) {
-                        // Try to extract city from location name
-                        const parts = firstLocation.name.split(',');
-                        if (parts.length >= 2) {
-                          return parts[parts.length - 1].trim();
+          {/* Service Introduction */}
+          {!isLiveMode && (
+              <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
+                {/* Header with Passenger Information and Live Trip Button */}
+                <div className="flex items-start justify-between mb-4">
+                  {/* Passenger Information */}
+                  <h1 className="text-4xl font-normal text-white flex-1">
+                  {(() => {
+                    // Extract passenger name from driver notes
+                    const extractPassengerName = (text: string | null): string | null => {
+                      if (!text) return null;
+                      const patterns = [
+                        /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                        /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                        /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                      ];
+                      
+                      for (const pattern of patterns) {
+                        const match = text.match(pattern);
+                        if (match && match[1]) {
+                          return match[1].trim();
                         }
                       }
-                    }
-                    return 'Location';
-                  };
+                      return null;
+                    };
 
-                  const city = tripDestination || getCity();
-                  const passengerText = extractedPassengerCount === 1 ? 'passenger' : 'passengers';
-                  
-                  if (passengerNames && passengerNames.length > 0) {
-                    return `${passengerNames.join(', ')} (${extractedPassengerCount} ${passengerText}) in ${city}`;
-                  } else {
-                    return `${passengerName} x${extractedPassengerCount} ${passengerText} in ${city}`;
-                  }
-                })()}
-              </h1>
-              <div className="text-lg text-muted-foreground mt-2 flex items-center gap-2">
-                <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span>Trip date: </span>
-                <span className="font-semibold">{new Date(tripDate).toLocaleDateString('en-GB', { 
-                  weekday: 'long', 
-                  day: 'numeric', 
-                  month: 'long', 
-                  year: 'numeric' 
-                })}</span>
-              </div>
-              
-              {/* Car Information Display */}
-              {(() => {
-                console.log('🚗 [CAR DISPLAY] ===== CAR DISPLAY START =====');
-                console.log('🚗 [CAR DISPLAY] Driver Notes:', driverNotes);
-                console.log('🚗 [CAR DISPLAY] Driver Notes type:', typeof driverNotes);
-                console.log('🚗 [CAR DISPLAY] Driver Notes length:', driverNotes?.length || 0);
-                
-                const carInfo = extractCarInfo(driverNotes);
-                console.log('🚗 [CAR DISPLAY] Extracted Car Info:', carInfo);
-                console.log('🚗 [CAR DISPLAY] Car Info type:', typeof carInfo);
-                console.log('🚗 [CAR DISPLAY] Car Info truthy:', !!carInfo);
-                
-                if (carInfo) {
-                  console.log('🚗 [CAR DISPLAY] ✅ Rendering car information:', carInfo);
-                  console.log('🚗 [CAR DISPLAY] ===== CAR DISPLAY SUCCESS =====');
-                  return (
-                    <div className="text-base text-muted-foreground mt-1 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1m-1-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1" />
-                      </svg>
-                      <span>Vehicle: </span>
-                      <span className="font-semibold text-foreground">{carInfo}</span>
-                    </div>
-                  );
-                } else {
-                  console.log('🚗 [CAR DISPLAY] ❌ No car information to display');
-                  console.log('🚗 [CAR DISPLAY] ===== CAR DISPLAY FAILED =====');
-                }
-                return null;
-              })()}
-            </div>
-            
-              {/* Live Trip Button */}
-              <div className="ml-6">
-                {(() => {
-                  const now = new Date();
-                  const tripDateTime = new Date(tripDate);
-                  
-                  // Get city from first location to determine timezone
-                  const getCityTimezone = (): string => {
-                    if (locations && locations.length > 0) {
-                      const firstLocation = locations[0];
-                      if (firstLocation.name) {
-                        const parts = firstLocation.name.split(',');
-                        if (parts.length >= 2) {
-                          const city = parts[parts.length - 1].trim();
-                          // Map major cities to their timezones
-                          const cityTimezones: { [key: string]: string } = {
-                            'London': 'Europe/London',
-                            'Paris': 'Europe/Paris',
-                            'New York': 'America/New_York',
-                            'Los Angeles': 'America/Los_Angeles',
-                            'Tokyo': 'Asia/Tokyo',
-                            'Sydney': 'Australia/Sydney',
-                            'Berlin': 'Europe/Berlin',
-                            'Madrid': 'Europe/Madrid',
-                            'Rome': 'Europe/Rome',
-                            'Amsterdam': 'Europe/Amsterdam',
-                            'Dublin': 'Europe/Dublin',
-                            'Edinburgh': 'Europe/London',
-                            'Manchester': 'Europe/London',
-                            'Birmingham': 'Europe/London',
-                            'Liverpool': 'Europe/London',
-                            'Glasgow': 'Europe/London'
-                          };
-                          return cityTimezones[city] || 'Europe/London'; // Default to London timezone
+                    const passengerName = passengerNames && passengerNames.length > 0 
+                                        ? passengerNames[0] 
+                                        : extractPassengerName(driverNotes) || 'Passenger';
+
+                    // Extract number of passengers (default to 1 if not specified)
+                    const extractPassengerCount = (text: string | null): number => {
+                      if (!text) return 1;
+                      const patterns = [
+                        /(\d+)\s*(?:passengers?|people|guests?)/i,
+                        /(?:x|×)\s*(\d+)/i,
+                        /(\d+)\s*(?:pax|persons?)/i,
+                      ];
+                      
+                      for (const pattern of patterns) {
+                        const match = text.match(pattern);
+                        if (match && match[1]) {
+                          const count = parseInt(match[1]);
+                          if (count > 0 && count <= 20) return count;
                         }
                       }
-                    }
-                    return 'Europe/London'; // Default timezone
-                  };
+                      return 1;
+                    };
 
-                  const timezone = getCityTimezone();
-                  
-                  // Convert trip date to local time in the trip city
-                  const tripLocalTime = new Date(tripDateTime.toLocaleString("en-US", {timeZone: timezone}));
-                  const oneHourBefore = new Date(tripLocalTime.getTime() - 60 * 60 * 1000);
-                  const isLiveTripActive = now >= oneHourBefore;
-                  
-                  return (
-                    <button 
-                      className={`px-4 py-2 text-white font-medium rounded-md transition-colors flex items-center gap-2 ${
-                        isLiveTripActive ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
-                      }`}
-                      style={{ 
-                        backgroundColor: isLiveTripActive ? (isLiveMode ? '#1A8A5F' : '#21AB78') : '#9CA3AF',
-                        pointerEvents: isLiveTripActive ? 'auto' : 'none'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (isLiveTripActive && !isLiveMode) {
-                          e.currentTarget.style.backgroundColor = '#1A8A5F';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (isLiveTripActive && !isLiveMode) {
-                          e.currentTarget.style.backgroundColor = '#21AB78';
-                        }
-                      }}
-                      onClick={() => {
-                        if (isLiveTripActive) {
-                          if (isLiveMode) {
-                            stopLiveTrip();
-                          } else {
-                            startLiveTrip();
+                    const extractedPassengerCount = passengerCount || 
+                                        extractPassengerCount(driverNotes) || 
+                                        1;
+
+                    // Get city from first location
+                    const getCity = (): string => {
+                      if (locations && locations.length > 0) {
+                        const firstLocation = locations[0];
+                        if (firstLocation.name) {
+                          // Try to extract city from location name
+                          const parts = firstLocation.name.split(',');
+                          if (parts.length >= 2) {
+                            return parts[parts.length - 1].trim();
                           }
                         }
-                      }}
-                      disabled={!isLiveTripActive}
-                      title={isLiveTripActive ? 
-                        (isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking') : 
-                        'Live trip will be available 1 hour before departure'}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${isLiveTripActive ? 'bg-white animate-pulse' : 'bg-gray-300'}`}></div>
-                      {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
-                    </button>
-                  );
-                })()}
+                      }
+                      return 'Location';
+                    };
+
+                    const city = tripDestination || getCity();
+                    const passengerText = extractedPassengerCount === 1 ? 'passenger' : 'passengers';
+                    
+                    if (passengerNames && passengerNames.length > 0) {
+                      return `${passengerNames.join(', ')} (${extractedPassengerCount} ${passengerText}) in ${city}`;
+                    } else {
+                      return `${passengerName} x${extractedPassengerCount} ${passengerText} in ${city}`;
+                    }
+                  })()}
+                  </h1>
+                  
+                  {/* Live Trip Button */}
+                  {(() => {
+                    const now = new Date();
+                    const tripDateTime = new Date(tripDate);
+                    
+                    // Get city from first location to determine timezone
+                    const getCityTimezone = (): string => {
+                      if (locations && locations.length > 0) {
+                        const firstLocation = locations[0];
+                        if (firstLocation.name) {
+                          const parts = firstLocation.name.split(',');
+                          if (parts.length >= 2) {
+                            const city = parts[parts.length - 1].trim();
+                            // Map major cities to their timezones
+                            const cityTimezones: { [key: string]: string } = {
+                              'London': 'Europe/London',
+                              'Paris': 'Europe/Paris',
+                              'New York': 'America/New_York',
+                              'Los Angeles': 'America/Los_Angeles',
+                              'Tokyo': 'Asia/Tokyo',
+                              'Sydney': 'Australia/Sydney',
+                              'Dubai': 'Asia/Dubai',
+                              'Singapore': 'Asia/Singapore',
+                              'Hong Kong': 'Asia/Hong_Kong',
+                              'Mumbai': 'Asia/Kolkata',
+                              'Berlin': 'Europe/Berlin',
+                              'Madrid': 'Europe/Madrid',
+                              'Rome': 'Europe/Rome',
+                              'Amsterdam': 'Europe/Amsterdam',
+                              'Barcelona': 'Europe/Madrid',
+                              'Manchester': 'Europe/London',
+                              'Birmingham': 'Europe/London',
+                              'Edinburgh': 'Europe/London',
+                              'Glasgow': 'Europe/London',
+                              'Liverpool': 'Europe/London',
+                              'Leeds': 'Europe/London',
+                              'Sheffield': 'Europe/London',
+                              'Bristol': 'Europe/London',
+                              'Newcastle': 'Europe/London',
+                              'Nottingham': 'Europe/London',
+                              'Leicester': 'Europe/London',
+                              'Coventry': 'Europe/London',
+                              'Bradford': 'Europe/London',
+                              'Cardiff': 'Europe/London',
+                              'Belfast': 'Europe/London'
+                            };
+                            return cityTimezones[city] || 'Europe/London';
+                          }
+                        }
+                      }
+                      return 'Europe/London'; // Default timezone
+                    };
+
+                    const timezone = getCityTimezone();
+                    
+                    // Convert trip date to local time in the trip city
+                    const tripLocalTime = new Date(tripDateTime.toLocaleString("en-US", {timeZone: timezone}));
+                    const oneHourBefore = new Date(tripLocalTime.getTime() - 60 * 60 * 1000);
+                    const isLiveTripActive = now >= oneHourBefore;
+                    
+                    return (
+                      <button 
+                        className={`px-4 py-2 text-white font-medium rounded-md transition-colors flex items-center gap-2 ${
+                          isLiveTripActive ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                        }`}
+                        style={{ 
+                          backgroundColor: isLiveTripActive ? (isLiveMode ? '#1A8A5F' : '#21AB78') : '#9CA3AF',
+                          pointerEvents: isLiveTripActive ? 'auto' : 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (isLiveTripActive && !isLiveMode) {
+                            e.currentTarget.style.backgroundColor = '#1A8A5F';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (isLiveTripActive && !isLiveMode) {
+                            e.currentTarget.style.backgroundColor = '#21AB78';
+                          }
+                        }}
+                        onClick={() => {
+                          if (isLiveTripActive) {
+                            if (isLiveMode) {
+                              stopLiveTrip();
+                            } else {
+                              startLiveTrip();
+                            }
+                          }
+                        }}
+                        disabled={!isLiveTripActive}
+                        title={isLiveTripActive ? 
+                          (isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking') : 
+                          'Live trip will be available 1 hour before departure'}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${isLiveTripActive ? 'bg-white animate-pulse' : 'bg-gray-300'}`}></div>
+                        {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
+                      </button>
+                    );
+                  })()}
+                </div>
+
+                {/* Trip Details Group */}
+                <div className="space-y-3 mb-6">
+                  {/* Trip Date */}
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-gray-300">Trip date: </span>
+                    <span className="font-medium text-white">{new Date(tripDate).toLocaleDateString('en-GB', { 
+                      weekday: 'long', 
+                      day: 'numeric', 
+                      month: 'long', 
+                      year: 'numeric' 
+                    })}</span>
+                  </div>
+                  
+                  {/* Vehicle Information */}
+                  {(() => {
+                    const carInfo = extractCarInfo(driverNotes);
+                    if (carInfo) {
+                      return (
+                        <div className="flex items-center gap-3">
+                          <Car className="w-5 h-5 text-gray-300" />
+                          <span className="text-gray-300">Vehicle: </span>
+                          <span className="font-medium text-white">{carInfo}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
+                {/* Service Overview */}
+                <div className="border-t border-gray-600 pt-4">
+                  <p className="text-base text-gray-300 leading-relaxed">
+                    {extractServiceIntroduction(driverNotes)}
+                  </p>
+                </div>
               </div>
-          </div>
+          )}
 
           {/* Trip Summary Box */}
           {!isLiveMode && (
@@ -1136,10 +1289,22 @@ export default function ResultsPage() {
                   <span className="text-sm font-medium text-card-foreground">Trip Duration</span>
                 </div>
                   <p className="text-2xl font-bold text-card-foreground">
-                    {trafficPredictions?.success && trafficPredictions.data ? 
-                      `${Math.round(trafficPredictions.data.reduce((total: number, route: any) => total + route.minutes, 0) / 60)}h ${Math.round(trafficPredictions.data.reduce((total: number, route: any) => total + route.minutes, 0) % 60)}m` :
-                      'Calculating...'
-                    }
+                    {(() => {
+                      if (locations && locations.length >= 2) {
+                        const pickupTime = parseInt(locations[0]?.time) || 0;
+                        const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                        const duration = dropoffTime - pickupTime;
+                        
+                        if (duration > 0) {
+                          const hours = Math.floor(duration);
+                          const minutes = Math.round((duration - hours) * 60);
+                          return `${hours}h ${minutes}m`;
+                        } else {
+                          return 'Same day';
+                        }
+                      }
+                      return 'N/A';
+                    })()}
                   </p>
               </div>
 
@@ -1195,7 +1360,7 @@ export default function ResultsPage() {
                 {locations.map((location: any, index: number) => (
                   <div key={location.id || index} id={`location-${index}`} className="flex items-start gap-3 relative z-10">
                     <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
-                      (isLiveMode && activeLocationIndex === index) || (!isLiveMode && findClosestLocation() === index)
+                      (isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)
                         ? 'animate-live-pulse text-white' 
                         : 'bg-primary text-primary-foreground'
                     }`}>
@@ -1208,7 +1373,7 @@ export default function ResultsPage() {
                             {index === 0 ? 'Pickup' : 
                              index === locations.length - 1 ? 'Drop-off' : 
                              'Resume at'}
-                            {((isLiveMode && activeLocationIndex === index) || (!isLiveMode && findClosestLocation() === index)) && (
+                            {((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
                               <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded" style={{ backgroundColor: '#21AB78' }}>
                                 LIVE
                               </span>
@@ -1283,23 +1448,16 @@ export default function ResultsPage() {
             </div>
             
             <div className="space-y-3">
-              {/* Passenger Information */}
-              {(passengerNames.length > 0 || tripDestination) && (
-                 <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
+              {/* Exceptional Information */}
+              {executiveReport?.exceptionalInformation && (
+                <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
                   <div className="flex items-start gap-3">
                     <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                     <div>
-                      <h4 className="font-semibold text-white mb-1">Passenger Information</h4>
-                      <div className="text-sm text-white/90 leading-relaxed space-y-1">
-                        {passengerNames.length > 0 && (
-                          <p><strong>Passengers:</strong> {passengerNames.join(', ')} ({passengerCount} {passengerCount === 1 ? 'person' : 'people'})</p>
-                        )}
-                        {tripDestination && (
-                          <p><strong>Destination:</strong> {tripDestination}</p>
-                        )}
-                      </div>
+                      <h4 className="font-semibold text-white mb-1">Exceptional Information</h4>
+                      <p className="text-sm text-white/90 leading-relaxed">{executiveReport.exceptionalInformation}</p>
                     </div>
                   </div>
                 </div>
@@ -1431,20 +1589,6 @@ export default function ResultsPage() {
               {console.log('🔍 Important Info:', executiveReport.importantInformation)}
               {console.log('🔍 Driver Notes:', driverNotes)}
 
-              {/* Exceptional Information */}
-              {executiveReport.exceptionalInformation && (
-                <div className="rounded-md p-6 border-2 border-red-200 bg-red-50 mb-6">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <div>
-                      <h3 className="text-xl font-semibold text-red-900 mb-2">Exceptional Information</h3>
-                      <p className="text-sm text-red-800 leading-relaxed">{executiveReport.exceptionalInformation}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Important Information */}
               {executiveReport.importantInformation && (

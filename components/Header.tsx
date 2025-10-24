@@ -1,17 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useHomepageContext } from '@/lib/homepage-context';
 import { Button } from '@/components/ui/button';
 
 export default function Header() {
   const { user, isAuthenticated, signOut, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const { resetToImport } = useHomepageContext();
 
   const handleSignOut = async () => {
     await signOut();
     router.push('/');
+  };
+
+  const handleLogoClick = () => {
+    if (pathname === '/' && resetToImport) {
+      // If we're on the homepage and have a reset function, use it
+      resetToImport();
+    } else {
+      // Otherwise, navigate to homepage
+      router.push('/');
+    }
   };
 
   if (loading) {
@@ -31,13 +44,13 @@ export default function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
-                  <img 
-                    src="/driverbrief-logo.png" 
-                    alt="Driverbrief" 
-                    className="h-6 w-auto"
-                  />
-          </Link>
+          <button onClick={handleLogoClick} className="flex items-center cursor-pointer">
+            <img 
+              src="/driverbrief-logo.png" 
+              alt="Driverbrief" 
+              className="h-6 w-auto"
+            />
+          </button>
           
           {/* Navigation */}
           <div className="flex items-center gap-2">
