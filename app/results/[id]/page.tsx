@@ -542,15 +542,6 @@ export default function ResultsPage() {
     return closestIndex;
   };
 
-  const scrollToLocation = (locationIndex: number) => {
-    const locationElement = document.getElementById(`location-${locationIndex}`);
-    if (locationElement) {
-      locationElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-      });
-    }
-  };
 
   const startLiveTrip = () => {
     if (!tripData?.locations) return;
@@ -558,14 +549,12 @@ export default function ResultsPage() {
     const closestIndex = findClosestLocation();
     setActiveLocationIndex(closestIndex);
     setIsLiveMode(true);
-    scrollToLocation(closestIndex);
 
     // Set up interval to update active location every minute
     const interval = setInterval(() => {
       const newClosestIndex = findClosestLocation();
       if (newClosestIndex !== activeLocationIndex) {
         setActiveLocationIndex(newClosestIndex);
-        scrollToLocation(newClosestIndex);
       }
     }, 60000); // Update every minute
 
@@ -1120,7 +1109,8 @@ export default function ResultsPage() {
           </div>
 
           {/* Trip Summary Box */}
-          <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+          {!isLiveMode && (
+            <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
             <h2 className="text-xl font-medium text-card-foreground mb-4">Trip Summary</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Pickup Time */}
@@ -1174,9 +1164,11 @@ export default function ResultsPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Trip Locations */}
-          <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+          {!isLiveMode && (
+            <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
             <h3 className="text-xl font-medium text-card-foreground mb-4">Trip Locations</h3>
             <div className="relative">
               {/* Connecting Line */}
@@ -1203,7 +1195,7 @@ export default function ResultsPage() {
                 {locations.map((location: any, index: number) => (
                   <div key={location.id || index} id={`location-${index}`} className="flex items-start gap-3 relative z-10">
                     <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
-                      isLiveMode && activeLocationIndex === index 
+                      (isLiveMode && activeLocationIndex === index) || (!isLiveMode && findClosestLocation() === index)
                         ? 'animate-live-pulse text-white' 
                         : 'bg-primary text-primary-foreground'
                     }`}>
@@ -1216,7 +1208,7 @@ export default function ResultsPage() {
                             {index === 0 ? 'Pickup' : 
                              index === locations.length - 1 ? 'Drop-off' : 
                              'Resume at'}
-                            {isLiveMode && activeLocationIndex === index && (
+                            {((isLiveMode && activeLocationIndex === index) || (!isLiveMode && findClosestLocation() === index)) && (
                               <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded" style={{ backgroundColor: '#21AB78' }}>
                                 LIVE
                               </span>
@@ -1278,9 +1270,11 @@ export default function ResultsPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Driver Warnings Box */}
-          <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
+          {!isLiveMode && (
+            <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
             <div className="flex items-center gap-3 mb-4">
               <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -1424,9 +1418,10 @@ export default function ResultsPage() {
 
             </div>
           </div>
+          )}
 
           {/* Executive Report */}
-          {executiveReport && (
+          {executiveReport && !isLiveMode && (
             <>
               {/* Debug: Log executive report data */}
               {console.log('🔍 Executive Report Data:', executiveReport)}
@@ -1596,7 +1591,8 @@ export default function ResultsPage() {
           )}
 
           {/* Chronological Journey Flow */}
-          <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
+          {isLiveMode && (
+            <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
             {/* Connecting Line */}
             <div className="absolute left-6 top-3 bottom-0 w-0.5 bg-border"></div>
             {tripResults.map((result, index) => (
@@ -1625,7 +1621,7 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 <div className="flex-1">
-              <div key={result.locationId} className="rounded-md p-3 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
+              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
                 {/* Header with Full Address */}
                 <div className="flex items-center justify-between mb-2 pb-2">
                   <div className="flex items-center gap-3">
@@ -2319,6 +2315,7 @@ export default function ResultsPage() {
               </React.Fragment>
             ))}
           </div>
+          )}
 
         </div>
 
