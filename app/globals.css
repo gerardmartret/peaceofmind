@@ -148,6 +148,25 @@
   }
 }
 
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(33, 171, 120, 0.7);
+    background-color: #21AB78;
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(33, 171, 120, 0.3);
+    background-color: #1A8A5F;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(33, 171, 120, 0);
+    background-color: #21AB78;
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-live-pulse {
+  animation: livePulse 2s ease-in-out infinite;
 }

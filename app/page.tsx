@@ -1966,13 +1966,13 @@ export default function Home() {
                     onDragEnd={handleExtractedDragEnd}
                   >
                     <SortableContext
-                      items={extractedLocations.map(loc => loc.location)}
+                      items={extractedLocations.map((loc, index) => `${loc.location}-${index}`)}
                       strategy={verticalListSortingStrategy}
                     >
                       <div className="space-y-4">
                         {extractedLocations.map((loc, index) => (
                           <SortableExtractedLocationItem
-                            key={loc.location}
+                            key={`${loc.location}-${index}`}
                             location={loc}
                             index={index}
                             totalLocations={extractedLocations.length}

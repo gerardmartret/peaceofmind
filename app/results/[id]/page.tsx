@@ -222,6 +222,11 @@ export default function ResultsPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [editedDriverNotes, setEditedDriverNotes] = useState<string>('');
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
+  
+  // Live Trip functionality state
+  const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
+  const [activeLocationIndex, setActiveLocationIndex] = useState<number | null>(null);
+  const [liveTripInterval, setLiveTripInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Function to extract flight numbers from driver notes
   const extractFlightNumbers = (notes: string): {[locationName: string]: string[]} => {
@@ -468,6 +473,114 @@ export default function ResultsPage() {
     }));
   };
 
+  // Live Trip helper functions
+  const getCurrentTripTime = (): Date => {
+    if (!tripData?.locations || tripData.locations.length === 0) {
+      return new Date();
+    }
+
+    // Get city from first location to determine timezone
+    const getCityTimezone = (): string => {
+      const firstLocation = tripData.locations[0];
+      if (firstLocation.name) {
+        const parts = firstLocation.name.split(',');
+        if (parts.length >= 2) {
+          const city = parts[parts.length - 1].trim();
+          const cityTimezones: { [key: string]: string } = {
+            'London': 'Europe/London',
+            'Paris': 'Europe/Paris',
+            'New York': 'America/New_York',
+            'Los Angeles': 'America/Los_Angeles',
+            'Tokyo': 'Asia/Tokyo',
+            'Sydney': 'Australia/Sydney',
+            'Berlin': 'Europe/Berlin',
+            'Madrid': 'Europe/Madrid',
+            'Rome': 'Europe/Rome',
+            'Amsterdam': 'Europe/Amsterdam',
+            'Dublin': 'Europe/Dublin',
+            'Edinburgh': 'Europe/London',
+            'Manchester': 'Europe/London',
+            'Birmingham': 'Europe/London',
+            'Liverpool': 'Europe/London',
+            'Glasgow': 'Europe/London'
+          };
+          return cityTimezones[city] || 'Europe/London';
+        }
+      }
+      return 'Europe/London';
+    };
+
+    const timezone = getCityTimezone();
+    const now = new Date();
+    return new Date(now.toLocaleString("en-US", {timeZone: timezone}));
+  };
+
+  const findClosestLocation = (): number => {
+    if (!tripData?.locations || tripData.locations.length === 0) {
+      return 0;
+    }
+
+    const currentTime = getCurrentTripTime();
+    const currentHour = currentTime.getHours();
+    const currentMinute = currentTime.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+    let closestIndex = 0;
+    let smallestDiff = Infinity;
+
+    tripData.locations.forEach((location, index) => {
+      const locationTime = parseInt(location.time) || 0;
+      const locationTimeInMinutes = locationTime * 60;
+      const diff = Math.abs(currentTimeInMinutes - locationTimeInMinutes);
+      
+      if (diff < smallestDiff) {
+        smallestDiff = diff;
+        closestIndex = index;
+      }
+    });
+
+    return closestIndex;
+  };
+
+  const scrollToLocation = (locationIndex: number) => {
+    const locationElement = document.getElementById(`location-${locationIndex}`);
+    if (locationElement) {
+      locationElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+    }
+  };
+
+  const startLiveTrip = () => {
+    if (!tripData?.locations) return;
+
+    const closestIndex = findClosestLocation();
+    setActiveLocationIndex(closestIndex);
+    setIsLiveMode(true);
+    scrollToLocation(closestIndex);
+
+    // Set up interval to update active location every minute
+    const interval = setInterval(() => {
+      const newClosestIndex = findClosestLocation();
+      if (newClosestIndex !== activeLocationIndex) {
+        setActiveLocationIndex(newClosestIndex);
+        scrollToLocation(newClosestIndex);
+      }
+    }, 60000); // Update every minute
+
+    setLiveTripInterval(interval);
+  };
+
+  const stopLiveTrip = () => {
+    setIsLiveMode(false);
+    setActiveLocationIndex(null);
+    if (liveTripInterval) {
+      clearInterval(liveTripInterval);
+      setLiveTripInterval(null);
+    }
+  };
+
   const handleSaveNotes = async () => {
     if (!tripId) return;
     
@@ -641,6 +754,15 @@ export default function ResultsPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Cleanup live trip interval on unmount
+  useEffect(() => {
+    return () => {
+      if (liveTripInterval) {
+        clearInterval(liveTripInterval);
+      }
+    };
+  }, [liveTripInterval]);
 
   const handlePlanNewTrip = () => {
     // Redirect to home for new trip
@@ -962,24 +1084,35 @@ export default function ResultsPage() {
                         isLiveTripActive ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
                       }`}
                       style={{ 
-                        backgroundColor: isLiveTripActive ? '#21AB78' : '#9CA3AF',
+                        backgroundColor: isLiveTripActive ? (isLiveMode ? '#1A8A5F' : '#21AB78') : '#9CA3AF',
                         pointerEvents: isLiveTripActive ? 'auto' : 'none'
                       }}
                       onMouseEnter={(e) => {
-                        if (isLiveTripActive) {
+                        if (isLiveTripActive && !isLiveMode) {
                           e.currentTarget.style.backgroundColor = '#1A8A5F';
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (isLiveTripActive) {
+                        if (isLiveTripActive && !isLiveMode) {
                           e.currentTarget.style.backgroundColor = '#21AB78';
                         }
                       }}
+                      onClick={() => {
+                        if (isLiveTripActive) {
+                          if (isLiveMode) {
+                            stopLiveTrip();
+                          } else {
+                            startLiveTrip();
+                          }
+                        }
+                      }}
                       disabled={!isLiveTripActive}
-                      title={isLiveTripActive ? 'Start live trip tracking' : 'Live trip will be available 1 hour before departure'}
+                      title={isLiveTripActive ? 
+                        (isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking') : 
+                        'Live trip will be available 1 hour before departure'}
                     >
                       <div className={`w-2 h-2 rounded-full ${isLiveTripActive ? 'bg-white animate-pulse' : 'bg-gray-300'}`}></div>
-                      Live Trip
+                      {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
                     </button>
                   );
                 })()}
@@ -1068,8 +1201,12 @@ export default function ResultsPage() {
               
               <div className="space-y-3">
                 {locations.map((location: any, index: number) => (
-                  <div key={location.id || index} className="flex items-start gap-3 relative z-10">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground border-2 border-background">
+                  <div key={location.id || index} id={`location-${index}`} className="flex items-start gap-3 relative z-10">
+                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
+                      isLiveMode && activeLocationIndex === index 
+                        ? 'animate-live-pulse text-white' 
+                        : 'bg-primary text-primary-foreground'
+                    }`}>
                       {String.fromCharCode(65 + index)}
                     </div>
                     <div className="flex-1">
@@ -1079,6 +1216,11 @@ export default function ResultsPage() {
                             {index === 0 ? 'Pickup' : 
                              index === locations.length - 1 ? 'Drop-off' : 
                              'Resume at'}
+                            {isLiveMode && activeLocationIndex === index && (
+                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded" style={{ backgroundColor: '#21AB78' }}>
+                                LIVE
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {location.time}H
@@ -1463,14 +1605,23 @@ export default function ResultsPage() {
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-32 text-right relative">
                     {/* Timeline Dot for Location */}
-                    <div className="absolute left-2 top-0 w-8 h-8 rounded-full bg-primary border-2 border-background flex items-center justify-center z-10">
-                      <span className="text-base font-bold text-primary-foreground">{numberToLetter(index + 1)}</span>
+                    <div className={`absolute left-2 top-0 w-8 h-8 rounded-full border-2 border-background flex items-center justify-center z-10 ${
+                      isLiveMode && activeLocationIndex === index 
+                        ? 'animate-live-pulse text-white' 
+                        : 'bg-primary text-primary-foreground'
+                    }`}>
+                      <span className="text-base font-bold">{numberToLetter(index + 1)}</span>
                     </div>
                     <div className="text-base font-bold text-foreground ml-6">
                       {result.time}H
                     </div>
                     <div className="text-sm text-muted-foreground ml-2">
                       {index === 0 ? 'Pick up' : index === tripResults.length - 1 ? 'Drop off' : 'Resume'}
+                      {isLiveMode && activeLocationIndex === index && (
+                        <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded" style={{ backgroundColor: '#21AB78' }}>
+                          LIVE
+                        </span>
+                      )}
                     </div>
                   </div>
                 <div className="flex-1">
