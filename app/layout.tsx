@@ -28,7 +28,9 @@ export default function RootLayout({
         <AuthProvider>
           <HomepageProvider>
             <Header />
-            {children}
+            <div className="pt-20">
+              {children}
+            </div>
           </HomepageProvider>
         </AuthProvider>
       </body>

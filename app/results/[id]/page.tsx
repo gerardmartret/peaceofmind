@@ -228,6 +228,109 @@ export default function ResultsPage() {
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [activeLocationIndex, setActiveLocationIndex] = useState<number | null>(null);
   const [liveTripInterval, setLiveTripInterval] = useState<NodeJS.Timeout | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  // Update current time when in live mode
+  useEffect(() => {
+    if (isLiveMode) {
+      const timeInterval = setInterval(() => {
+        setCurrentTime(new Date());
+      }, 1000); // Update every second
+
+      return () => clearInterval(timeInterval);
+    }
+  }, [isLiveMode]);
+
+  // Function to convert stored time to London local time
+  const getLondonLocalTime = (timeString: string): string => {
+    if (!timeString) return 'N/A';
+    
+    // Parse the time string (e.g., "18:35" or "18")
+    const timeParts = timeString.split(':');
+    const hours = parseInt(timeParts[0]) || 0;
+    const minutes = parseInt(timeParts[1]) || 0;
+    
+    // Create a date for today with the specified time in London timezone
+    const today = new Date();
+    const londonDate = new Date(today.toLocaleString("en-US", {timeZone: 'Europe/London'}));
+    londonDate.setHours(hours, minutes, 0, 0);
+    
+    // Format as HH:MM
+    return londonDate.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/London'
+    });
+  };
+
+  // Function to extract location-specific notes from driver notes
+  const extractLocationNotes = (locationName: string, notes: string): string[] => {
+    if (!notes || !locationName) return [];
+    
+    const locationNotes: string[] = [];
+    const locationLower = locationName.toLowerCase();
+    const notesLower = notes.toLowerCase();
+    
+    // Split notes into sentences and check for location mentions
+    const sentences = notes.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    
+    sentences.forEach(sentence => {
+      const sentenceLower = sentence.toLowerCase();
+      
+      // Check if sentence mentions this location
+      const locationMentioned = locationLower.split(/[,\s]+/).some(word => 
+        word.length > 2 && sentenceLower.includes(word)
+      ) || sentenceLower.includes(locationLower) || 
+      // Check for partial matches (e.g., "Heathrow" matches "London Heathrow Airport")
+      locationLower.includes(sentenceLower.split(/[,\s]+/).find(word => word.length > 2) || '');
+      
+      if (locationMentioned) {
+        // Clean up the sentence and add it
+        const cleanSentence = sentence.trim().replace(/^[-•*]\s*/, '');
+        if (cleanSentence.length > 10) { // Only add meaningful notes
+          locationNotes.push(cleanSentence);
+        }
+      }
+    });
+    
+    return locationNotes;
+  };
+
+  // Function to extract route-specific notes from driver notes
+  const extractRouteNotes = (fromLocation: string, toLocation: string, notes: string): string[] => {
+    if (!notes || !fromLocation || !toLocation) return [];
+    
+    const routeNotes: string[] = [];
+    const notesLower = notes.toLowerCase();
+    
+    // Split notes into sentences and check for route mentions
+    const sentences = notes.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    
+    sentences.forEach(sentence => {
+      const sentenceLower = sentence.toLowerCase();
+      
+      // Check for route-related keywords
+      const routeKeywords = ['route', 'journey', 'drive', 'travel', 'between', 'from', 'to', 'via', 'through'];
+      const hasRouteKeyword = routeKeywords.some(keyword => sentenceLower.includes(keyword));
+      
+      // Check if sentence mentions both locations or route context
+      const mentionsFrom = fromLocation.toLowerCase().split(/[,\s]+/).some(word => 
+        word.length > 2 && sentenceLower.includes(word)
+      );
+      const mentionsTo = toLocation.toLowerCase().split(/[,\s]+/).some(word => 
+        word.length > 2 && sentenceLower.includes(word)
+      );
+      
+      if ((hasRouteKeyword || (mentionsFrom && mentionsTo)) && !sentenceLower.includes('pickup') && !sentenceLower.includes('drop off')) {
+        const cleanSentence = sentence.trim().replace(/^[-•*]\s*/, '');
+        if (cleanSentence.length > 10) {
+          routeNotes.push(cleanSentence);
+        }
+      }
+    });
+    
+    return routeNotes;
+  };
 
   // Function to extract flight numbers from driver notes
   const extractFlightNumbers = (notes: string): {[locationName: string]: string[]} => {
@@ -337,8 +440,8 @@ export default function ResultsPage() {
     // Extract start and end times from locations
     let timeInfo = '';
     if (locations && locations.length > 0) {
-      const startTime = locations[0]?.time ? `${locations[0].time}H` : '';
-      const endTime = locations[locations.length - 1]?.time ? `${locations[locations.length - 1].time}H` : '';
+      const startTime = locations[0]?.time ? getLondonLocalTime(locations[0].time) : '';
+      const endTime = locations[locations.length - 1]?.time ? getLondonLocalTime(locations[locations.length - 1].time) : '';
       
       if (startTime && endTime && startTime !== endTime) {
         timeInfo = ` starting at ${startTime} and finishing at ${endTime}`;
@@ -963,162 +1066,89 @@ export default function ResultsPage() {
 
         {/* Results Section */}
         <div className="mb-8">
-          {/* Driver Notes Section */}
-          {driverNotes && (
-            <div className="rounded-md p-6 border-2 border-blue-200 bg-blue-50 mb-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-3">
-                  <svg className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <div>
-                    <h3 className="text-xl font-semibold text-blue-900 mb-2">Driver Notes</h3>
-                    <p className="text-sm text-blue-700">
-                      Original email content and instructions for this trip
-                      {!isOwner && (
-                        <span className="ml-2 text-xs text-gray-500">(Read-only)</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                {isOwner && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (isOwner) {
-                        setIsEditingNotes(!isEditingNotes);
-                      }
-                    }}
-                    className="text-blue-700 border-blue-300 hover:bg-blue-100"
-                  >
-                    {isEditingNotes ? 'Cancel' : 'Edit'}
-                  </Button>
-                )}
-              </div>
-              
-              {showNotesSuccess && (
-                <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-md">
-                  <p className="text-sm text-green-800">✅ Driver notes saved successfully!</p>
-                </div>
-              )}
-
-              {isOwner && isEditingNotes ? (
-                <div className="space-y-4">
-                  <textarea
-                    value={editedDriverNotes}
-                    onChange={(e) => setEditedDriverNotes(e.target.value)}
-                    className="w-full p-3 border border-blue-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    rows={6}
-                    placeholder="Enter driver notes..."
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleSaveNotes}
-                      disabled={isSavingNotes}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isSavingNotes ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditedDriverNotes(driverNotes);
-                        setIsEditingNotes(false);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-white p-4 rounded-md border border-blue-200">
-                  <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{driverNotes}</p>
-                </div>
-              )}
-            </div>
-          )}
 
 
           {/* Service Introduction */}
           {!isLiveMode && (
-              <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
+              <div className="p-8 mb-6">
                 {/* Header with Passenger Information and Live Trip Button */}
                 <div className="flex items-start justify-between mb-4">
                   {/* Passenger Information */}
-                  <h1 className="text-4xl font-normal text-white flex-1">
-                  {(() => {
-                    // Extract passenger name from driver notes
-                    const extractPassengerName = (text: string | null): string | null => {
-                      if (!text) return null;
-                      const patterns = [
-                        /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                        /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                        /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                      ];
-                      
-                      for (const pattern of patterns) {
-                        const match = text.match(pattern);
-                        if (match && match[1]) {
-                          return match[1].trim();
-                        }
-                      }
-                      return null;
-                    };
-
-                    const passengerName = passengerNames && passengerNames.length > 0 
-                                        ? passengerNames[0] 
-                                        : extractPassengerName(driverNotes) || 'Passenger';
-
-                    // Extract number of passengers (default to 1 if not specified)
-                    const extractPassengerCount = (text: string | null): number => {
-                      if (!text) return 1;
-                      const patterns = [
-                        /(\d+)\s*(?:passengers?|people|guests?)/i,
-                        /(?:x|×)\s*(\d+)/i,
-                        /(\d+)\s*(?:pax|persons?)/i,
-                      ];
-                      
-                      for (const pattern of patterns) {
-                        const match = text.match(pattern);
-                        if (match && match[1]) {
-                          const count = parseInt(match[1]);
-                          if (count > 0 && count <= 20) return count;
-                        }
-                      }
-                      return 1;
-                    };
-
-                    const extractedPassengerCount = passengerCount || 
-                                        extractPassengerCount(driverNotes) || 
-                                        1;
-
-                    // Get city from first location
-                    const getCity = (): string => {
-                      if (locations && locations.length > 0) {
-                        const firstLocation = locations[0];
-                        if (firstLocation.name) {
-                          // Try to extract city from location name
-                          const parts = firstLocation.name.split(',');
-                          if (parts.length >= 2) {
-                            return parts[parts.length - 1].trim();
+                  <div className="flex-1">
+                    <h1 className="text-4xl font-light text-card-foreground mb-1 tracking-tight">
+                      {(() => {
+                        // Extract passenger name from driver notes
+                        const extractPassengerName = (text: string | null): string | null => {
+                          if (!text) return null;
+                          const patterns = [
+                            /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                            /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                            /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                            /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                          ];
+                          
+                          for (const pattern of patterns) {
+                            const match = text.match(pattern);
+                            if (match && match[1]) {
+                              return match[1].trim();
+                            }
                           }
-                        }
-                      }
-                      return 'Location';
-                    };
+                          return null;
+                        };
 
-                    const city = tripDestination || getCity();
-                    const passengerText = extractedPassengerCount === 1 ? 'passenger' : 'passengers';
-                    
-                    if (passengerNames && passengerNames.length > 0) {
-                      return `${passengerNames.join(', ')} (${extractedPassengerCount} ${passengerText}) in ${city}`;
-                    } else {
-                      return `${passengerName} x${extractedPassengerCount} ${passengerText} in ${city}`;
-                    }
-                  })()}
-                  </h1>
+                        const passengerName = passengerNames && passengerNames.length > 0 
+                                            ? passengerNames[0] 
+                                            : extractPassengerName(driverNotes) || 'Passenger';
+
+                        // Extract number of passengers (default to 1 if not specified)
+                        const extractPassengerCount = (text: string | null): number => {
+                          if (!text) return 1;
+                          const patterns = [
+                            /(\d+)\s*(?:passengers?|people|guests?)/i,
+                            /(?:x|×)\s*(\d+)/i,
+                            /(\d+)\s*(?:pax|persons?)/i,
+                          ];
+                          
+                          for (const pattern of patterns) {
+                            const match = text.match(pattern);
+                            if (match && match[1]) {
+                              const count = parseInt(match[1]);
+                              if (count > 0 && count <= 20) return count;
+                            }
+                          }
+                          return 1;
+                        };
+
+                        const extractedPassengerCount = passengerCount || 
+                                            extractPassengerCount(driverNotes) || 
+                                            1;
+
+                        // Get city from first location
+                        const getCity = (): string => {
+                          if (locations && locations.length > 0) {
+                            const firstLocation = locations[0];
+                            if (firstLocation.name) {
+                              // Try to extract city from location name
+                              const parts = firstLocation.name.split(',');
+                              if (parts.length >= 2) {
+                                return parts[parts.length - 1].trim();
+                              }
+                            }
+                          }
+                          return 'Location';
+                        };
+
+                        const city = tripDestination || getCity();
+                        const passengerText = extractedPassengerCount === 1 ? 'passenger' : 'passengers';
+                        
+                        if (passengerNames && passengerNames.length > 0) {
+                          return `${passengerNames.join(', ')} (${extractedPassengerCount} ${passengerText}) in ${city}`;
+                        } else {
+                          return `${passengerName} x${extractedPassengerCount} ${passengerText} in ${city}`;
+                        }
+                      })()}
+                    </h1>
+                  </div>
                   
                   {/* Live Trip Button */}
                   {(() => {
@@ -1182,22 +1212,13 @@ export default function ResultsPage() {
                     
                     return (
                       <button 
-                        className={`px-4 py-2 text-white font-medium rounded-md transition-colors flex items-center gap-2 ${
-                          isLiveTripActive ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                        className={`px-6 py-3 font-medium rounded-xl transition-all duration-300 flex items-center gap-3 ${
+                          isLiveTripActive 
+                            ? 'text-white shadow-lg hover:shadow-xl transform hover:scale-105' 
+                            : 'bg-muted text-muted-foreground cursor-not-allowed'
                         }`}
-                        style={{ 
-                          backgroundColor: isLiveTripActive ? (isLiveMode ? '#1A8A5F' : '#21AB78') : '#9CA3AF',
-                          pointerEvents: isLiveTripActive ? 'auto' : 'none'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (isLiveTripActive && !isLiveMode) {
-                            e.currentTarget.style.backgroundColor = '#1A8A5F';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (isLiveTripActive && !isLiveMode) {
-                            e.currentTarget.style.backgroundColor = '#21AB78';
-                          }
+                        style={{
+                          backgroundColor: isLiveTripActive ? '#21AB78' : undefined
                         }}
                         onClick={() => {
                           if (isLiveTripActive) {
@@ -1213,27 +1234,33 @@ export default function ResultsPage() {
                           (isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking') : 
                           'Live trip will be available 1 hour before departure'}
                       >
-                        <div className={`w-2 h-2 rounded-full ${isLiveTripActive ? 'bg-white animate-pulse' : 'bg-gray-300'}`}></div>
-                        {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
+                        <div className={`w-2.5 h-2.5 rounded-full ${isLiveTripActive ? 'bg-white animate-pulse' : 'bg-muted-foreground'}`}></div>
+                        <span className="text-sm font-medium">
+                          {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
+                        </span>
                       </button>
                     );
                   })()}
                 </div>
 
-                {/* Trip Details Group */}
-                <div className="space-y-3 mb-6">
+                {/* Trip Details Grid */}
+                <div className="grid grid-cols-1 gap-1">
                   {/* Trip Date */}
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-gray-300">Trip date: </span>
-                    <span className="font-medium text-white">{new Date(tripDate).toLocaleDateString('en-GB', { 
-                      weekday: 'long', 
-                      day: 'numeric', 
-                      month: 'long', 
-                      year: 'numeric' 
-                    })}</span>
+                  <div className="py-2">
+                    <div className="flex items-center gap-4">
+                      <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <div>
+                        <span className="text-base text-muted-foreground">Trip date: </span>
+                        <span className="text-lg font-semibold text-card-foreground">{new Date(tripDate).toLocaleDateString('en-GB', { 
+                          weekday: 'long', 
+                          day: 'numeric', 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })}</span>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* Vehicle Information */}
@@ -1241,10 +1268,14 @@ export default function ResultsPage() {
                     const carInfo = extractCarInfo(driverNotes);
                     if (carInfo) {
                       return (
-                        <div className="flex items-center gap-3">
-                          <Car className="w-5 h-5 text-gray-300" />
-                          <span className="text-gray-300">Vehicle: </span>
-                          <span className="font-medium text-white">{carInfo}</span>
+                        <div className="py-2">
+                          <div className="flex items-center gap-4">
+                            <Car className="w-6 h-6 text-muted-foreground" />
+                            <div>
+                              <span className="text-base text-muted-foreground">Vehicle: </span>
+                              <span className="text-lg font-semibold text-card-foreground">{carInfo}</span>
+                            </div>
+                          </div>
                         </div>
                       );
                     }
@@ -1252,37 +1283,28 @@ export default function ResultsPage() {
                   })()}
                 </div>
 
-                {/* Service Overview */}
-                <div className="border-t border-gray-600 pt-4">
-                  <p className="text-base text-gray-300 leading-relaxed">
-                    {extractServiceIntroduction(driverNotes)}
-                  </p>
-                </div>
               </div>
           )}
 
-          {/* Trip Summary Box */}
+          {/* Trip Summary Cards */}
           {!isLiveMode && (
-            <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-            <h2 className="text-xl font-medium text-card-foreground mb-4">Trip Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
               {/* Pickup Time */}
-              <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
-                <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-md p-3" style={{ backgroundColor: '#e3e3e3' }}>
+                <div className="flex items-center gap-2 mb-1">
                   <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="text-sm font-medium text-card-foreground">Pickup Time</span>
                 </div>
                   <p className="text-2xl font-bold text-card-foreground">
-                    {locations[0]?.time ? `${locations[0].time}H` : 'N/A'}
+                    {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
                   </p>
               </div>
 
-
               {/* Estimated Duration */}
-              <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
-                <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-md p-3" style={{ backgroundColor: '#e3e3e3' }}>
+                <div className="flex items-center gap-2 mb-1">
                   <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
@@ -1309,8 +1331,8 @@ export default function ResultsPage() {
               </div>
 
               {/* Estimated Mileage */}
-              <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
-                <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-md p-3" style={{ backgroundColor: '#e3e3e3' }}>
+                <div className="flex items-center gap-2 mb-1">
                   <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1328,12 +1350,11 @@ export default function ResultsPage() {
                   </p>
               </div>
             </div>
-          </div>
           )}
 
           {/* Trip Locations */}
           {!isLiveMode && (
-            <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
+            <div className="rounded-md p-6 border border-border bg-card mb-6">
             <h3 className="text-xl font-medium text-card-foreground mb-4">Trip Locations</h3>
             <div className="relative">
               {/* Connecting Line */}
@@ -1368,7 +1389,7 @@ export default function ResultsPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start">
-                        <div className="w-24 flex-shrink-0">
+                        <div className="w-32 flex-shrink-0">
                           <div className="text-sm font-medium text-muted-foreground mb-1">
                             {index === 0 ? 'Pickup' : 
                              index === locations.length - 1 ? 'Drop-off' : 
@@ -1380,10 +1401,10 @@ export default function ResultsPage() {
                             )}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {location.time}H
+                            {getLondonLocalTime(location.time)}
                           </div>
                         </div>
-                        <div className="flex-1 ml-4">
+                        <div className="flex-1 ml-12">
                           <button 
                             onClick={() => {
                               const address = location.formattedAddress || location.fullAddress || location.address || location.name;
@@ -1398,9 +1419,8 @@ export default function ResultsPage() {
                               
                               window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
                             }}
-                            className="text-lg text-card-foreground font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
-                          >
-                            {(() => {
+                            className="text-lg text-card-foreground font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer block w-full truncate"
+                            title={(() => {
                               const baseLocation = location.formattedAddress || location.fullAddress || location.address || location.name;
                               const flightMap = extractFlightNumbers(driverNotes);
                               const locationName = baseLocation;
@@ -1426,6 +1446,40 @@ export default function ResultsPage() {
                               
                               return baseLocation;
                             })()}
+                          >
+                            {(() => {
+                              const baseLocation = location.formattedAddress || location.fullAddress || location.address || location.name;
+                              const flightMap = extractFlightNumbers(driverNotes);
+                              const locationName = baseLocation;
+                              
+                              // Check if this location is an airport and has flight numbers
+                              const isAirport = locationName.toLowerCase().includes('airport') || 
+                                              locationName.toLowerCase().includes('heathrow') ||
+                                              locationName.toLowerCase().includes('gatwick') ||
+                                              locationName.toLowerCase().includes('stansted') ||
+                                              locationName.toLowerCase().includes('luton');
+                              
+                              let displayText = baseLocation;
+                              
+                              if (isAirport && Object.keys(flightMap).length > 0) {
+                                // Find matching airport in flight map
+                                const matchingAirport = Object.keys(flightMap).find(airport => 
+                                  locationName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                                );
+                                
+                                if (matchingAirport && flightMap[matchingAirport].length > 0) {
+                                  const flights = flightMap[matchingAirport].join(', ');
+                                  displayText = `${baseLocation} for flight ${flights}`;
+                                }
+                              }
+                              
+                              // Truncate if too long (approximately 60 characters for single line)
+                              if (displayText.length > 60) {
+                                return displayText.substring(0, 57) + '...';
+                              }
+                              
+                              return displayText;
+                            })()}
                           </button>
                         </div>
                       </div>
@@ -1440,15 +1494,12 @@ export default function ResultsPage() {
           {/* Driver Warnings Box */}
           {!isLiveMode && (
             <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
-            <div className="flex items-center gap-3 mb-4">
-              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
+            <div className="mb-4">
               <h3 className="text-xl font-medium text-white">Driver Warnings</h3>
             </div>
             
             <div className="space-y-3">
-              {/* Exceptional Information */}
+              {/* Very Important Information */}
               {executiveReport?.exceptionalInformation && (
                 <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
                   <div className="flex items-start gap-3">
@@ -1456,8 +1507,29 @@ export default function ResultsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                     <div>
-                      <h4 className="font-semibold text-white mb-1">Exceptional Information</h4>
-                      <p className="text-sm text-white/90 leading-relaxed">{executiveReport.exceptionalInformation}</p>
+                      <div className="text-sm text-white/90 leading-relaxed">
+                        {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
+                          <div key={index} className="flex items-start gap-2 mb-1">
+                            <span className="text-red-400 mt-1">•</span>
+                            <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Important Information */}
+              {executiveReport?.importantInformation && (
+                <div className="rounded-md p-4 mt-3" style={{ backgroundColor: '#2d3748', borderColor: '#4a5568', borderWidth: '1px', borderStyle: 'solid' }}>
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h4 className="font-semibold text-white mb-1">Important Information</h4>
+                      <p className="text-sm text-gray-300 leading-relaxed">{executiveReport.importantInformation}</p>
                     </div>
                   </div>
                 </div>
@@ -1470,9 +1542,6 @@ export default function ResultsPage() {
                 const destination = tripDestination?.toLowerCase() || '';
                 
                 // Check driver notes for warning patterns
-                if (notes.includes('vehicle') || notes.includes('car') || notes.includes('specific')) {
-                  warnings.push('🚗 VEHICLE REQUIREMENTS: Special vehicle or equipment needed');
-                }
                 if (notes.includes('onboard') || notes.includes('in car') || notes.includes('during trip')) {
                   warnings.push('🚙 ONBOARD SERVICES: Special services required during the journey');
                 }
@@ -1481,9 +1550,6 @@ export default function ResultsPage() {
                 }
                 if (notes.includes('access') || notes.includes('restricted') || notes.includes('permit')) {
                   warnings.push('🚧 ACCESS RESTRICTIONS: Special access or permits may be required');
-                }
-                if (notes.includes('payment') || notes.includes('cash') || notes.includes('tip')) {
-                  warnings.push('💰 PAYMENT: Special payment arrangements or cash handling required');
                 }
                 if (notes.includes('language') || notes.includes('translate') || notes.includes('interpreter')) {
                   warnings.push('🗣️ LANGUAGE: Translation or language assistance needed');
@@ -1545,34 +1611,6 @@ export default function ResultsPage() {
                 );
               })()}
 
-              {/* Key Highlights Section */}
-              {executiveReport.highlights && executiveReport.highlights.length > 0 && (
-                <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
-                  <div className="flex items-start gap-3">
-                    <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <h4 className="font-semibold text-white mb-2">Key Highlights</h4>
-                      <div className="space-y-2">
-                        {executiveReport.highlights.map((highlight: any, idx: number) => (
-                          <div key={idx} className="flex items-start gap-2">
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              highlight.type === 'danger' ? 'bg-red-600 text-white' :
-                              highlight.type === 'warning' ? 'bg-yellow-600 text-white' :
-                              highlight.type === 'success' ? 'bg-green-600 text-white' :
-                              'bg-blue-600 text-white'
-                            }`}>
-                              {highlight.type.toUpperCase()}
-                            </span>
-                            <p className="text-sm text-white/90 leading-relaxed">{highlight.message}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
             </div>
           </div>
@@ -1590,44 +1628,7 @@ export default function ResultsPage() {
               {console.log('🔍 Driver Notes:', driverNotes)}
 
 
-              {/* Important Information */}
-              {executiveReport.importantInformation && (
-                <div className="rounded-md p-6 border-2 border-amber-200 bg-amber-50 mb-6">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <h3 className="text-xl font-semibold text-amber-900 mb-2">Important Information</h3>
-                      <p className="text-sm text-amber-800 leading-relaxed">{executiveReport.importantInformation}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Recommendations */}
-              {executiveReport.recommendations && executiveReport.recommendations.length > 0 && (
-                <div className="rounded-md p-6 border-2 border-green-200 bg-green-50 mb-6">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <h3 className="text-xl font-semibold text-green-900 mb-3">Recommendations</h3>
-                      <div className="space-y-3">
-                        {executiveReport.recommendations.map((rec: string, idx: number) => (
-                          <div key={idx} className="flex items-start gap-3">
-                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 flex items-center justify-center text-xs font-bold text-white">
-                              {idx + 1}
-                            </span>
-                            <p className="text-sm text-green-800 leading-relaxed">{rec}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Potential Trip Disruptions */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
@@ -1638,7 +1639,7 @@ export default function ResultsPage() {
                   Potential Trip Disruptions
                 </h3>
 
-                {/* 3 Subboxes */}
+                {/* 3 Subboxes including Risk Score and Driver Notes */}
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
                     <h4 className="text-base font-bold text-card-foreground mb-3">
@@ -1648,87 +1649,73 @@ export default function ResultsPage() {
                   {executiveReport.topDisruptor}
                 </p>
               </div>
+                  
+                  {/* Risk Score */}
+                  <div className="rounded-md p-4 text-center" style={{ backgroundColor: '#e3e3e3' }}>
+                    <h4 className="text-base font-bold text-card-foreground mb-3">
+                      Risk Score
+                    </h4>
+                    <div 
+                      className="text-4xl font-bold mb-2"
+                      style={{
+                        color: (() => {
+                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                          if (riskScore <= 3) return '#18815A'; // Success green
+                          if (riskScore <= 6) return '#D97706'; // Warning orange
+                          return '#B22E2E'; // Error red
+                        })()
+                      }}
+                    >
+                      {Math.max(0, executiveReport.tripRiskScore)}
+                    </div>
+                    <div className="text-sm text-muted-foreground font-medium mb-2">
+                      out of 10
+                    </div>
+                    <div 
+                      className="text-xs font-semibold tracking-wide px-3 py-1 rounded"
+                      style={{
+                        backgroundColor: (() => {
+                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                          if (riskScore <= 3) return '#18815A'; // Success green
+                          if (riskScore <= 6) return '#D97706'; // Warning orange
+                          return '#B22E2E'; // Error red
+                        })(),
+                        color: '#FFFFFF'
+                      }}
+                    >
+                      {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                       Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                       Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                    </div>
+                  </div>
+
+                  {/* Driver Notes */}
                   <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
                     <h4 className="text-base font-bold text-card-foreground mb-3">
-                    Driving Risks
+                      Driver Notes
                     </h4>
-                  <ul className="space-y-2">
-                    {executiveReport.routeDisruptions.drivingRisks.map((risk: string, idx: number) => (
-                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                  <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
-                    <h4 className="text-base font-bold text-card-foreground mb-3">
-                      Other Disruptions
-                    </h4>
-                  <ul className="space-y-2">
-                    {executiveReport.routeDisruptions.externalDisruptions.map((disruption: string, idx: number) => (
-                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <span className="text-card-foreground flex-shrink-0 mt-1">▸</span>
-                        <span>{disruption}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                    <div className="text-sm text-muted-foreground leading-relaxed">
+                      {driverNotes && driverNotes.length > 0 ? (
+                        <div className="space-y-1">
+                          {driverNotes.length > 200 ? (
+                            <>
+                              <p>{driverNotes.substring(0, 200)}...</p>
+                              <p className="text-xs text-muted-foreground/70 italic">
+                                +{Math.ceil((driverNotes.length - 200) / 50)} more lines
+                              </p>
+                            </>
+                          ) : (
+                            <p>{driverNotes}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground/70 italic">No driver notes available</p>
+                      )}
+                    </div>
+                  </div>
               </div>
             </div>
 
-              {/* Risk Summary with Trip Risk Score */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Risk Summary Text */}
-                  <div className="lg:col-span-2">
-                    <h3 className="text-xl font-medium text-card-foreground mb-3">
-                      Trip Risk Assessment
-                    </h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {executiveReport.riskScoreExplanation}
-                    </p>
-                  </div>
-                  
-                  {/* Trip Risk Score - Simple Square Design */}
-                  <div className="flex items-center justify-center">
-                    <div className="rounded-md p-6 text-center min-w-[140px]" style={{ backgroundColor: '#e3e3e3' }}>
-                      <div 
-                        className="text-5xl font-bold mb-2"
-                        style={{
-                          color: (() => {
-                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                            if (riskScore <= 3) return '#18815A'; // Success green
-                            if (riskScore <= 6) return '#D97706'; // Warning orange
-                            return '#B22E2E'; // Error red
-                          })()
-                        }}
-                      >
-                        {Math.max(0, executiveReport.tripRiskScore)}
-                      </div>
-                      <div className="text-sm text-muted-foreground font-medium mb-2">
-                        out of 10
-                      </div>
-                      <div 
-                        className="text-xs font-semibold tracking-wide px-3 py-1 rounded"
-                        style={{
-                          backgroundColor: (() => {
-                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                            if (riskScore <= 3) return '#18815A'; // Success green
-                            if (riskScore <= 6) return '#D97706'; // Warning orange
-                            return '#B22E2E'; // Error red
-                          })(),
-                          color: '#FFFFFF'
-                        }}
-                      >
-                        {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
-                         Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
-                         Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
 
             </>
@@ -1737,8 +1724,25 @@ export default function ResultsPage() {
           {/* Chronological Journey Flow */}
           {isLiveMode && (
             <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
-            {/* Connecting Line */}
-            <div className="absolute left-6 top-3 bottom-0 w-0.5 bg-border"></div>
+            {/* Live Time Display */}
+            <div className="sticky top-20 mb-12 p-4 rounded-lg relative z-20" style={{ backgroundColor: '#21AB78', borderColor: '#21AB78', borderWidth: '1px', borderStyle: 'solid' }}>
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-white animate-pulse"></div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">Current Time (London)</div>
+                  <div className="text-2xl font-bold text-white">
+                    {currentTime.toLocaleTimeString('en-GB', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      timeZone: 'Europe/London'
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Connecting Line - starts after the green box */}
+            <div className="absolute left-6 w-0.5 bg-border" style={{ top: '6rem', bottom: 0 }}></div>
             {tripResults.map((result, index) => (
               <React.Fragment key={result.locationId}>
                 {/* Location Hour Display */}
@@ -1753,7 +1757,7 @@ export default function ResultsPage() {
                       <span className="text-base font-bold">{numberToLetter(index + 1)}</span>
                     </div>
                     <div className="text-base font-bold text-foreground ml-6">
-                      {result.time}H
+                      {getLondonLocalTime(result.time)}
                     </div>
                     <div className="text-sm text-muted-foreground ml-2">
                       {index === 0 ? 'Pick up' : index === tripResults.length - 1 ? 'Drop off' : 'Resume'}
@@ -1867,6 +1871,42 @@ export default function ResultsPage() {
                         <span>{result.data.parking?.carParks?.length || 0} Parking</span>
                       </div>
                     </div>
+                    
+                    {/* Location-specific notes from driver notes */}
+                    {(() => {
+                      const locationName = locationDisplayNames[result.locationId] || `Stop ${index + 1}`;
+                      const notes = extractLocationNotes(locationName, driverNotes);
+                      if (notes.length > 0) {
+                        // Truncate notes to fit better in the box
+                        const truncatedNotes = notes.slice(0, 2); // Show only first 2 notes
+                        const hasMore = notes.length > 2;
+                        return (
+                          <div className="mt-2 p-2 bg-background/20 rounded border border-primary-foreground/20">
+                            <div className="flex items-start gap-1">
+                              <svg className="w-3 h-3 text-primary-foreground/70 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <div className="flex-1">
+                                <h5 className="text-xs font-semibold text-primary-foreground mb-1">Notes</h5>
+                                <div className="space-y-0.5">
+                                  {truncatedNotes.map((note, noteIndex) => (
+                                    <p key={noteIndex} className="text-xs text-primary-foreground/80 leading-tight">
+                                      • {note.length > 50 ? note.substring(0, 50) + '...' : note}
+                                    </p>
+                                  ))}
+                                  {hasMore && (
+                                    <p className="text-xs text-primary-foreground/60 italic">
+                                      +{notes.length - 2} more notes
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     
                     {/* Expand/Collapse Button */}
                     <button
@@ -2221,7 +2261,7 @@ export default function ResultsPage() {
                       <span className="text-base font-bold text-card-foreground">→</span>
                     </div>
                     <div className="text-base font-bold text-foreground ml-6">
-                      {result.time}H
+                      {getLondonLocalTime(result.time)}
                     </div>
                     <div className="text-sm text-muted-foreground ml-2">
                       Route
@@ -2450,6 +2490,43 @@ export default function ResultsPage() {
                     </div>
                   )}
                   
+                  {/* Route-specific notes from driver notes */}
+                  {(() => {
+                    const fromLocation = tripResults[index].locationName;
+                    const toLocation = tripResults[index + 1].locationName;
+                    const notes = extractRouteNotes(fromLocation, toLocation, driverNotes);
+                    if (notes.length > 0) {
+                      // Truncate notes to fit better in the box
+                      const truncatedNotes = notes.slice(0, 2); // Show only first 2 notes
+                      const hasMore = notes.length > 2;
+                      return (
+                        <div className="mt-2 p-2 bg-secondary/30 rounded border border-border">
+                          <div className="flex items-start gap-1">
+                            <svg className="w-3 h-3 text-card-foreground/70 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div className="flex-1">
+                              <h5 className="text-xs font-semibold text-card-foreground mb-1">Notes</h5>
+                              <div className="space-y-0.5">
+                                {truncatedNotes.map((note, noteIndex) => (
+                                  <p key={noteIndex} className="text-xs text-card-foreground/80 leading-tight">
+                                    • {note.length > 50 ? note.substring(0, 50) + '...' : note}
+                                  </p>
+                                ))}
+                                {hasMore && (
+                                  <p className="text-xs text-card-foreground/60 italic">
+                                    +{notes.length - 2} more notes
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
                     </div>
                   </div>
                     </div>
@@ -2510,7 +2587,7 @@ export default function ResultsPage() {
         {/* Footer Navigation */}
         <div className="text-center py-8">
           <p className="text-lg font-medium text-foreground mb-4">
-            Drivania Labs wishes you a nice trip
+            Driverbrief wishes you a nice trip
           </p>
           <div className="flex flex-wrap justify-center gap-3 mb-4">
             <Button
@@ -2531,5 +2608,6 @@ export default function ResultsPage() {
     </div>
   );
 }
+
 
 

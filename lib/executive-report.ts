@@ -210,16 +210,24 @@ Return JSON:
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
   "recommendations": ["3-5 items: timing, parking CPZ advice, car parks, cafes, weather clothing (raincoats/umbrellas)"],
   "highlights": [{"type": "danger|warning|info|success", "message": "str with source"}],
-  "exceptionalInformation": "URGENT/VIP content from driver notes - security measures, privacy requirements, high-priority instructions",
+  "exceptionalInformation": "List items in order from MOST IMPORTANT to less important. Format as bullet points, one per line. Focus on: VIP/celebrity status requiring discretion, medical conditions requiring special care, security protocols, privacy requirements, unusual timing constraints, special vehicle requirements, accessibility needs, pickup instructions (call before arrival, wait location, engine requirements, contact procedures), or any instructions that are UNUSUAL and MUST be remembered. Write in urgent, caring tone that emphasizes importance.",
   "importantInformation": "Contact details, vehicle requirements, meeting points, timing details from driver notes"
 }
 
 CRITICAL: You MUST include exceptionalInformation and importantInformation fields in your response. Extract content from the driver notes provided in the PASSENGER INFORMATION section.
 
+EXCEPTIONAL INFORMATION GUIDELINES:
+- Look for requirements that are UNUSUAL or OUT OF THE ORDINARY for a standard chauffeur service
+- ALWAYS include ALL pickup instructions and driver actions that require specific steps
+- Focus on: VIP/celebrity status, medical conditions, security protocols, privacy requirements, accessibility needs, special timing constraints, unusual vehicle requirements, pickup instructions (call before arrival, wait location, engine requirements, contact procedures), or any instructions that require EXTRA CARE or ATTENTION
+- Write in an urgent, caring tone that emphasizes the importance and makes the driver understand why this is critical
+- Include ALL driver actions: calling contacts, waiting procedures, engine requirements, specific locations, contact protocols
+- Examples: "VIP client requires complete discretion", "Passenger has mobility issues requiring wheelchair assistance", "Call passenger 10 minutes before arrival", "Wait close to building entrance with engine running", "Contact security team before pickup", "Keep engine running during wait time"
+
 MANDATORY FIELDS:
 - recommendations: MUST be an array of 3-5 actionable items
 - highlights: MUST be an array of 4-6 critical points with type and message
-- exceptionalInformation: MUST extract urgent/VIP content from driver notes
+- exceptionalInformation: MUST extract CRITICAL, UNUSUAL requirements from driver notes that are OUT OF THE ORDINARY and require special driver attention. ALWAYS include ALL pickup instructions and driver actions. List items in order from MOST IMPORTANT to less important, formatted as bullet points (one per line). Focus on VIP status, medical needs, security, privacy, accessibility, pickup procedures, contact requirements, waiting instructions, engine requirements, or any special circumstances that are NOT standard service requirements.
 - importantInformation: MUST extract contact details and important instructions from driver notes
 
 Cite sources (e.g., "78 crimes - UK Police Data"). Use actual data numbers.`;
