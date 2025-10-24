@@ -1311,6 +1311,10 @@ export default function Home() {
             routeDuration: trafficData?.totalMinutes || 0,
             trafficPredictions: trafficData?.success ? trafficData.data : null,
             emailContent: extractionText || null,
+            passengerCount: passengerCount || 1,
+            tripDestination: tripDestination || null,
+            passengerNames: passengerNames || [],
+            driverNotes: extractedDriverSummary || null,
           }),
         });
 
@@ -1338,11 +1342,18 @@ export default function Home() {
         trip_results: results as any,
         traffic_predictions: trafficData as any,
         executive_report: executiveReportData as any,
-        driver_notes: driverSummary || null,
+        driver_notes: extractedDriverSummary || null,
         passenger_count: passengerCount || 1,
         trip_destination: tripDestination || null,
         passenger_names: passengerNames || []
       };
+      
+      // Debug: Log what we're saving to database
+      console.log('💾 [FRONTEND] Database save values:');
+      console.log('   passenger_count:', passengerCount || 1);
+      console.log('   trip_destination:', tripDestination || null);
+      console.log('   passenger_names:', passengerNames || []);
+      console.log('   driver_notes:', extractedDriverSummary || null);
 
       // Add user_id for authenticated users
       if (isAuthenticated && user?.id) {
@@ -1589,6 +1600,11 @@ export default function Home() {
       console.log('👥 [FRONTEND] Passenger Count:', data.passengerCount);
       console.log('🏙️ [FRONTEND] Trip Destination:', data.tripDestination);
       console.log('👤 [FRONTEND] Passenger Names:', data.passengerNames);
+      
+      // Debug: Log the values being set
+      console.log('🔧 [FRONTEND] Setting passengerCount to:', data.passengerCount || 1);
+      console.log('🔧 [FRONTEND] Setting tripDestination to:', data.tripDestination || '');
+      console.log('🔧 [FRONTEND] Setting passengerNames to:', data.passengerNames || []);
       setLastExtractedText(extractionText);
 
       // Save to session storage

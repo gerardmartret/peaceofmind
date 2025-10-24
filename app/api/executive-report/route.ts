@@ -4,7 +4,7 @@ import { generateExecutiveReport } from '@/lib/executive-report';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { tripData, tripDate, routeDistance, routeDuration, trafficPredictions, emailContent } = body;
+    const { tripData, tripDate, routeDistance, routeDuration, trafficPredictions, emailContent, passengerCount, tripDestination, passengerNames, driverNotes } = body;
 
     console.log('\n🔍 Generating Executive Report...');
     console.log(`📍 Processing ${tripData.length} location(s)`);
@@ -14,6 +14,10 @@ export async function POST(request: Request) {
     if (trafficPredictions) {
       console.log(`🚦 Including ${trafficPredictions.length} traffic prediction leg(s)`);
     }
+    console.log(`👥 Passenger Count: ${passengerCount}`);
+    console.log(`🏙️ Trip Destination: ${tripDestination}`);
+    console.log(`👤 Passenger Names: ${passengerNames}`);
+    console.log(`📝 Driver Notes: ${driverNotes}`);
 
     const report = await generateExecutiveReport(
       tripData,
@@ -21,7 +25,11 @@ export async function POST(request: Request) {
       routeDistance,
       routeDuration,
       trafficPredictions,
-      emailContent
+      emailContent,
+      passengerCount,
+      tripDestination,
+      passengerNames,
+      driverNotes
     );
 
     console.log('✅ Report generated successfully!');

@@ -14,9 +14,10 @@ interface Trip {
   trip_date: string;
   created_at: string | null;
   locations: any;
-  trip_purpose: string | null;
+  passenger_count: number | null;
+  trip_destination: string | null;
+  passenger_names: string[] | null;
   driver_notes: string | null;
-  special_remarks: string | null;
 }
 
 export default function MyTripsPage() {
@@ -42,7 +43,7 @@ export default function MyTripsPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from('trips')
-          .select('id, trip_date, created_at, locations, trip_purpose, driver_notes, special_remarks')
+          .select('id, trip_date, created_at, locations, passenger_count, trip_destination, passenger_names, driver_notes')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
@@ -137,9 +138,9 @@ export default function MyTripsPage() {
     };
 
     // Try to get passenger name from various fields
-    const passengerName = extractPassengerName(trip.driver_notes) || 
-                         extractPassengerName(trip.special_remarks) ||
-                         extractPassengerName(trip.trip_purpose);
+    const passengerName = trip.passenger_names && trip.passenger_names.length > 0 
+                         ? trip.passenger_names[0] 
+                         : extractPassengerName(trip.driver_notes);
 
     // Get location count for context
     const locationCount = getLocationCount(trip.locations);
@@ -165,9 +166,8 @@ export default function MyTripsPage() {
       return null;
     };
 
-    const purposeKeyword = getPurposeKeywords(trip.trip_purpose) || 
-                          getPurposeKeywords(trip.driver_notes) ||
-                          getPurposeKeywords(trip.special_remarks);
+    const purposeKeyword = getPurposeKeywords(trip.driver_notes) ||
+                          (trip.trip_destination ? `to ${trip.trip_destination}` : null);
 
     // Generate one-sentence description based on available data
     // ALWAYS prioritize passenger name when available
@@ -177,23 +177,8 @@ export default function MyTripsPage() {
       return `${passengerName} trip with ${locationText}`;
     } else if (purposeKeyword) {
       return `${purposeKeyword} trip with ${locationText}`;
-    } else if (trip.trip_purpose) {
-      // Try one more time to extract passenger name from trip_purpose
-      const additionalPassengerName = extractPassengerName(trip.trip_purpose);
-      if (additionalPassengerName) {
-        return `${additionalPassengerName} trip with ${locationText}`;
-      }
-      
-      // Use first sentence of trip_purpose if it's reasonable length
-      const sentences = trip.trip_purpose.split(/[.!?]+/);
-      const firstSentence = sentences[0]?.trim();
-      if (firstSentence && firstSentence.length <= 80) {
-        return `${firstSentence} (${locationText})`;
-      } else if (firstSentence) {
-        // Truncate if too long
-        const truncated = firstSentence.substring(0, 77) + '...';
-        return `${truncated} (${locationText})`;
-      }
+    } else if (trip.trip_destination) {
+      return `Trip to ${trip.trip_destination} with ${locationText}`;
     }
     
     // Fallback to date-based description

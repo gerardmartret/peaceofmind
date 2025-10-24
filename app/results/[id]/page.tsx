@@ -194,6 +194,9 @@ interface TripData {
   }>;
   trafficPredictions: any;
   executiveReport: any;
+  passengerCount?: number;
+  tripDestination?: string;
+  passengerNames?: string[];
 }
 
 export default function ResultsPage() {
@@ -212,10 +215,12 @@ export default function ResultsPage() {
   const [expandedLocations, setExpandedLocations] = useState<{[key: string]: boolean}>({});
   const [expandedRoutes, setExpandedRoutes] = useState<{[key: string]: boolean}>({});
   const [driverNotes, setDriverNotes] = useState<string>('');
-  const [tripPurpose, setTripPurpose] = useState<string>('');
-  const [specialRemarks, setSpecialRemarks] = useState<string>('');
+  const [passengerCount, setPassengerCount] = useState<number>(1);
+  const [tripDestination, setTripDestination] = useState<string>('');
+  const [passengerNames, setPassengerNames] = useState<string[]>([]);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [editedDriverNotes, setEditedDriverNotes] = useState<string>('');
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
 
   const handleEditLocationName = (locationId: string, currentName: string) => {
@@ -305,27 +310,37 @@ export default function ResultsPage() {
 
   const handleSaveNotes = async () => {
     if (!tripId) return;
+    
+    // Security check: Only owners can save notes
+    if (!isOwner) {
+      console.error('❌ Unauthorized: Only trip owners can edit driver notes');
+      return;
+    }
 
     try {
       setIsSavingNotes(true);
       
       console.log('Saving notes with values:', {
-        driverNotes,
-        tripPurpose,
-        specialRemarks,
+        editedDriverNotes,
+        passengerCount,
+        tripDestination,
+        passengerNames,
         tripId
       });
       
       const updateData: any = {
-        driver_notes: driverNotes
+        driver_notes: editedDriverNotes
       };
       
       // Only include new fields if they have values
-      if (tripPurpose) {
-        updateData.trip_purpose = tripPurpose;
+      if (passengerCount && passengerCount > 0) {
+        updateData.passenger_count = passengerCount;
       }
-      if (specialRemarks) {
-        updateData.special_remarks = specialRemarks;
+      if (tripDestination) {
+        updateData.trip_destination = tripDestination;
+      }
+      if (passengerNames && passengerNames.length > 0) {
+        updateData.passenger_names = passengerNames;
       }
       
       console.log('Update data:', updateData);
@@ -359,6 +374,9 @@ export default function ResultsPage() {
         return;
       }
 
+      // Update the local state with the saved notes
+      setDriverNotes(editedDriverNotes);
+      
       setIsEditingNotes(false);
       setShowNotesSuccess(true);
       
@@ -426,12 +444,17 @@ export default function ResultsPage() {
           tripResults: data.trip_results as any,
           trafficPredictions: data.traffic_predictions as any,
           executiveReport: data.executive_report as any,
+          passengerCount: data.passenger_count || 1,
+          tripDestination: data.trip_destination || '',
+          passengerNames: data.passenger_names || [],
         };
 
         setTripData(tripData);
         setDriverNotes(data.driver_notes || '');
-        setTripPurpose(data.trip_purpose || '');
-        setSpecialRemarks(data.special_remarks || '');
+        setEditedDriverNotes(data.driver_notes || '');
+        setPassengerCount(data.passenger_count || 1);
+        setTripDestination(data.trip_destination || '');
+        setPassengerNames(data.passenger_names || []);
         
         // Populate location display names from database
         const displayNames: {[key: string]: string} = {};
@@ -528,6 +551,82 @@ export default function ResultsPage() {
 
         {/* Results Section */}
         <div className="mb-8">
+          {/* Driver Notes Section */}
+          {driverNotes && (
+            <div className="rounded-md p-6 border-2 border-blue-200 bg-blue-50 mb-6">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <div>
+                    <h3 className="text-xl font-semibold text-blue-900 mb-2">Driver Notes</h3>
+                    <p className="text-sm text-blue-700">
+                      Original email content and instructions for this trip
+                      {!isOwner && (
+                        <span className="ml-2 text-xs text-gray-500">(Read-only)</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {isOwner && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (isOwner) {
+                        setIsEditingNotes(!isEditingNotes);
+                      }
+                    }}
+                    className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                  >
+                    {isEditingNotes ? 'Cancel' : 'Edit'}
+                  </Button>
+                )}
+              </div>
+              
+              {showNotesSuccess && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-md">
+                  <p className="text-sm text-green-800">✅ Driver notes saved successfully!</p>
+                </div>
+              )}
+
+              {isOwner && isEditingNotes ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={editedDriverNotes}
+                    onChange={(e) => setEditedDriverNotes(e.target.value)}
+                    className="w-full p-3 border border-blue-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={6}
+                    placeholder="Enter driver notes..."
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSaveNotes}
+                      disabled={isSavingNotes}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {isSavingNotes ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditedDriverNotes(driverNotes);
+                        setIsEditingNotes(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white p-4 rounded-md border border-blue-200">
+                  <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{driverNotes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Trip Title */}
           <div className="mb-6 flex items-start justify-between">
             <div className="flex-1">
@@ -552,10 +651,9 @@ export default function ResultsPage() {
                     return null;
                   };
 
-                  const passengerName = extractPassengerName(driverNotes) || 
-                                      extractPassengerName(specialRemarks) || 
-                                      extractPassengerName(tripPurpose) || 
-                                      'Passenger';
+                  const passengerName = passengerNames && passengerNames.length > 0 
+                                      ? passengerNames[0] 
+                                      : extractPassengerName(driverNotes) || 'Passenger';
 
                   // Extract number of passengers (default to 1 if not specified)
                   const extractPassengerCount = (text: string | null): number => {
@@ -576,9 +674,8 @@ export default function ResultsPage() {
                     return 1;
                   };
 
-                  const passengerCount = extractPassengerCount(driverNotes) || 
-                                      extractPassengerCount(specialRemarks) || 
-                                      extractPassengerCount(tripPurpose) || 
+                  const extractedPassengerCount = passengerCount || 
+                                      extractPassengerCount(driverNotes) || 
                                       1;
 
                   // Get city from first location
@@ -596,10 +693,14 @@ export default function ResultsPage() {
                     return 'Location';
                   };
 
-                  const city = getCity();
-                  const passengerText = passengerCount === 1 ? 'passenger' : 'passengers';
+                  const city = tripDestination || getCity();
+                  const passengerText = extractedPassengerCount === 1 ? 'passenger' : 'passengers';
                   
-                  return `${passengerName} x${passengerCount} ${passengerText} in ${city}`;
+                  if (passengerNames && passengerNames.length > 0) {
+                    return `${passengerNames.join(', ')} (${extractedPassengerCount} ${passengerText}) in ${city}`;
+                  } else {
+                    return `${passengerName} x${extractedPassengerCount} ${passengerText} in ${city}`;
+                  }
                 })()}
               </h1>
               <div className="text-lg text-muted-foreground mt-2 flex items-center gap-2">
@@ -829,16 +930,23 @@ export default function ResultsPage() {
             </div>
             
             <div className="space-y-3">
-              {/* Special Remarks */}
-              {specialRemarks && specialRemarks.trim() && (
+              {/* Passenger Information */}
+              {(passengerNames.length > 0 || tripDestination) && (
                  <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
                   <div className="flex items-start gap-3">
                     <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                     <div>
-                      <h4 className="font-semibold text-white mb-1">Special Instructions</h4>
-                      <p className="text-sm text-white/90 leading-relaxed">{specialRemarks}</p>
+                      <h4 className="font-semibold text-white mb-1">Passenger Information</h4>
+                      <div className="text-sm text-white/90 leading-relaxed space-y-1">
+                        {passengerNames.length > 0 && (
+                          <p><strong>Passengers:</strong> {passengerNames.join(', ')} ({passengerCount} {passengerCount === 1 ? 'person' : 'people'})</p>
+                        )}
+                        {tripDestination && (
+                          <p><strong>Destination:</strong> {tripDestination}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -848,23 +956,14 @@ export default function ResultsPage() {
               {(() => {
                 const warnings = [];
                 const notes = driverNotes?.toLowerCase() || '';
-                const purpose = tripPurpose?.toLowerCase() || '';
+                const destination = tripDestination?.toLowerCase() || '';
                 
                 // Check driver notes for warning patterns
-                if (notes.includes('wait') || notes.includes('standby')) {
-                  warnings.push('⏰ WAIT INSTRUCTIONS: Driver may need to wait at specific locations');
-                }
-                if (notes.includes('pickup') || notes.includes('collect') || notes.includes('fetch')) {
-                  warnings.push('📦 PICKUP REQUIRED: Driver needs to collect items before or during trip');
-                }
                 if (notes.includes('vehicle') || notes.includes('car') || notes.includes('specific')) {
                   warnings.push('🚗 VEHICLE REQUIREMENTS: Special vehicle or equipment needed');
                 }
                 if (notes.includes('onboard') || notes.includes('in car') || notes.includes('during trip')) {
                   warnings.push('🚙 ONBOARD SERVICES: Special services required during the journey');
-                }
-                if (notes.includes('security') || notes.includes('bodyguard') || notes.includes('protection')) {
-                  warnings.push('🛡️ SECURITY: Special security measures required');
                 }
                 if (notes.includes('time') && (notes.includes('strict') || notes.includes('exact') || notes.includes('precise'))) {
                   warnings.push('⏱️ TIME CRITICAL: Strict timing requirements must be followed');
@@ -883,16 +982,16 @@ export default function ResultsPage() {
                 }
 
                 // Check trip purpose for additional warnings
-                if (purpose.includes('airport') && (purpose.includes('international') || purpose.includes('terminal'))) {
+                if (destination.includes('airport') && (destination.includes('international') || destination.includes('terminal'))) {
                   warnings.push('✈️ AIRPORT TERMINAL: Check specific terminal and international requirements');
                 }
-                if (purpose.includes('hospital') || purpose.includes('medical')) {
+                if (destination.includes('hospital') || destination.includes('medical')) {
                   warnings.push('🏥 MEDICAL FACILITY: Special access and parking considerations');
                 }
-                if (purpose.includes('wedding') || purpose.includes('ceremony')) {
+                if (destination.includes('wedding') || destination.includes('ceremony')) {
                   warnings.push('💒 WEDDING EVENT: Formal attire and timing requirements');
                 }
-                if (purpose.includes('business') && purpose.includes('meeting')) {
+                if (destination.includes('business') && destination.includes('meeting')) {
                   // Show driver recommendations instead of business meeting warning
                   return (
                     <div className="bg-white/10 border border-white/20 rounded-md p-4">
@@ -910,7 +1009,7 @@ export default function ResultsPage() {
                     </div>
                   );
                 }
-                if (purpose.includes('school') || purpose.includes('university')) {
+                if (destination.includes('school') || destination.includes('university')) {
                   warnings.push('🎓 EDUCATIONAL INSTITUTION: Check access restrictions and timing');
                 }
 
@@ -935,13 +1034,102 @@ export default function ResultsPage() {
                 );
               })()}
 
+              {/* Key Highlights Section */}
+              {executiveReport.highlights && executiveReport.highlights.length > 0 && (
+                <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h4 className="font-semibold text-white mb-2">Key Highlights</h4>
+                      <div className="space-y-2">
+                        {executiveReport.highlights.map((highlight: any, idx: number) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              highlight.type === 'danger' ? 'bg-red-600 text-white' :
+                              highlight.type === 'warning' ? 'bg-yellow-600 text-white' :
+                              highlight.type === 'success' ? 'bg-green-600 text-white' :
+                              'bg-blue-600 text-white'
+                            }`}>
+                              {highlight.type.toUpperCase()}
+                            </span>
+                            <p className="text-sm text-white/90 leading-relaxed">{highlight.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
 
           {/* Executive Report */}
           {executiveReport && (
             <>
+              {/* Debug: Log executive report data */}
+              {console.log('🔍 Executive Report Data:', executiveReport)}
+              {console.log('🔍 Recommendations:', executiveReport.recommendations)}
+              {console.log('🔍 Highlights:', executiveReport.highlights)}
+              {console.log('🔍 Exceptional Info:', executiveReport.exceptionalInformation)}
+              {console.log('🔍 Important Info:', executiveReport.importantInformation)}
+              {console.log('🔍 Driver Notes:', driverNotes)}
 
+              {/* Exceptional Information */}
+              {executiveReport.exceptionalInformation && (
+                <div className="rounded-md p-6 border-2 border-red-200 bg-red-50 mb-6">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
+                      <h3 className="text-xl font-semibold text-red-900 mb-2">Exceptional Information</h3>
+                      <p className="text-sm text-red-800 leading-relaxed">{executiveReport.exceptionalInformation}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Important Information */}
+              {executiveReport.importantInformation && (
+                <div className="rounded-md p-6 border-2 border-amber-200 bg-amber-50 mb-6">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h3 className="text-xl font-semibold text-amber-900 mb-2">Important Information</h3>
+                      <p className="text-sm text-amber-800 leading-relaxed">{executiveReport.importantInformation}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {executiveReport.recommendations && executiveReport.recommendations.length > 0 && (
+                <div className="rounded-md p-6 border-2 border-green-200 bg-green-50 mb-6">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <h3 className="text-xl font-semibold text-green-900 mb-3">Recommendations</h3>
+                      <div className="space-y-3">
+                        {executiveReport.recommendations.map((rec: string, idx: number) => (
+                          <div key={idx} className="flex items-start gap-3">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-600 flex items-center justify-center text-xs font-bold text-white">
+                              {idx + 1}
+                            </span>
+                            <p className="text-sm text-green-800 leading-relaxed">{rec}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Potential Trip Disruptions */}
               <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
@@ -1043,6 +1231,7 @@ export default function ResultsPage() {
                   </div>
                 </div>
               </div>
+
 
             </>
           )}

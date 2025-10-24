@@ -42,6 +42,8 @@ export interface ExecutiveReport {
     type: 'danger' | 'warning' | 'info' | 'success';
     message: string;
   }>;
+  exceptionalInformation?: string;
+  importantInformation?: string;
 }
 
 export async function generateExecutiveReport(
@@ -67,13 +69,21 @@ export async function generateExecutiveReport(
     destinationName: string;
     departureTime: string;
   }>,
-  emailContent?: string
+  emailContent?: string,
+  passengerCount?: number,
+  tripDestination?: string,
+  passengerNames?: string[],
+  driverNotes?: string
 ): Promise<ExecutiveReport> {
   try {
     console.log('\n' + '='.repeat(80));
     console.log('🤖 GENERATING EXECUTIVE PEACE OF MIND REPORT WITH GPT-4O-MINI...');
     console.log('='.repeat(80));
     console.log(`📅 Trip Date: ${tripDate}`);
+    console.log(`👥 Passenger Count: ${passengerCount}`);
+    console.log(`🏙️ Trip Destination: ${tripDestination}`);
+    console.log(`👤 Passenger Names: ${passengerNames}`);
+    console.log(`📝 Driver Notes: ${driverNotes}`);
     console.log(`📍 Locations: ${tripData.length}`);
     if (routeDistance) console.log(`🚗 Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} min`);
     if (trafficPredictions) {
@@ -110,96 +120,25 @@ export async function generateExecutiveReport(
 
 PASSENGER INFORMATION:
 ${(() => {
-  // Extract passenger name from trip data
-  const extractPassengerName = (tripData: any[]): string | null => {
-    for (const loc of tripData) {
-      if (loc.driverNotes) {
-        const patterns = [
-          /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-          /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-          /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-          /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-        ];
-        
-        for (const pattern of patterns) {
-          const match = loc.driverNotes.match(pattern);
-          if (match && match[1]) {
-            return match[1].trim();
-          }
-        }
-      }
-    }
-    return null;
-  };
-
-  // Extract number of passengers
-  const extractPassengerCount = (tripData: any[]): number => {
-    for (const loc of tripData) {
-      if (loc.driverNotes) {
-        const patterns = [
-          /(\d+)\s*(?:passengers?|people|guests?)/i,
-          /(?:x|×)\s*(\d+)/i,
-          /(\d+)\s*(?:pax|persons?)/i,
-        ];
-        
-        for (const pattern of patterns) {
-          const match = loc.driverNotes.match(pattern);
-          if (match && match[1]) {
-            const count = parseInt(match[1]);
-            if (count > 0 && count <= 20) return count;
-          }
-        }
-      }
-    }
-    return 1;
-  };
-
-  // Get city from first location
-  const getCity = (): string => {
-    if (tripData.length > 0) {
-      const firstLocation = tripData[0];
-      if (firstLocation.locationName) {
-        const parts = firstLocation.locationName.split(',');
-        if (parts.length >= 2) {
-          return parts[parts.length - 1].trim();
-        }
-      }
-    }
-    return 'Location';
-  };
-
-  const passengerName = extractPassengerName(tripData) || 'Passenger';
-  const passengerCount = extractPassengerCount(tripData);
-  const city = getCity();
-  const passengerText = passengerCount === 1 ? 'passenger' : 'passengers';
+  let passengerInfo = '';
   
-  // Extract vehicle type
-  const extractVehicleType = (tripData: any[]): string => {
-    for (const loc of tripData) {
-      if (loc.driverNotes) {
-        const vehiclePatterns = [
-          /(?:vehicle|car|sedan|limo|limousine|suv|van|minivan|bus|coach|taxi|cab)\s*:?\s*([^.,\n]+)/i,
-          /(?:request|need|want|require)\s+(?:a\s+)?([^.,\n]+?)\s+(?:vehicle|car|sedan|limo|limousine|suv|van|minivan|bus|coach|taxi|cab)/i,
-          /(?:luxury|premium|executive|standard|economy|compact|full-size|mid-size|large|small)\s+(?:sedan|limo|limousine|suv|van|minivan|bus|coach|taxi|cab)/i,
-        ];
-        
-        for (const pattern of vehiclePatterns) {
-          const match = loc.driverNotes.match(pattern);
-          if (match && match[1]) {
-            const vehicle = match[1].trim();
-            if (vehicle.length > 2 && vehicle.length < 50) {
-              return vehicle;
-            }
-          }
-        }
-      }
-    }
-    return 'Luxury Sedan'; // Default vehicle type
-  };
-
-  const vehicleType = extractVehicleType(tripData);
+  if (passengerCount && passengerCount > 0) {
+    passengerInfo += `Number of Passengers: ${passengerCount}\n`;
+  }
   
-  return `${passengerName} x${passengerCount} ${passengerText} in ${city}\nVehicle: ${vehicleType}`;
+  if (passengerNames && passengerNames.length > 0) {
+    passengerInfo += `Passenger Names: ${passengerNames.join(', ')}\n`;
+  }
+  
+  if (tripDestination) {
+    passengerInfo += `Trip Destination: ${tripDestination}\n`;
+  }
+  
+  if (driverNotes) {
+    passengerInfo += `Driver Notes: ${driverNotes}\n`;
+  }
+  
+  return passengerInfo || 'Passenger information not available';
 })()}
 
 ${emailContent ? `
@@ -243,9 +182,24 @@ ANALYSIS REQUIREMENTS:
    - Specific car parks if parking is limited
    - Top-rated cafes for convenience
    - Clothing advice for the weather like raincoats, umbrellas, etc.
+   - ALWAYS provide 3-5 specific, actionable recommendations
 
 6. KEY HIGHLIGHTS: 4-6 critical points
    Type: danger (high risk), warning (moderate), info (neutral), success (positive)
+
+7. EXCEPTIONAL INFORMATION: Extract from driver notes
+   - Content with the most emphasis (URGENT, VIP, critical requirements)
+   - Special security measures, privacy requirements
+   - High-priority instructions that need immediate attention
+   - VIP status, luxury requirements, special handling
+   - ALWAYS include this field if driver notes contain urgent/VIP content
+
+8. IMPORTANT INFORMATION: Extract from driver notes  
+   - Other important data driver needs to know
+   - Contact details, preferences, instructions
+   - Vehicle requirements, amenities needed
+   - Meeting points, timing details, special arrangements
+   - ALWAYS include this field if driver notes contain important details
 
 Return JSON:
 {
@@ -255,8 +209,18 @@ Return JSON:
   "topDisruptor": "The ONE thing most likely to disrupt trip and why",
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
   "recommendations": ["3-5 items: timing, parking CPZ advice, car parks, cafes, weather clothing (raincoats/umbrellas)"],
-  "highlights": [{"type": "danger|warning|info|success", "message": "str with source"}]
+  "highlights": [{"type": "danger|warning|info|success", "message": "str with source"}],
+  "exceptionalInformation": "URGENT/VIP content from driver notes - security measures, privacy requirements, high-priority instructions",
+  "importantInformation": "Contact details, vehicle requirements, meeting points, timing details from driver notes"
 }
+
+CRITICAL: You MUST include exceptionalInformation and importantInformation fields in your response. Extract content from the driver notes provided in the PASSENGER INFORMATION section.
+
+MANDATORY FIELDS:
+- recommendations: MUST be an array of 3-5 actionable items
+- highlights: MUST be an array of 4-6 critical points with type and message
+- exceptionalInformation: MUST extract urgent/VIP content from driver notes
+- importantInformation: MUST extract contact details and important instructions from driver notes
 
 Cite sources (e.g., "78 crimes - UK Police Data"). Use actual data numbers.`;
 
