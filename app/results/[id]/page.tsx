@@ -223,6 +223,166 @@ export default function ResultsPage() {
   const [editedDriverNotes, setEditedDriverNotes] = useState<string>('');
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
 
+  // Function to extract flight numbers from driver notes
+  const extractFlightNumbers = (notes: string): {[locationName: string]: string[]} => {
+    if (!notes) return {};
+    
+    console.log('🔍 [DEBUG] extractFlightNumbers - Input notes:', notes);
+    
+    const flightMap: {[locationName: string]: string[]} = {};
+    
+    // Common flight number patterns - more comprehensive
+    const flightPatterns = [
+      /\b([A-Z]{2,3}\s*\d{3,4})\b/g, // BA123, AA1234, etc.
+      /\b(flight\s*([A-Z]{2,3}\s*\d{3,4}))/gi, // "flight BA123"
+      /\b([A-Z]{2,3}\s*\d{3,4})\s*(?:arrives?|departs?|lands?|takes\s*off)/gi, // "BA123 arrives"
+      /\b([A-Z]{2,3}\s*\d{3,4})\s*(?:at|from|to)\s*(?:heathrow|gatwick|stansted|luton|city|airport)/gi, // "BA123 at Heathrow"
+      /\b(heathrow|gatwick|stansted|luton|city|airport).*?([A-Z]{2,3}\s*\d{3,4})/gi, // "Heathrow BA123"
+    ];
+    
+    // Common airport keywords
+    const airportKeywords = [
+      'heathrow', 'gatwick', 'stansted', 'luton', 'city', 'airport',
+      'terminal', 'arrivals', 'departures', 'lhr', 'lgw', 'stn', 'ltn'
+    ];
+    
+    // Split notes into sentences and look for flight numbers near airport mentions
+    const sentences = notes.split(/[.!?]+/);
+    console.log('🔍 [DEBUG] extractFlightNumbers - Sentences:', sentences);
+    
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase();
+      console.log('🔍 [DEBUG] extractFlightNumbers - Checking sentence:', sentence);
+      
+      // Check if sentence mentions an airport
+      const mentionedAirport = airportKeywords.find(keyword => 
+        lowerSentence.includes(keyword)
+      );
+      
+      console.log('🔍 [DEBUG] extractFlightNumbers - Mentioned airport:', mentionedAirport);
+      
+      if (mentionedAirport) {
+        // Look for flight numbers in this sentence
+        flightPatterns.forEach(pattern => {
+          const matches = sentence.match(pattern);
+          if (matches) {
+            console.log('🔍 [DEBUG] extractFlightNumbers - Found flight matches:', matches);
+            matches.forEach(match => {
+              // Clean up the flight number
+              const flightNumber = match.replace(/flight\s*/gi, '').trim();
+              if (flightNumber) {
+                console.log('🔍 [DEBUG] extractFlightNumbers - Cleaned flight number:', flightNumber);
+                // Determine airport name based on context
+                let airportName = 'Airport';
+                if (lowerSentence.includes('heathrow') || lowerSentence.includes('lhr')) {
+                  airportName = 'Heathrow Airport';
+                } else if (lowerSentence.includes('gatwick') || lowerSentence.includes('lgw')) {
+                  airportName = 'Gatwick Airport';
+                } else if (lowerSentence.includes('stansted') || lowerSentence.includes('stn')) {
+                  airportName = 'Stansted Airport';
+                } else if (lowerSentence.includes('luton') || lowerSentence.includes('ltn')) {
+                  airportName = 'Luton Airport';
+                } else if (lowerSentence.includes('city')) {
+                  airportName = 'London City Airport';
+                }
+                
+                console.log('🔍 [DEBUG] extractFlightNumbers - Airport name:', airportName);
+                
+                if (!flightMap[airportName]) {
+                  flightMap[airportName] = [];
+                }
+                if (!flightMap[airportName].includes(flightNumber)) {
+                  flightMap[airportName].push(flightNumber);
+                }
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    console.log('🔍 [DEBUG] extractFlightNumbers - Final flight map:', flightMap);
+    return flightMap;
+  };
+
+  // Function to extract car information from driver notes
+  const extractCarInfo = (notes: string): string | null => {
+    if (!notes) {
+      console.log('🚗 [CAR DEBUG] No driver notes provided');
+      return null;
+    }
+    
+    console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION START =====');
+    console.log('🚗 [CAR DEBUG] Input driver notes:', notes);
+    console.log('🚗 [CAR DEBUG] Notes length:', notes.length);
+    
+    // Common car patterns - more comprehensive
+    const carPatterns = [
+      // Brand only
+      /\b(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\b/gi,
+      // Color + Brand
+      /\b(black|white|silver|grey|gray|blue|red|green|gold|champagne)\s+(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\b/gi,
+      // Brand + Model
+      /\b(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\s+(s-class|e-class|c-class|a-class|x5|x3|x1|a4|a6|a8|q5|q7|model\s*s|model\s*x|es|ls|gs|rx|gx|lx|continental|flying\s*spur|ghost|phantom|911|cayenne|macan|boxster|carrera|488|f8|huracan|aventador|granturismo|quattroporte|db11|vantage|rapide)\b/gi,
+      // Vehicle type
+      /\b(executive|luxury|premium|vip|chauffeur|limousine|sedan|saloon|suv|coupe|convertible|estate|wagon)\s+(car|vehicle|auto)\b/gi,
+      // Requirements
+      /\b(car|vehicle|auto)\s+(must\s*be|should\s*be|needs\s*to\s*be|required)\s+(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\b/gi,
+      // Color + Type
+      /\b(black|white|silver|grey|gray|blue|red|green|gold|champagne)\s+(executive|luxury|premium|vip|chauffeur|limousine|sedan|saloon|suv|coupe|convertible|estate|wagon)\s+(car|vehicle|auto)\b/gi,
+      // Simple mentions
+      /\b(mercedes|bmw|audi|lexus|tesla|jaguar|bentley|rolls\s*royce|porsche|ferrari|lamborghini|maserati|aston\s*martin)\s+(car|vehicle|auto)\b/gi,
+      // "black car", "luxury vehicle" etc
+      /\b(black|white|silver|grey|gray|blue|red|green|gold|champagne)\s+(car|vehicle|auto)\b/gi
+    ];
+    
+    console.log('🚗 [CAR DEBUG] Total patterns to check:', carPatterns.length);
+    
+    // Split notes into sentences and look for car mentions
+    const sentences = notes.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    console.log('🚗 [CAR DEBUG] Sentences found:', sentences.length);
+    console.log('🚗 [CAR DEBUG] Sentences:', sentences);
+    
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i].trim();
+      console.log(`🚗 [CAR DEBUG] Checking sentence ${i + 1}:`, sentence);
+      
+      for (let j = 0; j < carPatterns.length; j++) {
+        const pattern = carPatterns[j];
+        console.log(`🚗 [CAR DEBUG] Testing pattern ${j + 1}:`, pattern);
+        
+        const matches = sentence.match(pattern);
+        if (matches && matches.length > 0) {
+          console.log('🚗 [CAR DEBUG] ✅ MATCH FOUND!');
+          console.log('🚗 [CAR DEBUG] Matches:', matches);
+          console.log('🚗 [CAR DEBUG] Pattern that matched:', pattern);
+          
+          // Clean up and format the car mention
+          let carMention = matches[0].trim();
+          console.log('🚗 [CAR DEBUG] Raw match:', carMention);
+          
+          // Capitalize first letter of each word
+          carMention = carMention.replace(/\b\w/g, l => l.toUpperCase());
+          console.log('🚗 [CAR DEBUG] After capitalization:', carMention);
+          
+          // Clean up common formatting issues
+          carMention = carMention.replace(/\s+/g, ' ');
+          carMention = carMention.replace(/\bCar\b/g, 'car');
+          carMention = carMention.replace(/\bVehicle\b/g, 'vehicle');
+          carMention = carMention.replace(/\bAuto\b/g, 'auto');
+          
+          console.log('🚗 [CAR DEBUG] Final formatted car mention:', carMention);
+          console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION SUCCESS =====');
+          return carMention;
+        }
+      }
+    }
+    
+    console.log('🚗 [CAR DEBUG] ❌ No car information found in any sentence');
+    console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION FAILED =====');
+    return null;
+  };
+
   const handleEditLocationName = (locationId: string, currentName: string) => {
     setEditingLocationId(locationId);
     // Get the current display name or use the first part of the full address
@@ -715,6 +875,38 @@ export default function ResultsPage() {
                   year: 'numeric' 
                 })}</span>
               </div>
+              
+              {/* Car Information Display */}
+              {(() => {
+                console.log('🚗 [CAR DISPLAY] ===== CAR DISPLAY START =====');
+                console.log('🚗 [CAR DISPLAY] Driver Notes:', driverNotes);
+                console.log('🚗 [CAR DISPLAY] Driver Notes type:', typeof driverNotes);
+                console.log('🚗 [CAR DISPLAY] Driver Notes length:', driverNotes?.length || 0);
+                
+                const carInfo = extractCarInfo(driverNotes);
+                console.log('🚗 [CAR DISPLAY] Extracted Car Info:', carInfo);
+                console.log('🚗 [CAR DISPLAY] Car Info type:', typeof carInfo);
+                console.log('🚗 [CAR DISPLAY] Car Info truthy:', !!carInfo);
+                
+                if (carInfo) {
+                  console.log('🚗 [CAR DISPLAY] ✅ Rendering car information:', carInfo);
+                  console.log('🚗 [CAR DISPLAY] ===== CAR DISPLAY SUCCESS =====');
+                  return (
+                    <div className="text-base text-muted-foreground mt-1 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1m-1-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1" />
+                      </svg>
+                      <span>Vehicle: </span>
+                      <span className="font-semibold text-foreground">{carInfo}</span>
+                    </div>
+                  );
+                } else {
+                  console.log('🚗 [CAR DISPLAY] ❌ No car information to display');
+                  console.log('🚗 [CAR DISPLAY] ===== CAR DISPLAY FAILED =====');
+                }
+                return null;
+              })()}
             </div>
             
               {/* Live Trip Button */}
@@ -909,7 +1101,32 @@ export default function ResultsPage() {
                             }}
                             className="text-lg text-card-foreground font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer"
                           >
-                            {location.formattedAddress || location.fullAddress || location.address || location.name}
+                            {(() => {
+                              const baseLocation = location.formattedAddress || location.fullAddress || location.address || location.name;
+                              const flightMap = extractFlightNumbers(driverNotes);
+                              const locationName = baseLocation;
+                              
+                              // Check if this location is an airport and has flight numbers
+                              const isAirport = locationName.toLowerCase().includes('airport') || 
+                                              locationName.toLowerCase().includes('heathrow') ||
+                                              locationName.toLowerCase().includes('gatwick') ||
+                                              locationName.toLowerCase().includes('stansted') ||
+                                              locationName.toLowerCase().includes('luton');
+                              
+                              if (isAirport && Object.keys(flightMap).length > 0) {
+                                // Find matching airport in flight map
+                                const matchingAirport = Object.keys(flightMap).find(airport => 
+                                  locationName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                                );
+                                
+                                if (matchingAirport && flightMap[matchingAirport].length > 0) {
+                                  const flights = flightMap[matchingAirport].join(', ');
+                                  return `${baseLocation} for flight ${flights}`;
+                                }
+                              }
+                              
+                              return baseLocation;
+                            })()}
                           </button>
                         </div>
                       </div>
@@ -1311,9 +1528,34 @@ export default function ResultsPage() {
                         </div>
                       )}
                       
-                      {/* Full Address */}
+                      {/* Full Address with Flight Info */}
                       <p className="text-xs text-primary-foreground/70 mt-1">
-                        {result.fullAddress || result.locationName}
+                        {(() => {
+                          const baseLocation = result.fullAddress || result.locationName;
+                          const flightMap = extractFlightNumbers(driverNotes);
+                          const locationName = baseLocation;
+                          
+                          // Check if this location is an airport and has flight numbers
+                          const isAirport = locationName.toLowerCase().includes('airport') || 
+                                          locationName.toLowerCase().includes('heathrow') ||
+                                          locationName.toLowerCase().includes('gatwick') ||
+                                          locationName.toLowerCase().includes('stansted') ||
+                                          locationName.toLowerCase().includes('luton');
+                          
+                          if (isAirport && Object.keys(flightMap).length > 0) {
+                            // Find matching airport in flight map
+                            const matchingAirport = Object.keys(flightMap).find(airport => 
+                              locationName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                            );
+                            
+                            if (matchingAirport && flightMap[matchingAirport].length > 0) {
+                              const flights = flightMap[matchingAirport].join(', ');
+                              return `${baseLocation} for flight ${flights}`;
+                            }
+                          }
+                          
+                          return baseLocation;
+                        })()}
                       </p>
                     </div>
                   </div>

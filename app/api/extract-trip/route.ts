@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a trip planning assistant that extracts location and time information from unstructured text (emails, messages, etc.).
 
+CRITICAL: For driverNotes, you MUST preserve ALL content from the original email. Do NOT remove, summarize, or cut out any information including vehicle details, flight numbers, contact info, or any other important details.
+
 Extract:
 1. All locations in London (addresses, landmarks, stations, airports, etc.)
 2. Associated times for each location
@@ -116,7 +118,7 @@ Return a JSON object with this exact structure:
   "passengerCount": number,
   "tripDestination": "Main destination city only (e.g., 'London', 'Manchester', 'Birmingham')",
   "passengerNames": ["Name1", "Name2", "Name3"],
-  "driverNotes": "STRUCTURED and ORGANIZED version of original email content as a single text string, preserving tone and importance. Do NOT rewrite or replace - just groom, structure and organize for future analysis",
+  "driverNotes": "COMPLETE and COMPREHENSIVE version of original email content as a single text string. PRESERVE ALL details including vehicle specifications, flight numbers, contact information, timing details, security requirements, and any other important information. Do NOT remove or summarize any content - just rephrase and organize for clarity while maintaining the original tone and urgency.",
           "locations": [
             {
               "location": "Full location name in London",
@@ -169,15 +171,19 @@ Rules for trip destination:
 - Examples: "London City Airport" → "London", "Heathrow Airport" → "London", "Manchester Airport" → "Manchester"
 
 Rules for driver notes:
-- PRESERVE the original tone and importance from the email
-- STRUCTURE and ORGANIZE the content for future analysis
-- DO NOT rewrite or replace the original meaning
-- Groom the content to be clear and actionable for drivers
-- Maintain all critical details and emphasis from original email
-- Format in a structured way that's easy to analyze
-- Keep the original voice and context intact
+- PRESERVE ALL content from the original email - do NOT remove or summarize anything
+- INCLUDE vehicle specifications (make, model, color, type, requirements)
+- INCLUDE flight numbers, airline codes, terminal information
+- INCLUDE contact details, phone numbers, email addresses
+- INCLUDE timing details, deadlines, urgency indicators
+- INCLUDE security requirements, VIP status, special instructions
+- INCLUDE meeting details, venue information, dress codes
+- INCLUDE parking requirements, waiting instructions, pickup details
+- MAINTAIN the original tone, urgency, and emphasis
+- REPHRASE and ORGANIZE for clarity while keeping ALL information
+- STRUCTURE the content logically but preserve every detail
 - Return as a SINGLE TEXT STRING, not a JSON object
-- Example: If email says "URGENT: VIP client needs luxury car", preserve that urgency and VIP status`,
+- Example: If email says "URGENT: VIP client needs black Mercedes S-Class, flight BA177, contact Elena +44 20 1234 5678", preserve ALL of this information`,
         },
         {
           role: 'user',
