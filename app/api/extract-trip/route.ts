@@ -104,16 +104,19 @@ Extract:
 1. All locations in London (addresses, landmarks, stations, airports, etc.)
 2. Associated times for each location
 3. Trip date if mentioned
-4. Trip purpose and expectations for the driver
-5. Special remarks and sensitivities for the driver
-6. Specific details for each location: person names, company names, venue names, meeting types, etc.
+4. Passenger names and count
+5. Trip destination/city
+6. Driver notes (structured email content for driver)
+7. Specific details for each location: person names, company names, venue names, meeting types, etc.
 
 Return a JSON object with this exact structure:
 {
   "success": true,
   "date": "YYYY-MM-DD or null if not mentioned",
-  "tripPurpose": "Operational details for the driver: service requirements, timing constraints, client expectations, and specific protocols needed to perform the job effectively",
-  "specialRemarks": "Special instructions, sensitivities, or important details the driver needs to know (VIP client, time constraints, special requirements, etc.)",
+  "passengerCount": number,
+  "tripDestination": "Main destination city only (e.g., 'London', 'Manchester', 'Birmingham')",
+  "passengerNames": ["Name1", "Name2", "Name3"],
+  "driverNotes": "STRUCTURED and ORGANIZED version of original email content as a single text string, preserving tone and importance. Do NOT rewrite or replace - just groom, structure and organize for future analysis",
           "locations": [
             {
               "location": "Full location name in London",
@@ -152,20 +155,29 @@ Rules for location purpose:
 - Include person names, company names, or venue names when mentioned in the email
 - If specific details are unclear, use the location name with the action
 
-Rules for trip purpose:
-- Focus on operational details the driver needs to know to do their job well
-- Include specific service requirements, timing constraints, and client expectations
-- Mention any special protocols, waiting times, or service standards
-- Include passenger details, meeting types, or business context that affects driving
-- Keep it practical and actionable (2-3 sentences)
-- Example: "VIP business client with back-to-back meetings. Driver must maintain strict punctuality, wait at each location, and provide discretion. Client expects premium vehicle and professional service throughout the day."
+Rules for passenger extraction:
+- Extract all passenger names mentioned in the email
+- Count total number of passengers
+- Extract main destination city or location
+- Look for patterns like "Mr. Smith", "John and Mary", "3 passengers", "group of 4"
 
-Rules for special remarks:
-- Extract any special instructions, sensitivities, or important details
-- Include VIP status, time constraints, special requirements, dietary needs, accessibility needs
-- Mention any specific protocols or expectations
-- Include any warnings or important considerations
-- Example: "VIP client - ensure discretion and professionalism. Client has tight schedule - punctuality critical. No smoking in vehicle."`,
+Rules for trip destination:
+- Extract ONLY the city name (e.g., "London", "Manchester", "Birmingham")
+- Do NOT include specific addresses, airports, or venues
+- If multiple cities mentioned, choose the main destination city
+- If no specific city mentioned, use "London" as default
+- Examples: "London City Airport" → "London", "Heathrow Airport" → "London", "Manchester Airport" → "Manchester"
+
+Rules for driver notes:
+- PRESERVE the original tone and importance from the email
+- STRUCTURE and ORGANIZE the content for future analysis
+- DO NOT rewrite or replace the original meaning
+- Groom the content to be clear and actionable for drivers
+- Maintain all critical details and emphasis from original email
+- Format in a structured way that's easy to analyze
+- Keep the original voice and context intact
+- Return as a SINGLE TEXT STRING, not a JSON object
+- Example: If email says "URGENT: VIP client needs luxury car", preserve that urgency and VIP status`,
         },
         {
           role: 'user',
@@ -234,8 +246,10 @@ Rules for special remarks:
     const response = {
       success: true,
       date: parsed.date || null,
-      tripPurpose: parsed.tripPurpose || null,
-      specialRemarks: parsed.specialRemarks || null,
+      passengerCount: parsed.passengerCount || 1,
+      tripDestination: parsed.tripDestination || null,
+      passengerNames: parsed.passengerNames || [],
+      driverNotes: parsed.driverNotes || null,
       locations: verifiedLocations,
     };
     console.log('📤 [API] Final response:', JSON.stringify(response, null, 2));

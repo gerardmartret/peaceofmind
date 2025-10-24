@@ -531,8 +531,9 @@ export default function Home() {
   }> | null>(null);
   const [extractedDate, setExtractedDate] = useState<string | null>(null);
   const [extractedDriverSummary, setExtractedDriverSummary] = useState<string | null>(null);
-  const [tripPurpose, setTripPurpose] = useState<string>('');
-  const [specialRemarks, setSpecialRemarks] = useState<string>('');
+  const [passengerCount, setPassengerCount] = useState<number>(1);
+  const [tripDestination, setTripDestination] = useState<string>('');
+  const [passengerNames, setPassengerNames] = useState<string[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
 
@@ -651,8 +652,9 @@ export default function Home() {
           setExtractedLocations(parsed.locations || null);
           setExtractedDate(parsed.date || null);
           setExtractedDriverSummary(parsed.driverSummary || null);
-          setTripPurpose(parsed.tripPurpose || '');
-          setSpecialRemarks(parsed.specialRemarks || '');
+          setPassengerCount(parsed.passengerCount || 1);
+          setTripDestination(parsed.tripDestination || '');
+          setPassengerNames(parsed.passengerNames || []);
           
           console.log('✅ [FRONTEND] Restored extraction data from session storage');
         } catch (error) {
@@ -793,8 +795,9 @@ export default function Home() {
           locations: locationsWithSwappedTimes,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
-          tripPurpose: tripPurpose,
-          specialRemarks: specialRemarks,
+          passengerCount: passengerCount,
+          tripDestination: tripDestination,
+          passengerNames: passengerNames,
           timestamp: new Date().toISOString(),
         }));
         console.log('💾 [FRONTEND] Saved reordered extracted locations to session storage');
@@ -1307,6 +1310,7 @@ export default function Home() {
             routeDistance: trafficData?.totalDistance || '0 km',
             routeDuration: trafficData?.totalMinutes || 0,
             trafficPredictions: trafficData?.success ? trafficData.data : null,
+            emailContent: extractionText || null,
           }),
         });
 
@@ -1335,8 +1339,9 @@ export default function Home() {
         traffic_predictions: trafficData as any,
         executive_report: executiveReportData as any,
         driver_notes: driverSummary || null,
-        trip_purpose: tripPurpose || null,
-        special_remarks: specialRemarks || null
+        passenger_count: passengerCount || 1,
+        trip_destination: tripDestination || null,
+        passenger_names: passengerNames || []
       };
 
       // Add user_id for authenticated users
@@ -1567,11 +1572,23 @@ export default function Home() {
         console.log('📝 [FRONTEND] Driver summary:', data.driverSummary);
       }
       
+      console.log('🔍 [FRONTEND] Full API response:', data);
+      console.log('🔍 [FRONTEND] Data keys:', Object.keys(data));
+      console.log('🔍 [FRONTEND] driverNotes type:', typeof data.driverNotes);
+      console.log('🔍 [FRONTEND] driverNotes value:', data.driverNotes);
+      
       setExtractedLocations(data.locations);
       setExtractedDate(data.date);
-      setExtractedDriverSummary(data.driverSummary);
-      setTripPurpose(data.tripPurpose || '');
-      setSpecialRemarks(data.specialRemarks || '');
+      setExtractedDriverSummary(data.driverNotes);
+      setPassengerCount(data.passengerCount || 1);
+      setTripDestination(data.tripDestination || '');
+      setPassengerNames(data.passengerNames || []);
+      
+      // Console logging for testing
+      console.log('📝 [FRONTEND] Driver Notes:', data.driverNotes);
+      console.log('👥 [FRONTEND] Passenger Count:', data.passengerCount);
+      console.log('🏙️ [FRONTEND] Trip Destination:', data.tripDestination);
+      console.log('👤 [FRONTEND] Passenger Names:', data.passengerNames);
       setLastExtractedText(extractionText);
 
       // Save to session storage
@@ -1581,9 +1598,10 @@ export default function Home() {
           text: extractionText,
           locations: data.locations,
           date: data.date,
-          driverSummary: data.driverSummary,
-          tripPurpose: data.tripPurpose,
-          specialRemarks: data.specialRemarks,
+          driverSummary: data.driverNotes,
+          passengerCount: data.passengerCount,
+          tripDestination: data.tripDestination,
+          passengerNames: data.passengerNames,
           timestamp: new Date().toISOString(),
         }));
         console.log('✅ [FRONTEND] Saved to session storage');
@@ -1646,8 +1664,9 @@ export default function Home() {
             locations: updatedLocations,
             date: extractedDate,
             driverSummary: extractedDriverSummary,
-            tripPurpose: tripPurpose,
-            specialRemarks: specialRemarks,
+            passengerCount: passengerCount,
+            tripDestination: tripDestination,
+            passengerNames: passengerNames,
             timestamp: new Date().toISOString(),
           }));
           console.log('💾 [FRONTEND] Saved manual location edit to session storage');
@@ -1688,8 +1707,9 @@ export default function Home() {
             locations: updatedLocations,
             date: extractedDate,
             driverSummary: extractedDriverSummary,
-            tripPurpose: tripPurpose,
-            specialRemarks: specialRemarks,
+            passengerCount: passengerCount,
+            tripDestination: tripDestination,
+            passengerNames: passengerNames,
             timestamp: new Date().toISOString(),
           }));
           console.log('💾 [FRONTEND] Saved time edit to session storage');
@@ -1709,8 +1729,9 @@ export default function Home() {
         locations: extractedLocations,
         date: value,
         driverSummary: extractedDriverSummary,
-        tripPurpose: tripPurpose,
-        specialRemarks: specialRemarks,
+        passengerCount: passengerCount,
+        tripDestination: tripDestination,
+        passengerNames: passengerNames,
         timestamp: new Date().toISOString(),
       }));
     }
@@ -1738,8 +1759,9 @@ export default function Home() {
           locations: updatedLocations,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
-          tripPurpose: tripPurpose,
-          specialRemarks: specialRemarks,
+          passengerCount: passengerCount,
+          tripDestination: tripDestination,
+          passengerNames: passengerNames,
           timestamp: new Date().toISOString(),
         }));
         console.log('💾 [FRONTEND] Saved Google Maps selection to session storage');
@@ -1760,8 +1782,9 @@ export default function Home() {
           locations: updatedLocations,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
-          tripPurpose: tripPurpose,
-          specialRemarks: specialRemarks,
+          passengerCount: passengerCount,
+          tripDestination: tripDestination,
+          passengerNames: passengerNames,
           timestamp: new Date().toISOString(),
         }));
         console.log('💾 [FRONTEND] Saved location removal to session storage');
@@ -1988,8 +2011,9 @@ export default function Home() {
                             locations: updatedLocations,
                             date: extractedDate,
                             driverSummary: extractedDriverSummary,
-                            tripPurpose: tripPurpose,
-                            specialRemarks: specialRemarks,
+      passengerCount: passengerCount,
+      tripDestination: tripDestination,
+      passengerNames: passengerNames,
                             timestamp: new Date().toISOString(),
                           }));
                           console.log('💾 [FRONTEND] Saved new location to session storage');

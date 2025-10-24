@@ -66,7 +66,8 @@ export async function generateExecutiveReport(
     originName: string;
     destinationName: string;
     departureTime: string;
-  }>
+  }>,
+  emailContent?: string
 ): Promise<ExecutiveReport> {
   try {
     console.log('\n' + '='.repeat(80));
@@ -201,7 +202,11 @@ ${(() => {
   return `${passengerName} x${passengerCount} ${passengerText} in ${city}\nVehicle: ${vehicleType}`;
 })()}
 
-TRIP DETAILS:
+${emailContent ? `
+EMAIL CONTEXT:
+${emailContent}
+
+` : ''}TRIP DETAILS:
 Date: ${tripDate}
 ${routeDistance ? `Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} minutes` : ''}
 Locations: ${tripData.length} stops
