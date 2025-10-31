@@ -11,6 +11,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Car } from 'lucide-react';
+import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
+import { searchNearbyCafes } from '@/lib/google-cafes';
+import { searchEmergencyServices } from '@/lib/google-emergency-services';
+import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
@@ -205,6 +209,7 @@ export default function ResultsPage() {
   const params = useParams();
   const tripId = params.id as string;
   const { user, isAuthenticated } = useAuth();
+  const { isLoaded: isGoogleMapsLoaded } = useGoogleMaps();
   const [tripData, setTripData] = useState<TripData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +230,15 @@ export default function ResultsPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [editedDriverNotes, setEditedDriverNotes] = useState<string>('');
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
+  
+  // Update functionality state
+  const [updateText, setUpdateText] = useState<string>('');
+  const [extractedUpdates, setExtractedUpdates] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
+  const [comparisonDiff, setComparisonDiff] = useState<any>(null);
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   
   // Live Trip functionality state
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
@@ -952,12 +966,43 @@ export default function ResultsPage() {
         }
         
         // Transform database data to match expected TripData format
+        // Ensure traffic_predictions has correct structure with success flag
+        let trafficPredictionsFormatted: any = null;
+        const rawTrafficPredictions = data.traffic_predictions as any;
+        
+        if (rawTrafficPredictions) {
+          // Check if it already has the correct structure
+          if (rawTrafficPredictions.success !== undefined && Array.isArray(rawTrafficPredictions.data)) {
+            // Already in correct format
+            trafficPredictionsFormatted = rawTrafficPredictions;
+          } else if (Array.isArray(rawTrafficPredictions)) {
+            // Legacy format - array of route data
+            trafficPredictionsFormatted = {
+              success: true,
+              data: rawTrafficPredictions,
+            };
+          } else if (rawTrafficPredictions.data && Array.isArray(rawTrafficPredictions.data)) {
+            // Has data array but missing success flag or other fields
+            trafficPredictionsFormatted = {
+              success: rawTrafficPredictions.success !== false, // Default to true if not explicitly false
+              data: rawTrafficPredictions.data,
+              totalDistance: rawTrafficPredictions.totalDistance || '0 km',
+              totalMinutes: rawTrafficPredictions.totalMinutes || 0,
+              totalMinutesNoTraffic: rawTrafficPredictions.totalMinutesNoTraffic || 0,
+            };
+          } else {
+            // Invalid format - set to null to show "Calculating..."
+            console.warn('⚠️ Invalid traffic_predictions format:', rawTrafficPredictions);
+            trafficPredictionsFormatted = null;
+          }
+        }
+
         const tripData: TripData = {
           tripDate: data.trip_date,
           userEmail: data.user_email,
           locations: data.locations as any,
           tripResults: data.trip_results as any,
-          trafficPredictions: data.traffic_predictions as any,
+          trafficPredictions: trafficPredictionsFormatted,
           executiveReport: data.executive_report as any,
           passengerCount: data.passenger_count || 1,
           tripDestination: data.trip_destination || '',
@@ -972,6 +1017,7 @@ export default function ResultsPage() {
         setPassengerCount(data.passenger_count || 1);
         setTripDestination(data.trip_destination || '');
         setPassengerNames([]); // passenger_names column doesn't exist in DB, set empty array
+        setCurrentVersion(data.version || 1); // Load current version
         
         // Populate location display names from database
         const displayNames: {[key: string]: string} = {};
@@ -1026,6 +1072,729 @@ export default function ResultsPage() {
     return 'text-red-600 dark:text-red-400';
   };
 
+  // Helper function to parse notes into bullet points
+  const parseNotesToBullets = (notes: string | null): string[] => {
+    if (!notes) return [];
+    return notes
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && (line.startsWith('-') || line.startsWith('•') || line.match(/^\d+\./)))
+      .map(line => line.replace(/^[-•]\s*/, '').replace(/^\d+\.\s*/, '').trim());
+  };
+
+  // Helper function to merge and deduplicate notes
+  const mergeNotes = (existingNotes: string, newNotes: string): string => {
+    const existingBullets = parseNotesToBullets(existingNotes);
+    const newBullets = parseNotesToBullets(newNotes);
+    
+    // Simple deduplication: check if a bullet point is similar to an existing one
+    const isSimilar = (bullet1: string, bullet2: string): boolean => {
+      const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      const norm1 = normalize(bullet1);
+      const norm2 = normalize(bullet2);
+      
+      // Exact match or one contains the other (for fuzzy matching)
+      if (norm1 === norm2) return true;
+      if (norm1.length > 20 && norm2.length > 20) {
+        const words1 = norm1.split(/\s+/);
+        const words2 = norm2.split(/\s+/);
+        const commonWords = words1.filter(w => words2.includes(w));
+        const similarity = commonWords.length / Math.max(words1.length, words2.length);
+        return similarity > 0.7; // 70% similarity threshold
+      }
+      return false;
+    };
+
+    // Keep existing notes first
+    const merged: string[] = [...existingBullets];
+    
+    // Add new notes that aren't similar to existing ones
+    for (const newBullet of newBullets) {
+      const isDuplicate = merged.some(existing => isSimilar(existing, newBullet));
+      if (!isDuplicate) {
+        merged.push(newBullet);
+      }
+    }
+
+    // Format as bullet points
+    return merged.map(bullet => `- ${bullet}`).join('\n');
+  };
+
+  // Compare extracted updates with current state
+  const compareTripData = (extracted: any, current: TripData) => {
+    const diff: any = {
+      tripDateChanged: false,
+      locations: [] as any[],
+      passengerInfoChanged: false,
+      vehicleInfoChanged: false,
+      notesChanged: false,
+      mergedNotes: '',
+    };
+
+    // Compare trip date
+    if (extracted.date && extracted.date !== current.tripDate) {
+      diff.tripDateChanged = true;
+    }
+
+    // Compare locations by index
+    const extractedLocations = extracted.locations || [];
+    const currentLocations = current.locations || [];
+    const maxLength = Math.max(extractedLocations.length, currentLocations.length);
+
+    for (let i = 0; i < maxLength; i++) {
+      const extractedLoc = extractedLocations[i];
+      const currentLoc = currentLocations[i];
+
+      if (!extractedLoc && currentLoc) {
+        // Location removed
+        diff.locations.push({
+          type: 'removed',
+          index: i,
+          oldAddress: currentLoc.name || '',
+          oldTime: currentLoc.time || '',
+          oldPurpose: currentLoc.name || '',
+        });
+      } else if (extractedLoc && !currentLoc) {
+        // Location added
+        diff.locations.push({
+          type: 'added',
+          index: i,
+          newAddress: extractedLoc.formattedAddress || extractedLoc.location || '',
+          newTime: extractedLoc.time || '',
+          newPurpose: extractedLoc.purpose || '',
+        });
+      } else if (extractedLoc && currentLoc) {
+        // Check for modifications
+        const addressChanged = (extractedLoc.formattedAddress || extractedLoc.location || '') !== (currentLoc.name || '');
+        const timeChanged = (extractedLoc.time || '') !== (currentLoc.time || '');
+        const purposeChanged = (extractedLoc.purpose || '') !== (currentLoc.name || '');
+
+        if (addressChanged || timeChanged || purposeChanged) {
+          diff.locations.push({
+            type: 'modified',
+            index: i,
+            addressChanged,
+            timeChanged,
+            purposeChanged,
+            oldAddress: currentLoc.name || '',
+            oldTime: currentLoc.time || '',
+            oldPurpose: currentLoc.name || '',
+            newAddress: extractedLoc.formattedAddress || extractedLoc.location || '',
+            newTime: extractedLoc.time || '',
+            newPurpose: extractedLoc.purpose || '',
+          });
+        }
+      }
+    }
+
+    // Compare passenger info
+    const extractedPassengerName = extracted.leadPassengerName || extracted.passengerNames?.join(', ') || '';
+    if (extractedPassengerName && extractedPassengerName !== leadPassengerName) {
+      diff.passengerInfoChanged = true;
+    }
+
+    // Compare vehicle info
+    if (extracted.vehicleInfo && extracted.vehicleInfo !== vehicleInfo) {
+      diff.vehicleInfoChanged = true;
+    }
+
+    // Merge notes
+    const newNotes = extracted.driverNotes || '';
+    if (newNotes && newNotes.trim()) {
+      diff.notesChanged = true;
+      diff.mergedNotes = mergeNotes(driverNotes, newNotes);
+    }
+
+    return diff;
+  };
+
+  // Merge trip updates
+  const mergeTripUpdates = (extracted: any, current: TripData) => {
+    const mergedLocations: any[] = [];
+    const extractedLocations = extracted.locations || [];
+    const currentLocations = current.locations || [];
+    const maxLength = Math.max(extractedLocations.length, currentLocations.length);
+
+    // Merge locations by index
+    for (let i = 0; i < maxLength; i++) {
+      const extractedLoc = extractedLocations[i];
+      const currentLoc = currentLocations[i];
+
+      if (extractedLoc) {
+        // Use extracted location, but preserve existing coordinates if address matches
+        const newLoc: any = {
+          id: currentLoc?.id || (i + 1).toString(),
+          name: extractedLoc.purpose || extractedLoc.location || '',
+          time: extractedLoc.time || '',
+          lat: extractedLoc.lat || currentLoc?.lat || 0,
+          lng: extractedLoc.lng || currentLoc?.lng || 0,
+          fullAddress: extractedLoc.formattedAddress || extractedLoc.location || '',
+          purpose: extractedLoc.purpose || '',
+        };
+
+        // If address seems the same, preserve coordinates
+        if (currentLoc && (
+          (extractedLoc.formattedAddress || extractedLoc.location || '').toLowerCase() === 
+          (currentLoc.name || '').toLowerCase()
+        )) {
+          newLoc.lat = currentLoc.lat;
+          newLoc.lng = currentLoc.lng;
+        }
+
+        mergedLocations.push(newLoc);
+      }
+      // If no extracted location at this index, skip it (removed)
+    }
+
+    // Merge notes
+    const newNotes = extracted.driverNotes || '';
+    const mergedNotes = newNotes && newNotes.trim() ? mergeNotes(driverNotes, newNotes) : driverNotes;
+
+    // Merge passenger info
+    const mergedPassengerName = extracted.leadPassengerName || 
+      (extracted.passengerNames?.length > 0 ? extracted.passengerNames.join(', ') : leadPassengerName);
+
+    return {
+      locations: mergedLocations,
+      tripDate: extracted.date || current.tripDate,
+      passengerName: mergedPassengerName,
+      vehicleInfo: extracted.vehicleInfo || vehicleInfo,
+      passengerCount: extracted.passengerCount || passengerCount,
+      tripDestination: extracted.tripDestination || tripDestination,
+      notes: mergedNotes,
+      passengerNames: extracted.passengerNames || [],
+    };
+  };
+
+  // Extract updates handler
+  const handleExtractUpdates = async () => {
+    if (!updateText.trim()) return;
+
+    setIsExtracting(true);
+    setError(null);
+
+    try {
+      // Step 1: Extract updates from text
+      const extractResponse = await fetch('/api/extract-trip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: updateText }),
+      });
+
+      const extractedData = await extractResponse.json();
+
+      if (!extractedData.success) {
+        throw new Error(extractedData.error || 'Failed to extract updates');
+      }
+
+      setExtractedUpdates(extractedData);
+      
+      // Step 2: Intelligently compare with current state using AI
+      if (tripData) {
+        const compareResponse = await fetch('/api/compare-trip-updates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            extractedData,
+            currentTripData: {
+              tripDate: tripData.tripDate,
+              leadPassengerName: leadPassengerName,
+              vehicle: vehicleInfo,
+              passengerCount: passengerCount,
+              tripDestination: tripDestination,
+              tripNotes: driverNotes,
+              locations: tripData.locations.map((loc: any) => ({
+                id: loc.id,
+                name: loc.name,
+                address: loc.name, // Use name as address for comparison
+                time: loc.time,
+                purpose: loc.name, // Purpose is stored in name field
+                lat: loc.lat,
+                lng: loc.lng,
+              })),
+            },
+          }),
+        });
+
+        const compareResult = await compareResponse.json();
+
+        if (!compareResult.success) {
+          throw new Error(compareResult.error || 'Failed to compare updates');
+        }
+
+        // Transform AI comparison result to our diff format
+        const diff = transformComparisonToDiff(compareResult.comparison, extractedData);
+        setComparisonDiff(diff);
+        setShowPreview(true);
+      }
+    } catch (err) {
+      console.error('Error extracting updates:', err);
+      setError(err instanceof Error ? err.message : 'Failed to extract updates');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  // Transform AI comparison result to our diff format for UI display
+  const transformComparisonToDiff = (comparison: any, extractedData: any) => {
+    const diff: any = {
+      tripDateChanged: comparison.tripDateChanged || false,
+      locations: [],
+      passengerInfoChanged: comparison.passengerInfoChanged || false,
+      vehicleInfoChanged: comparison.vehicleInfoChanged || false,
+      passengerCountChanged: comparison.passengerCountChanged || false,
+      tripDestinationChanged: comparison.tripDestinationChanged || false,
+      notesChanged: comparison.notesChanged || false,
+      mergedNotes: comparison.mergedNotes || '',
+      finalLocations: [], // Store final merged locations for regeneration
+    };
+
+    // Transform location changes - first collect all, then sort by index for final locations
+    const finalLocationsMap: { [key: number]: any } = {};
+    
+    // If comparison doesn't return locations or they're all unchanged, ensure all current locations are preserved
+    if (!comparison.locations || !Array.isArray(comparison.locations) || comparison.locations.length === 0) {
+      // No location changes - preserve all current locations as unchanged
+      if (tripData?.locations && tripData.locations.length > 0) {
+        tripData.locations.forEach((loc: any, idx: number) => {
+          finalLocationsMap[idx] = {
+            id: loc.id,
+            name: loc.name,
+            address: loc.name,
+            time: loc.time,
+            purpose: loc.name,
+            lat: loc.lat,
+            lng: loc.lng,
+            fullAddress: loc.name,
+          };
+        });
+      }
+    } else if (comparison.locations && Array.isArray(comparison.locations)) {
+      comparison.locations.forEach((locChange: any) => {
+        if (locChange.action === 'removed') {
+          diff.locations.push({
+            type: 'removed',
+            index: locChange.currentIndex,
+            oldAddress: locChange.currentLocation?.address || locChange.currentLocation?.name || '',
+            oldTime: locChange.currentLocation?.time || '',
+            oldPurpose: locChange.currentLocation?.purpose || locChange.currentLocation?.name || '',
+          });
+        } else if (locChange.action === 'added') {
+          diff.locations.push({
+            type: 'added',
+            index: locChange.extractedIndex,
+            newAddress: locChange.extractedLocation?.formattedAddress || locChange.extractedLocation?.location || '',
+            newTime: locChange.extractedLocation?.time || '',
+            newPurpose: locChange.extractedLocation?.purpose || '',
+          });
+          // Add to final locations
+          if (locChange.finalLocation) {
+            finalLocationsMap[locChange.extractedIndex] = locChange.finalLocation;
+          }
+        } else if (locChange.action === 'modified') {
+          diff.locations.push({
+            type: 'modified',
+            index: locChange.currentIndex,
+            addressChanged: locChange.changes?.addressChanged || false,
+            timeChanged: locChange.changes?.timeChanged || false,
+            purposeChanged: locChange.changes?.purposeChanged || false,
+            oldAddress: locChange.currentLocation?.address || locChange.currentLocation?.name || '',
+            oldTime: locChange.currentLocation?.time || '',
+            oldPurpose: locChange.currentLocation?.purpose || locChange.currentLocation?.name || '',
+            newAddress: locChange.extractedLocation?.formattedAddress || locChange.extractedLocation?.location || '',
+            newTime: locChange.extractedLocation?.time || '',
+            newPurpose: locChange.extractedLocation?.purpose || '',
+          });
+          // Add to final locations (modified version) - use currentIndex to preserve position
+          if (locChange.finalLocation) {
+            finalLocationsMap[locChange.currentIndex] = locChange.finalLocation;
+          } else if (locChange.currentLocation && locChange.extractedLocation) {
+            // Build final location from current + extracted
+            const currentLoc = tripData?.locations[locChange.currentIndex];
+            finalLocationsMap[locChange.currentIndex] = {
+              id: currentLoc?.id || (locChange.currentIndex + 1).toString(),
+              name: locChange.extractedLocation.purpose || locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
+              address: locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
+              time: locChange.extractedLocation.time || locChange.currentLocation.time,
+              purpose: locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name,
+              lat: (locChange.extractedLocation.lat && locChange.extractedLocation.lat !== 0) ? locChange.extractedLocation.lat : (currentLoc?.lat || 0),
+              lng: (locChange.extractedLocation.lng && locChange.extractedLocation.lng !== 0) ? locChange.extractedLocation.lng : (currentLoc?.lng || 0),
+              fullAddress: locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location || locChange.currentLocation.address,
+            };
+          }
+        } else if (locChange.action === 'unchanged') {
+          // Add unchanged location to final locations
+          if (locChange.finalLocation) {
+            finalLocationsMap[locChange.currentIndex] = locChange.finalLocation;
+          } else if (locChange.currentLocation && locChange.currentIndex >= 0) {
+            // Preserve current location as-is
+            const currentLoc = tripData?.locations[locChange.currentIndex];
+            if (currentLoc) {
+              finalLocationsMap[locChange.currentIndex] = {
+                id: currentLoc.id,
+                name: currentLoc.name,
+                address: currentLoc.name,
+                time: currentLoc.time,
+                purpose: currentLoc.name,
+                lat: currentLoc.lat,
+                lng: currentLoc.lng,
+                fullAddress: currentLoc.name,
+              };
+            }
+          }
+        }
+      });
+    }
+
+    // Sort final locations by index and add to diff
+    const sortedIndices = Object.keys(finalLocationsMap)
+      .map(k => parseInt(k))
+      .filter(idx => !isNaN(idx))
+      .sort((a, b) => a - b);
+    
+    diff.finalLocations = sortedIndices.map(idx => finalLocationsMap[idx]);
+
+    // If no locations in final (shouldn't happen, but fallback), preserve all current locations
+    if (diff.finalLocations.length === 0 && tripData?.locations && tripData.locations.length > 0) {
+      diff.finalLocations = tripData.locations.map((loc: any, idx: number) => ({
+        id: loc.id,
+        name: loc.name,
+        address: loc.name,
+        time: loc.time,
+        purpose: loc.name,
+        lat: loc.lat,
+        lng: loc.lng,
+        fullAddress: loc.name,
+      }));
+    }
+
+    // Store additional comparison data for merging
+    diff.comparisonData = comparison;
+
+    return diff;
+  };
+
+  // Perform trip analysis update (regeneration)
+  const performTripAnalysisUpdate = async (
+    validLocations: Array<{ id: string; name: string; lat: number; lng: number; time: string; fullAddress?: string; purpose?: string }>,
+    tripDateObj: Date,
+    leadPassengerName?: string,
+    vehicleInfo?: string,
+    passengerCount?: number,
+    tripDestination?: string,
+    passengerNames?: string[],
+    driverNotes?: string
+  ) => {
+    if (!isGoogleMapsLoaded) {
+      setError('Google Maps API is not loaded. Please refresh the page and try again.');
+      setIsRegenerating(false);
+      return;
+    }
+
+    setIsRegenerating(true);
+    setError(null);
+
+    try {
+      const tripDateStr = tripDateObj.toISOString().split('T')[0];
+      
+      console.log(`\n${'='.repeat(80)}`);
+      console.log(`🔄 Regenerating Trip Analysis - Version ${(currentVersion || 1) + 1}`);
+      console.log(`🗓️  Trip Date: ${tripDateStr}`);
+      console.log(`📍 Analyzing ${validLocations.length} location(s)`);
+      console.log(`${'='.repeat(80)}\n`);
+
+      const days = 7; // Fixed period for trip planning
+
+      // Fetch data for all locations in parallel
+      const results = await Promise.all(
+        validLocations.map(async (location) => {
+          console.log(`\n🔍 Fetching data for Location ${numberToLetter(validLocations.indexOf(location) + 1)}: ${location.name} at ${location.time}`);
+          
+          const tempDistrictId = `custom-${Date.now()}-${location.id}`;
+
+          const [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse] = await Promise.all([
+            fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
+            fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`)
+          ]);
+
+          // Check if any response failed
+          const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
+          const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
+          
+          for (let i = 0; i < responses.length; i++) {
+            if (!responses[i].ok) {
+              const errorText = await responses[i].text();
+              console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
+              throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
+            }
+          }
+
+          const [crimeData, disruptionsData, weatherData, parkingData] = await Promise.all([
+            crimeResponse.json(),
+            disruptionsResponse.json(),
+            weatherResponse.json(),
+            parkingResponse.json()
+          ]);
+
+          // Create placeholder events data
+          const eventsData = {
+            success: true,
+            data: {
+              location: location.name,
+              coordinates: { lat: location.lat, lng: location.lng },
+              date: tripDateStr,
+              events: [],
+              summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 }
+            }
+          };
+
+          // Fetch cafes
+          let cafeData = null;
+          try {
+            cafeData = await searchNearbyCafes(location.lat, location.lng, location.name);
+          } catch (cafeError) {
+            console.error('❌ Error fetching cafes:', cafeError);
+            cafeData = {
+              location: location.name,
+              coordinates: { lat: location.lat, lng: location.lng },
+              cafes: [],
+              summary: { total: 0, averageRating: 0, averageDistance: 0 },
+            };
+          }
+
+          // Fetch emergency services
+          let emergencyServicesData = null;
+          try {
+            emergencyServicesData = await searchEmergencyServices(location.lat, location.lng, location.name);
+          } catch (emergencyError) {
+            console.error('❌ Error fetching emergency services:', emergencyError);
+            emergencyServicesData = {
+              location: location.name,
+              coordinates: { lat: location.lat, lng: location.lng },
+            };
+          }
+
+          if (crimeData.success && disruptionsData.success && weatherData.success && parkingData.success) {
+            return {
+              locationId: location.id,
+              locationName: location.name,
+              fullAddress: location.fullAddress || location.name,
+              time: location.time,
+              data: {
+                crime: crimeData.data,
+                disruptions: disruptionsData.data,
+                weather: weatherData.data,
+                events: eventsData.data,
+                parking: parkingData.data,
+                cafes: cafeData,
+                emergencyServices: emergencyServicesData,
+              },
+            };
+          } else {
+            throw new Error(`Failed to fetch data for ${location.name}`);
+          }
+        })
+      );
+
+      // Get traffic predictions
+      console.log('🚦 Fetching traffic predictions...');
+      let trafficData = null;
+      try {
+        trafficData = await getTrafficPredictions(validLocations, tripDateStr);
+      } catch (trafficError) {
+        console.error('❌ Traffic prediction error:', trafficError);
+        trafficData = {
+          success: false,
+          error: 'Failed to get traffic predictions',
+        };
+      }
+
+      // Generate executive report
+      console.log('🤖 Generating Executive Peace of Mind Report...');
+      let executiveReportData = null;
+      
+      try {
+        const reportData = results.map(r => ({
+          locationName: r.locationName,
+          time: r.time,
+          crime: r.data.crime,
+          disruptions: r.data.disruptions,
+          weather: r.data.weather,
+          events: r.data.events,
+          parking: r.data.parking,
+          cafes: r.data.cafes,
+        }));
+
+        const reportResponse = await fetch('/api/executive-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tripData: reportData,
+            tripDate: tripDateStr,
+            routeDistance: trafficData?.totalDistance || '0 km',
+            routeDuration: trafficData?.totalMinutes || 0,
+            trafficPredictions: trafficData?.success ? trafficData.data : null,
+            emailContent: updateText || null,
+            leadPassengerName: leadPassengerName || null,
+            vehicleInfo: vehicleInfo || null,
+            passengerCount: passengerCount || 1,
+            tripDestination: tripDestination || null,
+            passengerNames: passengerNames || [],
+            driverNotes: driverNotes || null,
+          }),
+        });
+
+        const reportResult = await reportResponse.json();
+        
+        if (reportResult.success) {
+          executiveReportData = reportResult.data;
+          console.log('✅ Executive Report Generated!');
+        }
+      } catch (reportError) {
+        console.error('⚠️ Could not generate executive report:', reportError);
+      }
+
+      // Prepare passenger name for database storage
+      let passengerNameForDb: string | null = null;
+      if (passengerNames && passengerNames.length > 0) {
+        passengerNameForDb = passengerNames.join(', ');
+      } else if (leadPassengerName) {
+        passengerNameForDb = leadPassengerName;
+      }
+
+      // Prepare update data with incremented version
+      // Ensure traffic_predictions has the correct structure with success flag
+      const trafficPredictionsForDb = trafficData?.success ? {
+        success: true,
+        data: trafficData.data,
+        totalDistance: trafficData.totalDistance,
+        totalMinutes: trafficData.totalMinutes,
+        totalMinutesNoTraffic: trafficData.totalMinutesNoTraffic,
+      } : {
+        success: false,
+        data: null,
+        error: trafficData?.error || 'Failed to get traffic predictions',
+      };
+
+      const updateData: any = {
+        trip_date: tripDateStr,
+        locations: validLocations as any,
+        trip_results: results as any,
+        traffic_predictions: trafficPredictionsForDb as any,
+        executive_report: executiveReportData as any,
+        trip_notes: driverNotes || null,
+        lead_passenger_name: passengerNameForDb,
+        vehicle: vehicleInfo || null,
+        passenger_count: passengerCount || 1,
+        trip_destination: tripDestination || null,
+        version: (currentVersion || 1) + 1,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Update trip in database
+      console.log(`💾 Updating trip ${tripId} with version ${updateData.version}...`);
+      const { data: updatedTrip, error: updateError } = await supabase
+        .from('trips')
+        .update(updateData)
+        .eq('id', tripId)
+        .select()
+        .single();
+
+      if (updateError || !updatedTrip) {
+        console.error('❌ Error updating trip:', updateError);
+        throw new Error(`Failed to update trip: ${updateError?.message || 'Unknown error'}`);
+      }
+
+      console.log('✅ Trip updated successfully');
+      console.log(`🔗 Trip ID: ${tripId}`);
+      console.log(`📌 Version: ${updateData.version}`);
+
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (err) {
+      console.error('❌ Error regenerating report:', err);
+      setError(err instanceof Error ? err.message : 'Failed to regenerate report');
+      setIsRegenerating(false);
+    }
+  };
+
+  // Regenerate report handler
+  const handleRegenerateReport = async () => {
+    if (!comparisonDiff || !extractedUpdates || !tripData) return;
+
+    setIsRegenerating(true);
+    setError(null);
+
+    try {
+      // Use finalLocations from AI comparison (already merged intelligently)
+      const finalLocations = comparisonDiff.finalLocations || [];
+      
+      // Convert final locations to format expected by performTripAnalysis
+      const validLocations = finalLocations.map((loc: any, idx: number) => ({
+        id: loc.id || (idx + 1).toString(),
+        name: loc.name || loc.purpose || loc.fullAddress || loc.address || '',
+        lat: loc.lat || 0,
+        lng: loc.lng || 0,
+        time: loc.time || '',
+        fullAddress: loc.fullAddress || loc.address || loc.name || '',
+        purpose: loc.purpose || loc.name || '',
+      }));
+
+      // Get updated trip date (from AI comparison or use current)
+      const comparisonData = comparisonDiff.comparisonData;
+      const updatedTripDate = comparisonData?.tripDateNew || 
+        (comparisonData?.tripDateChanged ? extractedUpdates.date : tripData.tripDate) ||
+        tripData.tripDate;
+
+      // Get merged notes (from AI comparison)
+      const mergedNotes = comparisonDiff.mergedNotes || driverNotes;
+
+      // Get updated passenger info (from AI comparison)
+      const updatedPassengerName = comparisonData?.passengerInfoNew || 
+        (comparisonData?.passengerInfoChanged ? (extractedUpdates.leadPassengerName || extractedUpdates.passengerNames?.join(', ')) : leadPassengerName) ||
+        leadPassengerName;
+
+      // Get updated vehicle info (from AI comparison)
+      const updatedVehicleInfo = comparisonData?.vehicleInfoNew ||
+        (comparisonData?.vehicleInfoChanged ? extractedUpdates.vehicleInfo : vehicleInfo) ||
+        vehicleInfo;
+
+      // Get updated passenger count
+      const updatedPassengerCount = comparisonData?.passengerCountNew ||
+        (comparisonData?.passengerCountChanged ? extractedUpdates.passengerCount : passengerCount) ||
+        passengerCount;
+
+      // Get updated trip destination
+      const updatedTripDestination = comparisonData?.tripDestinationNew ||
+        (comparisonData?.tripDestinationChanged ? extractedUpdates.tripDestination : tripDestination) ||
+        tripDestination;
+
+      // Parse trip date
+      const tripDateObj = new Date(updatedTripDate);
+
+      // Get passenger names array
+      const updatedPassengerNames = extractedUpdates.passengerNames || [];
+
+      // Call the regeneration function
+      await performTripAnalysisUpdate(
+        validLocations,
+        tripDateObj,
+        updatedPassengerName,
+        updatedVehicleInfo,
+        updatedPassengerCount,
+        updatedTripDestination,
+        updatedPassengerNames,
+        mergedNotes
+      );
+    } catch (err) {
+      console.error('Error regenerating report:', err);
+      setError(err instanceof Error ? err.message : 'Failed to regenerate report');
+      setIsRegenerating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1074,6 +1843,187 @@ export default function ResultsPage() {
     <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header with Navigation */}
+
+        {/* Update Trip Section - Only show for owners */}
+        {isOwner && !isLiveMode && (
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Update Trip Information</h2>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="update-text" className="block text-sm font-medium mb-2">
+                    Paste updated trip information (email, message, etc.)
+                  </label>
+                  <textarea
+                    id="update-text"
+                    value={updateText}
+                    onChange={(e) => setUpdateText(e.target.value)}
+                    placeholder="Paste any updated trip information here..."
+                    className="w-full min-h-[120px] p-3 border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={isExtracting || isRegenerating}
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleExtractUpdates}
+                    disabled={!updateText.trim() || isExtracting || isRegenerating}
+                  >
+                    {isExtracting ? 'Extracting...' : 'Extract Updates'}
+                  </Button>
+                  {extractedUpdates && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setUpdateText('');
+                        setExtractedUpdates(null);
+                        setShowPreview(false);
+                        setComparisonDiff(null);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Preview/Diff Section */}
+        {showPreview && comparisonDiff && isOwner && !isLiveMode && (
+          <Card className="mb-6 border-2 border-primary">
+            <CardContent className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Preview Changes</h2>
+              <div className="space-y-4">
+                {/* Trip Date Changes */}
+                {comparisonDiff.tripDateChanged && (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <div className="font-medium mb-1">Trip Date Updated:</div>
+                    <div className="text-sm">
+                      <span className="line-through text-muted-foreground">
+                        {new Date(tripDate).toLocaleDateString()}
+                      </span>
+                      {' → '}
+                      <span className="font-semibold">
+                        {new Date(extractedUpdates.date || tripDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Location Changes */}
+                {comparisonDiff.locations.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="font-medium mb-2">Location Changes:</div>
+                    {comparisonDiff.locations.map((locChange: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg ${
+                          locChange.type === 'added'
+                            ? 'bg-green-50 dark:bg-green-900/20'
+                            : locChange.type === 'removed'
+                            ? 'bg-red-50 dark:bg-red-900/20'
+                            : 'bg-yellow-50 dark:bg-yellow-900/20'
+                        }`}
+                      >
+                        <div className="font-medium mb-1">
+                          Location {idx + 1} - {locChange.type === 'added' ? 'Added' : locChange.type === 'removed' ? 'Removed' : 'Modified'}
+                        </div>
+                        {locChange.type === 'modified' && (
+                          <div className="text-sm space-y-1">
+                            {locChange.addressChanged && (
+                              <div>
+                                <span className="text-muted-foreground">Address: </span>
+                                <span className="line-through">{locChange.oldAddress}</span>
+                                {' → '}
+                                <span className="font-semibold">{locChange.newAddress}</span>
+                              </div>
+                            )}
+                            {locChange.timeChanged && (
+                              <div>
+                                <span className="text-muted-foreground">Time: </span>
+                                <span className="line-through">{locChange.oldTime}</span>
+                                {' → '}
+                                <span className="font-semibold">{locChange.newTime}</span>
+                              </div>
+                            )}
+                            {locChange.purposeChanged && (
+                              <div>
+                                <span className="text-muted-foreground">Purpose: </span>
+                                <span className="line-through">{locChange.oldPurpose}</span>
+                                {' → '}
+                                <span className="font-semibold">{locChange.newPurpose}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {locChange.type === 'added' && (
+                          <div className="text-sm">
+                            <div><span className="font-semibold">Address:</span> {locChange.newAddress}</div>
+                            <div><span className="font-semibold">Time:</span> {locChange.newTime}</div>
+                            <div><span className="font-semibold">Purpose:</span> {locChange.newPurpose}</div>
+                          </div>
+                        )}
+                        {locChange.type === 'removed' && (
+                          <div className="text-sm">
+                            <div><span className="font-semibold">Address:</span> {locChange.oldAddress}</div>
+                            <div><span className="font-semibold">Time:</span> {locChange.oldTime}</div>
+                            <div><span className="font-semibold">Purpose:</span> {locChange.oldPurpose}</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Passenger Info Changes */}
+                {(comparisonDiff.passengerInfoChanged || comparisonDiff.vehicleInfoChanged) && (
+                  <div className="space-y-2">
+                    {comparisonDiff.passengerInfoChanged && (
+                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                        <div className="font-medium mb-1">Passenger Info Updated:</div>
+                        <div className="text-sm">
+                          <span className="line-through text-muted-foreground">{leadPassengerName || 'None'}</span>
+                          {' → '}
+                          <span className="font-semibold">{extractedUpdates.leadPassengerName || extractedUpdates.passengerNames?.join(', ') || 'None'}</span>
+                        </div>
+                      </div>
+                    )}
+                    {comparisonDiff.vehicleInfoChanged && (
+                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                        <div className="font-medium mb-1">Vehicle Info Updated:</div>
+                        <div className="text-sm">
+                          <span className="line-through text-muted-foreground">{vehicleInfo || 'None'}</span>
+                          {' → '}
+                          <span className="font-semibold">{extractedUpdates.vehicleInfo || 'None'}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes Preview */}
+                {comparisonDiff.notesChanged && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="font-medium mb-2">Merged Notes Preview:</div>
+                    <div className="text-sm whitespace-pre-wrap">{comparisonDiff.mergedNotes}</div>
+                  </div>
+                )}
+
+                {/* Regenerate Button */}
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={handleRegenerateReport}
+                    disabled={isRegenerating}
+                    className="w-full"
+                  >
+                    {isRegenerating ? 'Regenerating Report...' : 'Regenerate Report'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Results Section */}
         <div className="mb-8">
@@ -1366,13 +2316,37 @@ export default function ResultsPage() {
                   <span className="text-sm font-medium text-card-foreground">Estimated Distance</span>
                 </div>
                   <p className="text-2xl font-bold text-card-foreground">
-                    {trafficPredictions?.success && trafficPredictions.data ? 
-                      trafficPredictions.data.reduce((total: number, route: any) => {
-                        const distance = parseFloat(route.distance.replace(/[^\d.]/g, ''));
-                        return total + (isNaN(distance) ? 0 : distance);
-                      }, 0).toFixed(1) + ' miles' :
-                      'Calculating...'
-                    }
+                    {(() => {
+                      // Check if traffic predictions exist and have the correct structure
+                      if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
+                        // Calculate total distance from traffic predictions
+                        const totalKm = trafficPredictions.data.reduce((total: number, route: any) => {
+                          if (route.distance) {
+                            // Parse distance (format: "5.2 km" or just number)
+                            const distanceStr = typeof route.distance === 'string' ? route.distance : String(route.distance);
+                            const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
+                            return total + (isNaN(distanceKm) ? 0 : distanceKm);
+                          }
+                          return total;
+                        }, 0);
+                        
+                        // Convert km to miles (1 km = 0.621371 miles)
+                        const totalMiles = totalKm * 0.621371;
+                        return totalMiles > 0 ? totalMiles.toFixed(1) + ' miles' : 'Calculating...';
+                      }
+                      
+                      // Fallback: try to use totalDistance from trafficPredictions if available
+                      if (trafficPredictions?.totalDistance) {
+                        const distanceStr = trafficPredictions.totalDistance;
+                        const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
+                        if (!isNaN(distanceKm) && distanceKm > 0) {
+                          const totalMiles = distanceKm * 0.621371;
+                          return totalMiles.toFixed(1) + ' miles';
+                        }
+                      }
+                      
+                      return 'Calculating...';
+                    })()}
                   </p>
               </div>
             </div>
@@ -2279,7 +3253,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Route Card (after each location except the last) */}
-              {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data[index] && (
+              {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data[index] && (
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-32 text-right relative">
                     {/* Timeline Dot for Route */}
@@ -2315,8 +3289,9 @@ export default function ResultsPage() {
                         className="px-4 py-2 rounded-lg font-semibold"
                         style={{
                           backgroundColor: (() => {
-                            const leg = trafficPredictions.data[index];
-                            const delay = Math.max(0, leg.minutes - leg.minutesNoTraffic);
+                            const leg = trafficPredictions?.data?.[index];
+                            if (!leg) return '#808080'; // Default gray if no data
+                            const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
                             if (delay < 5) return '#45C48A'; // Success green - dark bg (white text)
                             if (delay < 10) return '#F7A733'; // Warning orange - dark bg (white text)
                             return '#E05A5A'; // Error red - dark bg (white text)
@@ -2325,8 +3300,9 @@ export default function ResultsPage() {
                         }}
                       >
                         {(() => {
-                          const leg = trafficPredictions.data[index];
-                          const delay = Math.max(0, leg.minutes - leg.minutesNoTraffic);
+                          const leg = trafficPredictions?.data?.[index];
+                          if (!leg) return 'Delay Risk: Unknown';
+                          const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
                           if (delay < 5) return 'Delay Risk: Low';
                           if (delay < 10) return 'Delay Risk: Moderate';
                           return 'Delay Risk: High';
@@ -2359,18 +3335,22 @@ export default function ResultsPage() {
                   >
                     <div className="flex items-center justify-between text-sm text-muted-foreground py-3">
                       <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <span className="text-card-foreground font-medium">Time:</span>
-                          <span>{trafficPredictions.data[index].minutes} min</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-card-foreground font-medium">Distance:</span>
-                          <span>{trafficPredictions.data[index].distance}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-card-foreground font-medium">Delay:</span>
-                          <span>-{Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic)} min</span>
-                        </div>
+                        {trafficPredictions.data[index] && (
+                          <>
+                            <div className="flex items-center gap-1">
+                              <span className="text-card-foreground font-medium">Time:</span>
+                              <span>{trafficPredictions.data[index].minutes || 0} min</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-card-foreground font-medium">Distance:</span>
+                              <span>{trafficPredictions.data[index].distance || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-card-foreground font-medium">Delay:</span>
+                              <span>-{Math.max(0, (trafficPredictions.data[index].minutes || 0) - (trafficPredictions.data[index].minutesNoTraffic || 0))} min</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground/60">
                         Click to expand
@@ -2426,9 +3406,9 @@ export default function ResultsPage() {
                           <span className="text-card-foreground">{tripResults[index + 1].locationName}</span>
                         </div>
                       </div>
-                      {trafficPredictions.data[index].busyMinutes && (
+                      {trafficPredictions?.data?.[index]?.busyMinutes && (
                         <div className="text-sm text-destructive mt-3 pt-3 border-t border-border/30">
-                          Busy traffic expected: -{Math.max(0, trafficPredictions.data[index].busyMinutes - trafficPredictions.data[index].minutesNoTraffic)} min additional delay
+                          Busy traffic expected: -{Math.max(0, (trafficPredictions.data[index].busyMinutes || 0) - (trafficPredictions.data[index].minutesNoTraffic || 0))} min additional delay
                         </div>
                       )}
                     </div>
@@ -2440,7 +3420,9 @@ export default function ResultsPage() {
                       className="rounded-lg p-4"
                       style={{
                         backgroundColor: (() => {
-                          const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
+                          const leg = trafficPredictions?.data?.[index];
+                          if (!leg) return 'rgba(128, 128, 128, 0.2)'; // Gray if no data
+                          const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
                           if (delay < 5) return 'rgba(24, 129, 90, 0.2)'; // Brand green with opacity
                           if (delay < 10) return 'rgba(212, 145, 92, 0.2)'; // Professional orange with opacity
                           return 'rgba(173, 82, 82, 0.2)'; // Brand red with opacity
@@ -2451,7 +3433,9 @@ export default function ResultsPage() {
                         className="text-sm mb-1"
                         style={{
                           color: (() => {
-                            const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
+                            const leg = trafficPredictions?.data?.[index];
+                            if (!leg) return '#808080'; // Gray if no data
+                            const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
                             if (delay < 5) return '#18815A'; // Success green - light bg
                             if (delay < 10) return '#D97706'; // Warning orange - light bg
                             return '#B22E2E'; // Error red - light bg
@@ -2464,26 +3448,32 @@ export default function ResultsPage() {
                         className="text-2xl font-bold"
                         style={{
                           color: (() => {
-                            const delay = Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic);
+                            const leg = trafficPredictions?.data?.[index];
+                            if (!leg) return '#808080'; // Gray if no data
+                            const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
                             if (delay < 5) return '#18815A'; // Success green - light bg
                             if (delay < 10) return '#D97706'; // Warning orange - light bg
                             return '#B22E2E'; // Error red - light bg
                           })()
                         }}
                       >
-                        -{Math.max(0, trafficPredictions.data[index].minutes - trafficPredictions.data[index].minutesNoTraffic)} min
+                        -{(() => {
+                          const leg = trafficPredictions?.data?.[index];
+                          if (!leg) return '0';
+                          return Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
+                        })()} min
                       </div>
                     </div>
                     <div className="bg-secondary/50 rounded-lg p-4">
                       <div className="text-sm text-muted-foreground mb-1">Travel Time</div>
                       <div className="text-2xl font-bold text-card-foreground">
-                        {trafficPredictions.data[index].minutes} min
+                        {trafficPredictions?.data?.[index]?.minutes || 0} min
                       </div>
                     </div>
                     <div className="bg-secondary/50 rounded-lg p-4">
                       <div className="text-sm text-muted-foreground mb-1">Distance</div>
                       <div className="text-2xl font-bold text-card-foreground">
-                        {trafficPredictions.data[index].distance}
+                        {trafficPredictions?.data?.[index]?.distance || 'N/A'}
                       </div>
                     </div>
                   </div>

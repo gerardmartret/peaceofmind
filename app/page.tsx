@@ -10,7 +10,6 @@ import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar } from '@/components/ui/calendar';
@@ -2178,13 +2177,30 @@ export default function Home() {
                       </div>
                     </div>
                     <div>
-                      <Label className="text-white font-medium text-sm mb-2 block">City</Label>
+                      <Label className="text-white font-medium text-sm mb-2 block">Trip Destination</Label>
                       <div className="relative">
                         <Input
-                          value="London"
-                          readOnly
+                          value={tripDestination || ''}
+                          onChange={(e) => {
+                            setTripDestination(e.target.value);
+                            if (typeof window !== 'undefined' && extractedLocations) {
+                              sessionStorage.setItem('extractedTripData', JSON.stringify({
+                                text: extractionText,
+                                locations: extractedLocations,
+                                date: extractedDate,
+                                driverSummary: extractedDriverSummary,
+                                leadPassengerName: leadPassengerName,
+                                vehicleInfo: vehicleInfo,
+                                passengerCount: passengerCount,
+                                tripDestination: e.target.value,
+                                passengerNames: passengerNames,
+                                timestamp: new Date().toISOString(),
+                              }));
+                            }
+                          }}
                           className="bg-white border-gray-300 rounded-md h-9 pr-10"
                           style={{ color: '#05060A' }}
+                          placeholder="Enter trip destination"
                         />
                         <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2271,32 +2287,6 @@ export default function Home() {
                             }));
                           }
                         }}
-                        className="bg-white border-gray-300 rounded-md h-9"
-                        style={{ color: '#05060A' }}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-white font-medium text-sm mb-2 block">Trip Destination</Label>
-                      <Input
-                        value={tripDestination}
-                        onChange={(e) => {
-                          setTripDestination(e.target.value);
-                          if (typeof window !== 'undefined' && extractedLocations) {
-                            sessionStorage.setItem('extractedTripData', JSON.stringify({
-                              text: extractionText,
-                              locations: extractedLocations,
-                              date: extractedDate,
-                              driverSummary: extractedDriverSummary,
-                              leadPassengerName: leadPassengerName,
-                              vehicleInfo: vehicleInfo,
-                              passengerCount: passengerCount,
-                              tripDestination: e.target.value,
-                              passengerNames: passengerNames,
-                              timestamp: new Date().toISOString(),
-                            }));
-                          }
-                        }}
-                        placeholder="e.g., London"
                         className="bg-white border-gray-300 rounded-md h-9"
                         style={{ color: '#05060A' }}
                       />
@@ -2487,7 +2477,7 @@ export default function Home() {
           </p>
           
 
-          {/* Trip Date and City Selector */}
+          {/* Trip Date and Trip Destination */}
           <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
             <div className="grid sm:grid-cols-2 gap-4 mb-4">
               <div>
@@ -2529,18 +2519,16 @@ export default function Home() {
                 </Popover>
               </div>
               <div>
-                <label htmlFor="citySelect" className="block text-sm font-medium text-white mb-2">
-                  City
+                <label className="block text-sm font-medium text-white mb-2">
+                  Trip Destination
                 </label>
-                <Select defaultValue="london">
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Select city" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="london">London</SelectItem>
-                    <SelectItem value="newyork" disabled>New York (Coming Soon)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  value={tripDestination || ''}
+                  onChange={(e) => setTripDestination(e.target.value)}
+                  placeholder="Enter trip destination (e.g., London)"
+                  className="bg-white border-gray-300 rounded-md h-9"
+                  style={{ color: '#05060A' }}
+                />
               </div>
             </div>
             
@@ -2579,18 +2567,6 @@ export default function Home() {
                   min="1"
                   value={passengerCount}
                   onChange={(e) => setPassengerCount(parseInt(e.target.value) || 1)}
-                  className="bg-white border-gray-300 rounded-md h-9"
-                  style={{ color: '#05060A' }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Trip Destination
-                </label>
-                <Input
-                  value={tripDestination}
-                  onChange={(e) => setTripDestination(e.target.value)}
-                  placeholder="e.g., London"
                   className="bg-white border-gray-300 rounded-md h-9"
                   style={{ color: '#05060A' }}
                 />

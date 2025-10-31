@@ -135,13 +135,21 @@ Return a JSON object with this exact structure:
 }
 
 Rules for extraction:
-- Sort locations chronologically by time
+- Sort locations chronologically by time (if locations exist)
 - Convert all times to 24-hour format (e.g., "3pm" -> "15:00", "9am" -> "09:00")
 - If time is relative (e.g., "2 hours later"), calculate based on previous time
 - If no time specified, use "confidence": "low" and make reasonable estimate
 - Expand abbreviated locations (e.g., "LHR" -> "Heathrow Airport, London")
 - Only include locations in London area
-- If no locations found, return {"success": false, "error": "No London locations found"}
+- IMPORTANT: If the text contains ONLY instructions, notes, or verbal updates WITHOUT locations:
+  * Return locations as empty array []
+  * Put all instructions/notes in driverNotes field
+  * Still set success: true if there's any extractable information (notes, passenger info, vehicle info, etc.)
+  * Examples of valid non-location updates:
+    - "make sure driver is dressed like a clown" → locations: [], driverNotes: "- Make sure driver is dressed like a clown"
+    - "pickup time is now 3pm" → locations: [], driverNotes: "- Pickup time is now 3pm"
+    - "bring a watermelon" → locations: [], driverNotes: "- Bring a watermelon"
+- If no extractable information at all (no locations, no notes, no passenger info, etc.), then return success: false
 - If date is mentioned in various formats, convert to YYYY-MM-DD
 - Pay attention to context around each location: who is involved, what type of activity, company names, venue names
 - Look for clues like "meeting with", "dinner at", "pickup from", "drop-off at", "check-in at", etc.
@@ -199,9 +207,11 @@ Rules for driver notes:
 - INCLUDE meeting details beyond what's in location purpose (e.g., dress codes, agenda items)
 - INCLUDE parking requirements, waiting instructions, pickup procedures
 - INCLUDE any additional context, special requests, or operational notes
+- INCLUDE ALL verbal instructions and updates (e.g., "make sure driver is dressed like a clown", "bring a watermelon", "pickup time is now 3pm")
 - FORMAT as bullet points using "- " prefix, one item per line
 - MAINTAIN the original tone, urgency, and emphasis
 - REPHRASE and ORGANIZE for clarity while keeping ALL information
+- If text contains ONLY instructions (no locations), ALL content goes into driverNotes
 - Example format:
   - Contact Elena +44 20 1234 5678 before arrival
   - Wait at Terminal 5 with engine running
@@ -240,43 +250,59 @@ Rules for driver notes:
       console.log('⚠️ [API] Special remarks generated:', parsed.specialRemarks.substring(0, 100) + '...');
     }
 
-    // Validate the response
-    if (!parsed.success || !parsed.locations || parsed.locations.length === 0) {
-      console.log('❌ [API] No locations found in extraction');
+    // Validate the response - allow success if there's ANY extractable information
+    // (locations, notes, passenger info, etc.) - not just locations
+    const hasLocations = parsed.locations && parsed.locations.length > 0;
+    const hasNotes = parsed.driverNotes && parsed.driverNotes.trim().length > 0;
+    const hasPassengerInfo = parsed.leadPassengerName || (parsed.passengerNames && parsed.passengerNames.length > 0);
+    const hasVehicleInfo = parsed.vehicleInfo && parsed.vehicleInfo.trim().length > 0;
+    const hasOtherInfo = parsed.date || parsed.tripDestination || parsed.passengerCount;
+
+    const hasAnyExtractableInfo = hasLocations || hasNotes || hasPassengerInfo || hasVehicleInfo || hasOtherInfo;
+
+    if (!parsed.success || !hasAnyExtractableInfo) {
+      console.log('❌ [API] No extractable information found');
       return NextResponse.json({
         success: false,
-        error: parsed.error || 'No locations or times could be extracted from the text. Please try again with more specific details.',
+        error: parsed.error || 'No extractable information found in the text. Please try again with more specific details.',
       });
     }
 
-    console.log(`🗺️ [API] Starting Google Maps verification for ${parsed.locations.length} locations...`);
-    // Verify each location with Google Maps API
-    const verifiedLocations = await Promise.all(
-      parsed.locations.map(async (loc: any, index: number) => {
-        console.log(`🔍 [API] Verifying location ${index + 1}/${parsed.locations.length}: "${loc.location}"`);
-        const googleData = await verifyLocationWithGoogle(loc.location);
-        const verifiedLoc = {
-          location: loc.location, // Original extracted text
-          time: loc.time,
-          confidence: loc.confidence,
-          purpose: loc.purpose || 'Visit', // Default purpose if not provided
-          verified: googleData.verified,
-          formattedAddress: googleData.formattedAddress,
-          lat: googleData.lat,
-          lng: googleData.lng,
-          placeId: googleData.placeId,
-        };
-        console.log(`✅ [API] Location ${index + 1} result:`, {
-          original: loc.location,
-          verified: verifiedLoc.verified,
-          formatted: verifiedLoc.formattedAddress,
-          coords: `${verifiedLoc.lat}, ${verifiedLoc.lng}`,
-        });
-        return verifiedLoc;
-      })
-    );
+    // If no locations but has other info (notes, instructions, etc.), allow it (for updates)
+    let verifiedLocations = [];
+    if (hasLocations) {
+      console.log(`🗺️ [API] Starting Google Maps verification for ${parsed.locations.length} locations...`);
+      // Verify each location with Google Maps API
+      verifiedLocations = await Promise.all(
+        parsed.locations.map(async (loc: any, index: number) => {
+          console.log(`🔍 [API] Verifying location ${index + 1}/${parsed.locations.length}: "${loc.location}"`);
+          const googleData = await verifyLocationWithGoogle(loc.location);
+          const verifiedLoc = {
+            location: loc.location, // Original extracted text
+            time: loc.time,
+            confidence: loc.confidence,
+            purpose: loc.purpose || 'Visit', // Default purpose if not provided
+            verified: googleData.verified,
+            formattedAddress: googleData.formattedAddress,
+            lat: googleData.lat,
+            lng: googleData.lng,
+            placeId: googleData.placeId,
+          };
+          console.log(`✅ [API] Location ${index + 1} result:`, {
+            original: loc.location,
+            verified: verifiedLoc.verified,
+            formatted: verifiedLoc.formattedAddress,
+            coords: `${verifiedLoc.lat}, ${verifiedLoc.lng}`,
+          });
+          return verifiedLoc;
+        })
+      );
+      console.log('🎉 [API] All locations verified!');
+    } else {
+      console.log('ℹ️ [API] No locations found, but other information extracted (notes, instructions, etc.) - this is valid for updates');
+    }
 
-    console.log('🎉 [API] All locations verified! Returning response...');
+    console.log('📤 [API] Preparing response...');
     const response = {
       success: true,
       date: parsed.date || null,
@@ -286,7 +312,7 @@ Rules for driver notes:
       vehicleInfo: parsed.vehicleInfo || null,
       passengerNames: parsed.passengerNames || [],
       driverNotes: parsed.driverNotes || null,
-      locations: verifiedLocations,
+      locations: verifiedLocations, // Empty array if no locations found
     };
     console.log('📤 [API] Final response:', JSON.stringify(response, null, 2));
 
