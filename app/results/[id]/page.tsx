@@ -622,6 +622,14 @@ export default function ResultsPage() {
   };
 
   const handleSaveLocationName = async (locationId: string) => {
+    // Security check: Only owners can edit location names
+    if (!isOwner) {
+      console.error('❌ Unauthorized: Only trip owners can edit location names');
+      setEditingLocationId(null);
+      setEditingLocationName('');
+      return;
+    }
+
     if (!editingLocationName.trim() || !tripData) {
       setEditingLocationId(null);
       setEditingLocationName('');
@@ -804,6 +812,12 @@ export default function ResultsPage() {
 
 
   const startLiveTrip = () => {
+    // Security check: Only owners can start live trip
+    if (!isOwner) {
+      console.error('❌ Unauthorized: Only trip owners can start live trip');
+      return;
+    }
+
     if (!tripData?.locations) return;
 
     const closestIndex = findClosestLocation();
@@ -822,6 +836,12 @@ export default function ResultsPage() {
   };
 
   const stopLiveTrip = () => {
+    // Security check: Only owners can stop live trip
+    if (!isOwner) {
+      console.error('❌ Unauthorized: Only trip owners can stop live trip');
+      return;
+    }
+
     setIsLiveMode(false);
     setActiveLocationIndex(null);
     if (liveTripInterval) {
@@ -1268,6 +1288,13 @@ export default function ResultsPage() {
 
   // Extract updates handler
   const handleExtractUpdates = async () => {
+    // Security check: Only owners can extract updates
+    if (!isOwner) {
+      console.error('❌ Unauthorized: Only trip owners can extract updates');
+      setError('Only trip owners can update trip information');
+      return;
+    }
+
     if (!updateText.trim()) return;
 
     setIsExtracting(true);
@@ -1389,7 +1416,22 @@ export default function ResultsPage() {
           });
           // Add to final locations
           if (locChange.finalLocation) {
-            finalLocationsMap[locChange.extractedIndex] = locChange.finalLocation;
+            // Ensure finalLocation has valid coordinates
+            const finalLoc = locChange.finalLocation;
+            if ((!finalLoc.lat || finalLoc.lat === 0) && locChange.extractedLocation?.lat && locChange.extractedLocation.lat !== 0) {
+              finalLoc.lat = locChange.extractedLocation.lat;
+            }
+            if ((!finalLoc.lng || finalLoc.lng === 0) && locChange.extractedLocation?.lng && locChange.extractedLocation.lng !== 0) {
+              finalLoc.lng = locChange.extractedLocation.lng;
+            }
+            // If still no coordinates, try to get from current location
+            if ((!finalLoc.lat || finalLoc.lat === 0) && tripData?.locations[locChange.extractedIndex]?.lat) {
+              finalLoc.lat = tripData.locations[locChange.extractedIndex].lat;
+            }
+            if ((!finalLoc.lng || finalLoc.lng === 0) && tripData?.locations[locChange.extractedIndex]?.lng) {
+              finalLoc.lng = tripData.locations[locChange.extractedIndex].lng;
+            }
+            finalLocationsMap[locChange.extractedIndex] = finalLoc;
           }
         } else if (locChange.action === 'modified') {
           diff.locations.push({
@@ -1407,18 +1449,42 @@ export default function ResultsPage() {
           });
           // Add to final locations (modified version) - use currentIndex to preserve position
           if (locChange.finalLocation) {
-            finalLocationsMap[locChange.currentIndex] = locChange.finalLocation;
+            // Ensure finalLocation has valid coordinates
+            const finalLoc = locChange.finalLocation;
+            if ((!finalLoc.lat || finalLoc.lat === 0) && locChange.extractedLocation?.lat && locChange.extractedLocation.lat !== 0) {
+              finalLoc.lat = locChange.extractedLocation.lat;
+            }
+            if ((!finalLoc.lng || finalLoc.lng === 0) && locChange.extractedLocation?.lng && locChange.extractedLocation.lng !== 0) {
+              finalLoc.lng = locChange.extractedLocation.lng;
+            }
+            // If still no coordinates, try to get from current location
+            const currentLoc = tripData?.locations[locChange.currentIndex];
+            if ((!finalLoc.lat || finalLoc.lat === 0) && currentLoc?.lat && currentLoc.lat !== 0) {
+              finalLoc.lat = currentLoc.lat;
+            }
+            if ((!finalLoc.lng || finalLoc.lng === 0) && currentLoc?.lng && currentLoc.lng !== 0) {
+              finalLoc.lng = currentLoc.lng;
+            }
+            finalLocationsMap[locChange.currentIndex] = finalLoc;
           } else if (locChange.currentLocation && locChange.extractedLocation) {
             // Build final location from current + extracted
             const currentLoc = tripData?.locations[locChange.currentIndex];
+            // Prioritize extracted coordinates, fallback to current, ensure we never use 0
+            let lat = locChange.extractedLocation.lat && locChange.extractedLocation.lat !== 0 
+              ? locChange.extractedLocation.lat 
+              : (currentLoc?.lat && currentLoc.lat !== 0 ? currentLoc.lat : 0);
+            let lng = locChange.extractedLocation.lng && locChange.extractedLocation.lng !== 0 
+              ? locChange.extractedLocation.lng 
+              : (currentLoc?.lng && currentLoc.lng !== 0 ? currentLoc.lng : 0);
+            
             finalLocationsMap[locChange.currentIndex] = {
               id: currentLoc?.id || (locChange.currentIndex + 1).toString(),
               name: locChange.extractedLocation.purpose || locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
               address: locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
               time: locChange.extractedLocation.time || locChange.currentLocation.time,
               purpose: locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name,
-              lat: (locChange.extractedLocation.lat && locChange.extractedLocation.lat !== 0) ? locChange.extractedLocation.lat : (currentLoc?.lat || 0),
-              lng: (locChange.extractedLocation.lng && locChange.extractedLocation.lng !== 0) ? locChange.extractedLocation.lng : (currentLoc?.lng || 0),
+              lat: lat,
+              lng: lng,
               fullAddress: locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location || locChange.currentLocation.address,
             };
           }
@@ -1678,9 +1744,36 @@ export default function ResultsPage() {
         error: trafficData?.error || 'Failed to get traffic predictions',
       };
 
+      // Update locations with coordinates and addresses from analysis results
+      // The results array has correct coordinates from crime API and is in the same order as validLocations
+      // Match by index since results are created in the same order as validLocations were processed
+      const locationsWithCoordinates = validLocations.map((loc, idx) => {
+        const result = results[idx]; // Match by index - results are in same order as validLocations
+        if (result && result.data && result.data.crime && result.data.crime.coordinates) {
+          // Use coordinates from analysis results (most accurate - comes from crime API)
+          // Also update fullAddress if available from results
+          return {
+            ...loc,
+            lat: result.data.crime.coordinates.lat,
+            lng: result.data.crime.coordinates.lng,
+            fullAddress: result.fullAddress || loc.fullAddress || loc.name,
+            name: result.locationName || loc.name, // Use location name from results if available
+          };
+        }
+        // If no result found at this index, log warning and keep original location
+        console.warn(`⚠️ No result found at index ${idx} for location ${loc.id} (${loc.name}), keeping original location`);
+        console.warn(`   Results length: ${results.length}, validLocations length: ${validLocations.length}`);
+        return loc;
+      });
+
+      console.log('💾 [DEBUG] Locations with coordinates before saving:');
+      locationsWithCoordinates.forEach((loc, idx) => {
+        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng}) - ${loc.fullAddress}`);
+      });
+
       const updateData: any = {
         trip_date: tripDateStr,
-        locations: validLocations as any,
+        locations: locationsWithCoordinates as any,
         trip_results: results as any,
         traffic_predictions: trafficPredictionsForDb as any,
         executive_report: executiveReportData as any,
@@ -1722,6 +1815,13 @@ export default function ResultsPage() {
 
   // Regenerate report handler
   const handleRegenerateReport = async () => {
+    // Security check: Only owners can regenerate reports
+    if (!isOwner) {
+      console.error('❌ Unauthorized: Only trip owners can regenerate reports');
+      setError('Only trip owners can regenerate reports');
+      return;
+    }
+
     if (!comparisonDiff || !extractedUpdates || !tripData) return;
 
     setIsRegenerating(true);
@@ -1732,15 +1832,106 @@ export default function ResultsPage() {
       const finalLocations = comparisonDiff.finalLocations || [];
       
       // Convert final locations to format expected by performTripAnalysis
-      const validLocations = finalLocations.map((loc: any, idx: number) => ({
-        id: loc.id || (idx + 1).toString(),
-        name: loc.name || loc.purpose || loc.fullAddress || loc.address || '',
-        lat: loc.lat || 0,
-        lng: loc.lng || 0,
-        time: loc.time || '',
-        fullAddress: loc.fullAddress || loc.address || loc.name || '',
-        purpose: loc.purpose || loc.name || '',
-      }));
+      // Log for debugging
+      console.log('🔍 [DEBUG] Final locations before validation:', JSON.stringify(finalLocations, null, 2));
+      
+      // Filter out locations with invalid coordinates (lat === 0 && lng === 0)
+      const validLocations = finalLocations
+        .map((loc: any, idx: number) => {
+          const location = {
+            id: loc.id || (idx + 1).toString(),
+            name: loc.name || loc.purpose || loc.fullAddress || loc.address || '',
+            lat: loc.lat || 0,
+            lng: loc.lng || 0,
+            time: loc.time || '',
+            fullAddress: loc.fullAddress || loc.address || loc.name || '',
+            purpose: loc.purpose || loc.name || '',
+          };
+          
+          // Log locations with invalid coordinates
+          if (location.lat === 0 && location.lng === 0) {
+            console.warn(`⚠️ [DEBUG] Location ${idx + 1} (${location.name}) has invalid coordinates (0, 0)`);
+          }
+          
+          return location;
+        })
+        .filter((loc: any) => {
+          const isValid = loc.lat !== 0 || loc.lng !== 0;
+          if (!isValid) {
+            console.warn(`⚠️ [DEBUG] Filtering out location "${loc.name}" due to invalid coordinates`);
+          }
+          return isValid;
+        });
+      
+      console.log(`✅ [DEBUG] Valid locations after filtering: ${validLocations.length}`);
+      validLocations.forEach((loc: any, idx: number) => {
+        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
+      });
+      
+      // Validate that we have at least 2 valid locations for traffic predictions
+      if (validLocations.length < 2) {
+        console.error('❌ Need at least 2 locations with valid coordinates for traffic predictions');
+        console.error(`   Current valid locations: ${validLocations.length}`);
+        console.error(`   Total final locations: ${finalLocations.length}`);
+        setError('Need at least 2 locations with valid coordinates to calculate routes. Please ensure all locations have valid addresses.');
+        setIsRegenerating(false);
+        return;
+      }
+
+      // Geocode any locations that don't have valid coordinates before analysis
+      // This ensures we have accurate coordinates from Google Maps (like in original flow)
+      console.log('🗺️ [DEBUG] Geocoding locations without valid coordinates...');
+      const geocodedLocations = await Promise.all(
+        validLocations.map(async (loc: any) => {
+          // If coordinates are invalid (0, 0), geocode the location
+          if (loc.lat === 0 && loc.lng === 0) {
+            try {
+              console.log(`   Geocoding: ${loc.name || loc.fullAddress || loc.address || 'Unknown location'}`);
+              
+              // Use Google Maps Geocoding API
+              const geocoder = new google.maps.Geocoder();
+              const query = loc.fullAddress || loc.address || loc.name || '';
+              
+              return new Promise<typeof loc>((resolve) => {
+                geocoder.geocode(
+                  { address: `${query}, London, UK`, region: 'uk' },
+                  (results, status) => {
+                    if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
+                      const result = results[0];
+                      const geocodedLoc = {
+                        ...loc,
+                        lat: result.geometry.location.lat(),
+                        lng: result.geometry.location.lng(),
+                        fullAddress: result.formatted_address || loc.fullAddress || loc.address || loc.name,
+                      };
+                      console.log(`   ✅ Geocoded: ${geocodedLoc.name} → (${geocodedLoc.lat}, ${geocodedLoc.lng})`);
+                      resolve(geocodedLoc);
+                    } else {
+                      console.warn(`   ⚠️ Geocoding failed for: ${query} (status: ${status})`);
+                      // Keep original location even if geocoding fails
+                      resolve(loc);
+                    }
+                  }
+                );
+              });
+            } catch (geocodeError) {
+              console.error(`   ❌ Error geocoding ${loc.name}:`, geocodeError);
+              // Keep original location if geocoding fails
+              return loc;
+            }
+          }
+          // Location already has valid coordinates
+          return loc;
+        })
+      );
+
+      console.log('✅ [DEBUG] Geocoding complete');
+      geocodedLocations.forEach((loc, idx) => {
+        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
+      });
+
+      // Replace validLocations with geocoded locations
+      const finalValidLocations = geocodedLocations;
 
       // Get updated trip date (from AI comparison or use current)
       const comparisonData = comparisonDiff.comparisonData;
@@ -1779,7 +1970,7 @@ export default function ResultsPage() {
 
       // Call the regeneration function
       await performTripAnalysisUpdate(
-        validLocations,
+        finalValidLocations,
         tripDateObj,
         updatedPassengerName,
         updatedVehicleInfo,
@@ -2111,8 +2302,8 @@ export default function ResultsPage() {
                     </h1>
                   </div>
                   
-                  {/* Live Trip Button */}
-                  {(() => {
+                  {/* Live Trip Button - Only for owners */}
+                  {isOwner && (() => {
                     const now = new Date();
                     const tripDateTime = new Date(tripDate);
                     
