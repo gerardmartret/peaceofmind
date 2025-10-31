@@ -70,6 +70,8 @@ export async function generateExecutiveReport(
     departureTime: string;
   }>,
   emailContent?: string,
+  leadPassengerName?: string,
+  vehicleInfo?: string,
   passengerCount?: number,
   tripDestination?: string,
   passengerNames?: string[],
@@ -80,6 +82,8 @@ export async function generateExecutiveReport(
     console.log('🤖 GENERATING EXECUTIVE PEACE OF MIND REPORT WITH GPT-4O-MINI...');
     console.log('='.repeat(80));
     console.log(`📅 Trip Date: ${tripDate}`);
+    console.log(`👤 Lead Passenger Name: ${leadPassengerName}`);
+    console.log(`🚗 Vehicle Info: ${vehicleInfo}`);
     console.log(`👥 Passenger Count: ${passengerCount}`);
     console.log(`🏙️ Trip Destination: ${tripDestination}`);
     console.log(`👤 Passenger Names: ${passengerNames}`);
@@ -122,6 +126,10 @@ PASSENGER INFORMATION:
 ${(() => {
   let passengerInfo = '';
   
+  if (leadPassengerName) {
+    passengerInfo += `Lead Passenger Name: ${leadPassengerName}\n`;
+  }
+  
   if (passengerCount && passengerCount > 0) {
     passengerInfo += `Number of Passengers: ${passengerCount}\n`;
   }
@@ -134,8 +142,12 @@ ${(() => {
     passengerInfo += `Trip Destination: ${tripDestination}\n`;
   }
   
+  if (vehicleInfo) {
+    passengerInfo += `Vehicle: ${vehicleInfo}\n`;
+  }
+  
   if (driverNotes) {
-    passengerInfo += `Driver Notes: ${driverNotes}\n`;
+    passengerInfo += `Trip Notes: ${driverNotes}\n`;
   }
   
   return passengerInfo || 'Passenger information not available';

@@ -183,16 +183,18 @@ interface SortableLocationItemProps {
     lat: number;
     lng: number;
     time: string;
+    purpose: string;
   };
   index: number;
   totalLocations: number;
   onLocationSelect: (id: string, data: { name: string; lat: number; lng: number }) => void;
   onTimeChange: (id: string, time: string) => void;
+  onPurposeChange: (id: string, purpose: string) => void;
   onRemove: (id: string) => void;
   canRemove: boolean;
   editingIndex: number | null;
-  editingField: 'location' | 'time' | null;
-  onEditStart: (id: string, field: 'location' | 'time') => void;
+  editingField: 'location' | 'time' | 'purpose' | null;
+  onEditStart: (id: string, field: 'location' | 'time' | 'purpose') => void;
   onEditEnd: () => void;
 }
 
@@ -202,6 +204,7 @@ function SortableLocationItem({
   totalLocations,
   onLocationSelect,
   onTimeChange,
+  onPurposeChange,
   onRemove,
   canRemove,
   editingIndex,
@@ -255,8 +258,8 @@ function SortableLocationItem({
           </svg>
         </div>
 
-        {/* Time Picker and Location Search */}
-        <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
+        {/* Time Picker, Location Search, and Purpose */}
+        <div className="flex-1 grid sm:grid-cols-[140px_1fr_1fr] gap-3">
           {/* Time Picker */}
           <div>
             <Label className="text-xs font-medium text-secondary-foreground mb-1">
@@ -301,6 +304,39 @@ function SortableLocationItem({
               </div>
             )}
           </div>
+
+          {/* Purpose Field */}
+          <div className="min-w-0">
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">Purpose</Label>
+            {editingIndex === index && editingField === 'purpose' ? (
+              <div className="editing-purpose" data-editing="true">
+                <Input
+                  value={location.purpose}
+                  onChange={(e) => onPurposeChange(location.id, e.target.value)}
+                  onBlur={onEditEnd}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      onEditEnd();
+                    }
+                  }}
+                  className="h-9"
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <div 
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
+                onClick={() => onEditStart(location.id, 'purpose')}
+              >
+                <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                <span className="flex-1 truncate text-base md:text-sm">
+                  {location.purpose || 'Click to edit purpose...'}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Delete Button - Far Right */}
@@ -335,11 +371,12 @@ interface SortableExtractedLocationItemProps {
   totalLocations: number;
   onLocationSelect: (index: number, location: any) => void;
   onTimeChange: (index: number, time: string) => void;
+  onPurposeChange: (index: number, purpose: string) => void;
   onRemove: (index: number) => void;
   canRemove: boolean;
   editingIndex: number | null;
-  editingField: 'location' | 'time' | null;
-  onEditStart: (index: number, field: 'location' | 'time') => void;
+  editingField: 'location' | 'time' | 'purpose' | null;
+  onEditStart: (index: number, field: 'location' | 'time' | 'purpose') => void;
   onEditEnd: () => void;
 }
 
@@ -349,6 +386,7 @@ function SortableExtractedLocationItem({
   totalLocations,
   onLocationSelect,
   onTimeChange,
+  onPurposeChange,
   onRemove,
   canRemove,
   editingIndex,
@@ -402,8 +440,8 @@ function SortableExtractedLocationItem({
           </svg>
         </div>
 
-        {/* Time Picker and Location Search */}
-        <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
+        {/* Time Picker, Location Search, and Purpose */}
+        <div className="flex-1 grid sm:grid-cols-[140px_1fr_1fr] gap-3">
           {/* Time Picker */}
           <div>
             <Label className="text-xs font-medium text-secondary-foreground mb-1">
@@ -445,6 +483,39 @@ function SortableExtractedLocationItem({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Purpose Field */}
+          <div className="min-w-0">
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">Purpose</Label>
+            {editingIndex === index && editingField === 'purpose' ? (
+              <div className="editing-purpose" data-editing="true">
+                <Input
+                  value={location.purpose}
+                  onChange={(e) => onPurposeChange(index, e.target.value)}
+                  onBlur={onEditEnd}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      onEditEnd();
+                    }
+                  }}
+                  className="h-9"
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <div 
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
+                onClick={() => onEditStart(index, 'purpose')}
+              >
+                <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                <span className="flex-1 truncate text-base md:text-sm">
+                  {location.purpose || 'Click to edit purpose...'}
+                </span>
               </div>
             )}
           </div>
@@ -493,10 +564,11 @@ export default function Home() {
     lat: number;
     lng: number;
     time: string;
+    purpose: string;
   }>>([
-    { id: '1', name: '', lat: 0, lng: 0, time: '09:00' },
-    { id: '2', name: '', lat: 0, lng: 0, time: '12:00' },
-    { id: '3', name: '', lat: 0, lng: 0, time: '17:00' },
+    { id: '1', name: '', lat: 0, lng: 0, time: '09:00', purpose: '' },
+    { id: '2', name: '', lat: 0, lng: 0, time: '12:00', purpose: '' },
+    { id: '3', name: '', lat: 0, lng: 0, time: '17:00', purpose: '' },
   ]);
   const [loadingTrip, setLoadingTrip] = useState(false);
   const [locationsReordered, setLocationsReordered] = useState(false);
@@ -533,11 +605,13 @@ export default function Home() {
   }> | null>(null);
   const [extractedDate, setExtractedDate] = useState<string | null>(null);
   const [extractedDriverSummary, setExtractedDriverSummary] = useState<string | null>(null);
+  const [leadPassengerName, setLeadPassengerName] = useState<string>('');
+  const [vehicleInfo, setVehicleInfo] = useState<string>('');
   const [passengerCount, setPassengerCount] = useState<number>(1);
   const [tripDestination, setTripDestination] = useState<string>('');
   const [passengerNames, setPassengerNames] = useState<string[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
-  const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
+  const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | 'purpose' | null>(null);
 
   // Handle click outside to close editing mode
   useEffect(() => {
@@ -547,6 +621,7 @@ export default function Home() {
       // Check if click is outside any editing elements
       const isClickOnEditingElement = target.closest('.editing-location') || 
                                     target.closest('.editing-time') ||
+                                    target.closest('.editing-purpose') ||
                                     target.closest('[data-editing="true"]');
       
       if (!isClickOnEditingElement) {
@@ -569,7 +644,7 @@ export default function Home() {
   
   // Manual form editing state
   const [editingManualIndex, setEditingManualIndex] = useState<number | null>(null);
-  const [editingManualField, setEditingManualField] = useState<'location' | 'time' | null>(null);
+  const [editingManualField, setEditingManualField] = useState<'location' | 'time' | 'purpose' | null>(null);
 
   // Handle click outside for manual form editing
   useEffect(() => {
@@ -579,6 +654,7 @@ export default function Home() {
       // Check if click is outside any editing elements
       const isClickOnEditingElement = target.closest('.editing-location') || 
                                     target.closest('.editing-time') ||
+                                    target.closest('.editing-purpose') ||
                                     target.closest('[data-editing="true"]');
       
       if (!isClickOnEditingElement) {
@@ -660,6 +736,8 @@ export default function Home() {
           setExtractedLocations(parsed.locations || null);
           setExtractedDate(parsed.date || null);
           setExtractedDriverSummary(parsed.driverSummary || null);
+          setLeadPassengerName(parsed.leadPassengerName || '');
+          setVehicleInfo(parsed.vehicleInfo || '');
           setPassengerCount(parsed.passengerCount || 1);
           setTripDestination(parsed.tripDestination || '');
           setPassengerNames(parsed.passengerNames || []);
@@ -713,6 +791,7 @@ export default function Home() {
       lat: 0,
       lng: 0,
       time: '18:00',
+      purpose: '',
     }]);
   };
 
@@ -741,6 +820,12 @@ export default function Home() {
     });
     
     setLocations(sortedLocations);
+  };
+
+  const updateLocationPurpose = (id: string, purpose: string) => {
+    setLocations(locations.map(loc => 
+      loc.id === id ? { ...loc, purpose } : loc
+    ));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -803,6 +888,8 @@ export default function Home() {
           locations: locationsWithSwappedTimes,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
+          leadPassengerName: leadPassengerName,
+          vehicleInfo: vehicleInfo,
           passengerCount: passengerCount,
           tripDestination: tripDestination,
           passengerNames: passengerNames,
@@ -1004,7 +1091,8 @@ export default function Home() {
       lat: loc.lat,
       lng: loc.lng,
       time: loc.time,
-      fullAddress: loc.formattedAddress // Keep full address for reference
+      fullAddress: loc.formattedAddress, // Keep full address for reference
+      purpose: loc.purpose // Store purpose in location object for database
     }));
 
     // Set the trip date from extracted data or use today
@@ -1017,8 +1105,18 @@ export default function Home() {
       console.log(`📝 Driver summary will be saved: ${extractedDriverSummary.substring(0, 50)}...`);
     }
 
-    // Now call the same trip submission logic with mapped data and driver summary
-    await performTripAnalysis(mappedLocations, tripDateToUse, emailToUse, extractedDriverSummary);
+    // Now call the same trip submission logic with mapped data and all extracted fields
+    await performTripAnalysis(
+      mappedLocations, 
+      tripDateToUse, 
+      emailToUse, 
+      extractedDriverSummary,
+      leadPassengerName,
+      vehicleInfo,
+      passengerCount,
+      tripDestination,
+      passengerNames
+    );
   };
 
   const handleTripSubmit = async () => {
@@ -1041,15 +1139,30 @@ export default function Home() {
     console.log(`📍 ${validLocations.length} locations from manual form`);
     console.log(`📅 Trip date: ${tripDateToUse.toISOString().split('T')[0]}`);
 
-    // Call the trip analysis with manual form data
-    await performTripAnalysis(validLocations, tripDateToUse, emailToUse);
+    // Call the trip analysis with manual form data and all fields
+    await performTripAnalysis(
+      validLocations, 
+      tripDateToUse, 
+      emailToUse,
+      extractedDriverSummary,
+      leadPassengerName,
+      vehicleInfo,
+      passengerCount,
+      tripDestination,
+      passengerNames
+    );
   };
 
   const performTripAnalysis = async (
-    validLocations: Array<{ id: string; name: string; lat: number; lng: number; time: string; fullAddress?: string }>,
+    validLocations: Array<{ id: string; name: string; lat: number; lng: number; time: string; fullAddress?: string; purpose?: string }>,
     tripDateObj: Date,
     emailToUse: string,
-    driverSummary?: string | null
+    driverSummary?: string | null,
+    leadPassengerName?: string,
+    vehicleInfo?: string,
+    passengerCount?: number,
+    tripDestination?: string,
+    passengerNames?: string[]
   ) => {
     // Check if Google Maps API is loaded
     if (!isGoogleMapsLoaded) {
@@ -1319,10 +1432,12 @@ export default function Home() {
             routeDuration: trafficData?.totalMinutes || 0,
             trafficPredictions: trafficData?.success ? trafficData.data : null,
             emailContent: extractionText || null,
+            leadPassengerName: leadPassengerName || null,
+            vehicleInfo: vehicleInfo || null,
             passengerCount: passengerCount || 1,
             tripDestination: tripDestination || null,
             passengerNames: passengerNames || [],
-            driverNotes: extractedDriverSummary || null,
+            driverNotes: driverSummary || null,
           }),
         });
 
@@ -1342,6 +1457,16 @@ export default function Home() {
         // Don't fail the whole trip analysis if report fails
       }
 
+      // Prepare passenger name for database storage
+      // Store all passenger names in lead_passenger_name field (comma-separated)
+      // Priority: use passengerNames array if available, otherwise use leadPassengerName
+      let passengerNameForDb: string | null = null;
+      if (passengerNames && passengerNames.length > 0) {
+        passengerNameForDb = passengerNames.join(', ');
+      } else if (leadPassengerName) {
+        passengerNameForDb = leadPassengerName;
+      }
+
       // Prepare trip data
       const tripInsertData: any = {
         user_email: emailToUse,
@@ -1350,18 +1475,20 @@ export default function Home() {
         trip_results: results as any,
         traffic_predictions: trafficData as any,
         executive_report: executiveReportData as any,
-        driver_notes: extractedDriverSummary || null,
+        trip_notes: driverSummary || null,
+        lead_passenger_name: passengerNameForDb,
+        vehicle: vehicleInfo || null,
         passenger_count: passengerCount || 1,
-        trip_destination: tripDestination || null,
-        passenger_names: passengerNames || []
+        trip_destination: tripDestination || null
       };
       
       // Debug: Log what we're saving to database
       console.log('💾 [FRONTEND] Database save values:');
+      console.log('   lead_passenger_name:', passengerNameForDb);
+      console.log('   vehicle:', vehicleInfo || null);
       console.log('   passenger_count:', passengerCount || 1);
       console.log('   trip_destination:', tripDestination || null);
-      console.log('   passenger_names:', passengerNames || []);
-      console.log('   driver_notes:', extractedDriverSummary || null);
+      console.log('   trip_notes:', driverSummary || null);
 
       // Add user_id for authenticated users
       if (isAuthenticated && user?.id) {
@@ -1599,17 +1726,23 @@ export default function Home() {
       setExtractedLocations(data.locations);
       setExtractedDate(data.date);
       setExtractedDriverSummary(data.driverNotes);
+      setLeadPassengerName(data.leadPassengerName || '');
+      setVehicleInfo(data.vehicleInfo || '');
       setPassengerCount(data.passengerCount || 1);
       setTripDestination(data.tripDestination || '');
       setPassengerNames(data.passengerNames || []);
       
       // Console logging for testing
       console.log('📝 [FRONTEND] Driver Notes:', data.driverNotes);
+      console.log('👤 [FRONTEND] Lead Passenger Name:', data.leadPassengerName);
+      console.log('🚗 [FRONTEND] Vehicle Info:', data.vehicleInfo);
       console.log('👥 [FRONTEND] Passenger Count:', data.passengerCount);
       console.log('🏙️ [FRONTEND] Trip Destination:', data.tripDestination);
       console.log('👤 [FRONTEND] Passenger Names:', data.passengerNames);
       
       // Debug: Log the values being set
+      console.log('🔧 [FRONTEND] Setting leadPassengerName to:', data.leadPassengerName || '');
+      console.log('🔧 [FRONTEND] Setting vehicleInfo to:', data.vehicleInfo || '');
       console.log('🔧 [FRONTEND] Setting passengerCount to:', data.passengerCount || 1);
       console.log('🔧 [FRONTEND] Setting tripDestination to:', data.tripDestination || '');
       console.log('🔧 [FRONTEND] Setting passengerNames to:', data.passengerNames || []);
@@ -1623,6 +1756,8 @@ export default function Home() {
           locations: data.locations,
           date: data.date,
           driverSummary: data.driverNotes,
+          leadPassengerName: data.leadPassengerName,
+          vehicleInfo: data.vehicleInfo,
           passengerCount: data.passengerCount,
           tripDestination: data.tripDestination,
           passengerNames: data.passengerNames,
@@ -1673,6 +1808,8 @@ export default function Home() {
     setShowManualForm(false);
     setLocations([]);
     setTripDate(undefined);
+    setLeadPassengerName('');
+    setVehicleInfo('');
     setPassengerCount(1);
     setTripDestination('');
     setPassengerNames([]);
@@ -1773,15 +1910,55 @@ export default function Home() {
         timeEditTimeoutRef.current = setTimeout(() => {
           sessionStorage.setItem('extractedTripData', JSON.stringify({
             text: extractionText,
-            locations: updatedLocations,
+            locations: sortedLocations,
             date: extractedDate,
             driverSummary: extractedDriverSummary,
+            leadPassengerName: leadPassengerName,
+            vehicleInfo: vehicleInfo,
             passengerCount: passengerCount,
             tripDestination: tripDestination,
             passengerNames: passengerNames,
             timestamp: new Date().toISOString(),
           }));
           console.log('💾 [FRONTEND] Saved time edit to session storage');
+        }, 500); // Save after 500ms of no typing
+      }
+    }
+  };
+
+  // Handle purpose edit
+  const handlePurposeEdit = (index: number, value: string) => {
+    if (extractedLocations) {
+      const updatedLocations = [...extractedLocations];
+      updatedLocations[index] = {
+        ...updatedLocations[index],
+        purpose: value,
+      };
+      
+      setExtractedLocations(updatedLocations);
+      
+      // Save to session storage with debouncing
+      if (typeof window !== 'undefined') {
+        // Clear any existing timeout
+        if (locationEditTimeoutRef.current) {
+          clearTimeout(locationEditTimeoutRef.current);
+        }
+        
+        // Set new timeout for saving
+        locationEditTimeoutRef.current = setTimeout(() => {
+          sessionStorage.setItem('extractedTripData', JSON.stringify({
+            text: extractionText,
+            locations: updatedLocations,
+            date: extractedDate,
+            driverSummary: extractedDriverSummary,
+            leadPassengerName: leadPassengerName,
+            vehicleInfo: vehicleInfo,
+            passengerCount: passengerCount,
+            tripDestination: tripDestination,
+            passengerNames: passengerNames,
+            timestamp: new Date().toISOString(),
+          }));
+          console.log('💾 [FRONTEND] Saved purpose edit to session storage');
         }, 500); // Save after 500ms of no typing
       }
     }
@@ -1798,6 +1975,8 @@ export default function Home() {
         locations: extractedLocations,
         date: value,
         driverSummary: extractedDriverSummary,
+        leadPassengerName: leadPassengerName,
+        vehicleInfo: vehicleInfo,
         passengerCount: passengerCount,
         tripDestination: tripDestination,
         passengerNames: passengerNames,
@@ -1828,6 +2007,8 @@ export default function Home() {
           locations: updatedLocations,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
+          leadPassengerName: leadPassengerName,
+          vehicleInfo: vehicleInfo,
           passengerCount: passengerCount,
           tripDestination: tripDestination,
           passengerNames: passengerNames,
@@ -1851,6 +2032,8 @@ export default function Home() {
           locations: updatedLocations,
           date: extractedDate,
           driverSummary: extractedDriverSummary,
+          leadPassengerName: leadPassengerName,
+          vehicleInfo: vehicleInfo,
           passengerCount: passengerCount,
           tripDestination: tripDestination,
           passengerNames: passengerNames,
@@ -1976,10 +2159,10 @@ export default function Home() {
                   Found {extractedLocations.length} stop{extractedLocations.length > 1 ? 's' : ''} in chronological order. Review and edit as needed.
                 </p>
 
-                {/* Dark Header Section - Trip Date & City */}
+                {/* Dark Header Section - Trip Details */}
                  <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
                       <Label className="text-white font-medium text-sm mb-2 block">Trip Date</Label>
                       <div className="relative">
                         <Input
@@ -1994,7 +2177,7 @@ export default function Home() {
                         </svg>
                       </div>
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <Label className="text-white font-medium text-sm mb-2 block">City</Label>
                       <div className="relative">
                         <Input
@@ -2008,6 +2191,145 @@ export default function Home() {
                         </svg>
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Trip Information Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <Label className="text-white font-medium text-sm mb-2 block">Lead Passenger Name</Label>
+                      <Input
+                        value={leadPassengerName}
+                        onChange={(e) => {
+                          setLeadPassengerName(e.target.value);
+                          if (typeof window !== 'undefined' && extractedLocations) {
+                            sessionStorage.setItem('extractedTripData', JSON.stringify({
+                              text: extractionText,
+                              locations: extractedLocations,
+                              date: extractedDate,
+                              driverSummary: extractedDriverSummary,
+                              leadPassengerName: e.target.value,
+                              vehicleInfo: vehicleInfo,
+                              passengerCount: passengerCount,
+                              tripDestination: tripDestination,
+                              passengerNames: passengerNames,
+                              timestamp: new Date().toISOString(),
+                            }));
+                          }
+                        }}
+                        placeholder="e.g., Mr. Smith"
+                        className="bg-white border-gray-300 rounded-md h-9"
+                        style={{ color: '#05060A' }}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-white font-medium text-sm mb-2 block">Vehicle/Car Info</Label>
+                      <Input
+                        value={vehicleInfo}
+                        onChange={(e) => {
+                          setVehicleInfo(e.target.value);
+                          if (typeof window !== 'undefined' && extractedLocations) {
+                            sessionStorage.setItem('extractedTripData', JSON.stringify({
+                              text: extractionText,
+                              locations: extractedLocations,
+                              date: extractedDate,
+                              driverSummary: extractedDriverSummary,
+                              leadPassengerName: leadPassengerName,
+                              vehicleInfo: e.target.value,
+                              passengerCount: passengerCount,
+                              tripDestination: tripDestination,
+                              passengerNames: passengerNames,
+                              timestamp: new Date().toISOString(),
+                            }));
+                          }
+                        }}
+                        placeholder="e.g., Black Mercedes S-Class"
+                        className="bg-white border-gray-300 rounded-md h-9"
+                        style={{ color: '#05060A' }}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-white font-medium text-sm mb-2 block">Number of Passengers</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={passengerCount}
+                        onChange={(e) => {
+                          const count = parseInt(e.target.value) || 1;
+                          setPassengerCount(count);
+                          if (typeof window !== 'undefined' && extractedLocations) {
+                            sessionStorage.setItem('extractedTripData', JSON.stringify({
+                              text: extractionText,
+                              locations: extractedLocations,
+                              date: extractedDate,
+                              driverSummary: extractedDriverSummary,
+                              leadPassengerName: leadPassengerName,
+                              vehicleInfo: vehicleInfo,
+                              passengerCount: count,
+                              tripDestination: tripDestination,
+                              passengerNames: passengerNames,
+                              timestamp: new Date().toISOString(),
+                            }));
+                          }
+                        }}
+                        className="bg-white border-gray-300 rounded-md h-9"
+                        style={{ color: '#05060A' }}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-white font-medium text-sm mb-2 block">Trip Destination</Label>
+                      <Input
+                        value={tripDestination}
+                        onChange={(e) => {
+                          setTripDestination(e.target.value);
+                          if (typeof window !== 'undefined' && extractedLocations) {
+                            sessionStorage.setItem('extractedTripData', JSON.stringify({
+                              text: extractionText,
+                              locations: extractedLocations,
+                              date: extractedDate,
+                              driverSummary: extractedDriverSummary,
+                              leadPassengerName: leadPassengerName,
+                              vehicleInfo: vehicleInfo,
+                              passengerCount: passengerCount,
+                              tripDestination: e.target.value,
+                              passengerNames: passengerNames,
+                              timestamp: new Date().toISOString(),
+                            }));
+                          }
+                        }}
+                        placeholder="e.g., London"
+                        className="bg-white border-gray-300 rounded-md h-9"
+                        style={{ color: '#05060A' }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Driver Notes Field */}
+                  <div className="mt-4">
+                    <Label className="text-white font-medium text-sm mb-2 block">Trip Notes</Label>
+                    <textarea
+                      value={extractedDriverSummary || ''}
+                      onChange={(e) => {
+                        setExtractedDriverSummary(e.target.value);
+                        if (typeof window !== 'undefined' && extractedLocations) {
+                          sessionStorage.setItem('extractedTripData', JSON.stringify({
+                            text: extractionText,
+                            locations: extractedLocations,
+                            date: extractedDate,
+                            driverSummary: e.target.value,
+                            leadPassengerName: leadPassengerName,
+                            vehicleInfo: vehicleInfo,
+                            passengerCount: passengerCount,
+                            tripDestination: tripDestination,
+                            passengerNames: passengerNames,
+                            timestamp: new Date().toISOString(),
+                          }));
+                        }
+                      }}
+                      placeholder="Additional notes, contact info, special instructions, etc."
+                      rows={4}
+                      className="w-full bg-white border-gray-300 rounded-md p-2 text-sm"
+                      style={{ color: '#05060A' }}
+                    />
                   </div>
                 </div>
 
@@ -2031,6 +2353,7 @@ export default function Home() {
                             totalLocations={extractedLocations.length}
                             onLocationSelect={handleExtractedLocationSelect}
                             onTimeChange={handleTimeEdit}
+                            onPurposeChange={handlePurposeEdit}
                             onRemove={handleExtractedLocationRemove}
                             canRemove={extractedLocations.length > 1}
                             editingIndex={editingExtractedIndex}
@@ -2080,9 +2403,11 @@ export default function Home() {
                             locations: updatedLocations,
                             date: extractedDate,
                             driverSummary: extractedDriverSummary,
-      passengerCount: passengerCount,
-      tripDestination: tripDestination,
-      passengerNames: passengerNames,
+                            leadPassengerName: leadPassengerName,
+                            vehicleInfo: vehicleInfo,
+                            passengerCount: passengerCount,
+                            tripDestination: tripDestination,
+                            passengerNames: passengerNames,
                             timestamp: new Date().toISOString(),
                           }));
                           console.log('💾 [FRONTEND] Saved new location to session storage');
@@ -2164,9 +2489,9 @@ export default function Home() {
 
           {/* Trip Date and City Selector */}
           <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4 mb-4">
               <div>
-                <label htmlFor="tripDate" className="block text-sm font-medium text-primary-foreground mb-2">
+                <label htmlFor="tripDate" className="block text-sm font-medium text-white mb-2">
                   Trip Date
                 </label>
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -2175,7 +2500,7 @@ export default function Home() {
                       variant="outline"
                       id="tripDate"
                       className={cn(
-                        "w-full justify-start text-left font-normal bg-card",
+                        "w-full justify-start text-left font-normal bg-white",
                         !tripDate && "text-muted-foreground"
                       )}
                     >
@@ -2204,11 +2529,11 @@ export default function Home() {
                 </Popover>
               </div>
               <div>
-                <label htmlFor="citySelect" className="block text-sm font-medium text-primary-foreground mb-2">
+                <label htmlFor="citySelect" className="block text-sm font-medium text-white mb-2">
                   City
                 </label>
                 <Select defaultValue="london">
-                  <SelectTrigger className="w-full bg-card">
+                  <SelectTrigger className="w-full bg-white">
                     <SelectValue placeholder="Select city" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2217,6 +2542,74 @@ export default function Home() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            
+            {/* Trip Information Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Lead Passenger Name
+                </label>
+                <Input
+                  value={leadPassengerName}
+                  onChange={(e) => setLeadPassengerName(e.target.value)}
+                  placeholder="e.g., Mr. Smith"
+                  className="bg-white border-gray-300 rounded-md h-9"
+                  style={{ color: '#05060A' }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Vehicle/Car Info
+                </label>
+                <Input
+                  value={vehicleInfo}
+                  onChange={(e) => setVehicleInfo(e.target.value)}
+                  placeholder="e.g., Black Mercedes S-Class"
+                  className="bg-white border-gray-300 rounded-md h-9"
+                  style={{ color: '#05060A' }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Number of Passengers
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={passengerCount}
+                  onChange={(e) => setPassengerCount(parseInt(e.target.value) || 1)}
+                  className="bg-white border-gray-300 rounded-md h-9"
+                  style={{ color: '#05060A' }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Trip Destination
+                </label>
+                <Input
+                  value={tripDestination}
+                  onChange={(e) => setTripDestination(e.target.value)}
+                  placeholder="e.g., London"
+                  className="bg-white border-gray-300 rounded-md h-9"
+                  style={{ color: '#05060A' }}
+                />
+              </div>
+            </div>
+            
+            {/* Trip Notes Field */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-white mb-2">
+                Trip Notes
+              </label>
+              <textarea
+                value={extractedDriverSummary || ''}
+                onChange={(e) => setExtractedDriverSummary(e.target.value)}
+                placeholder="Additional notes, contact info, special instructions, etc."
+                rows={4}
+                className="w-full bg-white border-gray-300 rounded-md p-2 text-sm"
+                style={{ color: '#05060A' }}
+              />
             </div>
           </div>
 
@@ -2240,6 +2633,7 @@ export default function Home() {
                       totalLocations={locations.length}
                       onLocationSelect={updateLocation}
                       onTimeChange={updateLocationTime}
+                      onPurposeChange={updateLocationPurpose}
                       onRemove={removeLocation}
                       canRemove={locations.length > 1}
                       editingIndex={editingManualIndex}

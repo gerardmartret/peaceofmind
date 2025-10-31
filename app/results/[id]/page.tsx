@@ -216,6 +216,8 @@ export default function ResultsPage() {
   const [expandedLocations, setExpandedLocations] = useState<{[key: string]: boolean}>({});
   const [expandedRoutes, setExpandedRoutes] = useState<{[key: string]: boolean}>({});
   const [driverNotes, setDriverNotes] = useState<string>('');
+  const [leadPassengerName, setLeadPassengerName] = useState<string>('');
+  const [vehicleInfo, setVehicleInfo] = useState<string>('');
   const [passengerCount, setPassengerCount] = useState<number>(1);
   const [tripDestination, setTripDestination] = useState<string>('');
   const [passengerNames, setPassengerNames] = useState<string[]>([]);
@@ -828,6 +830,8 @@ export default function ResultsPage() {
       
       console.log('Saving notes with values:', {
         editedDriverNotes,
+        leadPassengerName,
+        vehicleInfo,
         passengerCount,
         tripDestination,
         passengerNames,
@@ -835,19 +839,24 @@ export default function ResultsPage() {
       });
       
       const updateData: any = {
-        driver_notes: editedDriverNotes
+        trip_notes: editedDriverNotes
       };
       
       // Only include new fields if they have values
+      if (leadPassengerName) {
+        updateData.lead_passenger_name = leadPassengerName;
+      }
+      if (vehicleInfo) {
+        updateData.vehicle = vehicleInfo;
+      }
       if (passengerCount && passengerCount > 0) {
         updateData.passenger_count = passengerCount;
       }
       if (tripDestination) {
         updateData.trip_destination = tripDestination;
       }
-      if (passengerNames && passengerNames.length > 0) {
-        updateData.passenger_names = passengerNames;
-      }
+      // Note: passenger_names column doesn't exist in database
+      // Passenger names are still used for display but not stored in DB
       
       console.log('Update data:', updateData);
       
@@ -952,15 +961,17 @@ export default function ResultsPage() {
           executiveReport: data.executive_report as any,
           passengerCount: data.passenger_count || 1,
           tripDestination: data.trip_destination || '',
-          passengerNames: data.passenger_names || [],
+          passengerNames: [], // passenger_names column doesn't exist in DB
         };
 
         setTripData(tripData);
-        setDriverNotes(data.driver_notes || '');
-        setEditedDriverNotes(data.driver_notes || '');
+        setDriverNotes(data.trip_notes || '');
+        setEditedDriverNotes(data.trip_notes || '');
+        setLeadPassengerName(data.lead_passenger_name || '');
+        setVehicleInfo(data.vehicle || '');
         setPassengerCount(data.passenger_count || 1);
         setTripDestination(data.trip_destination || '');
-        setPassengerNames(data.passenger_names || []);
+        setPassengerNames([]); // passenger_names column doesn't exist in DB, set empty array
         
         // Populate location display names from database
         const displayNames: {[key: string]: string} = {};
@@ -1263,9 +1274,24 @@ export default function ResultsPage() {
                     </div>
                   </div>
                   
+                  {/* Passenger Name(s) */}
+                  {leadPassengerName && (
+                    <div className="py-2">
+                      <div className="flex items-center gap-4">
+                        <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <div>
+                          <span className="text-base text-muted-foreground">Passenger{leadPassengerName.includes(',') ? 's' : ''}: </span>
+                          <span className="text-lg font-semibold text-card-foreground">{leadPassengerName}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Vehicle Information */}
                   {(() => {
-                    const carInfo = extractCarInfo(driverNotes);
+                    const carInfo = vehicleInfo || extractCarInfo(driverNotes);
                     if (carInfo) {
                       return (
                         <div className="py-2">

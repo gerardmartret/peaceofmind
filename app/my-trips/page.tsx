@@ -16,8 +16,9 @@ interface Trip {
   locations: any;
   passenger_count: number | null;
   trip_destination: string | null;
-  passenger_names: string[] | null;
-  driver_notes: string | null;
+  lead_passenger_name: string | null;
+  vehicle: string | null;
+  trip_notes: string | null;
 }
 
 export default function MyTripsPage() {
@@ -43,7 +44,7 @@ export default function MyTripsPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from('trips')
-          .select('id, trip_date, created_at, locations, passenger_count, trip_destination, passenger_names, driver_notes')
+          .select('id, trip_date, created_at, locations, passenger_count, trip_destination, lead_passenger_name, vehicle, trip_notes')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
@@ -109,7 +110,7 @@ export default function MyTripsPage() {
 
   // Generate one-sentence trip description from available data
   const generateTripName = (trip: Trip) => {
-    // Try to extract passenger name from driver_notes or special_remarks
+    // Try to extract passenger name from trip_notes or special_remarks
     const extractPassengerName = (text: string | null): string | null => {
       if (!text) return null;
       
@@ -138,9 +139,8 @@ export default function MyTripsPage() {
     };
 
     // Try to get passenger name from various fields
-    const passengerName = trip.passenger_names && trip.passenger_names.length > 0 
-                         ? trip.passenger_names[0] 
-                         : extractPassengerName(trip.driver_notes);
+    // Note: passenger_names column doesn't exist in DB, so extract from trip_notes or use lead_passenger_name
+    const passengerName = trip.lead_passenger_name || extractPassengerName(trip.trip_notes);
 
     // Get location count for context
     const locationCount = getLocationCount(trip.locations);
@@ -166,7 +166,7 @@ export default function MyTripsPage() {
       return null;
     };
 
-    const purposeKeyword = getPurposeKeywords(trip.driver_notes) ||
+    const purposeKeyword = getPurposeKeywords(trip.trip_notes) ||
                           (trip.trip_destination ? `to ${trip.trip_destination}` : null);
 
     // Generate one-sentence description based on available data

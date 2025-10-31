@@ -65,51 +65,57 @@ export type Database = {
       trips: {
         Row: {
           created_at: string | null
-          driver_notes: string | null
           executive_report: Json | null
           id: string
+          lead_passenger_name: string | null
           locations: Json
           passenger_count: number | null
-          passenger_names: string[] | null
           traffic_predictions: Json | null
           trip_date: string
           trip_destination: string | null
+          trip_notes: string | null
           trip_results: Json
           updated_at: string | null
           user_email: string
           user_id: string | null
+          vehicle: string | null
+          version: number | null
         }
         Insert: {
           created_at?: string | null
-          driver_notes?: string | null
           executive_report?: Json | null
           id?: string
+          lead_passenger_name?: string | null
           locations: Json
           passenger_count?: number | null
-          passenger_names?: string[] | null
           traffic_predictions?: Json | null
           trip_date: string
           trip_destination?: string | null
+          trip_notes?: string | null
           trip_results: Json
           updated_at?: string | null
           user_email: string
           user_id?: string | null
+          vehicle?: string | null
+          version?: number | null
         }
         Update: {
           created_at?: string | null
-          driver_notes?: string | null
           executive_report?: Json | null
           id?: string
+          lead_passenger_name?: string | null
           locations?: Json
           passenger_count?: number | null
-          passenger_names?: string[] | null
           traffic_predictions?: Json | null
           trip_date?: string
           trip_destination?: string | null
+          trip_notes?: string | null
           trip_results?: Json
           updated_at?: string | null
           user_email?: string
           user_id?: string | null
+          vehicle?: string | null
+          version?: number | null
         }
         Relationships: []
       }

@@ -106,27 +106,32 @@ Extract:
 1. All locations in London (addresses, landmarks, stations, airports, etc.)
 2. Associated times for each location
 3. Trip date if mentioned
-4. Passenger names and count
-5. Trip destination/city
-6. Driver notes (structured email content for driver)
-7. Specific details for each location: person names, company names, venue names, meeting types, etc.
+4. Lead passenger name (main/first passenger name)
+5. Number of passengers (total count)
+6. Trip destination/city
+7. Vehicle/car information (make, model, color, type, requirements)
+8. Driver notes (all remaining information that doesn't fit in structured fields above - contact info, special instructions, flight details, etc.)
+9. Passenger names (all passenger names as array)
+10. Specific details for each location: person names, company names, venue names, meeting types, etc.
 
 Return a JSON object with this exact structure:
 {
   "success": true,
   "date": "YYYY-MM-DD or null if not mentioned",
+  "leadPassengerName": "Main passenger name (e.g., 'Mr. Smith', 'John Doe') or null if not mentioned",
   "passengerCount": number,
   "tripDestination": "Main destination city only (e.g., 'London', 'Manchester', 'Birmingham')",
+  "vehicleInfo": "Vehicle/car information including make, model, color, type, or requirements (e.g., 'Black Mercedes S-Class', 'Luxury vehicle', 'Executive sedan') or null if not mentioned",
   "passengerNames": ["Name1", "Name2", "Name3"],
-  "driverNotes": "COMPLETE and COMPREHENSIVE version of original email content as a single text string. PRESERVE ALL details including vehicle specifications, flight numbers, contact information, timing details, security requirements, and any other important information. Do NOT remove or summarize any content - just rephrase and organize for clarity while maintaining the original tone and urgency.",
-          "locations": [
-            {
-              "location": "Full location name in London",
-              "time": "HH:MM in 24-hour format",
-              "confidence": "high/medium/low",
-              "purpose": "Comprehensive short name that summarizes the purpose with specific details (e.g., 'Pick up at Gatwick Airport', 'Investment Meeting at UBS Bank with Mr John', 'Dinner at Belladonna with Mr. Smith', 'Hotel check-in at The Savoy')"
-            }
-          ]
+  "driverNotes": "All remaining information from original email that doesn't fit in structured fields above - contact details, phone numbers, flight numbers, special instructions, timing constraints, security requirements, pickup details, waiting instructions, etc. PRESERVE ALL details. Do NOT remove or summarize any content - just rephrase and organize for clarity while maintaining the original tone and urgency.",
+  "locations": [
+    {
+      "location": "Full location name in London",
+      "time": "HH:MM in 24-hour format",
+      "confidence": "high/medium/low",
+      "purpose": "Comprehensive short name that summarizes the purpose with specific details (e.g., 'Pick up at Gatwick Airport', 'Investment Meeting at UBS Bank with Mr John', 'Dinner at Belladonna with Mr. Smith', 'Hotel check-in at The Savoy')"
+    }
+  ]
 }
 
 Rules for extraction:
@@ -157,11 +162,25 @@ Rules for location purpose:
 - Include person names, company names, or venue names when mentioned in the email
 - If specific details are unclear, use the location name with the action
 
+Rules for lead passenger name extraction:
+- Extract the MAIN or FIRST passenger name mentioned in the email
+- This should be the primary client/passenger (often the first one mentioned or the VIP/client name)
+- Look for patterns like "Mr. Smith", "John Doe", "Client: Name", "VIP: Name"
+- If multiple passengers mentioned, choose the one who appears to be the primary client
+- Return null if no clear lead passenger name is found
+
 Rules for passenger extraction:
-- Extract all passenger names mentioned in the email
-- Count total number of passengers
+- Extract all passenger names mentioned in the email into passengerNames array
+- Count total number of passengers accurately
 - Extract main destination city or location
 - Look for patterns like "Mr. Smith", "John and Mary", "3 passengers", "group of 4"
+
+Rules for vehicle information extraction:
+- Extract vehicle/car specifications explicitly mentioned (make, model, color, type)
+- Examples: "black Mercedes S-Class", "luxury vehicle", "executive sedan", "BMW X5"
+- Include any vehicle requirements or preferences mentioned
+- If vehicle info is not explicitly mentioned, return null
+- Do NOT include vehicle info in driverNotes - extract it separately as vehicleInfo
 
 Rules for trip destination:
 - Extract ONLY the city name (e.g., "London", "Manchester", "Birmingham")
@@ -171,19 +190,28 @@ Rules for trip destination:
 - Examples: "London City Airport" → "London", "Heathrow Airport" → "London", "Manchester Airport" → "Manchester"
 
 Rules for driver notes:
-- PRESERVE ALL content from the original email - do NOT remove or summarize anything
-- INCLUDE vehicle specifications (make, model, color, type, requirements)
+- Include ONLY information that does NOT fit in any structured field above
+- Do NOT include locations (already extracted), times (already extracted), dates (already extracted), passenger names (already extracted), vehicle info (already extracted), or trip destination (already extracted)
 - INCLUDE flight numbers, airline codes, terminal information
 - INCLUDE contact details, phone numbers, email addresses
-- INCLUDE timing details, deadlines, urgency indicators
+- INCLUDE timing constraints, deadlines, urgency indicators (but NOT specific times for locations)
 - INCLUDE security requirements, VIP status, special instructions
-- INCLUDE meeting details, venue information, dress codes
-- INCLUDE parking requirements, waiting instructions, pickup details
+- INCLUDE meeting details beyond what's in location purpose (e.g., dress codes, agenda items)
+- INCLUDE parking requirements, waiting instructions, pickup procedures
+- INCLUDE any additional context, special requests, or operational notes
+- FORMAT as bullet points using "- " prefix, one item per line
 - MAINTAIN the original tone, urgency, and emphasis
 - REPHRASE and ORGANIZE for clarity while keeping ALL information
-- STRUCTURE the content logically but preserve every detail
-- Return as a SINGLE TEXT STRING, not a JSON object
-- Example: If email says "URGENT: VIP client needs black Mercedes S-Class, flight BA177, contact Elena +44 20 1234 5678", preserve ALL of this information`,
+- Example format:
+  - Contact Elena +44 20 1234 5678 before arrival
+  - Wait at Terminal 5 with engine running
+  - Flight BA177 delayed 30 minutes, monitor for updates
+  - VIP passenger, maintain discretion
+  - Call passenger upon arrival at pickup location
+- Example: If email says "URGENT: Contact Elena +44 20 1234 5678 before arrival. Wait at Terminal 5. Flight BA177 delayed 30 minutes. Call passenger upon arrival. Pick up Mr. Smith at Heathrow at 3pm.", extract as:
+  * leadPassengerName: "Mr. Smith"
+  * locations: [{location: "Heathrow", time: "15:00", purpose: "Pick up Mr. Smith"}]
+  * driverNotes: "- Contact Elena +44 20 1234 5678 before arrival\n- Wait at Terminal 5\n- Flight BA177 delayed 30 minutes, monitor for updates\n- Call passenger upon arrival"`,
         },
         {
           role: 'user',
@@ -252,8 +280,10 @@ Rules for driver notes:
     const response = {
       success: true,
       date: parsed.date || null,
+      leadPassengerName: parsed.leadPassengerName || null,
       passengerCount: parsed.passengerCount || 1,
       tripDestination: parsed.tripDestination || null,
+      vehicleInfo: parsed.vehicleInfo || null,
       passengerNames: parsed.passengerNames || [],
       driverNotes: parsed.driverNotes || null,
       locations: verifiedLocations,
