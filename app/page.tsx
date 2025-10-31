@@ -286,7 +286,7 @@ function SortableLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
                 onClick={() => onEditStart(location.id, 'location')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -324,7 +324,7 @@ function SortableLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
                 onClick={() => onEditStart(location.id, 'purpose')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -468,7 +468,7 @@ function SortableExtractedLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
                 onClick={() => onEditStart(index, 'location')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -506,7 +506,7 @@ function SortableExtractedLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-gray-50 rounded-md border border-input bg-white"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
                 onClick={() => onEditStart(index, 'purpose')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2058,7 +2058,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white p-4 sm:p-8 flex items-center justify-center">
+    <div className="min-h-screen bg-background p-4 sm:p-8 flex items-center justify-center">
       <div className="max-w-4xl mx-auto w-full">
 
 
@@ -2069,7 +2069,7 @@ export default function Home() {
             alt="Driverbrief" 
             className="mx-auto h-6 w-auto mb-6"
           />
-          <p className="text-5xl font-light" style={{ color: '#05060A' }}>
+          <p className="text-5xl font-light text-foreground">
             Plan and update your trips,<br />
             with one shareable link.
           </p>
@@ -2077,12 +2077,12 @@ export default function Home() {
 
         {/* Email/Text Import Section */}
         {!showManualForm && !extractedLocations && (
-        <div className="bg-white rounded-md p-6 mb-8">
+        <div className="bg-card rounded-md p-6 mb-8 border border-border">
           <div className="flex items-center gap-2 mb-4">
             <svg className="w-5 h-5 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-                    <h2 className="text-xl font-medium" style={{ color: '#05060A' }}>
+                    <h2 className="text-xl font-medium text-foreground">
                       Import Trip from Email or Text
                     </h2>
           </div>
@@ -2094,8 +2094,7 @@ export default function Home() {
                 value={extractionText}
                 onChange={(e) => setExtractionText(e.target.value)}
                 placeholder="Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you."
-                className="w-full min-h-[150px] p-3 rounded-md border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
-                style={{ borderColor: '#E6E2DC' }}
+                className="w-full min-h-[150px] p-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
               />
             </div>
 
@@ -2159,25 +2158,24 @@ export default function Home() {
                 </p>
 
                 {/* Dark Header Section - Trip Details */}
-                 <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
+                 <div className="rounded-md p-4 mb-6 bg-primary dark:bg-card border border-border">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <Label className="text-white font-medium text-sm mb-2 block">Trip Date</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip Date</Label>
                       <div className="relative">
                         <Input
                           type="date"
                           value={extractedDate || ''}
                           onChange={(e) => handleDateEdit(e.target.value)}
-                          className="bg-white border-gray-300 rounded-md h-9 pl-10"
-                          style={{ color: '#05060A' }}
+                          className="bg-background border-border rounded-md h-9 pl-10 text-foreground"
                         />
-                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
                     </div>
                     <div>
-                      <Label className="text-white font-medium text-sm mb-2 block">Trip Destination</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip Destination</Label>
                       <div className="relative">
                         <Input
                           value={tripDestination || ''}
@@ -2198,11 +2196,10 @@ export default function Home() {
                               }));
                             }
                           }}
-                          className="bg-white border-gray-300 rounded-md h-9 pr-10"
-                          style={{ color: '#05060A' }}
+                          className="bg-background border-border rounded-md h-9 pr-10 text-foreground"
                           placeholder="Enter trip destination"
                         />
-                        <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </div>
@@ -2212,7 +2209,7 @@ export default function Home() {
                   {/* Trip Information Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                     <div>
-                      <Label className="text-white font-medium text-sm mb-2 block">Lead Passenger Name</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Lead Passenger Name</Label>
                       <Input
                         value={leadPassengerName}
                         onChange={(e) => {
@@ -2233,12 +2230,11 @@ export default function Home() {
                           }
                         }}
                         placeholder="e.g., Mr. Smith"
-                        className="bg-white border-gray-300 rounded-md h-9"
-                        style={{ color: '#05060A' }}
+                        className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
                     <div>
-                      <Label className="text-white font-medium text-sm mb-2 block">Vehicle/Car Info</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Vehicle/Car Info</Label>
                       <Input
                         value={vehicleInfo}
                         onChange={(e) => {
@@ -2259,12 +2255,11 @@ export default function Home() {
                           }
                         }}
                         placeholder="e.g., Black Mercedes S-Class"
-                        className="bg-white border-gray-300 rounded-md h-9"
-                        style={{ color: '#05060A' }}
+                        className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
                     <div>
-                      <Label className="text-white font-medium text-sm mb-2 block">Number of Passengers</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Number of Passengers</Label>
                       <Input
                         type="number"
                         min="1"
@@ -2287,15 +2282,14 @@ export default function Home() {
                             }));
                           }
                         }}
-                        className="bg-white border-gray-300 rounded-md h-9"
-                        style={{ color: '#05060A' }}
+                        className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
                   </div>
                   
                   {/* Driver Notes Field */}
                   <div className="mt-4">
-                    <Label className="text-white font-medium text-sm mb-2 block">Trip Notes</Label>
+                    <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip Notes</Label>
                     <textarea
                       value={extractedDriverSummary || ''}
                       onChange={(e) => {
@@ -2317,8 +2311,7 @@ export default function Home() {
                       }}
                       placeholder="Additional notes, contact info, special instructions, etc."
                       rows={4}
-                      className="w-full bg-white border-gray-300 rounded-md p-2 text-sm"
-                      style={{ color: '#05060A' }}
+                      className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground"
                     />
                   </div>
                 </div>
@@ -2418,8 +2411,7 @@ export default function Home() {
                     onClick={handleExtractedTripSubmit}
                     disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified)}
                     size="lg"
-                    className="flex items-center gap-2 text-white"
-                    style={{ backgroundColor: '#05060A' }}
+                    className="flex items-center gap-2"
                   >
                     {loadingTrip ? (
                       <>
@@ -2457,7 +2449,7 @@ export default function Home() {
 
         {/* Multi-Location Trip Planner */}
         {showManualForm && (
-        <div id="manual-form-section" className="bg-white rounded-md p-6 mb-8">
+        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8 border border-border">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-xl font-medium text-card-foreground">
@@ -2478,10 +2470,10 @@ export default function Home() {
           
 
           {/* Trip Date and Trip Destination */}
-          <div className="rounded-md p-4 mb-6" style={{ backgroundColor: '#05060A' }}>
+          <div className="rounded-md p-4 mb-6 bg-primary dark:bg-card border border-border">
             <div className="grid sm:grid-cols-2 gap-4 mb-4">
               <div>
-                <label htmlFor="tripDate" className="block text-sm font-medium text-white mb-2">
+                <label htmlFor="tripDate" className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Trip Date
                 </label>
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -2490,7 +2482,7 @@ export default function Home() {
                       variant="outline"
                       id="tripDate"
                       className={cn(
-                        "w-full justify-start text-left font-normal bg-white",
+                        "w-full justify-start text-left font-normal bg-background",
                         !tripDate && "text-muted-foreground"
                       )}
                     >
@@ -2519,15 +2511,14 @@ export default function Home() {
                 </Popover>
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Trip Destination
                 </label>
                 <Input
                   value={tripDestination || ''}
                   onChange={(e) => setTripDestination(e.target.value)}
                   placeholder="Enter trip destination (e.g., London)"
-                  className="bg-white border-gray-300 rounded-md h-9"
-                  style={{ color: '#05060A' }}
+                  className="bg-background border-border rounded-md h-9 text-foreground"
                 />
               </div>
             </div>
@@ -2535,31 +2526,29 @@ export default function Home() {
             {/* Trip Information Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Lead Passenger Name
                 </label>
                 <Input
                   value={leadPassengerName}
                   onChange={(e) => setLeadPassengerName(e.target.value)}
                   placeholder="e.g., Mr. Smith"
-                  className="bg-white border-gray-300 rounded-md h-9"
-                  style={{ color: '#05060A' }}
+                  className="bg-background border-border rounded-md h-9 text-foreground"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Vehicle/Car Info
                 </label>
                 <Input
                   value={vehicleInfo}
                   onChange={(e) => setVehicleInfo(e.target.value)}
                   placeholder="e.g., Black Mercedes S-Class"
-                  className="bg-white border-gray-300 rounded-md h-9"
-                  style={{ color: '#05060A' }}
+                  className="bg-background border-border rounded-md h-9 text-foreground"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Number of Passengers
                 </label>
                 <Input
@@ -2567,15 +2556,14 @@ export default function Home() {
                   min="1"
                   value={passengerCount}
                   onChange={(e) => setPassengerCount(parseInt(e.target.value) || 1)}
-                  className="bg-white border-gray-300 rounded-md h-9"
-                  style={{ color: '#05060A' }}
+                  className="bg-background border-border rounded-md h-9 text-foreground"
                 />
               </div>
             </div>
             
             {/* Trip Notes Field */}
             <div className="mt-4">
-              <label className="block text-sm font-medium text-white mb-2">
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                 Trip Notes
               </label>
               <textarea
@@ -2583,8 +2571,7 @@ export default function Home() {
                 onChange={(e) => setExtractedDriverSummary(e.target.value)}
                 placeholder="Additional notes, contact info, special instructions, etc."
                 rows={4}
-                className="w-full bg-white border-gray-300 rounded-md p-2 text-sm"
-                style={{ color: '#05060A' }}
+                className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground"
               />
             </div>
           </div>

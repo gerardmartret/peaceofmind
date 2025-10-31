@@ -2,15 +2,25 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { useAuth } from '@/lib/auth-context';
 import { useHomepageContext } from '@/lib/homepage-context';
 import { Button } from '@/components/ui/button';
+import { Moon, Sun } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export default function Header() {
   const { user, isAuthenticated, signOut, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { resetToImport } = useHomepageContext();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -29,10 +39,10 @@ export default function Header() {
 
   if (loading) {
     return (
-      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b" style={{ backgroundColor: '#FBFAF9' }}>
+      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-end items-center gap-2">
-            <div className="h-9 w-20 bg-gray-200 animate-pulse rounded"></div>
+            <div className="h-9 w-20 bg-muted animate-pulse rounded"></div>
           </div>
         </div>
       </header>
@@ -40,7 +50,7 @@ export default function Header() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b" style={{ backgroundColor: '#FBFAF9' }}>
+    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background">
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           {/* Logo */}
@@ -54,38 +64,55 @@ export default function Header() {
           
           {/* Navigation */}
           <div className="flex items-center gap-2">
-          {isAuthenticated ? (
-            <>
-              <span className="text-sm mr-2" style={{ color: '#05060A' }}>
-                {user?.email}
-              </span>
-              <Link href="/my-trips">
-                <Button variant="outline" size="sm">
-                  My Trips
-                </Button>
-              </Link>
+            {/* Theme Toggle */}
+            {mounted && (
               <Button
-                onClick={handleSignOut}
-                variant="outline"
+                variant="ghost"
                 size="sm"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-9 w-9 p-0"
+                aria-label="Toggle theme"
               >
-                Logout
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
               </Button>
-            </>
-          ) : (
-            <>
-              <Link href="/login">
-                <Button variant="outline" size="sm">
-                  Login
+            )}
+            
+            {isAuthenticated ? (
+              <>
+                <span className="text-sm mr-2 text-foreground">
+                  {user?.email}
+                </span>
+                <Link href="/my-trips">
+                  <Button variant="outline" size="sm">
+                    My Trips
+                  </Button>
+                </Link>
+                <Button
+                  onClick={handleSignOut}
+                  variant="outline"
+                  size="sm"
+                >
+                  Logout
                 </Button>
-              </Link>
-              <Link href="/signup">
-                <Button variant="default" size="sm">
-                  Sign Up
-                </Button>
-              </Link>
-            </>
-          )}
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="outline" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button variant="default" size="sm">
+                    Sign Up
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
