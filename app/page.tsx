@@ -541,6 +541,16 @@ const numberToLetter = (num: number): string => {
   return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
 };
 
+// Generate a random password for password protection
+const generatePassword = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < 8; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+};
+
 export default function Home() {
   const router = useRouter();
   const { isLoaded: isGoogleMapsLoaded } = useGoogleMaps();
@@ -607,6 +617,7 @@ export default function Home() {
   const [leadPassengerName, setLeadPassengerName] = useState<string>('');
   const [vehicleInfo, setVehicleInfo] = useState<string>('');
   const [passengerCount, setPassengerCount] = useState<number>(1);
+  const [protectWithPassword, setProtectWithPassword] = useState<boolean>(false);
   const [tripDestination, setTripDestination] = useState<string>('');
   const [passengerNames, setPassengerNames] = useState<string[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
@@ -1114,7 +1125,8 @@ export default function Home() {
       vehicleInfo,
       passengerCount,
       tripDestination,
-      passengerNames
+      passengerNames,
+      protectWithPassword
     );
   };
 
@@ -1148,7 +1160,8 @@ export default function Home() {
       vehicleInfo,
       passengerCount,
       tripDestination,
-      passengerNames
+      passengerNames,
+      protectWithPassword
     );
   };
 
@@ -1161,7 +1174,8 @@ export default function Home() {
     vehicleInfo?: string,
     passengerCount?: number,
     tripDestination?: string,
-    passengerNames?: string[]
+    passengerNames?: string[],
+    shouldProtectWithPassword?: boolean
   ) => {
     // Check if Google Maps API is loaded
     if (!isGoogleMapsLoaded) {
@@ -1478,7 +1492,8 @@ export default function Home() {
         lead_passenger_name: passengerNameForDb,
         vehicle: vehicleInfo || null,
         passenger_count: passengerCount || 1,
-        trip_destination: tripDestination || null
+        trip_destination: tripDestination || null,
+        password: shouldProtectWithPassword ? generatePassword() : null
       };
       
       // Debug: Log what we're saving to database
@@ -2444,6 +2459,22 @@ export default function Home() {
                     View Route
                   </Button>
                 </div>
+
+                {/* Password Protection Checkbox - Only for authenticated users */}
+                {isAuthenticated && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <input
+                      type="checkbox"
+                      id="protect-password-extracted"
+                      checked={protectWithPassword}
+                      onChange={(e) => setProtectWithPassword(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="protect-password-extracted" className="text-sm text-muted-foreground cursor-pointer select-none">
+                      Protect with password
+                    </label>
+                  </div>
+                )}
               </div>
         )}
 
@@ -2683,6 +2714,22 @@ export default function Home() {
               View Route
             </Button>
           </div>
+
+          {/* Password Protection Checkbox - Only for authenticated users */}
+          {isAuthenticated && (
+            <div className="flex items-center gap-2 mt-3">
+              <input
+                type="checkbox"
+                id="protect-password"
+                checked={protectWithPassword}
+                onChange={(e) => setProtectWithPassword(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <label htmlFor="protect-password" className="text-sm text-muted-foreground cursor-pointer select-none">
+                Protect with password
+              </label>
+            </div>
+          )}
         </div>
         )}
 

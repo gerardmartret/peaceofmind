@@ -70,6 +70,7 @@ export type Database = {
           lead_passenger_name: string | null
           locations: Json
           passenger_count: number | null
+          password: string | null
           traffic_predictions: Json | null
           trip_date: string
           trip_destination: string | null
@@ -88,6 +89,7 @@ export type Database = {
           lead_passenger_name?: string | null
           locations: Json
           passenger_count?: number | null
+          password?: string | null
           traffic_predictions?: Json | null
           trip_date: string
           trip_destination?: string | null
@@ -106,6 +108,7 @@ export type Database = {
           lead_passenger_name?: string | null
           locations?: Json
           passenger_count?: number | null
+          password?: string | null
           traffic_predictions?: Json | null
           trip_date?: string
           trip_destination?: string | null
