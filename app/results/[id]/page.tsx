@@ -4224,8 +4224,8 @@ export default function ResultsPage() {
           </Card>
         )}
 
-        {/* Quote Submission Form - Only for Guests */}
-        {!isOwner && (
+        {/* Quote Submission Form - Only for Guests on Password-Protected Reports */}
+        {!isOwner && isPasswordProtected && (
           <Card className="mb-8">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Add Your Quote</h2>
