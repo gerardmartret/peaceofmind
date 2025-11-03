@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import TripRiskBreakdown from '@/components/TripRiskBreakdown';
@@ -15,6 +15,7 @@ import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
 import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
+import { validateBusinessEmail } from '@/lib/email-validation';
 
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
@@ -260,6 +261,24 @@ export default function ResultsPage() {
   // Trip status state
   const [tripStatus, setTripStatus] = useState<string>('not confirmed');
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
+  
+  // Quotes state
+  const [quotes, setQuotes] = useState<Array<{
+    id: string;
+    email: string;
+    price: number;
+    currency: string;
+    created_at: string;
+  }>>([]);
+  const [loadingQuotes, setLoadingQuotes] = useState<boolean>(false);
+  const [quoteEmail, setQuoteEmail] = useState<string>('');
+  const [quotePrice, setQuotePrice] = useState<string>('');
+  const [quoteCurrency, setQuoteCurrency] = useState<string>('USD');
+  const [quoteEmailError, setQuoteEmailError] = useState<string | null>(null);
+  const [quotePriceError, setQuotePriceError] = useState<string | null>(null);
+  const [submittingQuote, setSubmittingQuote] = useState<boolean>(false);
+  const [quoteSuccess, setQuoteSuccess] = useState<boolean>(false);
+  const [quoteSuccessMessage, setQuoteSuccessMessage] = useState<string>('Quote submitted successfully!');
 
   // Update current time when in live mode
   useEffect(() => {
@@ -1148,6 +1167,117 @@ export default function ResultsPage() {
       console.error('❌ Error updating trip status:', err);
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const fetchQuotes = useCallback(async () => {
+    if (!tripId || !isOwner) return;
+    
+    setLoadingQuotes(true);
+    try {
+      // Get the current session to send auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('❌ No session found');
+        setLoadingQuotes(false);
+        return;
+      }
+
+      const response = await fetch('/api/get-quotes', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          tripId: tripId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setQuotes(result.quotes || []);
+        console.log(`✅ Fetched ${result.quotes?.length || 0} quotes`);
+      } else {
+        console.error('❌ Failed to fetch quotes:', result.error);
+      }
+    } catch (err) {
+      console.error('❌ Error fetching quotes:', err);
+    } finally {
+      setLoadingQuotes(false);
+    }
+  }, [tripId, isOwner]);
+
+  // Fetch quotes when page loads (for owners only)
+  useEffect(() => {
+    if (isOwner && tripId && !loading) {
+      fetchQuotes();
+    }
+  }, [isOwner, tripId, loading, fetchQuotes]);
+
+  const handleSubmitQuote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Reset errors and success
+    setQuoteEmailError(null);
+    setQuotePriceError(null);
+    setQuoteSuccess(false);
+
+    // Validate email
+    const emailValidation = validateBusinessEmail(quoteEmail.trim());
+    if (!emailValidation.isValid) {
+      setQuoteEmailError(emailValidation.error || 'Invalid email address');
+      return;
+    }
+
+    // Validate price
+    const priceNum = parseFloat(quotePrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      setQuotePriceError('Please enter a valid price greater than 0');
+      return;
+    }
+
+    setSubmittingQuote(true);
+
+    try {
+      const response = await fetch('/api/submit-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tripId: tripId,
+          email: quoteEmail.trim(),
+          price: priceNum,
+          currency: quoteCurrency,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const action = result.isUpdate ? 'updated' : 'submitted';
+        console.log(`✅ Quote ${action} successfully`);
+        setQuoteSuccessMessage(
+          result.isUpdate 
+            ? 'Quote updated successfully! The trip owner will see your updated offer.'
+            : 'Quote submitted successfully! The trip owner will review your offer.'
+        );
+        setQuoteSuccess(true);
+        // Clear form
+        setQuoteEmail('');
+        setQuotePrice('');
+        setQuoteCurrency('USD');
+        // Hide success message after 5 seconds
+        setTimeout(() => setQuoteSuccess(false), 5000);
+      } else {
+        setQuoteEmailError(result.error || 'Failed to submit quote');
+      }
+    } catch (err) {
+      console.error('❌ Error submitting quote:', err);
+      setQuoteEmailError('Failed to submit quote. Please try again.');
+    } finally {
+      setSubmittingQuote(false);
     }
   };
 
@@ -3960,90 +4090,241 @@ export default function ResultsPage() {
 
         </div>
 
-        {/* Shareable Link */}
-        <div className="bg-secondary border-2 border-border rounded-md p-6 mb-8">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-secondary-foreground mb-1">Shareable Link</p>
-              <p className="text-sm text-muted-foreground font-mono truncate">
-                {typeof window !== 'undefined' ? window.location.href : ''}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Copy this link to share with your driver
-              </p>
-              {isOwner && tripData?.password && (
-                <div className="mt-3 pt-3 border-t border-border">
-                  <p className="text-xs font-medium text-secondary-foreground mb-1">Password Protection</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-mono bg-background px-3 py-1 rounded border border-border">
-                      {tripData.password}
-                    </p>
-                    <button
-                      onClick={() => {
-                        if (tripData.password) {
-                          navigator.clipboard.writeText(tripData.password);
-                          const button = document.getElementById('copy-password-button');
-                          if (button) {
-                            const originalContent = button.innerHTML;
-                            button.innerHTML = `
-                              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                              </svg>
-                            `;
-                            button.style.color = '#18815A';
-                            setTimeout(() => {
-                              button.innerHTML = originalContent;
-                              button.style.color = '';
-                            }, 2000);
+        {/* Shareable Link - Only for Owners */}
+        {isOwner && (
+          <div className="bg-secondary border-2 border-border rounded-md p-6 mb-8">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-secondary-foreground mb-1">Shareable Link</p>
+                <p className="text-sm text-muted-foreground font-mono truncate">
+                  {typeof window !== 'undefined' ? window.location.href : ''}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Copy this link to share with your driver
+                </p>
+                {tripData?.password && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-medium text-secondary-foreground mb-1">Password Protection</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-mono bg-background px-3 py-1 rounded border border-border">
+                        {tripData.password}
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (tripData.password) {
+                            navigator.clipboard.writeText(tripData.password);
+                            const button = document.getElementById('copy-password-button');
+                            if (button) {
+                              const originalContent = button.innerHTML;
+                              button.innerHTML = `
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                              `;
+                              button.style.color = '#18815A';
+                              setTimeout(() => {
+                                button.innerHTML = originalContent;
+                                button.style.color = '';
+                              }, 2000);
+                            }
                           }
-                        }
-                      }}
-                      id="copy-password-button"
-                      className="flex-shrink-0 p-1 rounded-md hover:bg-background/20 transition-colors"
-                      title="Copy password"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
+                        }}
+                        id="copy-password-button"
+                        className="flex-shrink-0 p-1 rounded-md hover:bg-background/20 transition-colors"
+                        title="Copy password"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Share this password with your driver to access the report
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Share this password with your driver to access the report
-                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    navigator.clipboard.writeText(window.location.href);
+                    // Visual feedback with brand green
+                    const button = document.getElementById('copy-button');
+                    if (button) {
+                      const originalContent = button.innerHTML;
+                      button.innerHTML = `
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      `;
+                      button.style.color = '#18815A'; // Success green - light bg
+                      setTimeout(() => {
+                        button.innerHTML = originalContent;
+                        button.style.color = '';
+                      }, 2000);
+                    }
+                  }
+                }}
+                id="copy-button"
+                className="flex-shrink-0 p-2 rounded-md hover:bg-background/20 transition-colors"
+                title="Copy link"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Quotes Table - Only for Owners */}
+        {isOwner && (
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Received Quotes</h2>
+              {loadingQuotes ? (
+                <div className="flex items-center justify-center py-8">
+                  <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="ml-2 text-muted-foreground">Loading quotes...</span>
+                </div>
+              ) : quotes.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
+                        <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotes.map((quote) => (
+                        <tr key={quote.id} className="border-b hover:bg-secondary/50 transition-colors">
+                          <td className="py-3 px-4 text-sm">{quote.email}</td>
+                          <td className="py-3 px-4 text-sm text-right font-medium">
+                            {quote.price.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4 text-sm">{quote.currency}</td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground">
+                            {new Date(quote.created_at).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-            </div>
-            <button
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  navigator.clipboard.writeText(window.location.href);
-                  // Visual feedback with brand green
-                  const button = document.getElementById('copy-button');
-                  if (button) {
-                    const originalContent = button.innerHTML;
-                    button.innerHTML = `
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Quote Submission Form - Only for Guests */}
+        {!isOwner && (
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Add Your Quote</h2>
+              <p className="text-muted-foreground mb-6">
+                Submit your pricing quote for this trip. The trip owner will be able to review your offer.
+              </p>
+              
+              {quoteSuccess && (
+                <Alert className="mb-4 bg-green-50 border-green-200">
+                  <AlertDescription className="text-green-800">
+                    ✅ {quoteSuccessMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleSubmitQuote} className="space-y-4">
+                <div>
+                  <label htmlFor="quote-email" className="block text-sm font-medium mb-2">
+                    Email Address
+                  </label>
+                  <Input
+                    id="quote-email"
+                    type="email"
+                    value={quoteEmail}
+                    onChange={(e) => setQuoteEmail(e.target.value)}
+                    placeholder="your.email@company.com"
+                    disabled={submittingQuote}
+                    className={quoteEmailError ? 'border-destructive' : ''}
+                  />
+                  {quoteEmailError && (
+                    <p className="text-sm text-destructive mt-1">{quoteEmailError}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="quote-price" className="block text-sm font-medium mb-2">
+                      Price
+                    </label>
+                    <Input
+                      id="quote-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={quotePrice}
+                      onChange={(e) => setQuotePrice(e.target.value)}
+                      placeholder="100.00"
+                      disabled={submittingQuote}
+                      className={quotePriceError ? 'border-destructive' : ''}
+                    />
+                    {quotePriceError && (
+                      <p className="text-sm text-destructive mt-1">{quotePriceError}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="quote-currency" className="block text-sm font-medium mb-2">
+                      Currency
+                    </label>
+                    <select
+                      id="quote-currency"
+                      value={quoteCurrency}
+                      onChange={(e) => setQuoteCurrency(e.target.value)}
+                      disabled={submittingQuote}
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="JPY">JPY</option>
+                      <option value="CAD">CAD</option>
+                      <option value="AUD">AUD</option>
+                      <option value="CHF">CHF</option>
+                    </select>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={submittingQuote || !quoteEmail || !quotePrice}
+                  className="w-full"
+                  style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                >
+                  {submittingQuote ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                    `;
-                    button.style.color = '#18815A'; // Success green - light bg
-                    setTimeout(() => {
-                      button.innerHTML = originalContent;
-                      button.style.color = '';
-                    }, 2000);
-                  }
-                }
-              }}
-              id="copy-button"
-              className="flex-shrink-0 p-2 rounded-md hover:bg-background/20 transition-colors"
-              title="Copy link"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </button>
-          </div>
-        </div>
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit Quote'
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Footer Navigation */}
         <div className="text-center py-8">

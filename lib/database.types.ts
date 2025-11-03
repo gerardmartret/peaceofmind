@@ -14,6 +14,43 @@ export type Database = {
   }
   public: {
     Tables: {
+      quotes: {
+        Row: {
+          id: string
+          trip_id: string
+          email: string
+          price: number
+          currency: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          trip_id: string
+          email: string
+          price: number
+          currency: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          trip_id?: string
+          email?: string
+          price?: number
+          currency?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_trip_id_fkey"
+            columns: ["trip_id"]
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       cpz_zones: {
         Row: {
           borough: string
