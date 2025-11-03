@@ -109,7 +109,7 @@ Extract:
 4. Lead passenger name (main/first passenger name)
 5. Number of passengers (total count)
 6. Trip destination/city
-7. Vehicle/car information (make, model, color, type, requirements)
+7. Vehicle information (ONLY brand and model, e.g., 'Mercedes S-Class', 'BMW 7 Series')
 8. Driver notes (all remaining information that doesn't fit in structured fields above - contact info, special instructions, flight details, etc.)
 9. Passenger names (all passenger names as array)
 10. Specific details for each location: person names, company names, venue names, meeting types, etc.
@@ -121,7 +121,7 @@ Return a JSON object with this exact structure:
   "leadPassengerName": "Main passenger name (e.g., 'Mr. Smith', 'John Doe') or null if not mentioned",
   "passengerCount": number,
   "tripDestination": "Main destination city only (e.g., 'London', 'Manchester', 'Birmingham')",
-  "vehicleInfo": "Vehicle/car information including make, model, color, type, or requirements (e.g., 'Black Mercedes S-Class', 'Luxury vehicle', 'Executive sedan') or null if not mentioned",
+  "vehicleInfo": "ONLY vehicle brand and model (e.g., 'Mercedes S-Class', 'BMW 7 Series', 'Audi A8'). Do NOT include color, features, amenities, or requirements. Put those details in driverNotes instead. Null if not mentioned.",
   "passengerNames": ["Name1", "Name2", "Name3"],
   "driverNotes": "All remaining information from original email that doesn't fit in structured fields above - contact details, phone numbers, flight numbers, special instructions, timing constraints, security requirements, pickup details, waiting instructions, etc. PRESERVE ALL details. Do NOT remove or summarize any content - just rephrase and organize for clarity while maintaining the original tone and urgency.",
   "locations": [
@@ -184,11 +184,12 @@ Rules for passenger extraction:
 - Look for patterns like "Mr. Smith", "John and Mary", "3 passengers", "group of 4"
 
 Rules for vehicle information extraction:
-- Extract vehicle/car specifications explicitly mentioned (make, model, color, type)
-- Examples: "black Mercedes S-Class", "luxury vehicle", "executive sedan", "BMW X5"
-- Include any vehicle requirements or preferences mentioned
-- If vehicle info is not explicitly mentioned, return null
-- Do NOT include vehicle info in driverNotes - extract it separately as vehicleInfo
+- Extract ONLY the vehicle brand and model (e.g., "Mercedes S-Class", "BMW 7 Series", "Audi A8")
+- Do NOT include: color, tint, features (Wi-Fi, USB, leather), amenities (water, refreshments), or any other details
+- Examples: "black Mercedes S-Class with tinted windows" → vehicleInfo: "Mercedes S-Class", driverNotes should include "- Vehicle: black with tinted windows"
+- All vehicle details OTHER than brand/model must go in driverNotes (color, features, requirements, amenities, etc.)
+- If vehicle brand/model is not explicitly mentioned, return null
+- Generic terms like "luxury vehicle" or "executive sedan" without brand/model should return null and go in driverNotes
 
 Rules for trip destination:
 - Extract ONLY the city name (e.g., "London", "Manchester", "Birmingham")
@@ -199,7 +200,8 @@ Rules for trip destination:
 
 Rules for driver notes:
 - Include ONLY information that does NOT fit in any structured field above
-- Do NOT include locations (already extracted), times (already extracted), dates (already extracted), passenger names (already extracted), vehicle info (already extracted), or trip destination (already extracted)
+- Do NOT include locations (already extracted), times (already extracted), dates (already extracted), passenger names (already extracted), vehicle brand/model (already extracted in vehicleInfo), or trip destination (already extracted)
+- MUST INCLUDE all vehicle details except brand/model: color, tint, features (Wi-Fi, USB, leather seats), amenities (water, snacks), and any vehicle-related requirements
 - INCLUDE flight numbers, airline codes, terminal information
 - INCLUDE contact details, phone numbers, email addresses
 - INCLUDE timing constraints, deadlines, urgency indicators (but NOT specific times for locations)

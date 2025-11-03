@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Autocomplete } from '@react-google-maps/api';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ interface GoogleLocationSearchProps {
 export default function GoogleLocationSearch({ onLocationSelect, currentLocation }: GoogleLocationSearchProps) {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<SearchResult | null>(null);
+  const [inputValue, setInputValue] = useState(currentLocation || '');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { isLoaded, loadError } = useGoogleMaps();
@@ -27,6 +28,13 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
     setAutocomplete(autocompleteInstance);
     console.log('🔍 Google Places Autocomplete loaded');
   };
+
+  // Sync input value with currentLocation prop changes
+  useEffect(() => {
+    if (currentLocation !== undefined) {
+      setInputValue(currentLocation);
+    }
+  }, [currentLocation]);
 
   const onPlaceChanged = () => {
     if (autocomplete) {
@@ -80,6 +88,8 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
         console.log('   Status:', place.business_status);
       }
 
+      // Update the input value with the selected location
+      setInputValue(displayName);
       setSelectedLocation(location);
 
       if (onLocationSelect) {
@@ -145,8 +155,9 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
           <Input
             ref={inputRef}
             type="text"
-            placeholder={currentLocation || "Search hotels, restaurants, landmarks, or any location..."}
-            defaultValue={currentLocation}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Search hotels, restaurants, landmarks, or any location..."
             className="w-full pr-10 h-9 bg-white"
           />
         </Autocomplete>

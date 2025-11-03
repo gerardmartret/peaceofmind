@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TimePicker } from '@/components/ui/time-picker';
+import { PassengerPicker } from '@/components/ui/passenger-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
@@ -249,7 +251,7 @@ function SortableLocationItem({
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors flex items-center"
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted dark:hover:bg-[#181a23] rounded transition-colors flex items-center"
           title="Drag to reorder"
         >
           <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -286,7 +288,7 @@ function SortableLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                 onClick={() => onEditStart(location.id, 'location')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -324,7 +326,7 @@ function SortableLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                 onClick={() => onEditStart(location.id, 'purpose')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -431,7 +433,7 @@ function SortableExtractedLocationItem({
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors flex items-center"
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted dark:hover:bg-[#181a23] rounded transition-colors flex items-center"
           title="Drag to reorder"
         >
           <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -468,7 +470,7 @@ function SortableExtractedLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                 onClick={() => onEditStart(index, 'location')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -506,7 +508,7 @@ function SortableExtractedLocationItem({
               </div>
             ) : (
               <div 
-                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted rounded-md border border-input bg-background"
+                className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                 onClick={() => onEditStart(index, 'purpose')}
               >
                 <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -619,6 +621,8 @@ export default function Home() {
   const [passengerCount, setPassengerCount] = useState<number>(1);
   const [protectWithPassword, setProtectWithPassword] = useState<boolean>(false);
   const [tripDestination, setTripDestination] = useState<string>('');
+  const [availableDestinations, setAvailableDestinations] = useState<string[]>([]);
+  const [loadingDestinations, setLoadingDestinations] = useState(false);
   const [passengerNames, setPassengerNames] = useState<string[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | 'purpose' | null>(null);
@@ -632,7 +636,9 @@ export default function Home() {
       const isClickOnEditingElement = target.closest('.editing-location') || 
                                     target.closest('.editing-time') ||
                                     target.closest('.editing-purpose') ||
-                                    target.closest('[data-editing="true"]');
+                                    target.closest('[data-editing="true"]') ||
+                                    target.closest('.pac-container') || // Google Places dropdown
+                                    target.closest('.pac-item'); // Google Places dropdown items
       
       if (!isClickOnEditingElement) {
         // Close any open editing modes for extracted locations
@@ -665,7 +671,9 @@ export default function Home() {
       const isClickOnEditingElement = target.closest('.editing-location') || 
                                     target.closest('.editing-time') ||
                                     target.closest('.editing-purpose') ||
-                                    target.closest('[data-editing="true"]');
+                                    target.closest('[data-editing="true"]') ||
+                                    target.closest('.pac-container') || // Google Places dropdown
+                                    target.closest('.pac-item'); // Google Places dropdown items
       
       if (!isClickOnEditingElement) {
         // Close any open editing modes for manual form
@@ -721,6 +729,29 @@ export default function Home() {
     setResetToImport(() => handleResetToImport);
     return () => setResetToImport(null);
   }, [setResetToImport]);
+
+  // Fetch available trip destinations from database
+  useEffect(() => {
+    const fetchDestinations = async () => {
+      setLoadingDestinations(true);
+      try {
+        const response = await fetch('/api/trip-destinations');
+        if (response.ok) {
+          const data = await response.json();
+          setAvailableDestinations(data.destinations || []);
+          console.log('✅ Loaded trip destinations:', data.destinations);
+        } else {
+          console.error('❌ Failed to fetch trip destinations');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching trip destinations:', error);
+      } finally {
+        setLoadingDestinations(false);
+      }
+    };
+
+    fetchDestinations();
+  }, []);
 
   // Set default date range and handle client-side mounting
   useEffect(() => {
@@ -1820,7 +1851,11 @@ export default function Home() {
     
     // Reset manual form state
     setShowManualForm(false);
-    setLocations([]);
+    setLocations([
+      { id: '1', name: '', lat: 0, lng: 0, time: '09:00', purpose: '' },
+      { id: '2', name: '', lat: 0, lng: 0, time: '12:00', purpose: '' },
+      { id: '3', name: '', lat: 0, lng: 0, time: '17:00', purpose: '' },
+    ]);
     setTripDate(undefined);
     setLeadPassengerName('');
     setVehicleInfo('');
@@ -2109,7 +2144,7 @@ export default function Home() {
                 value={extractionText}
                 onChange={(e) => setExtractionText(e.target.value)}
                 placeholder="Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you."
-                className="w-full min-h-[150px] p-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
+                className="w-full min-h-[150px] p-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y dark:hover:bg-[#181a23] transition-colors"
               />
             </div>
 
@@ -2174,8 +2209,10 @@ export default function Home() {
 
                 {/* Dark Header Section - Trip Details */}
                  <div className="rounded-md p-4 mb-6 bg-primary dark:bg-card border border-border">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div>
+                  {/* Unified Grid for All Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    {/* Trip Date - spans 2 columns */}
+                    <div className="sm:col-span-2">
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip Date</Label>
                       <div className="relative">
                         <Input
@@ -2189,41 +2226,51 @@ export default function Home() {
                         </svg>
                       </div>
                     </div>
-                    <div>
+
+                    {/* Trip Destination - spans 2 columns */}
+                    <div className="sm:col-span-2">
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip Destination</Label>
-                      <div className="relative">
-                        <Input
-                          value={tripDestination || ''}
-                          onChange={(e) => {
-                            setTripDestination(e.target.value);
-                            if (typeof window !== 'undefined' && extractedLocations) {
-                              sessionStorage.setItem('extractedTripData', JSON.stringify({
-                                text: extractionText,
-                                locations: extractedLocations,
-                                date: extractedDate,
-                                driverSummary: extractedDriverSummary,
-                                leadPassengerName: leadPassengerName,
-                                vehicleInfo: vehicleInfo,
-                                passengerCount: passengerCount,
-                                tripDestination: e.target.value,
-                                passengerNames: passengerNames,
-                                timestamp: new Date().toISOString(),
-                              }));
-                            }
-                          }}
-                          className="bg-background border-border rounded-md h-9 pr-10 text-foreground"
-                          placeholder="Enter trip destination"
-                        />
-                        <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
+                      <Select
+                        value={tripDestination || ''}
+                        onValueChange={(value) => {
+                          setTripDestination(value);
+                          if (typeof window !== 'undefined' && extractedLocations) {
+                            sessionStorage.setItem('extractedTripData', JSON.stringify({
+                              text: extractionText,
+                              locations: extractedLocations,
+                              date: extractedDate,
+                              driverSummary: extractedDriverSummary,
+                              leadPassengerName: leadPassengerName,
+                              vehicleInfo: vehicleInfo,
+                              passengerCount: passengerCount,
+                              tripDestination: value,
+                              passengerNames: passengerNames,
+                              timestamp: new Date().toISOString(),
+                            }));
+                          }
+                        }}
+                        disabled={loadingDestinations}
+                      >
+                        <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
+                          <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select or enter destination"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableDestinations.map((destination) => (
+                            <SelectItem key={destination} value={destination}>
+                              {destination}
+                            </SelectItem>
+                          ))}
+                          {availableDestinations.length === 0 && !loadingDestinations && (
+                            <SelectItem value="London" disabled>
+                              No destinations found
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </div>
-                  
-                  {/* Trip Information Fields */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <div>
+
+                    {/* Lead Passenger Name - spans 2 columns */}
+                    <div className="sm:col-span-2">
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Lead Passenger Name</Label>
                       <Input
                         value={leadPassengerName}
@@ -2248,8 +2295,35 @@ export default function Home() {
                         className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
-                    <div>
-                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Vehicle/Car Info</Label>
+                    {/* Number of Passengers - spans 1 column */}
+                    <div className="sm:col-span-1">
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Number of Passengers</Label>
+                      <PassengerPicker
+                        value={passengerCount}
+                        onChange={(count) => {
+                          setPassengerCount(count);
+                          if (typeof window !== 'undefined' && extractedLocations) {
+                            sessionStorage.setItem('extractedTripData', JSON.stringify({
+                              text: extractionText,
+                              locations: extractedLocations,
+                              date: extractedDate,
+                              driverSummary: extractedDriverSummary,
+                              leadPassengerName: leadPassengerName,
+                              vehicleInfo: vehicleInfo,
+                              passengerCount: count,
+                              tripDestination: tripDestination,
+                              passengerNames: passengerNames,
+                              timestamp: new Date().toISOString(),
+                            }));
+                          }
+                        }}
+                        className="h-9"
+                      />
+                    </div>
+
+                    {/* Vehicle - spans 1 column */}
+                    <div className="sm:col-span-1">
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Vehicle</Label>
                       <Input
                         value={vehicleInfo}
                         onChange={(e) => {
@@ -2269,34 +2343,7 @@ export default function Home() {
                             }));
                           }
                         }}
-                        placeholder="e.g., Black Mercedes S-Class"
-                        className="bg-background border-border rounded-md h-9 text-foreground"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Number of Passengers</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={passengerCount}
-                        onChange={(e) => {
-                          const count = parseInt(e.target.value) || 1;
-                          setPassengerCount(count);
-                          if (typeof window !== 'undefined' && extractedLocations) {
-                            sessionStorage.setItem('extractedTripData', JSON.stringify({
-                              text: extractionText,
-                              locations: extractedLocations,
-                              date: extractedDate,
-                              driverSummary: extractedDriverSummary,
-                              leadPassengerName: leadPassengerName,
-                              vehicleInfo: vehicleInfo,
-                              passengerCount: count,
-                              tripDestination: tripDestination,
-                              passengerNames: passengerNames,
-                              timestamp: new Date().toISOString(),
-                            }));
-                          }
-                        }}
+                        placeholder="Brand and model only (e.g., Mercedes S-Class, BMW 7 Series)"
                         className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
@@ -2326,7 +2373,7 @@ export default function Home() {
                       }}
                       placeholder="Additional notes, contact info, special instructions, etc."
                       rows={4}
-                      className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground"
+                      className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors"
                     />
                   </div>
                 </div>
@@ -2502,8 +2549,10 @@ export default function Home() {
 
           {/* Trip Date and Trip Destination */}
           <div className="rounded-md p-4 mb-6 bg-primary dark:bg-card border border-border">
-            <div className="grid sm:grid-cols-2 gap-4 mb-4">
-              <div>
+            {/* Unified Grid for All Trip Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+              {/* Trip Date - spans 2 columns */}
+              <div className="sm:col-span-2">
                 <label htmlFor="tripDate" className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Trip Date
                 </label>
@@ -2541,22 +2590,37 @@ export default function Home() {
                   </PopoverContent>
                 </Popover>
               </div>
-              <div>
+
+              {/* Trip Destination - spans 2 columns */}
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Trip Destination
                 </label>
-                <Input
+                <Select
                   value={tripDestination || ''}
-                  onChange={(e) => setTripDestination(e.target.value)}
-                  placeholder="Enter trip destination (e.g., London)"
-                  className="bg-background border-border rounded-md h-9 text-foreground"
-                />
+                  onValueChange={(value) => setTripDestination(value)}
+                  disabled={loadingDestinations}
+                >
+                  <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
+                    <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select destination"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDestinations.map((destination) => (
+                      <SelectItem key={destination} value={destination}>
+                        {destination}
+                      </SelectItem>
+                    ))}
+                    {availableDestinations.length === 0 && !loadingDestinations && (
+                      <SelectItem value="London" disabled>
+                        No destinations found
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            
-            {/* Trip Information Fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              <div>
+
+              {/* Lead Passenger Name - spans 2 columns */}
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                   Lead Passenger Name
                 </label>
@@ -2567,26 +2631,28 @@ export default function Home() {
                   className="bg-background border-border rounded-md h-9 text-foreground"
                 />
               </div>
-              <div>
+
+              {/* Number of Passengers - spans 1 column */}
+              <div className="sm:col-span-1">
                 <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
-                  Vehicle/Car Info
+                  Number of Passengers
+                </label>
+                <PassengerPicker
+                  value={passengerCount}
+                  onChange={(count) => setPassengerCount(count)}
+                  className="h-9"
+                />
+              </div>
+
+              {/* Vehicle - spans 1 column */}
+              <div className="sm:col-span-1">
+                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
+                  Vehicle
                 </label>
                 <Input
                   value={vehicleInfo}
                   onChange={(e) => setVehicleInfo(e.target.value)}
-                  placeholder="e.g., Black Mercedes S-Class"
-                  className="bg-background border-border rounded-md h-9 text-foreground"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
-                  Number of Passengers
-                </label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={passengerCount}
-                  onChange={(e) => setPassengerCount(parseInt(e.target.value) || 1)}
+                  placeholder="Brand and model only (e.g., Mercedes S-Class, BMW 7 Series)"
                   className="bg-background border-border rounded-md h-9 text-foreground"
                 />
               </div>
@@ -2602,7 +2668,7 @@ export default function Home() {
                 onChange={(e) => setExtractedDriverSummary(e.target.value)}
                 placeholder="Additional notes, contact info, special instructions, etc."
                 rows={4}
-                className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground"
+                className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors"
               />
             </div>
           </div>

@@ -2525,7 +2525,7 @@ export default function ResultsPage() {
                     )}
                     {comparisonDiff.vehicleInfoChanged && (
                       <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                        <div className="font-medium mb-1">Vehicle Info Updated:</div>
+                        <div className="font-medium mb-1">Vehicle Updated:</div>
                         <div className="text-sm">
                           <span className="line-through text-muted-foreground">{vehicleInfo || 'None'}</span>
                           {' → '}
@@ -3346,7 +3346,7 @@ export default function ResultsPage() {
                           {isOwner && (
                             <button
                                onClick={() => handleEditLocationName(result.locationId, `Stop ${index + 1}`)}
-                              className="p-1 hover:bg-background/20 rounded transition-colors"
+                              className="p-1 hover:bg-background/20 dark:hover:bg-[#181a23] rounded transition-colors"
                                title="Edit location name"
                             >
                               <svg className="w-4 h-4 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -3445,7 +3445,7 @@ export default function ResultsPage() {
                     {/* Expand/Collapse Button */}
                     <button
                       onClick={() => toggleLocationExpansion(result.locationId)}
-                      className="p-2 hover:bg-background/20 rounded transition-colors"
+                      className="p-2 hover:bg-background/20 dark:hover:bg-[#181a23] rounded transition-colors"
                       title={expandedLocations[result.locationId] ? "Collapse details" : "Expand details"}
                     >
                       <svg 
@@ -3846,7 +3846,7 @@ export default function ResultsPage() {
                       {/* Expand/Collapse Button */}
                       <button
                         onClick={() => toggleRouteExpansion(`route-${index}`)}
-                        className="p-2 hover:bg-secondary/50 rounded transition-colors"
+                        className="p-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] rounded transition-colors"
                         title={expandedRoutes[`route-${index}`] ? "Collapse details" : "Expand details"}
                       >
                         <svg 
@@ -4130,7 +4130,7 @@ export default function ResultsPage() {
                           }
                         }}
                         id="copy-password-button"
-                        className="flex-shrink-0 p-1 rounded-md hover:bg-background/20 transition-colors"
+                        className="flex-shrink-0 p-1 rounded-md hover:bg-background/20 dark:hover:bg-[#181a23] transition-colors"
                         title="Copy password"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4166,7 +4166,7 @@ export default function ResultsPage() {
                   }
                 }}
                 id="copy-button"
-                className="flex-shrink-0 p-2 rounded-md hover:bg-background/20 transition-colors"
+                className="flex-shrink-0 p-2 rounded-md hover:bg-background/20 dark:hover:bg-[#181a23] transition-colors"
                 title="Copy link"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4205,7 +4205,7 @@ export default function ResultsPage() {
                     </thead>
                     <tbody>
                       {quotes.map((quote) => (
-                        <tr key={quote.id} className="border-b hover:bg-secondary/50 transition-colors">
+                        <tr key={quote.id} className="border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors">
                           <td className="py-3 px-4 text-sm">{quote.email}</td>
                           <td className="py-3 px-4 text-sm text-right font-medium">
                             {quote.price.toFixed(2)}
