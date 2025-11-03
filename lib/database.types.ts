@@ -71,6 +71,7 @@ export type Database = {
           locations: Json
           passenger_count: number | null
           password: string | null
+          status: string
           traffic_predictions: Json | null
           trip_date: string
           trip_destination: string | null
@@ -90,6 +91,7 @@ export type Database = {
           locations: Json
           passenger_count?: number | null
           password?: string | null
+          status?: string
           traffic_predictions?: Json | null
           trip_date: string
           trip_destination?: string | null
@@ -109,6 +111,7 @@ export type Database = {
           locations?: Json
           passenger_count?: number | null
           password?: string | null
+          status?: string
           traffic_predictions?: Json | null
           trip_date?: string
           trip_destination?: string | null

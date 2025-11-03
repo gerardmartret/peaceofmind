@@ -203,6 +203,7 @@ interface TripData {
   tripDestination?: string;
   passengerNames?: string[];
   password?: string | null;
+  status?: string;
 }
 
 export default function ResultsPage() {
@@ -215,6 +216,7 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState<boolean>(false);
+  const [ownershipChecked, setOwnershipChecked] = useState<boolean>(false);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [editingLocationName, setEditingLocationName] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -250,9 +252,14 @@ export default function ResultsPage() {
   // Password protection state
   const [isPasswordProtected, setIsPasswordProtected] = useState<boolean>(false);
   const [isPasswordVerified, setIsPasswordVerified] = useState<boolean>(true); // Default to true to avoid showing form during loading
+  const [showPasswordGate, setShowPasswordGate] = useState<boolean>(false); // Explicitly control password gate visibility
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [verifyingPassword, setVerifyingPassword] = useState<boolean>(false);
+  
+  // Trip status state
+  const [tripStatus, setTripStatus] = useState<string>('not confirmed');
+  const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
 
   // Update current time when in live mode
   useEffect(() => {
@@ -1039,6 +1046,7 @@ export default function ResultsPage() {
           tripDestination: data.trip_destination || '',
           passengerNames: [], // passenger_names column doesn't exist in DB
           password: data.password || null,
+          status: data.status || 'not confirmed',
         };
 
         setTripData(tripData);
@@ -1050,20 +1058,11 @@ export default function ResultsPage() {
         setTripDestination(data.trip_destination || '');
         setPassengerNames([]); // passenger_names column doesn't exist in DB, set empty array
         setCurrentVersion(data.version || 1); // Load current version
+        setTripStatus(data.status || 'not confirmed'); // Load trip status
         
         // Check if password protection is enabled
         const hasPassword = !!data.password;
         setIsPasswordProtected(hasPassword);
-        
-        // If password protected and user is not the owner, require password verification
-        // Use local userIsOwner variable instead of state to avoid async state update issues
-        if (hasPassword && !userIsOwner) {
-          setIsPasswordVerified(false);
-          console.log('🔒 Report is password protected - password required');
-        } else {
-          setIsPasswordVerified(true);
-          console.log('🔓 Report access granted');
-        }
         
         // Populate location display names from database
         const displayNames: {[key: string]: string} = {};
@@ -1075,6 +1074,22 @@ export default function ResultsPage() {
         });
         setLocationDisplayNames(displayNames);
         
+        // Determine if password gate should be shown
+        // Use local userIsOwner variable to make decision before state updates
+        const shouldShowPasswordGate = hasPassword && !userIsOwner;
+        
+        if (shouldShowPasswordGate) {
+          setIsPasswordVerified(false);
+          setShowPasswordGate(true);
+          console.log('🔒 Report is password protected - password required');
+        } else {
+          setIsPasswordVerified(true);
+          setShowPasswordGate(false);
+          console.log('🔓 Report access granted');
+        }
+        
+        // Mark ownership as checked and loading complete - MUST be last to prevent UI glitches
+        setOwnershipChecked(true);
         setLoading(false);
       } catch (err) {
         console.error('❌ Unexpected error:', err);
@@ -1103,6 +1118,37 @@ export default function ResultsPage() {
   const handlePlanNewTrip = () => {
     // Redirect to home for new trip
     router.push('/');
+  };
+
+  const handleStatusToggle = async () => {
+    if (!tripId || !isOwner || updatingStatus) return;
+    
+    const newStatus = tripStatus === 'confirmed' ? 'not confirmed' : 'confirmed';
+    setUpdatingStatus(true);
+
+    try {
+      const response = await fetch('/api/update-trip-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tripId: tripId,
+          status: newStatus,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setTripStatus(newStatus);
+        console.log(`✅ Trip status updated to: ${newStatus}`);
+      } else {
+        console.error('❌ Failed to update status:', result.error);
+      }
+    } catch (err) {
+      console.error('❌ Error updating trip status:', err);
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   const handleModifyTrip = () => {
@@ -2012,7 +2058,8 @@ export default function ResultsPage() {
     }
   };
 
-  if (loading) {
+  // Show loading state until ownership is checked
+  if (loading || !ownershipChecked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -2054,8 +2101,8 @@ export default function ResultsPage() {
     );
   }
 
-  // Password verification form for protected reports (only show after loading is complete)
-  if (!loading && isPasswordProtected && !isPasswordVerified) {
+  // Password verification form for protected reports (show only if explicitly flagged)
+  if (showPasswordGate) {
     const handlePasswordSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setPasswordError(null);
@@ -2075,6 +2122,7 @@ export default function ResultsPage() {
 
         if (result.success) {
           setIsPasswordVerified(true);
+          setShowPasswordGate(false); // Hide password gate
           setPasswordError(null);
           console.log('✅ Password verified successfully');
         } else {
@@ -2168,6 +2216,37 @@ export default function ResultsPage() {
     <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header with Navigation */}
+
+        {/* Trip Status - Visible to all, only owners can toggle */}
+        <div className="mb-6 flex items-center justify-between bg-card border-2 border-border rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+            <div>
+              <p className="text-sm font-medium text-card-foreground">
+                Trip Status: <span className={tripStatus === 'confirmed' ? 'text-green-600' : 'text-gray-600'}>{tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isOwner ? 'Toggle to update trip confirmation status' : 'Current trip confirmation status'}
+              </p>
+            </div>
+          </div>
+          {isOwner && (
+            <button
+              onClick={handleStatusToggle}
+              disabled={updatingStatus}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
+                tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'
+              } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              aria-label="Toggle trip status"
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                  tripStatus === 'confirmed' ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          )}
+        </div>
 
         {/* Update Trip Section - Only show for owners */}
         {isOwner && !isLiveMode && (
