@@ -300,7 +300,7 @@ function SortableLocationItem({
                     {location.name || "Search hotels, restaurants, landmarks, or any location..."}
                   </span>
                   {location.name && (
-                    <svg className="w-4 h-4 text-green-600 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-green-500 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   )}
@@ -485,7 +485,7 @@ function SortableExtractedLocationItem({
                     {location.location}
                   </span>
                   {location.verified && (
-                    <svg className="w-4 h-4 text-green-600 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-green-500 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   )}
@@ -1720,14 +1720,14 @@ export default function Home() {
   };
 
   const getSafetyColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
+    if (score >= 80) return 'text-green-500';
     if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
     if (score >= 40) return 'text-orange-600 dark:text-orange-400';
     return 'text-red-600 dark:text-red-400';
   };
 
   const getSafetyBg = (score: number) => {
-    if (score >= 80) return 'bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700';
+    if (score >= 80) return 'bg-green-500/10 border-green-500/30';
     if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700';
     if (score >= 40) return 'bg-orange-100 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700';
     return 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
@@ -2155,7 +2155,7 @@ export default function Home() {
                 value={extractionText}
                 onChange={(e) => setExtractionText(e.target.value)}
                 placeholder="Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you."
-                className="w-full min-h-[150px] p-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y dark:hover:bg-[#181a23] transition-colors"
+                className="w-full min-h-[150px] p-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-y dark:hover:bg-[#181a23] transition-colors"
               />
             </div>
 
@@ -2173,8 +2173,7 @@ export default function Home() {
                 onClick={handleExtractTrip}
                 disabled={isExtracting || !extractionText.trim()}
                 size="lg"
-                className="flex items-center gap-2"
-                style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
               >
                 {isExtracting ? (
                   <span>Extracting...</span>
@@ -2199,7 +2198,7 @@ export default function Home() {
               <div className="bg-card rounded-md p-6 mb-8 border border-border">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <h2 className="text-xl font-medium text-card-foreground">
@@ -2219,7 +2218,7 @@ export default function Home() {
                 </p>
 
                 {/* Dark Header Section - Trip Details */}
-                 <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
+                 <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#1f1f21] border border-border">
                   {/* Unified Grid for All Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     {/* Trip Date - spans 2 columns */}
@@ -2477,7 +2476,7 @@ export default function Home() {
                     }}
                     placeholder="Additional notes, contact info, special instructions, etc."
                     rows={6}
-                    className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y"
+                    className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
                   />
                 </div>
 
@@ -2487,7 +2486,7 @@ export default function Home() {
                     onClick={handleExtractedTripSubmit}
                     disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified)}
                     size="lg"
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                   >
                     {loadingTrip ? (
                       <>
@@ -2753,7 +2752,7 @@ export default function Home() {
               onChange={(e) => setExtractedDriverSummary(e.target.value)}
               placeholder="Additional notes, contact info, special instructions, etc."
               rows={6}
-              className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y"
+              className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
             />
           </div>
 
@@ -2764,8 +2763,7 @@ export default function Home() {
                disabled={loadingTrip || locations.filter(l => l.name).length === 0}
                variant={locationsReordered ? "destructive" : "default"}
                size="lg"
-               className={`flex-1 sm:flex-initial ${locationsReordered ? 'animate-pulse' : ''}`}
-               style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+               className={`flex-1 sm:flex-initial bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] ${locationsReordered ? 'animate-pulse' : ''}`}
              >
               {loadingTrip ? (
                 <>
@@ -2832,7 +2830,7 @@ export default function Home() {
                           stroke="currentColor"
                           strokeWidth="8"
                           fill="none"
-                          className="text-secondary"
+                          className="text-secondary dark:text-[#2a2a2c]"
                         />
                         {/* Progress Circle */}
                         <circle
@@ -2844,7 +2842,7 @@ export default function Home() {
                           fill="none"
                           strokeDasharray="339.292"
                           strokeDashoffset={339.292 * (1 - loadingProgress / 100)}
-                          className={loadingProgress >= 100 ? "text-green-500" : "text-primary"}
+                          className={loadingProgress >= 100 ? "text-green-500" : "text-[#05060A] dark:text-[#E5E7EF]"}
                           strokeLinecap="round"
                         />
                       </svg>
@@ -2870,7 +2868,7 @@ export default function Home() {
           <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
             {isAuthenticated ? (
               // Authenticated users: Show redirect message
-              <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
+              <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border-2 border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="text-center">
                     <svg className="w-12 h-12 mx-auto mb-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2879,15 +2877,20 @@ export default function Home() {
                     <h3 className="text-lg font-semibold text-card-foreground mb-2">
                       Analysis Complete!
                     </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Redirecting to your Driver Brief...
-                    </p>
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <span>Redirecting to your Driver Brief</span>
+                      <span className="inline-flex gap-1">
+                        <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                        <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                        <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             ) : (
               // Guest users: Show email field and View Report button
-              <div className="bg-ring/10 border-2 border-ring rounded-md p-4">
+              <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border-2 border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
                 <div className="flex flex-col items-center space-y-4">
                   <label htmlFor="userEmail" className="block text-sm font-medium text-card-foreground text-center">
                     Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
@@ -2918,8 +2921,7 @@ export default function Home() {
                   <Button
                     onClick={handleGuestTripSave}
                     size="lg"
-                    className="px-6 py-3 font-semibold hover:scale-105 transition-transform"
-                    style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                    className="px-6 py-3 font-semibold hover:scale-105 transition-transform bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                     disabled={!pendingTripData || !userEmail.trim() || !!emailError}
                   >
                     <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2996,7 +2998,7 @@ export default function Home() {
                           <div
                             className={`flex items-start gap-4 p-4 rounded-lg border-2 ${
                               isActive 
-                                ? 'border-primary bg-primary/10' 
+                                ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10' 
                                 : isCompleted
                                   ? 'border-green-500/30 bg-green-500/5'
                                   : 'border-border bg-muted/30'
@@ -3008,7 +3010,7 @@ export default function Home() {
                                 <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
                               )}
                               {isActive && (
-                                <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                                <div className="w-6 h-6 rounded-full border-2 border-[#05060A] dark:border-[#E5E7EF] border-t-transparent animate-spin"></div>
                               )}
                               {isCompleted && (
                                 <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
@@ -3022,10 +3024,10 @@ export default function Home() {
                             {/* Step Content */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2 mb-2">
-                                <h4 className={`text-base font-semibold ${isActive ? 'text-primary' : ''}`}>
+                                <h4 className={`text-base font-semibold ${isActive ? 'text-[#05060A] dark:text-[#E5E7EF]' : ''}`}>
                                   {step.title}
                                 </h4>
-                                <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
+                                <span className="text-xs font-medium text-[#05060A] dark:text-[#E5E7EF] bg-secondary dark:bg-[#2a2a2c] px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
                                   {step.source}
                                 </span>
                               </div>

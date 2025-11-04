@@ -104,8 +104,14 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md">
+        <img 
+          src="/driverbrief-logo-light.png" 
+          alt="Driverbrief" 
+          className="mx-auto h-6 w-auto mb-8"
+        />
+        <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Create an Account</CardTitle>
           <CardDescription className="text-center">
@@ -121,8 +127,8 @@ export default function SignUpPage() {
             )}
             
             {success && (
-              <Alert className="bg-green-50 text-green-800 border-green-200">
-                <AlertDescription>
+              <Alert className="bg-green-500/10 border-green-500/30">
+                <AlertDescription className="text-green-500">
                   Account created successfully! Redirecting...
                 </AlertDescription>
               </Alert>
@@ -180,21 +186,22 @@ export default function SignUpPage() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
               disabled={loading || !!emailError}
             >
               {loading ? 'Creating Account...' : 'Sign Up'}
             </Button>
 
-            <div className="text-center text-sm" style={{ color: '#05060A' }}>
+            <div className="text-center text-sm text-[#05060A] dark:text-[#E5E7EF]">
               Already have an account?{' '}
-              <Link href="/login" className="text-blue-600 hover:underline">
+              <Link href="/login" className="text-[#05060A] dark:text-[#E5E7EF] hover:underline font-medium">
                 Log in
               </Link>
             </div>
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

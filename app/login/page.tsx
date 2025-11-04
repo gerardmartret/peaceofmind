@@ -54,8 +54,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md">
+        <img 
+          src="/driverbrief-logo-light.png" 
+          alt="Driverbrief" 
+          className="mx-auto h-6 w-auto mb-8"
+        />
+        <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Welcome Back</CardTitle>
           <CardDescription className="text-center">
@@ -98,21 +104,22 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
               disabled={loading}
             >
               {loading ? 'Logging in...' : 'Log In'}
             </Button>
 
-            <div className="text-center text-sm" style={{ color: '#05060A' }}>
+            <div className="text-center text-sm text-[#05060A] dark:text-[#E5E7EF]">
               Don't have an account?{' '}
-              <Link href="/signup" className="text-blue-600 hover:underline">
+              <Link href="/signup" className="text-[#05060A] dark:text-[#E5E7EF] hover:underline font-medium">
                 Sign up
               </Link>
             </div>
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

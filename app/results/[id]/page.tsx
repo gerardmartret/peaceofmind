@@ -1565,7 +1565,7 @@ export default function ResultsPage() {
   };
 
   const getSafetyColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
+    if (score >= 80) return 'text-green-500';
     if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
     if (score >= 40) return 'text-orange-600 dark:text-orange-400';
     return 'text-red-600 dark:text-red-400';
@@ -2671,9 +2671,8 @@ export default function ResultsPage() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                 disabled={!passwordInput || verifyingPassword}
-                style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
               >
                 {verifyingPassword ? (
                   <>
@@ -2717,7 +2716,7 @@ export default function ResultsPage() {
             <div className={`w-3 h-3 rounded-full ${tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
             <div>
               <p className="text-sm font-medium text-card-foreground">
-                Trip Status: <span className={tripStatus === 'confirmed' ? 'text-green-600' : 'text-gray-600'}>{tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}</span>
+                Trip Status: <span className={tripStatus === 'confirmed' ? 'text-green-500' : 'text-gray-600'}>{tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}</span>
               </p>
               <p className="text-xs text-muted-foreground">
                 {isOwner ? 'Toggle to update trip confirmation status' : 'Current trip confirmation status'}
@@ -2728,7 +2727,7 @@ export default function ResultsPage() {
             <button
               onClick={handleStatusToggle}
               disabled={updatingStatus}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${
                 tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'
               } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               aria-label="Toggle trip status"
@@ -2746,8 +2745,8 @@ export default function ResultsPage() {
         {isOwner && driverEmail && (
           <div className="mb-6">
             {notificationSuccess && (
-              <Alert className="mb-4 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
-                <AlertDescription className="text-green-800 dark:text-green-300">
+              <Alert className="mb-4 bg-green-500/10 border-green-500/30">
+                <AlertDescription className="text-green-500">
                   ✅ Driver notified successfully! Email sent to {driverEmail}
                 </AlertDescription>
               </Alert>
@@ -2771,8 +2770,7 @@ export default function ResultsPage() {
               <Button
                 onClick={handleNotifyDriver}
                 disabled={notifyingDriver}
-                style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
               >
                 {notifyingDriver ? (
                   <>
@@ -2913,7 +2911,7 @@ export default function ResultsPage() {
                         key={idx}
                         className={`p-3 rounded-lg ${
                           locChange.type === 'added'
-                            ? 'bg-green-50 dark:bg-green-900/20'
+                            ? 'bg-green-500/10'
                             : locChange.type === 'removed'
                             ? 'bg-red-50 dark:bg-red-900/20'
                             : 'bg-yellow-50 dark:bg-yellow-900/20'
@@ -3388,7 +3386,7 @@ export default function ResultsPage() {
                              index === locations.length - 1 ? 'Drop-off' : 
                              'Resume at'}
                             {((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
-                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded" style={{ backgroundColor: '#21AB78' }}>
+                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-green-500 rounded">
                                 LIVE
                               </span>
                             )}
@@ -3486,9 +3484,9 @@ export default function ResultsPage() {
 
           {/* Driver Warnings Box */}
           {!isLiveMode && (
-            <div className="rounded-md p-6 border-2 border-border mb-6" style={{ backgroundColor: '#05060A' }}>
+            <div className="rounded-md p-6 border-2 border-border mb-6 bg-[#05060A] dark:bg-[#E5E7EF]">
             <div className="mb-4">
-              <h3 className="text-xl font-medium text-white">Driver Warnings</h3>
+              <h3 className="text-xl font-medium text-white dark:text-[#05060A]">Driver Warnings</h3>
             </div>
             
             <div className="space-y-3">
@@ -3762,22 +3760,21 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 <div className="flex-1">
-              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border-2 border-primary text-primary-foreground" style={{ backgroundColor: '#05060A' }}>
+              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border-2 border-primary text-primary-foreground bg-[#05060A] dark:bg-[#E5E7EF]">
                 {/* Header with Full Address */}
                 <div className="flex items-center justify-between mb-2 pb-2">
                   <div className="flex items-center gap-3">
                     <div className="relative" style={{ width: '30px', height: '35px' }}>
                       <svg 
                         viewBox="0 0 24 24" 
-                        fill="white" 
-                        stroke="#05060A" 
+                        className="fill-white dark:fill-[#05060A] stroke-[#05060A] dark:stroke-[#E5E7EF]"
                         strokeWidth="1.5"
                         style={{ width: '100%', height: '100%' }}
                       >
                         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                       </svg>
                       <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '4px' }}>
-                        <span className="font-bold text-xs" style={{ color: '#05060A' }}>
+                        <span className="font-bold text-xs text-[#05060A] dark:text-white">
                           {numberToLetter(index + 1)}
                         </span>
                       </div>
@@ -4670,13 +4667,13 @@ export default function ResultsPage() {
                           <tr 
                             key={quote.id} 
                             className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${
-                              isDriver ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : ''
+                              isDriver ? 'bg-green-500/10 border-green-500/30' : ''
                             }`}
                           >
                             <td className="py-3 px-4 text-sm">
                               {quote.email}
                               {isDriver && (
-                                <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-green-600 rounded">
+                                <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-green-500 rounded">
                                   DRIVER
                                 </span>
                               )}
@@ -4694,7 +4691,7 @@ export default function ResultsPage() {
                                 variant={isDriver ? "outline" : "default"}
                                 onClick={() => handleSetDriver(quote.email)}
                                 disabled={settingDriver}
-                                className={isDriver ? "border-green-600 text-green-600 hover:bg-green-50" : ""}
+                                className={isDriver ? "border-green-500 text-green-500 hover:bg-green-500/10" : ""}
                               >
                                 {settingDriver ? (
                                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
@@ -4730,10 +4727,10 @@ export default function ResultsPage() {
                 )}
                 
                 {driverEmail && (
-                  <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                  <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-md">
                     <p className="text-sm">
                       <span className="font-semibold">Current driver:</span>{' '}
-                      <span className="text-green-700 dark:text-green-300">{driverEmail}</span>
+                      <span className="text-green-500">{driverEmail}</span>
                     </p>
                   </div>
                 )}
@@ -4764,7 +4761,7 @@ export default function ResultsPage() {
                             <div className="flex items-center justify-between">
                               <span>{driver}</span>
                               {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
-                                <span className="text-xs px-2 py-1 bg-green-600 text-white rounded">
+                                <span className="text-xs px-2 py-1 bg-green-500 text-white rounded">
                                   Current
                                 </span>
                               )}
@@ -4785,7 +4782,7 @@ export default function ResultsPage() {
                   <Button
                     onClick={() => handleSetDriver(manualDriverEmail)}
                     disabled={settingDriver || !manualDriverEmail.trim()}
-                    style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                    className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                   >
                     {settingDriver ? (
                       <>
@@ -4815,8 +4812,8 @@ export default function ResultsPage() {
               </p>
               
               {quoteSuccess && (
-                <Alert className="mb-4 bg-green-50 border-green-200">
-                  <AlertDescription className="text-green-800">
+                <Alert className="mb-4 bg-green-500/10 border-green-500/30">
+                  <AlertDescription className="text-green-500">
                     ✅ {quoteSuccessMessage}
                   </AlertDescription>
                 </Alert>
@@ -4887,8 +4884,7 @@ export default function ResultsPage() {
                 <Button
                   type="submit"
                   disabled={submittingQuote || !quoteEmail || !quotePrice}
-                  className="w-full"
-                  style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                  className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                 >
                   {submittingQuote ? (
                     <>
@@ -4922,37 +4918,37 @@ export default function ResultsPage() {
                 {/* Benefits Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Edit trips anytime</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Share with links</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Get driver quotes</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Password protect</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Notify drivers</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Save all trips</span>
@@ -4997,9 +4993,8 @@ export default function ResultsPage() {
 
                   <Button
                     type="submit"
-                    className="w-full text-lg py-6"
+                    className="w-full text-lg py-6 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                     disabled={guestSignupLoading || !guestSignupPassword}
-                    style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
                   >
                     {guestSignupLoading ? (
                       <>
@@ -5027,8 +5022,8 @@ export default function ResultsPage() {
 
         {/* Success message after signup */}
         {guestSignupSuccess && (
-          <Alert className="mb-8 bg-green-50 border-green-200">
-            <AlertDescription className="text-green-800 text-center">
+          <Alert className="mb-8 bg-green-500/10 border-green-500/30">
+            <AlertDescription className="text-green-500 text-center">
               ✅ Account created successfully! This trip is now saved to your account. Refreshing...
             </AlertDescription>
           </Alert>
@@ -5044,8 +5039,7 @@ export default function ResultsPage() {
               onClick={handlePlanNewTrip}
               variant="default"
               size="lg"
-              className="text-white"
-              style={{ backgroundColor: '#05060A' }}
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
             >
               Plan New Trip
             </Button>
