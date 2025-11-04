@@ -244,6 +244,17 @@ export default function ResultsPage() {
   const [comparisonDiff, setComparisonDiff] = useState<any>(null);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   
+  // Enhanced error tracking with step information
+  const [updateProgress, setUpdateProgress] = useState<{
+    step: string;
+    error: string | null;
+    canRetry: boolean;
+  }>({
+    step: '',
+    error: null,
+    canRetry: false,
+  });
+  
   // Live Trip functionality state
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [activeLocationIndex, setActiveLocationIndex] = useState<number | null>(null);
@@ -1501,9 +1512,13 @@ export default function ResultsPage() {
 
     setIsExtracting(true);
     setError(null);
+    setUpdateProgress({ step: '', error: null, canRetry: false });
 
     try {
       // Step 1: Extract updates from text
+      setUpdateProgress({ step: 'Extracting trip data', error: null, canRetry: false });
+      console.log('🔄 Step 1: Extracting updates from text...');
+      
       const extractResponse = await fetch('/api/extract-trip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1513,13 +1528,25 @@ export default function ResultsPage() {
       const extractedData = await extractResponse.json();
 
       if (!extractedData.success) {
-        throw new Error(extractedData.error || 'Failed to extract updates');
+        const errorMsg = extractedData.error || 'Could not understand the update text';
+        console.error('❌ Extraction failed:', errorMsg);
+        setError(errorMsg); // Keep old error state as fallback
+        setUpdateProgress({
+          step: 'Extraction',
+          error: 'Could not understand the update. Try rephrasing or breaking it into smaller pieces. For example: "Change pickup time to 3pm" or "Add stop at The Ritz Hotel"',
+          canRetry: true,
+        });
+        return;
       }
 
+      console.log('✅ Step 1 complete: Extracted data successfully');
       setExtractedUpdates(extractedData);
       
       // Step 2: Intelligently compare with current state using AI
       if (tripData) {
+        setUpdateProgress({ step: 'Comparing with current trip', error: null, canRetry: false });
+        console.log('🔄 Step 2: Comparing extracted updates with current trip...');
+        
         const compareResponse = await fetch('/api/compare-trip-updates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1548,17 +1575,39 @@ export default function ResultsPage() {
         const compareResult = await compareResponse.json();
 
         if (!compareResult.success) {
-          throw new Error(compareResult.error || 'Failed to compare updates');
+          const errorMsg = compareResult.error || 'Failed to compare updates';
+          console.error('❌ Comparison failed:', errorMsg);
+          setError(errorMsg); // Keep old error state as fallback
+          setUpdateProgress({
+            step: 'Comparison',
+            error: 'Could not match updates with current trip. This usually happens when location names are ambiguous. Try being more specific (e.g., "Change pickup at Gatwick to 3pm" instead of "Change time to 3pm")',
+            canRetry: true,
+          });
+          return;
         }
 
+        console.log('✅ Step 2 complete: Comparison successful');
+        
         // Transform AI comparison result to our diff format
+        setUpdateProgress({ step: 'Preparing preview', error: null, canRetry: false });
+        console.log('🔄 Step 3: Transforming comparison to preview format...');
+        
         const diff = transformComparisonToDiff(compareResult.comparison, extractedData);
         setComparisonDiff(diff);
         setShowPreview(true);
+        
+        console.log('✅ All steps complete: Preview ready');
+        setUpdateProgress({ step: '', error: null, canRetry: false }); // Clear progress on success
       }
     } catch (err) {
-      console.error('Error extracting updates:', err);
-      setError(err instanceof Error ? err.message : 'Failed to extract updates');
+      console.error('❌ Unexpected error during update extraction:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage); // Keep old error state as fallback
+      setUpdateProgress({
+        step: updateProgress.step || 'Processing update',
+        error: `Something went wrong during ${updateProgress.step || 'the update process'}. ${errorMessage}`,
+        canRetry: true,
+      });
     } finally {
       setIsExtracting(false);
     }
@@ -1600,6 +1649,17 @@ export default function ResultsPage() {
       }
     } else if (comparison.locations && Array.isArray(comparison.locations)) {
       comparison.locations.forEach((locChange: any) => {
+        // GUARD: Skip invalid location changes
+        if (!locChange || typeof locChange !== 'object') {
+          console.warn('⚠️ Skipping invalid location change (not an object):', locChange);
+          return;
+        }
+        
+        if (!locChange.action) {
+          console.warn('⚠️ Skipping location change without action:', locChange);
+          return;
+        }
+        
         if (locChange.action === 'removed') {
           diff.locations.push({
             type: 'removed',
@@ -1618,8 +1678,21 @@ export default function ResultsPage() {
           });
           // Add to final locations
           if (locChange.finalLocation) {
-            // Ensure finalLocation has valid coordinates
             const finalLoc = locChange.finalLocation;
+            
+            // GUARD: Validate finalLocation is a proper object with required fields
+            if (!finalLoc || typeof finalLoc !== 'object') {
+              console.error('❌ Invalid finalLocation for added action (not an object):', finalLoc);
+              return; // Skip this location
+            }
+            
+            // GUARD: Ensure lat/lng exist and are numbers (allow 0 for now, existing logic handles it)
+            if (finalLoc.lat === undefined || finalLoc.lng === undefined) {
+              console.error('❌ Invalid finalLocation for added action (missing lat/lng):', finalLoc);
+              return; // Skip this location
+            }
+            
+            // Ensure finalLocation has valid coordinates
             if ((!finalLoc.lat || finalLoc.lat === 0) && locChange.extractedLocation?.lat && locChange.extractedLocation.lat !== 0) {
               finalLoc.lat = locChange.extractedLocation.lat;
             }
@@ -1651,8 +1724,33 @@ export default function ResultsPage() {
           });
           // Add to final locations (modified version) - use currentIndex to preserve position
           if (locChange.finalLocation) {
-            // Ensure finalLocation has valid coordinates
             const finalLoc = locChange.finalLocation;
+            
+            // GUARD: Validate finalLocation is a proper object with required fields
+            if (!finalLoc || typeof finalLoc !== 'object') {
+              console.error('❌ Invalid finalLocation for modified action (not an object):', finalLoc);
+              // Fallback: Use current location if available
+              const currentLoc = tripData?.locations[locChange.currentIndex];
+              if (currentLoc) {
+                console.log('↩️ Falling back to current location for index', locChange.currentIndex);
+                finalLocationsMap[locChange.currentIndex] = currentLoc;
+              }
+              return; // Skip to next location
+            }
+            
+            // GUARD: Ensure lat/lng exist (allow 0 for now, existing logic handles it)
+            if (finalLoc.lat === undefined || finalLoc.lng === undefined) {
+              console.error('❌ Invalid finalLocation for modified action (missing lat/lng):', finalLoc);
+              // Fallback: Use current location if available
+              const currentLoc = tripData?.locations[locChange.currentIndex];
+              if (currentLoc) {
+                console.log('↩️ Falling back to current location for index', locChange.currentIndex);
+                finalLocationsMap[locChange.currentIndex] = currentLoc;
+              }
+              return; // Skip to next location
+            }
+            
+            // Ensure finalLocation has valid coordinates
             if ((!finalLoc.lat || finalLoc.lat === 0) && locChange.extractedLocation?.lat && locChange.extractedLocation.lat !== 0) {
               finalLoc.lat = locChange.extractedLocation.lat;
             }
@@ -2412,12 +2510,54 @@ export default function ResultsPage() {
                         setExtractedUpdates(null);
                         setShowPreview(false);
                         setComparisonDiff(null);
+                        setUpdateProgress({ step: '', error: null, canRetry: false });
                       }}
                     >
                       Clear
                     </Button>
                   )}
                 </div>
+
+                {/* Enhanced Error Display with Step Information */}
+                {updateProgress.error && (
+                  <Alert variant="destructive" className="mt-4">
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-semibold">
+                          ❌ Failed at: {updateProgress.step}
+                        </p>
+                        <p className="text-sm">
+                          {updateProgress.error}
+                        </p>
+                        {updateProgress.canRetry && (
+                          <Button
+                            onClick={handleExtractUpdates}
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                          >
+                            🔄 Retry
+                          </Button>
+                        )}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Progress Indicator */}
+                {isExtracting && updateProgress.step && !updateProgress.error && (
+                  <Alert className="mt-4">
+                    <AlertDescription>
+                      <div className="flex items-center gap-2">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span className="text-sm">{updateProgress.step}...</span>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </CardContent>
           </Card>
