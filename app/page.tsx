@@ -1320,22 +1320,44 @@ export default function Home() {
             fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`)
           ]);
 
-          // Check if any response failed
-          const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
-          const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
+          // Check critical APIs (crime, disruptions, parking must succeed)
+          const criticalResponses = [crimeResponse, disruptionsResponse, parkingResponse];
+          const criticalNames = ['crime', 'disruptions', 'parking'];
           
-          for (let i = 0; i < responses.length; i++) {
-            if (!responses[i].ok) {
-              const errorText = await responses[i].text();
-              console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
-              throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
+          for (let i = 0; i < criticalResponses.length; i++) {
+            if (!criticalResponses[i].ok) {
+              const errorText = await criticalResponses[i].text();
+              console.error(`❌ ${criticalNames[i]} API failed:`, criticalResponses[i].status, errorText);
+              throw new Error(`${criticalNames[i]} API returned ${criticalResponses[i].status}: ${errorText}`);
             }
           }
 
-          const [crimeData, disruptionsData, weatherData, parkingData] = await Promise.all([
+          // Parse responses with graceful fallback for weather
+          let weatherData;
+          if (weatherResponse.ok) {
+            weatherData = await weatherResponse.json();
+          } else {
+            console.warn('⚠️ Weather API failed, using fallback data');
+            weatherData = {
+              success: true,
+              data: {
+                district: location.name,
+                coordinates: { lat: location.lat, lng: location.lng },
+                forecast: [],
+                summary: {
+                  avgMaxTemp: 15,
+                  avgMinTemp: 10,
+                  totalPrecipitation: 0,
+                  rainyDays: 0,
+                  maxWindSpeed: 10
+                }
+              }
+            };
+          }
+
+          const [crimeData, disruptionsData, parkingData] = await Promise.all([
             crimeResponse.json(),
             disruptionsResponse.json(),
-            weatherResponse.json(),
             parkingResponse.json()
           ]);
 
@@ -2124,11 +2146,11 @@ export default function Home() {
 
 
         {/* Tagline for Homepage */}
-        <div className={`mb-12 text-center ${(showManualForm || (extractedLocations && extractedLocations.length > 0)) ? 'mt-4' : '-mt-8'}`}>
+        <div className={`mb-12 text-center ${(showManualForm || (extractedLocations && extractedLocations.length > 0)) ? 'mt-0' : '-mt-12'}`}>
           <img 
             src="/driverbrief-logo-light.png" 
             alt="Driverbrief" 
-            className="mx-auto h-6 w-auto mb-6"
+            className="mx-auto h-6 w-auto mb-12"
           />
           <p className="text-5xl font-light text-foreground">
             Plan and update your trips,<br />
@@ -2353,7 +2375,7 @@ export default function Home() {
                             }));
                           }
                         }}
-                        placeholder="Brand and model only (e.g., Mercedes S-Class, BMW 7 Series)"
+                        placeholder="e.g., Mercedes S-Class"
                         className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
@@ -2453,8 +2475,8 @@ export default function Home() {
                 </div>
 
                 {/* Trip Notes Field */}
-                <div className="mt-8 rounded-md p-4 bg-card border border-border">
-                  <Label className="text-sm font-medium mb-2 block">Trip Notes</Label>
+                <div className="mt-8 rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
+                  <Label className="text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2 block">Trip Notes</Label>
                   <textarea
                     value={extractedDriverSummary || ''}
                     onChange={(e) => {
@@ -2476,7 +2498,7 @@ export default function Home() {
                     }}
                     placeholder="Additional notes, contact info, special instructions, etc."
                     rows={6}
-                    className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
+                    className="w-full bg-transparent dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
                   />
                 </div>
 
@@ -2665,7 +2687,7 @@ export default function Home() {
                 <Input
                   value={vehicleInfo}
                   onChange={(e) => setVehicleInfo(e.target.value)}
-                  placeholder="Brand and model only (e.g., Mercedes S-Class, BMW 7 Series)"
+                  placeholder="e.g., Mercedes S-Class"
                   className="bg-background border-border rounded-md h-9 text-foreground"
                 />
               </div>
@@ -2745,14 +2767,14 @@ export default function Home() {
           </div>
 
           {/* Trip Notes Field */}
-          <div className="mt-8 mb-4 rounded-md p-4 bg-card border border-border">
-            <label className="block text-sm font-medium mb-2">Trip Notes</label>
+          <div className="mt-8 mb-4 rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
+            <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Trip Notes</label>
             <textarea
               value={extractedDriverSummary || ''}
               onChange={(e) => setExtractedDriverSummary(e.target.value)}
               placeholder="Additional notes, contact info, special instructions, etc."
               rows={6}
-              className="w-full bg-background border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
+              className="w-full bg-transparent dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
             />
           </div>
 
@@ -2763,18 +2785,21 @@ export default function Home() {
                disabled={loadingTrip || locations.filter(l => l.name).length === 0}
                variant={locationsReordered ? "destructive" : "default"}
                size="lg"
-               className={`flex-1 sm:flex-initial bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] ${locationsReordered ? 'animate-pulse' : ''}`}
+               className={`flex-1 sm:flex-initial flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] ${locationsReordered ? 'animate-pulse' : ''}`}
              >
               {loadingTrip ? (
                 <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Analyzing...
+                  <span>Analyzing...</span>
                 </>
               ) : (
                 <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
                   Create Driver Brief
                 </>
               )}
@@ -2868,7 +2893,7 @@ export default function Home() {
           <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
             {isAuthenticated ? (
               // Authenticated users: Show redirect message
-              <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border-2 border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
+              <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="text-center">
                     <svg className="w-12 h-12 mx-auto mb-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2877,9 +2902,9 @@ export default function Home() {
                     <h3 className="text-lg font-semibold text-card-foreground mb-2">
                       Analysis Complete!
                     </h3>
-                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center text-sm text-muted-foreground">
                       <span>Redirecting to your Driver Brief</span>
-                      <span className="inline-flex gap-1">
+                      <span className="inline-flex ml-0.5">
                         <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
                         <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
                         <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
@@ -2890,10 +2915,10 @@ export default function Home() {
               </div>
             ) : (
               // Guest users: Show email field and View Report button
-              <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border-2 border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
+              <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
                 <div className="flex flex-col items-center space-y-4">
                   <label htmlFor="userEmail" className="block text-sm font-medium text-card-foreground text-center">
-                    Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to analyze)
+                    Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to view brief)
                   </label>
                   <Input
                     type="email"
@@ -2921,13 +2946,25 @@ export default function Home() {
                   <Button
                     onClick={handleGuestTripSave}
                     size="lg"
-                    className="px-6 py-3 font-semibold hover:scale-105 transition-transform bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                     disabled={!pendingTripData || !userEmail.trim() || !!emailError}
                   >
-                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    View Driver Brief
+                    {!pendingTripData ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Composing Brief...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        View Driver Brief
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -3010,7 +3047,7 @@ export default function Home() {
                                 <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
                               )}
                               {isActive && (
-                                <div className="w-6 h-6 rounded-full border-2 border-[#05060A] dark:border-[#E5E7EF] border-t-transparent animate-spin"></div>
+                                <div className="w-6 h-6 rounded-full border-2 border-[#05060A] border-t-transparent animate-spin"></div>
                               )}
                               {isCompleted && (
                                 <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
@@ -3062,7 +3099,7 @@ export default function Home() {
         {/* Map Popup */}
         {mapOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col">
+            <div className="bg-card dark:bg-[#1f1f21] rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col border-2 border-border">
               <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
                 <h3 className="text-lg font-semibold">Route Map</h3>
                 <Button

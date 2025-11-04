@@ -3484,24 +3484,24 @@ export default function ResultsPage() {
 
           {/* Driver Warnings Box */}
           {!isLiveMode && (
-            <div className="rounded-md p-6 border-2 border-border mb-6 bg-[#05060A] dark:bg-[#E5E7EF]">
+            <div className="rounded-md p-6 border-2 border-border mb-6 bg-gray-50 dark:bg-[#1f1f21]">
             <div className="mb-4">
-              <h3 className="text-xl font-medium text-white dark:text-[#05060A]">Driver Warnings</h3>
+              <h3 className="text-xl font-medium text-gray-900 dark:text-white">Driver Warnings</h3>
             </div>
             
             <div className="space-y-3">
               {/* Very Important Information */}
               {executiveReport?.exceptionalInformation && (
-                <div className="rounded-md p-4" style={{ backgroundColor: '#462b2c', borderColor: '#7b2b2e', borderWidth: '1px', borderStyle: 'solid' }}>
+                <div className="rounded-md p-4 bg-red-50 dark:bg-[#462b2c] border border-red-200 dark:border-[#7b2b2e]">
                   <div className="flex items-start gap-3">
-                    <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-red-600 dark:text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                     <div>
-                      <div className="text-sm text-white/90 leading-relaxed">
+                      <div className="text-sm text-red-900 dark:text-white/90 leading-relaxed">
                         {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
                           <div key={index} className="flex items-start gap-2 mb-1">
-                            <span className="text-red-400 mt-1">•</span>
+                            <span className="text-red-600 dark:text-red-400 mt-1">•</span>
                             <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
                           </div>
                         ))}
@@ -3513,14 +3513,14 @@ export default function ResultsPage() {
 
               {/* Important Information */}
               {executiveReport?.importantInformation && (
-                <div className="rounded-md p-4 mt-3" style={{ backgroundColor: '#2d3748', borderColor: '#4a5568', borderWidth: '1px', borderStyle: 'solid' }}>
+                <div className="rounded-md p-4 mt-3 bg-blue-50 dark:bg-[#2d3748] border border-blue-200 dark:border-[#4a5568]">
                   <div className="flex items-start gap-3">
-                    <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                      <h4 className="font-semibold text-white mb-1">Important Information</h4>
-                      <p className="text-sm text-gray-300 leading-relaxed">{executiveReport.importantInformation}</p>
+                      <h4 className="font-semibold text-blue-900 dark:text-white mb-1">Important Information</h4>
+                      <p className="text-sm text-blue-800 dark:text-gray-300 leading-relaxed">{executiveReport.importantInformation}</p>
                     </div>
                   </div>
                 </div>
@@ -3562,15 +3562,15 @@ export default function ResultsPage() {
                 if (destination.includes('business') && destination.includes('meeting')) {
                   // Show driver recommendations instead of business meeting warning
                   return (
-                    <div className="bg-white/10 border border-white/20 rounded-md p-4">
-                      <h4 className="text-sm font-semibold text-white mb-3">Recommendations for the Driver</h4>
+                    <div className="bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-md p-4">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Recommendations for the Driver</h4>
                       <div className="space-y-2">
                         {executiveReport.recommendations.map((rec: string, idx: number) => (
                           <div key={idx} className="flex items-start gap-3">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 dark:bg-white/20 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-white">
                               {idx + 1}
                             </span>
-                            <p className="text-sm text-white/90 leading-relaxed">{rec}</p>
+                            <p className="text-sm text-gray-700 dark:text-white/90 leading-relaxed">{rec}</p>
                           </div>
                         ))}
                       </div>
