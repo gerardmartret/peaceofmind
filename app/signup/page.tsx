@@ -104,12 +104,12 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-4 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-start justify-center bg-background pt-12 md:pt-20 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
         <img 
           src="/driverbrief-logo-light.png" 
           alt="Driverbrief" 
-          className="mx-auto h-6 w-auto mb-12"
+          className="mx-auto h-6 w-auto mb-8"
         />
         <Card className="w-full">
         <CardHeader>

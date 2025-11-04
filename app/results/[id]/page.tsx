@@ -2711,35 +2711,39 @@ export default function ResultsPage() {
         {/* Header with Navigation */}
 
         {/* Trip Status - Visible to all, only owners can toggle */}
-        <div className="mb-6 flex items-center justify-between bg-card border-2 border-border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-            <div>
-              <p className="text-sm font-medium text-card-foreground">
-                Trip Status: <span className={tripStatus === 'confirmed' ? 'text-green-500' : 'text-gray-600'}>{tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}</span>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {isOwner ? 'Toggle to update trip confirmation status' : 'Current trip confirmation status'}
-              </p>
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`w-4 h-4 rounded-full ${tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                <div>
+                  <p className="text-base font-semibold text-card-foreground">
+                    Trip Status: <span className={tripStatus === 'confirmed' ? 'text-green-500' : 'text-gray-600'}>{tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isOwner ? 'Toggle to update trip confirmation status' : 'Current trip confirmation status'}
+                  </p>
+                </div>
+              </div>
+              {isOwner && (
+                <button
+                  onClick={handleStatusToggle}
+                  disabled={updatingStatus}
+                  className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${
+                    tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'
+                  } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  aria-label="Toggle trip status"
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                      tripStatus === 'confirmed' ? 'translate-x-7' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              )}
             </div>
-          </div>
-          {isOwner && (
-            <button
-              onClick={handleStatusToggle}
-              disabled={updatingStatus}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${
-                tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'
-              } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-              aria-label="Toggle trip status"
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  tripStatus === 'confirmed' ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          )}
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Notify Driver Button - Only for Owners */}
         {isOwner && driverEmail && (
@@ -2758,38 +2762,43 @@ export default function ResultsPage() {
               </Alert>
             )}
             
-            <div className="bg-card border-2 border-border rounded-lg p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-card-foreground">
-                  Driver: <span className="text-primary">{driverEmail}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Send email notification to the assigned driver
-                </p>
-              </div>
-              <Button
-                onClick={handleNotifyDriver}
-                disabled={notifyingDriver}
-                className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-              >
-                {notifyingDriver ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Notify Driver
-                  </>
-                )}
-              </Button>
-            </div>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-base font-semibold text-card-foreground">
+                      Driver: <span className="text-primary">{driverEmail}</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Send email notification to the assigned driver
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleNotifyDriver}
+                    disabled={notifyingDriver}
+                    size="lg"
+                    className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                  >
+                    {notifyingDriver ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Notify Driver
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -2816,8 +2825,20 @@ export default function ResultsPage() {
                   <Button
                     onClick={handleExtractUpdates}
                     disabled={!updateText.trim() || isExtracting || isRegenerating}
+                    size="lg"
+                    className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                   >
-                    {isExtracting ? 'Extracting...' : 'Extract Updates'}
+                    {isExtracting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Extracting...</span>
+                      </>
+                    ) : (
+                      'Extract Updates'
+                    )}
                   </Button>
                   {extractedUpdates && (
                     <Button
@@ -3006,9 +3027,20 @@ export default function ResultsPage() {
                   <Button
                     onClick={handleRegenerateReport}
                     disabled={isRegenerating}
-                    className="w-full"
+                    size="lg"
+                    className="w-full flex items-center justify-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                   >
-                    {isRegenerating ? 'Regenerating Report...' : 'Regenerate Report'}
+                    {isRegenerating ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>Regenerating Report...</span>
+                      </>
+                    ) : (
+                      'Regenerate Report'
+                    )}
                   </Button>
                 </div>
               </div>
@@ -3255,29 +3287,32 @@ export default function ResultsPage() {
 
           {/* Trip Summary Cards */}
           {!isLiveMode && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               {/* Pickup Time */}
-              <div className="rounded-md p-3" style={{ backgroundColor: '#e3e3e3' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium text-card-foreground">Pickup Time</span>
-                </div>
-                  <p className="text-2xl font-bold text-card-foreground">
+              <Card className="border border-border/40">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-medium text-foreground">Pickup Time</span>
+                  </div>
+                  <p className="text-3xl font-bold text-foreground">
                     {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
                   </p>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Estimated Duration */}
-              <div className="rounded-md p-3" style={{ backgroundColor: '#e3e3e3' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <span className="text-sm font-medium text-card-foreground">Trip Duration</span>
-                </div>
-                  <p className="text-2xl font-bold text-card-foreground">
+              <Card className="border border-border/40">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span className="text-sm font-medium text-foreground">Trip Duration</span>
+                  </div>
+                  <p className="text-3xl font-bold text-foreground">
                     {(() => {
                       if (locations && locations.length >= 2) {
                         const pickupTime = parseInt(locations[0]?.time) || 0;
@@ -3295,18 +3330,20 @@ export default function ResultsPage() {
                       return 'N/A';
                     })()}
                   </p>
-              </div>
+                </CardContent>
+              </Card>
 
               {/* Estimated Mileage */}
-              <div className="rounded-md p-3" style={{ backgroundColor: '#e3e3e3' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="text-sm font-medium text-card-foreground">Estimated Distance</span>
-                </div>
-                  <p className="text-2xl font-bold text-card-foreground">
+              <Card className="border border-border/40">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-sm font-medium text-foreground">Estimated Distance</span>
+                  </div>
+                  <p className="text-3xl font-bold text-foreground">
                     {(() => {
                       // Check if traffic predictions exist and have the correct structure
                       if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
@@ -3339,14 +3376,16 @@ export default function ResultsPage() {
                       return 'Calculating...';
                     })()}
                   </p>
-              </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
           {/* Trip Locations */}
           {!isLiveMode && (
-            <div className="rounded-md p-6 border border-border bg-card mb-6">
-            <h3 className="text-xl font-medium text-card-foreground mb-4">Trip Locations</h3>
+            <Card className="mb-6">
+              <CardContent className="p-6">
+            <h3 className="text-xl font-semibold text-card-foreground mb-6">Trip Locations</h3>
             <div className="relative">
               {/* Connecting Line */}
               <div 
@@ -3479,17 +3518,17 @@ export default function ResultsPage() {
                 ))}
               </div>
             </div>
-          </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Driver Warnings Box */}
           {!isLiveMode && (
-            <div className="rounded-md p-6 border-2 border-border mb-6 bg-gray-50 dark:bg-[#1f1f21]">
-            <div className="mb-4">
-              <h3 className="text-xl font-medium text-gray-900 dark:text-white">Driver Warnings</h3>
-            </div>
+            <Card className="mb-6 border-2 border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+              <CardContent className="p-6">
+            <h3 className="text-xl font-semibold text-card-foreground mb-6">Driver Warnings</h3>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {/* Very Important Information */}
               {executiveReport?.exceptionalInformation && (
                 <div className="rounded-md p-4 bg-red-50 dark:bg-[#462b2c] border border-red-200 dark:border-[#7b2b2e]">
@@ -3604,7 +3643,8 @@ export default function ResultsPage() {
 
 
             </div>
-          </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Executive Report */}
@@ -3622,8 +3662,9 @@ export default function ResultsPage() {
 
 
               {/* Potential Trip Disruptions */}
-              <div className="rounded-md p-6 border-2 border-border bg-card mb-6">
-                <h3 className="text-xl font-medium text-card-foreground mb-4 flex items-center gap-2">
+              <Card className="mb-6">
+                <CardContent className="p-6">
+                <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
                   <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
@@ -3632,17 +3673,20 @@ export default function ResultsPage() {
 
                 {/* 3 Subboxes including Risk Score and Driver Notes */}
                 <div className="grid md:grid-cols-3 gap-4">
-                  <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4">
                     <h4 className="text-base font-bold text-card-foreground mb-3">
                       Top Disruptor
                     </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                   {executiveReport.topDisruptor}
                 </p>
-              </div>
+                    </CardContent>
+              </Card>
                   
                   {/* Risk Score */}
-                  <div className="rounded-md p-4 text-center" style={{ backgroundColor: '#e3e3e3' }}>
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4 text-center">
                     <h4 className="text-base font-bold text-card-foreground mb-3">
                       Risk Score
                     </h4>
@@ -3678,10 +3722,12 @@ export default function ResultsPage() {
                        Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
                        Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
                     </div>
-                  </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Driver Notes */}
-                  <div className="rounded-md p-4" style={{ backgroundColor: '#e3e3e3' }}>
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4">
                     <h4 className="text-base font-bold text-card-foreground mb-3">
                       Driver Notes
                     </h4>
@@ -3703,9 +3749,11 @@ export default function ResultsPage() {
                         <p className="text-muted-foreground/70 italic">No driver notes available</p>
                       )}
                     </div>
-                  </div>
+                    </CardContent>
+                  </Card>
               </div>
-            </div>
+                </CardContent>
+            </Card>
 
 
 
