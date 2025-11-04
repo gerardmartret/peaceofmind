@@ -290,6 +290,15 @@ export default function ResultsPage() {
   const [submittingQuote, setSubmittingQuote] = useState<boolean>(false);
   const [quoteSuccess, setQuoteSuccess] = useState<boolean>(false);
   const [quoteSuccessMessage, setQuoteSuccessMessage] = useState<string>('Quote submitted successfully!');
+  
+  // Driver state
+  const [driverEmail, setDriverEmail] = useState<string | null>(null);
+  const [manualDriverEmail, setManualDriverEmail] = useState<string>('');
+  const [manualDriverError, setManualDriverError] = useState<string | null>(null);
+  const [settingDriver, setSettingDriver] = useState<boolean>(false);
+  const [driverSuggestions, setDriverSuggestions] = useState<string[]>([]);
+  const [showDriverSuggestions, setShowDriverSuggestions] = useState<boolean>(false);
+  const [filteredDriverSuggestions, setFilteredDriverSuggestions] = useState<string[]>([]);
 
   // Update current time when in live mode
   useEffect(() => {
@@ -1089,6 +1098,7 @@ export default function ResultsPage() {
         setPassengerNames([]); // passenger_names column doesn't exist in DB, set empty array
         setCurrentVersion(data.version || 1); // Load current version
         setTripStatus(data.status || 'not confirmed'); // Load trip status
+        setDriverEmail(data.driver || null); // Load driver email
         
         // Check if password protection is enabled
         const hasPassword = !!data.password;
@@ -1227,6 +1237,120 @@ export default function ResultsPage() {
       fetchQuotes();
     }
   }, [isOwner, tripId, loading, fetchQuotes]);
+
+  // Fetch driver suggestions when page loads (for owners only)
+  useEffect(() => {
+    async function fetchDriverSuggestions() {
+      if (!isOwner) return;
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          console.error('❌ No session found');
+          return;
+        }
+
+        const response = await fetch('/api/get-user-drivers', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setDriverSuggestions(result.drivers || []);
+          setFilteredDriverSuggestions(result.drivers || []);
+          console.log(`✅ Loaded ${result.drivers?.length || 0} driver suggestions`);
+        } else {
+          console.error('❌ Failed to fetch driver suggestions:', result.error);
+        }
+      } catch (err) {
+        console.error('❌ Error fetching driver suggestions:', err);
+      }
+    }
+
+    if (isOwner && !loading) {
+      fetchDriverSuggestions();
+    }
+  }, [isOwner, loading]);
+
+  const handleSetDriver = async (email: string) => {
+    if (!tripId || !isOwner || settingDriver) return;
+    
+    setSettingDriver(true);
+    setManualDriverError(null);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('❌ No session found');
+        setManualDriverError('Please log in to set driver');
+        setSettingDriver(false);
+        return;
+      }
+
+      const response = await fetch('/api/set-driver', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          tripId: tripId,
+          driverEmail: email,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setDriverEmail(email.toLowerCase());
+        console.log(`✅ Driver set to: ${email}`);
+        setManualDriverEmail('');
+        setShowDriverSuggestions(false);
+      } else {
+        setManualDriverError(result.error || 'Failed to set driver');
+      }
+    } catch (err) {
+      console.error('❌ Error setting driver:', err);
+      setManualDriverError('An error occurred while setting driver');
+    } finally {
+      setSettingDriver(false);
+    }
+  };
+
+  const handleManualDriverInputChange = (value: string) => {
+    setManualDriverEmail(value);
+    setManualDriverError(null);
+    
+    // Filter suggestions based on input
+    if (value.trim().length > 0) {
+      const filtered = driverSuggestions.filter(driver =>
+        driver.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredDriverSuggestions(filtered);
+    } else {
+      setFilteredDriverSuggestions(driverSuggestions);
+    }
+  };
+
+  const handleManualDriverInputFocus = () => {
+    setShowDriverSuggestions(true);
+    if (manualDriverEmail.trim().length === 0) {
+      setFilteredDriverSuggestions(driverSuggestions);
+    }
+  };
+
+  const handleSelectDriverSuggestion = (driver: string) => {
+    setManualDriverEmail(driver);
+    setShowDriverSuggestions(false);
+    handleSetDriver(driver);
+  };
 
   const handleSubmitQuote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -4341,25 +4465,147 @@ export default function ResultsPage() {
                         <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
                         <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
                         <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
+                        <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {quotes.map((quote) => (
-                        <tr key={quote.id} className="border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors">
-                          <td className="py-3 px-4 text-sm">{quote.email}</td>
-                          <td className="py-3 px-4 text-sm text-right font-medium">
-                            {quote.price.toFixed(2)}
-                          </td>
-                          <td className="py-3 px-4 text-sm">{quote.currency}</td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">
-                            {new Date(quote.created_at).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      ))}
+                      {quotes.map((quote) => {
+                        const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
+                        return (
+                          <tr 
+                            key={quote.id} 
+                            className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${
+                              isDriver ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : ''
+                            }`}
+                          >
+                            <td className="py-3 px-4 text-sm">
+                              {quote.email}
+                              {isDriver && (
+                                <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-green-600 rounded">
+                                  DRIVER
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-right font-medium">
+                              {quote.price.toFixed(2)}
+                            </td>
+                            <td className="py-3 px-4 text-sm">{quote.currency}</td>
+                            <td className="py-3 px-4 text-sm text-muted-foreground">
+                              {new Date(quote.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <Button
+                                size="sm"
+                                variant={isDriver ? "outline" : "default"}
+                                onClick={() => handleSetDriver(quote.email)}
+                                disabled={settingDriver}
+                                className={isDriver ? "border-green-600 text-green-600 hover:bg-green-50" : ""}
+                              >
+                                {settingDriver ? (
+                                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                ) : isDriver ? (
+                                  '✓ Driver'
+                                ) : (
+                                  'Select Driver'
+                                )}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
+              
+              {/* Manual Driver Form - shown always for owners */}
+              <div className="mt-6 pt-6 border-t">
+                <h3 className="text-lg font-semibold mb-4">Add Driver Manually</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Set a driver email address manually (useful if driver hasn't submitted a quote yet)
+                </p>
+                
+                {manualDriverError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertDescription>{manualDriverError}</AlertDescription>
+                  </Alert>
+                )}
+                
+                {driverEmail && (
+                  <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                    <p className="text-sm">
+                      <span className="font-semibold">Current driver:</span>{' '}
+                      <span className="text-green-700 dark:text-green-300">{driverEmail}</span>
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      type="email"
+                      value={manualDriverEmail}
+                      onChange={(e) => handleManualDriverInputChange(e.target.value)}
+                      onFocus={handleManualDriverInputFocus}
+                      onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
+                      placeholder="driver@company.com"
+                      disabled={settingDriver}
+                      className={manualDriverError ? 'border-destructive' : ''}
+                    />
+                    
+                    {/* Autocomplete Dropdown */}
+                    {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {filteredDriverSuggestions.map((driver, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleSelectDriverSuggestion(driver)}
+                            className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{driver}</span>
+                              {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
+                                <span className="text-xs px-2 py-1 bg-green-600 text-white rounded">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Show message when no suggestions match */}
+                    {showDriverSuggestions && manualDriverEmail.trim().length > 0 && filteredDriverSuggestions.length === 0 && driverSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4">
+                        <p className="text-sm text-muted-foreground">No matching drivers found</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Button
+                    onClick={() => handleSetDriver(manualDriverEmail)}
+                    disabled={settingDriver || !manualDriverEmail.trim()}
+                    style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                  >
+                    {settingDriver ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Setting...
+                      </>
+                    ) : (
+                      'Set as Driver'
+                    )}
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
