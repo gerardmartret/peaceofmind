@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a trip planning assistant that extracts location and time information from unstructured text (emails, messages, etc.).
 
-CRITICAL: For driverNotes, you MUST preserve ALL content from the original email. Do NOT remove, summarize, or cut out any information including vehicle details, flight numbers, contact info, or any other important details.
+CRITICAL: For driverNotes, preserve ALL unique content from the original email BUT exclude ANY information that's already extracted into structured fields (locations, times, dates, names). Do NOT repeat location names, addresses, times, or dates in driverNotes - these are already in the locations array. ONLY include contextual details not captured elsewhere.
 
 Extract:
 1. All locations in London (addresses, landmarks, stations, airports, etc.)
@@ -110,7 +110,7 @@ Extract:
 5. Number of passengers (total count)
 6. Trip destination/city
 7. Vehicle information (ONLY brand and model, e.g., 'Mercedes S-Class', 'BMW 7 Series')
-8. Driver notes (all remaining information that doesn't fit in structured fields above - contact info, special instructions, flight details, etc.)
+8. Driver notes (ONLY information that doesn't fit in structured fields - NO location names, NO times, NO dates. Include: contact info, special instructions, flight details, vehicle features, dress codes, allergies, preferences, etc.)
 9. Passenger names (all passenger names as array)
 10. Specific details for each location: person names, company names, venue names, meeting types, etc.
 
@@ -123,7 +123,7 @@ Return a JSON object with this exact structure:
   "tripDestination": "Main destination city only (e.g., 'London', 'Manchester', 'Birmingham')",
   "vehicleInfo": "ONLY vehicle brand and model (e.g., 'Mercedes S-Class', 'BMW 7 Series', 'Audi A8'). Do NOT include color, features, amenities, or requirements. Put those details in driverNotes instead. Null if not mentioned.",
   "passengerNames": ["Name1", "Name2", "Name3"],
-  "driverNotes": "All remaining information from original email that doesn't fit in structured fields above - contact details, phone numbers, flight numbers, special instructions, timing constraints, security requirements, pickup details, waiting instructions, etc. PRESERVE ALL details. Do NOT remove or summarize any content - just rephrase and organize for clarity while maintaining the original tone and urgency.",
+  "driverNotes": "ONLY contextual information NOT captured elsewhere. ABSOLUTELY EXCLUDE: ALL location names (airports, hotels, restaurants, venues, addresses), ALL times (pickup, dropoff, stops), ALL dates, ALL passenger names, vehicle brand/model, trip destination. ONLY INCLUDE: flight numbers, contact info, special instructions, vehicle features (color/amenities), dress codes, allergies, security requirements, operational codes, waiting procedures, preferences. Zero redundancy with locations array or other fields. Format as bullet points.",
   "locations": [
     {
       "location": "Full location name in London",
@@ -153,10 +153,13 @@ Rules for extraction:
 - If date is mentioned in various formats, convert to YYYY-MM-DD
 - Pay attention to context around each location: who is involved, what type of activity, company names, venue names
 - Look for clues like "meeting with", "dinner at", "pickup from", "drop-off at", "check-in at", etc.
+- CRITICAL RULE: Avoid ALL redundancy between driverNotes and structured fields. If information is captured in location, time, purpose, date, vehicleInfo, or passengerNames, do NOT repeat it in driverNotes
+- FINAL CHECK: Before finalizing driverNotes, review and remove ANY mention of location names, venue names, hotel names, restaurant names, airport names, times, or dates. These are ALL in the locations array already
 
 Rules for location purpose:
 - Create comprehensive, descriptive names that include specific details from the email
 - Include relevant information: location name, person names, company names, event types, etc.
+- ALL basic location and time info should be in the locations array, NOT in driverNotes
 - Format: "[Action] at [Location] [with/for Additional Details]"
 - Examples:
   * "Pick up at Gatwick Airport" (for airport pickups)
@@ -200,30 +203,62 @@ Rules for trip destination:
 
 Rules for driver notes:
 - Include ONLY information that does NOT fit in any structured field above
-- Do NOT include locations (already extracted), times (already extracted), dates (already extracted), passenger names (already extracted), vehicle brand/model (already extracted in vehicleInfo), or trip destination (already extracted)
+- ABSOLUTE CRITICAL RULE: ZERO REDUNDANCY WITH STRUCTURED FIELDS
+  * Do NOT mention ANY location names: no airports, no hotels, no restaurants, no venues, no addresses, no stops - NOTHING from the locations array
+  * Do NOT mention ANY times: no pickup times, no dropoff times, no stop times, no meeting times - NOTHING from location times
+  * Do NOT mention "pickup", "drop off", "stop at", "meeting at", "visit to" when referring to specific locations that are in the locations array
+  * Do NOT mention ANY dates (already in date field)
+  * Do NOT mention passenger names (already extracted)
+  * Do NOT mention vehicle brand/model (already in vehicleInfo)
+  * Do NOT mention trip destination city (already extracted)
+  * Do NOT describe the itinerary, route, or sequence of stops - all locations are already in the locations array
+  * Do NOT include "adjusted schedule", "schedule:", or any description of the trip timeline/itinerary - the complete schedule is in the locations array
+  * Do NOT say things like "2 PM meeting at...", "5 PM at...", "7 PM lunch at..." - these are already in locations
+  * TREAT ALL LOCATION INFORMATION AS COMPLETELY HANDLED BY THE LOCATIONS ARRAY
+  * TREAT ALL SCHEDULE/ITINERARY INFORMATION AS COMPLETELY HANDLED BY THE LOCATIONS ARRAY
 - MUST INCLUDE all vehicle details except brand/model: color, tint, features (Wi-Fi, USB, leather seats), amenities (water, snacks), and any vehicle-related requirements
-- INCLUDE flight numbers, airline codes, terminal information
+- INCLUDE flight numbers, airline codes, terminal information WITHOUT location names (e.g., "Flight BA177", "Terminal 5" but NOT "Flight BA177 at Heathrow")
 - INCLUDE contact details, phone numbers, email addresses
-- INCLUDE timing constraints, deadlines, urgency indicators (but NOT specific times for locations)
-- INCLUDE security requirements, VIP status, special instructions
-- INCLUDE meeting details beyond what's in location purpose (e.g., dress codes, agenda items)
-- INCLUDE parking requirements, waiting instructions, pickup procedures
-- INCLUDE any additional context, special requests, or operational notes
-- INCLUDE ALL verbal instructions and updates (e.g., "make sure driver is dressed like a clown", "bring a watermelon", "pickup time is now 3pm")
+- INCLUDE timing constraints WITHOUT specific times (e.g., "confirm in 5 minutes", "allow extra time" but NOT "pickup at 3pm")
+- INCLUDE security requirements, VIP status, special instructions (e.g., "VIP passenger", "maintain discretion", "high security clearance required")
+- INCLUDE meeting/event details WITHOUT location names (e.g., "dress code: black tie", "bring presentation materials" but NOT "meeting at The Shard")
+- INCLUDE parking requirements, waiting instructions WITHOUT locations (e.g., "wait with engine running", "park around the corner" but NOT "park near The Ritz")
+- INCLUDE passenger preferences, allergies, special requirements (e.g., "no nuts allergy (deadly)", "temperature at 20°C", "no scents")
+- INCLUDE driver appearance requirements (e.g., "plain black suit, no logos", "use tiny 'J.C.' sign for identification")
+- INCLUDE operational codes, confirmation requirements, monitoring instructions (e.g., "Code: Blue Horizon", "monitor flight status", "confirm arrival")
+- INCLUDE ALL verbal instructions that don't reference specific locations (e.g., "make sure driver is dressed like a clown", "bring a watermelon")
 - FORMAT as bullet points using "- " prefix, one item per line
 - MAINTAIN the original tone, urgency, and emphasis
-- REPHRASE and ORGANIZE for clarity while keeping ALL information
+- REPHRASE and ORGANIZE for clarity while keeping ALL non-redundant information
 - If text contains ONLY instructions (no locations), ALL content goes into driverNotes
 - Example format:
+  - Code: "Blue Horizon"
+  - Flight BA177, monitor for delays
   - Contact Elena +44 20 1234 5678 before arrival
-  - Wait at Terminal 5 with engine running
-  - Flight BA177 delayed 30 minutes, monitor for updates
+  - Wait with engine running (NO location mentioned)
   - VIP passenger, maintain discretion
-  - Call passenger upon arrival at pickup location
-- Example: If email says "URGENT: Contact Elena +44 20 1234 5678 before arrival. Wait at Terminal 5. Flight BA177 delayed 30 minutes. Call passenger upon arrival. Pick up Mr. Smith at Heathrow at 3pm.", extract as:
+  - Driver: plain black suit, no logos, use tiny 'J.C.' sign
+  - Vehicle: black with tinted windows, Wi-Fi, USB charging
+  - Allergy alert: NO NUTS (deadly)
+  - Temperature at 20°C, no scents
+  - Confirm driver details in 5 minutes
+  - (Notice: NO "schedule", NO "itinerary", NO locations, NO times, NO stops mentioned)
+- Example: If email says "URGENT: Code Blue. Contact Elena +44 20 1234 5678 before arrival. Wait at Terminal 5. Flight BA177 delayed 30 minutes. Call passenger upon arrival. Pick up Mr. Smith at Heathrow at 3pm. Meeting at The Shard at 4pm. Lunch at Ivy Garden at 7pm. Drop off at London City Airport at 10pm. Black Mercedes with tinted windows, Wi-Fi, no nuts allergy.", extract as:
   * leadPassengerName: "Mr. Smith"
-  * locations: [{location: "Heathrow", time: "15:00", purpose: "Pick up Mr. Smith"}]
-  * driverNotes: "- Contact Elena +44 20 1234 5678 before arrival\n- Wait at Terminal 5\n- Flight BA177 delayed 30 minutes, monitor for updates\n- Call passenger upon arrival"`,
+  * vehicleInfo: "Mercedes"
+  * locations: [
+      {location: "Heathrow", time: "15:00", purpose: "Pick up Mr. Smith"},
+      {location: "The Shard", time: "16:00", purpose: "Meeting"},
+      {location: "Ivy Garden", time: "19:00", purpose: "Lunch"},
+      {location: "London City Airport", time: "22:00", purpose: "Drop off Mr. Smith"}
+    ]
+  * driverNotes: "- Code: Blue\n- Contact Elena +44 20 1234 5678 before arrival\n- Wait at Terminal 5\n- Flight BA177 delayed 30 minutes, monitor for updates\n- Call passenger upon arrival\n- Vehicle: black with tinted windows, Wi-Fi\n- Allergy alert: NO NUTS"
+  * CRITICAL NOTE: driverNotes contains ZERO mentions of:
+    - "Heathrow", "The Shard", "Ivy Garden", or "London City Airport" (all in locations)
+    - "3pm", "4pm", "7pm", or "10pm" (all in locations as times)
+    - "Pick up at", "Meeting at", "Lunch at", "Drop off at" (all in location purposes)
+    - "Mr. Smith" appearing again (already in leadPassengerName)
+  * driverNotes ONLY contains contextual info NOT already in structured fields`,
         },
         {
           role: 'user',
