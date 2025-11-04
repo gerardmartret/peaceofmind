@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { validateBusinessEmail } from '@/lib/email-validation';
+
+// Simple email validation for driver assignment - allows personal emails (gmail, yahoo, etc.)
+function validateDriverEmail(email: string): { isValid: boolean; error?: string } {
+  const trimmedEmail = email.trim();
+  
+  // Basic email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  if (!emailRegex.test(trimmedEmail)) {
+    return {
+      isValid: false,
+      error: 'Please enter a valid email address'
+    };
+  }
+  
+  return { isValid: true };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +30,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate email
-    const emailValidation = validateBusinessEmail(driverEmail.trim());
+    // Validate email - allows personal emails for drivers
+    const emailValidation = validateDriverEmail(driverEmail.trim());
     if (!emailValidation.isValid) {
       return NextResponse.json(
         { success: false, error: emailValidation.error || 'Invalid email address' },

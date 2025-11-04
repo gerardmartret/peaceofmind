@@ -299,6 +299,9 @@ export default function ResultsPage() {
   const [driverSuggestions, setDriverSuggestions] = useState<string[]>([]);
   const [showDriverSuggestions, setShowDriverSuggestions] = useState<boolean>(false);
   const [filteredDriverSuggestions, setFilteredDriverSuggestions] = useState<string[]>([]);
+  const [notifyingDriver, setNotifyingDriver] = useState<boolean>(false);
+  const [notificationSuccess, setNotificationSuccess] = useState<boolean>(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
 
   // Update current time when in live mode
   useEffect(() => {
@@ -1350,6 +1353,52 @@ export default function ResultsPage() {
     setManualDriverEmail(driver);
     setShowDriverSuggestions(false);
     handleSetDriver(driver);
+  };
+
+  const handleNotifyDriver = async () => {
+    if (!tripId || !isOwner || !driverEmail || notifyingDriver) return;
+    
+    setNotifyingDriver(true);
+    setNotificationError(null);
+    setNotificationSuccess(false);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('❌ No session found');
+        setNotificationError('Please log in to notify driver');
+        setNotifyingDriver(false);
+        return;
+      }
+
+      const response = await fetch('/api/notify-driver', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          tripId: tripId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setNotificationSuccess(true);
+        console.log(`✅ Driver notified: ${driverEmail}`);
+        // Hide success message after 5 seconds
+        setTimeout(() => setNotificationSuccess(false), 5000);
+      } else {
+        setNotificationError(result.error || 'Failed to notify driver');
+      }
+    } catch (err) {
+      console.error('❌ Error notifying driver:', err);
+      setNotificationError('An error occurred while notifying driver');
+    } finally {
+      setNotifyingDriver(false);
+    }
   };
 
   const handleSubmitQuote = async (e: React.FormEvent) => {
@@ -2599,6 +2648,59 @@ export default function ResultsPage() {
             </button>
           )}
         </div>
+
+        {/* Notify Driver Button - Only for Owners */}
+        {isOwner && driverEmail && (
+          <div className="mb-6">
+            {notificationSuccess && (
+              <Alert className="mb-4 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
+                <AlertDescription className="text-green-800 dark:text-green-300">
+                  ✅ Driver notified successfully! Email sent to {driverEmail}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {notificationError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{notificationError}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="bg-card border-2 border-border rounded-lg p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-card-foreground">
+                  Driver: <span className="text-primary">{driverEmail}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Send email notification to the assigned driver
+                </p>
+              </div>
+              <Button
+                onClick={handleNotifyDriver}
+                disabled={notifyingDriver}
+                style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                className="flex items-center gap-2"
+              >
+                {notifyingDriver ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Notify Driver
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Update Trip Section - Only show for owners */}
         {isOwner && !isLiveMode && (
@@ -4525,7 +4627,7 @@ export default function ResultsPage() {
               <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-semibold mb-4">Add Driver Manually</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Set a driver email address manually (useful if driver hasn't submitted a quote yet)
+                  Set a driver email address manually. Personal emails (Gmail, Yahoo, etc.) are accepted.
                 </p>
                 
                 {manualDriverError && (
@@ -4551,7 +4653,7 @@ export default function ResultsPage() {
                       onChange={(e) => handleManualDriverInputChange(e.target.value)}
                       onFocus={handleManualDriverInputFocus}
                       onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
-                      placeholder="driver@company.com"
+                      placeholder="driver@gmail.com or driver@company.com"
                       disabled={settingDriver}
                       className={manualDriverError ? 'border-destructive' : ''}
                     />
