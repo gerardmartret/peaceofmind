@@ -1103,6 +1103,11 @@ export default function Home() {
       // Clear pending data
       setPendingTripData(null);
 
+      // Store trip ID in sessionStorage to identify guest as creator
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('guestCreatedTripId', tripData.id);
+      }
+
       // Redirect to results page
       router.push(`/results/${tripData.id}`);
     } catch (err) {

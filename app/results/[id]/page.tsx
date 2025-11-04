@@ -211,7 +211,7 @@ export default function ResultsPage() {
   const router = useRouter();
   const params = useParams();
   const tripId = params.id as string;
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, signUp } = useAuth();
   const { isLoaded: isGoogleMapsLoaded } = useGoogleMaps();
   const [tripData, setTripData] = useState<TripData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -302,6 +302,13 @@ export default function ResultsPage() {
   const [notifyingDriver, setNotifyingDriver] = useState<boolean>(false);
   const [notificationSuccess, setNotificationSuccess] = useState<boolean>(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  
+  // Guest signup state
+  const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
+  const [guestSignupPassword, setGuestSignupPassword] = useState<string>('');
+  const [guestSignupError, setGuestSignupError] = useState<string | null>(null);
+  const [guestSignupLoading, setGuestSignupLoading] = useState<boolean>(false);
+  const [guestSignupSuccess, setGuestSignupSuccess] = useState<boolean>(false);
 
   // Update current time when in live mode
   useEffect(() => {
@@ -1045,6 +1052,15 @@ export default function ResultsPage() {
           console.log('👁️ User is NOT the owner - read-only mode');
         }
         
+        // Check if user is guest creator (for signup CTA)
+        if (!isAuthenticated && !tripUserId && typeof window !== 'undefined') {
+          const createdTripId = sessionStorage.getItem('guestCreatedTripId');
+          if (createdTripId === tripId) {
+            setIsGuestCreator(true);
+            console.log('👤 Guest user created this trip - showing signup CTA');
+          }
+        }
+        
         // Transform database data to match expected TripData format
         // Ensure traffic_predictions has correct structure with success flag
         let trafficPredictionsFormatted: any = null;
@@ -1157,6 +1173,83 @@ export default function ResultsPage() {
       }
     };
   }, [liveTripInterval]);
+
+  const handleGuestSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGuestSignupError(null);
+    
+    // Validation
+    if (!guestSignupPassword || guestSignupPassword.length < 6) {
+      setGuestSignupError('Password must be at least 6 characters');
+      return;
+    }
+    
+    if (!tripData?.userEmail) {
+      setGuestSignupError('Email not found. Please try again.');
+      return;
+    }
+    
+    setGuestSignupLoading(true);
+    
+    try {
+      // Create auth user with email and password
+      const { error: signUpError } = await signUp(tripData.userEmail, guestSignupPassword);
+      
+      if (signUpError) {
+        // Handle specific errors
+        if (signUpError.message.toLowerCase().includes('already registered') || 
+            signUpError.message.toLowerCase().includes('already exists')) {
+          setGuestSignupError(`This email already has an account. Please login instead.`);
+        } else {
+          setGuestSignupError(signUpError.message);
+        }
+        setGuestSignupLoading(false);
+        return;
+      }
+      
+      // Wait a moment for auth state to update
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Get the session to get user ID
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user?.id) {
+        // Update ALL trips with this email to link to new user
+        const { error: updateError } = await supabase
+          .from('trips')
+          .update({ user_id: session.user.id })
+          .eq('user_email', tripData.userEmail)
+          .is('user_id', null);
+        
+        if (updateError) {
+          console.error('Error linking trips to user:', updateError);
+        } else {
+          console.log('✅ All guest trips linked to new account');
+        }
+        
+        // Clear sessionStorage
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('guestCreatedTripId');
+        }
+        
+        // Show success and refresh page
+        setGuestSignupSuccess(true);
+        setGuestSignupError(null);
+        
+        // Refresh the page after 2 seconds to show owner UI
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setGuestSignupError('Something went wrong. Please try logging in.');
+      }
+    } catch (err) {
+      console.error('Unexpected signup error:', err);
+      setGuestSignupError('An unexpected error occurred. Please try again.');
+    } finally {
+      setGuestSignupLoading(false);
+    }
+  };
 
   const handlePlanNewTrip = () => {
     // Redirect to home for new trip
@@ -4812,6 +4905,133 @@ export default function ResultsPage() {
               </form>
             </CardContent>
           </Card>
+        )}
+
+        {/* Guest Signup CTA - Only for guests who created this report */}
+        {isGuestCreator && !guestSignupSuccess && (
+          <Card className="mb-8 border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10">
+            <CardContent className="p-8">
+              <div className="max-w-2xl mx-auto">
+                <h2 className="text-2xl font-bold text-center mb-3">
+                  🎉 Want to save this report and access it anytime?
+                </h2>
+                <p className="text-center text-muted-foreground mb-6">
+                  Create an account now to unlock powerful features
+                </p>
+                
+                {/* Benefits Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Edit trips anytime</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Share with links</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Get driver quotes</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Password protect</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Notify drivers</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Save all trips</span>
+                  </div>
+                </div>
+
+                {/* Signup Form */}
+                <form onSubmit={handleGuestSignup} className="space-y-4">
+                  <div>
+                    <label htmlFor="guest-email" className="block text-sm font-medium mb-2">
+                      Email Address
+                    </label>
+                    <Input
+                      id="guest-email"
+                      type="email"
+                      value={tripData?.userEmail || ''}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      We already have your email from when you created this report
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="guest-password" className="block text-sm font-medium mb-2">
+                      Create Password
+                    </label>
+                    <Input
+                      id="guest-password"
+                      type="password"
+                      value={guestSignupPassword}
+                      onChange={(e) => setGuestSignupPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      disabled={guestSignupLoading}
+                      className={guestSignupError ? 'border-destructive' : ''}
+                    />
+                    {guestSignupError && (
+                      <p className="text-sm text-destructive mt-1">{guestSignupError}</p>
+                    )}
+                  </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full text-lg py-6"
+                    disabled={guestSignupLoading || !guestSignupPassword}
+                    style={{ backgroundColor: '#05060A', color: '#FFFFFF' }}
+                  >
+                    {guestSignupLoading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Creating Account...
+                      </>
+                    ) : (
+                      <>
+                        🚀 Create Account & Save Report
+                      </>
+                    )}
+                  </Button>
+                </form>
+
+                <p className="text-xs text-center text-muted-foreground mt-4">
+                  Already have an account? <a href="/login" className="text-primary hover:underline">Log in here</a>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Success message after signup */}
+        {guestSignupSuccess && (
+          <Alert className="mb-8 bg-green-50 border-green-200">
+            <AlertDescription className="text-green-800 text-center">
+              ✅ Account created successfully! This trip is now saved to your account. Refreshing...
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Footer Navigation */}
