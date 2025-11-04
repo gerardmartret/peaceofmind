@@ -2710,41 +2710,6 @@ export default function ResultsPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header with Navigation */}
 
-        {/* Trip Status - Visible to all, only owners can toggle */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={`w-4 h-4 rounded-full ${tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                <div>
-                  <p className="text-base font-semibold text-card-foreground">
-                    Trip Status: <span className={tripStatus === 'confirmed' ? 'text-green-500' : 'text-gray-600'}>{tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}</span>
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {isOwner ? 'Toggle to update trip confirmation status' : 'Current trip confirmation status'}
-                  </p>
-                </div>
-              </div>
-              {isOwner && (
-                <button
-                  onClick={handleStatusToggle}
-                  disabled={updatingStatus}
-                  className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${
-                    tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'
-                  } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  aria-label="Toggle trip status"
-                >
-                  <span
-                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                      tripStatus === 'confirmed' ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Notify Driver Button - Only for Owners */}
         {isOwner && driverEmail && (
           <div className="mb-6">
@@ -2903,7 +2868,7 @@ export default function ResultsPage() {
 
         {/* Preview/Diff Section */}
         {showPreview && comparisonDiff && isOwner && !isLiveMode && (
-          <Card className="mb-6 border-2 border-primary">
+          <Card className="mb-6 border border-primary/60">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Preview Changes</h2>
               <div className="space-y-4">
@@ -3055,10 +3020,10 @@ export default function ResultsPage() {
           {/* Service Introduction */}
           {!isLiveMode && (
               <div className="p-8 mb-6">
-                {/* Header with Passenger Information and Live Trip Button */}
+                {/* Header with Passenger Information, Status, and Live Trip Button */}
                 <div className="flex items-start justify-between mb-4">
-                  {/* Passenger Information */}
-                  <div className="flex-1">
+                  {/* Passenger Information with Status */}
+                  <div className="flex-1 flex items-center justify-between gap-4">
                     <h1 className="text-4xl font-light text-card-foreground mb-1 tracking-tight">
                       {(() => {
                         // Extract passenger name from driver notes
@@ -3080,9 +3045,10 @@ export default function ResultsPage() {
                           return null;
                         };
 
-                        const passengerName = passengerNames && passengerNames.length > 0 
+                        // Get lead passenger name
+                        const leadPassenger = passengerNames && passengerNames.length > 0 
                                             ? passengerNames[0] 
-                                            : extractPassengerName(driverNotes) || 'Passenger';
+                                            : leadPassengerName || extractPassengerName(driverNotes) || 'Passenger';
 
                         // Extract number of passengers (default to 1 if not specified)
                         const extractPassengerCount = (text: string | null): number => {
@@ -3103,16 +3069,19 @@ export default function ResultsPage() {
                           return 1;
                         };
 
-                        const extractedPassengerCount = passengerCount || 
+                        const numberOfPassengers = passengerCount || 
                                             extractPassengerCount(driverNotes) || 
                                             1;
 
-                        // Get city from first location
-                        const getCity = (): string => {
+                        // Get trip destination
+                        const getDestination = (): string => {
+                          // First try tripDestination
+                          if (tripDestination) return tripDestination;
+                          
+                          // Then try to get city from first location
                           if (locations && locations.length > 0) {
                             const firstLocation = locations[0];
                             if (firstLocation.name) {
-                              // Try to extract city from location name
                               const parts = firstLocation.name.split(',');
                               if (parts.length >= 2) {
                                 return parts[parts.length - 1].trim();
@@ -3122,16 +3091,83 @@ export default function ResultsPage() {
                           return 'Location';
                         };
 
-                        const city = tripDestination || getCity();
-                        const passengerText = extractedPassengerCount === 1 ? 'passenger' : 'passengers';
+                        const destination = getDestination();
                         
-                        if (passengerNames && passengerNames.length > 0) {
-                          return `${passengerNames.join(', ')} (${extractedPassengerCount} ${passengerText}) in ${city}`;
-                        } else {
-                          return `${passengerName} x${extractedPassengerCount} ${passengerText} in ${city}`;
-                        }
+                        // Calculate trip duration or determine if it's a transfer
+                        const getTripDurationOrTransfer = (): string => {
+                          if (locations && locations.length === 2) {
+                            // Calculate duration
+                            const pickupTime = parseInt(locations[0]?.time) || 0;
+                            const dropoffTime = parseInt(locations[1]?.time) || 0;
+                            const durationHours = dropoffTime - pickupTime;
+                            
+                            // If duration is under 2 hours, it's a transfer
+                            if (durationHours < 2) {
+                              // Check if either location is an airport
+                              const hasAirport = locations.some((loc: any) => {
+                                const locName = loc.name?.toLowerCase() || loc.formattedAddress?.toLowerCase() || '';
+                                return locName.includes('airport') || 
+                                       locName.includes('heathrow') || 
+                                       locName.includes('gatwick') || 
+                                       locName.includes('stansted') || 
+                                       locName.includes('luton') ||
+                                       locName.includes('city airport');
+                              });
+                              
+                              return hasAirport ? 'Airport Transfer' : 'Transfer';
+                            } else {
+                              // Show duration if 2 hours or more
+                              const hours = Math.floor(durationHours);
+                              const minutes = Math.round((durationHours - hours) * 60);
+                              return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                            }
+                          } else if (locations && locations.length >= 2) {
+                            // Calculate duration for trips with more than 2 locations
+                            const pickupTime = parseInt(locations[0]?.time) || 0;
+                            const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                            const durationHours = dropoffTime - pickupTime;
+                            
+                            if (durationHours > 0) {
+                              const hours = Math.floor(durationHours);
+                              const minutes = Math.round((durationHours - hours) * 60);
+                              return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                            }
+                          }
+                          return 'Transfer';
+                        };
+
+                        const durationOrTransfer = getTripDurationOrTransfer();
+                        
+                        // Format: "Name Duration/Transfer in Destination (x Number)"
+                        return `${leadPassenger} ${durationOrTransfer} in ${destination} (x${numberOfPassengers})`;
                       })()}
                     </h1>
+                    
+                    {/* Trip Status - Aligned to right of trip name */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        <span className={`text-lg font-semibold ${tripStatus === 'confirmed' ? 'text-green-500' : 'text-gray-600'}`}>
+                          {tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}
+                        </span>
+                      </div>
+                      {isOwner && (
+                        <button
+                          onClick={handleStatusToggle}
+                          disabled={updatingStatus}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                            tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'
+                          } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          aria-label="Toggle trip status"
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              tripStatus === 'confirmed' ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Live Trip Button - Only for owners */}
@@ -3524,45 +3560,54 @@ export default function ResultsPage() {
 
           {/* Driver Warnings Box */}
           {!isLiveMode && (
-            <Card className="mb-6 border-2 border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+            <Card className="mb-6">
               <CardContent className="p-6">
-            <h3 className="text-xl font-semibold text-card-foreground mb-6">Driver Warnings</h3>
+            <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              Driver Warnings
+            </h3>
             
             <div className="space-y-4">
               {/* Very Important Information */}
               {executiveReport?.exceptionalInformation && (
-                <div className="rounded-md p-4 bg-red-50 dark:bg-[#462b2c] border border-red-200 dark:border-[#7b2b2e]">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-5 h-5 text-red-600 dark:text-white flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <div>
-                      <div className="text-sm text-red-900 dark:text-white/90 leading-relaxed">
-                        {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
-                          <div key={index} className="flex items-start gap-2 mb-1">
-                            <span className="text-red-600 dark:text-red-400 mt-1">•</span>
-                            <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
-                          </div>
-                        ))}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <div className="text-sm text-card-foreground leading-relaxed">
+                          {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
+                            <div key={index} className="flex items-start gap-2 mb-1">
+                              <span className="text-muted-foreground mt-1">•</span>
+                              <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Important Information */}
               {executiveReport?.importantInformation && (
-                <div className="rounded-md p-4 mt-3 bg-blue-50 dark:bg-[#2d3748] border border-blue-200 dark:border-[#4a5568]">
-                  <div className="flex items-start gap-3">
-                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <h4 className="font-semibold text-blue-900 dark:text-white mb-1">Important Information</h4>
-                      <p className="text-sm text-blue-800 dark:text-gray-300 leading-relaxed">{executiveReport.importantInformation}</p>
+                <Card className="bg-muted/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <h4 className="font-semibold text-card-foreground mb-1">Important Information</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{executiveReport.importantInformation}</p>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Smart Warning Detection */}
@@ -3601,44 +3646,82 @@ export default function ResultsPage() {
                 if (destination.includes('business') && destination.includes('meeting')) {
                   // Show driver recommendations instead of business meeting warning
                   return (
-                    <div className="bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-md p-4">
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Recommendations for the Driver</h4>
-                      <div className="space-y-2">
-                        {executiveReport.recommendations.map((rec: string, idx: number) => (
-                          <div key={idx} className="flex items-start gap-3">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 dark:bg-white/20 flex items-center justify-center text-xs font-bold text-gray-700 dark:text-white">
-                              {idx + 1}
-                            </span>
-                            <p className="text-sm text-gray-700 dark:text-white/90 leading-relaxed">{rec}</p>
+                    <>
+                      <Card className="bg-muted/50">
+                        <CardContent className="p-4">
+                          <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
+                          <div className="space-y-2">
+                            {executiveReport.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx} className="flex items-start gap-3">
+                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
+                                  {idx + 1}
+                                </span>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        </CardContent>
+                      </Card>
+                      
+                      {/* Driver Notes */}
+                      {driverNotes && driverNotes.length > 0 && (
+                        <Card className="bg-muted/50">
+                          <CardContent className="p-4">
+                            <h4 className="text-base font-bold text-card-foreground mb-3">Driver Notes</h4>
+                            <div className="text-sm text-muted-foreground leading-relaxed">
+                              <p>{driverNotes}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </>
                   );
                 }
                 if (destination.includes('school') || destination.includes('university')) {
                   warnings.push('🎓 EDUCATIONAL INSTITUTION: Check access restrictions and timing');
                 }
 
-                return warnings.length > 0 ? warnings.map((warning, index) => (
-                  <div key={index} className="bg-white/10 border border-white/20 rounded-md p-3">
-                    <p className="text-sm text-white font-medium">{warning}</p>
-                  </div>
-                )) : (
-                  <div className="bg-white/10 border border-white/20 rounded-md p-4">
-                    <h4 className="text-sm font-semibold text-white mb-3">Recommendations for the Driver</h4>
-                    <div className="space-y-2">
-                      {executiveReport.recommendations.map((rec: string, idx: number) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                            {idx + 1}
-                          </span>
-                          <p className="text-sm text-white/90 leading-relaxed">{rec}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
+                if (warnings.length > 0) {
+                  return warnings.map((warning, index) => (
+                    <Card key={index} className="bg-muted/50">
+                      <CardContent className="p-4">
+                        <p className="text-sm text-card-foreground font-medium">{warning}</p>
+                      </CardContent>
+                    </Card>
+                  ));
+                } else {
+                  return (
+                    <>
+                      <Card className="bg-muted/50">
+                        <CardContent className="p-4">
+                          <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
+                          <div className="space-y-2">
+                            {executiveReport.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx} className="flex items-start gap-3">
+                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
+                                  {idx + 1}
+                                </span>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      {/* Driver Notes */}
+                      {driverNotes && driverNotes.length > 0 && (
+                        <Card className="bg-muted/50">
+                          <CardContent className="p-4">
+                            <h4 className="text-base font-bold text-card-foreground mb-3">Driver Notes</h4>
+                            <div className="text-sm text-muted-foreground leading-relaxed">
+                              <p>{driverNotes}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </>
+                  );
+                }
               })()}
 
 
@@ -3671,8 +3754,8 @@ export default function ResultsPage() {
                   Potential Trip Disruptions
                 </h3>
 
-                {/* 3 Subboxes including Risk Score and Driver Notes */}
-                <div className="grid md:grid-cols-3 gap-4">
+                {/* 2 Subboxes: Top Disruptor and Risk Score */}
+                <div className="grid md:grid-cols-2 gap-4">
                   <Card className="bg-muted/50">
                     <CardContent className="p-4">
                     <h4 className="text-base font-bold text-card-foreground mb-3">
@@ -3721,33 +3804,6 @@ export default function ResultsPage() {
                       {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
                        Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
                        Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
-                    </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Driver Notes */}
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4">
-                    <h4 className="text-base font-bold text-card-foreground mb-3">
-                      Driver Notes
-                    </h4>
-                    <div className="text-sm text-muted-foreground leading-relaxed">
-                      {driverNotes && driverNotes.length > 0 ? (
-                        <div className="space-y-1">
-                          {driverNotes.length > 200 ? (
-                            <>
-                              <p>{driverNotes.substring(0, 200)}...</p>
-                              <p className="text-xs text-muted-foreground/70 italic">
-                                +{Math.ceil((driverNotes.length - 200) / 50)} more lines
-                              </p>
-                            </>
-                          ) : (
-                            <p>{driverNotes}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground/70 italic">No driver notes available</p>
-                      )}
                     </div>
                     </CardContent>
                   </Card>
@@ -3808,7 +3864,7 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 <div className="flex-1">
-              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border-2 border-primary text-primary-foreground bg-[#05060A] dark:bg-[#E5E7EF]">
+              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border border-border/40 text-primary-foreground bg-[#05060A] dark:bg-[#E5E7EF]">
                 {/* Header with Full Address */}
                 <div className="flex items-center justify-between mb-2 pb-2">
                   <div className="flex items-center gap-3">
@@ -3974,7 +4030,7 @@ export default function ResultsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                   {/* Traveller Safety */}
                   <div 
-                    className="border-2 rounded-md p-3"
+                    className="border border-border/40 rounded-md p-3"
                       style={{
                         backgroundColor: (() => {
                           const safetyScore = result.data.crime.safetyScore;
@@ -4147,7 +4203,7 @@ export default function ResultsPage() {
                   </div>
 
                   {/* Potential Disruptive Events */}
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
+                  <div className="bg-background/20 border border-background/30 rounded-md p-3">
                     <h4 className="font-bold text-primary-foreground mb-3">Potential Disruptive Events</h4>
                     {result.data.events.events.length > 0 ? (
                       <>
@@ -4170,7 +4226,7 @@ export default function ResultsPage() {
                   </div>
 
                   {/* Nearby Cafes & Parking */}
-                  <div className="bg-background/20 border-2 border-background/30 rounded-md p-3">
+                  <div className="bg-background/20 border border-background/30 rounded-md p-3">
                     <h4 className="font-bold text-primary-foreground mb-3">Nearby Cafes & Parking</h4>
                     
                     {/* Cafes Section */}
@@ -4307,7 +4363,7 @@ export default function ResultsPage() {
                   </div>
                   <div className="flex-1">
                 <div 
-                  className="bg-card rounded-md p-8 border-2 border-border"
+                  className="bg-card rounded-md p-8 border border-border/40"
                 >
                   {/* Route Header */}
                   <div className="flex items-center justify-between mb-6">
@@ -4596,7 +4652,7 @@ export default function ResultsPage() {
 
         {/* Shareable Link - Only for Owners */}
         {isOwner && (
-          <div className="bg-secondary border-2 border-border rounded-md p-6 mb-8">
+          <div className="bg-secondary border border-border/40 rounded-md p-6 mb-8">
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-secondary-foreground mb-1">Shareable Link</p>
@@ -4953,7 +5009,7 @@ export default function ResultsPage() {
 
         {/* Guest Signup CTA - Only for guests who created this report */}
         {isGuestCreator && !guestSignupSuccess && (
-          <Card className="mb-8 border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10">
+          <Card className="mb-8 border border-primary/60 bg-gradient-to-br from-primary/5 to-primary/10">
             <CardContent className="p-8">
               <div className="max-w-2xl mx-auto">
                 <h2 className="text-2xl font-bold text-center mb-3">

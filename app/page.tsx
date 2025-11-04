@@ -1100,15 +1100,12 @@ export default function Home() {
       console.log(`🔗 Trip ID: ${tripData.id}`);
       console.log(`📧 Guest email: ${userEmail}`);
 
-      // Clear pending data
-      setPendingTripData(null);
-
       // Store trip ID in sessionStorage to identify guest as creator
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('guestCreatedTripId', tripData.id);
       }
 
-      // Redirect to results page
+      // Redirect to results page immediately (don't clear pendingTripData first)
       router.push(`/results/${tripData.id}`);
     } catch (err) {
       console.error('Error saving guest trip:', err);
