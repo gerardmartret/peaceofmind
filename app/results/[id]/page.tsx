@@ -22,6 +22,49 @@ const numberToLetter = (num: number): string => {
   return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
 };
 
+// Helper function to extract business/place name and format address display
+const formatLocationDisplay = (fullAddress: string): { businessName: string; restOfAddress: string } => {
+  if (!fullAddress) return { businessName: '', restOfAddress: '' };
+  
+  const parts = fullAddress.split(',').map(p => p.trim());
+  
+  if (parts.length === 0) return { businessName: fullAddress, restOfAddress: '' };
+  if (parts.length === 1) return { businessName: parts[0], restOfAddress: '' };
+  
+  // Special handling for airports - look for airport name in the address
+  const lowerAddress = fullAddress.toLowerCase();
+  const airportKeywords = [
+    { keyword: 'heathrow', fullName: 'Heathrow Airport' },
+    { keyword: 'gatwick', fullName: 'Gatwick Airport' },
+    { keyword: 'stansted', fullName: 'Stansted Airport' },
+    { keyword: 'luton', fullName: 'Luton Airport' },
+    { keyword: 'london city airport', fullName: 'London City Airport' },
+  ];
+  
+  for (const airport of airportKeywords) {
+    if (lowerAddress.includes(airport.keyword)) {
+      // If it's a terminal, show "Airport Name - Terminal X"
+      const terminalMatch = parts[0].match(/terminal\s+\d+/i);
+      if (terminalMatch) {
+        const businessName = `${airport.fullName} - ${terminalMatch[0]}`;
+        const restOfAddress = parts.slice(1).join(', ');
+        return { businessName, restOfAddress };
+      }
+      // Otherwise, use the airport name
+      const businessName = airport.fullName;
+      const restOfAddress = parts.join(', ');
+      return { businessName, restOfAddress };
+    }
+  }
+  
+  // For non-airports, first part is typically the business/place name
+  const businessName = parts[0];
+  // Rest is the detailed address
+  const restOfAddress = parts.slice(1).join(', ');
+  
+  return { businessName, restOfAddress };
+};
+
 interface CrimeData {
   district: string;
   coordinates: { lat: number; lng: number };
@@ -876,12 +919,6 @@ export default function ResultsPage() {
 
 
   const startLiveTrip = () => {
-    // Security check: Only owners can start live trip
-    if (!isOwner) {
-      console.error('❌ Unauthorized: Only trip owners can start live trip');
-      return;
-    }
-
     if (!tripData?.locations) return;
 
     const closestIndex = findClosestLocation();
@@ -900,11 +937,6 @@ export default function ResultsPage() {
   };
 
   const stopLiveTrip = () => {
-    // Security check: Only owners can stop live trip
-    if (!isOwner) {
-      console.error('❌ Unauthorized: Only trip owners can stop live trip');
-      return;
-    }
 
     setIsLiveMode(false);
     setActiveLocationIndex(null);
@@ -1567,8 +1599,8 @@ export default function ResultsPage() {
   const getSafetyColor = (score: number) => {
     if (score >= 80) return 'text-green-500';
     if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    if (score >= 40) return 'text-orange-600 dark:text-orange-400';
-    return 'text-red-600 dark:text-red-400';
+    if (score >= 40) return 'text-[#db7304]';
+    return 'text-[#9e201b]';
   };
 
   // Helper function to parse notes into bullet points
@@ -2730,38 +2762,38 @@ export default function ResultsPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <div>
+              <div>
                     <p className="text-base font-semibold text-card-foreground">
-                      Driver: <span className="text-primary">{driverEmail}</span>
-                    </p>
+                  Driver: <span className="text-primary">{driverEmail}</span>
+                </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Send email notification to the assigned driver
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleNotifyDriver}
-                    disabled={notifyingDriver}
+                  Send email notification to the assigned driver
+                </p>
+              </div>
+              <Button
+                onClick={handleNotifyDriver}
+                disabled={notifyingDriver}
                     size="lg"
-                    className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                  >
-                    {notifyingDriver ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
+                className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+              >
+                {notifyingDriver ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
                         <span>Sending...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        Notify Driver
-                      </>
-                    )}
-                  </Button>
-                </div>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    Notify Driver
+                  </>
+                )}
+              </Button>
+            </div>
               </CardContent>
             </Card>
           </div>
@@ -3101,8 +3133,8 @@ export default function ResultsPage() {
                             const dropoffTime = parseInt(locations[1]?.time) || 0;
                             const durationHours = dropoffTime - pickupTime;
                             
-                            // If duration is under 2 hours, it's a transfer
-                            if (durationHours < 2) {
+                            // If duration is under 3 hours, it's a transfer
+                            if (durationHours < 3) {
                               // Check if either location is an airport
                               const hasAirport = locations.some((loc: any) => {
                                 const locName = loc.name?.toLowerCase() || loc.formattedAddress?.toLowerCase() || '';
@@ -3115,8 +3147,8 @@ export default function ResultsPage() {
                               });
                               
                               return hasAirport ? 'Airport Transfer' : 'Transfer';
-                            } else {
-                              // Show duration if 2 hours or more
+                        } else {
+                              // Show duration if 3 hours or more
                               const hours = Math.floor(durationHours);
                               const minutes = Math.round((durationHours - hours) * 60);
                               return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
@@ -3152,7 +3184,7 @@ export default function ResultsPage() {
                         </span>
                       </div>
                       {isOwner && (
-                        <button
+                      <button 
                           onClick={handleStatusToggle}
                           disabled={updatingStatus}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
@@ -3165,102 +3197,10 @@ export default function ResultsPage() {
                               tripStatus === 'confirmed' ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
-                        </button>
+                      </button>
                       )}
                     </div>
                   </div>
-                  
-                  {/* Live Trip Button - Only for owners */}
-                  {isOwner && (() => {
-                    const now = new Date();
-                    const tripDateTime = new Date(tripDate);
-                    
-                    // Get city from first location to determine timezone
-                    const getCityTimezone = (): string => {
-                      if (locations && locations.length > 0) {
-                        const firstLocation = locations[0];
-                        if (firstLocation.name) {
-                          const parts = firstLocation.name.split(',');
-                          if (parts.length >= 2) {
-                            const city = parts[parts.length - 1].trim();
-                            // Map major cities to their timezones
-                            const cityTimezones: { [key: string]: string } = {
-                              'London': 'Europe/London',
-                              'Paris': 'Europe/Paris',
-                              'New York': 'America/New_York',
-                              'Los Angeles': 'America/Los_Angeles',
-                              'Tokyo': 'Asia/Tokyo',
-                              'Sydney': 'Australia/Sydney',
-                              'Dubai': 'Asia/Dubai',
-                              'Singapore': 'Asia/Singapore',
-                              'Hong Kong': 'Asia/Hong_Kong',
-                              'Mumbai': 'Asia/Kolkata',
-                              'Berlin': 'Europe/Berlin',
-                              'Madrid': 'Europe/Madrid',
-                              'Rome': 'Europe/Rome',
-                              'Amsterdam': 'Europe/Amsterdam',
-                              'Barcelona': 'Europe/Madrid',
-                              'Manchester': 'Europe/London',
-                              'Birmingham': 'Europe/London',
-                              'Edinburgh': 'Europe/London',
-                              'Glasgow': 'Europe/London',
-                              'Liverpool': 'Europe/London',
-                              'Leeds': 'Europe/London',
-                              'Sheffield': 'Europe/London',
-                              'Bristol': 'Europe/London',
-                              'Newcastle': 'Europe/London',
-                              'Nottingham': 'Europe/London',
-                              'Leicester': 'Europe/London',
-                              'Coventry': 'Europe/London',
-                              'Bradford': 'Europe/London',
-                              'Cardiff': 'Europe/London',
-                              'Belfast': 'Europe/London'
-                            };
-                            return cityTimezones[city] || 'Europe/London';
-                          }
-                        }
-                      }
-                      return 'Europe/London'; // Default timezone
-                    };
-
-                    const timezone = getCityTimezone();
-                    
-                    // Convert trip date to local time in the trip city
-                    const tripLocalTime = new Date(tripDateTime.toLocaleString("en-US", {timeZone: timezone}));
-                    const oneHourBefore = new Date(tripLocalTime.getTime() - 60 * 60 * 1000);
-                    const isLiveTripActive = now >= oneHourBefore;
-                    
-                    return (
-                      <button 
-                        className={`px-6 py-3 font-medium rounded-xl transition-all duration-300 flex items-center gap-3 ${
-                          isLiveTripActive 
-                            ? 'text-white shadow-lg hover:shadow-xl transform hover:scale-105' 
-                            : 'bg-muted text-muted-foreground cursor-not-allowed'
-                        }`}
-                        style={{
-                          backgroundColor: isLiveTripActive ? '#21AB78' : undefined
-                        }}
-                        onClick={() => {
-                          if (isLiveTripActive) {
-                            if (isLiveMode) {
-                              stopLiveTrip();
-                            } else {
-                              startLiveTrip();
-                            }
-                          }
-                        }}
-                        disabled={!isLiveTripActive}
-                        title={isLiveTripActive ? 
-                          (isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking') : 
-                          'Live trip will be available 1 hour before departure'}
-                      >
-                        <div className={`w-2.5 h-2.5 rounded-full ${isLiveTripActive ? 'bg-white animate-pulse' : 'bg-muted-foreground'}`}></div>
-                        <span className="text-sm font-medium">
-                          {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
-                        </span>
-                      </button>
-                    );
-                  })()}
                 </div>
 
                 {/* Trip Details Grid */}
@@ -3329,10 +3269,10 @@ export default function ResultsPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-3">
                     <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                     <span className="text-sm font-medium text-foreground">Pickup Time</span>
-                  </div>
+                </div>
                   <p className="text-3xl font-bold text-foreground">
                     {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
                   </p>
@@ -3344,10 +3284,10 @@ export default function ResultsPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-3">
                     <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
                     <span className="text-sm font-medium text-foreground">Trip Duration</span>
-                  </div>
+                </div>
                   <p className="text-3xl font-bold text-foreground">
                     {(() => {
                       if (locations && locations.length >= 2) {
@@ -3374,11 +3314,11 @@ export default function ResultsPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-3">
                     <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
                     <span className="text-sm font-medium text-foreground">Estimated Distance</span>
-                  </div>
+                </div>
                   <p className="text-3xl font-bold text-foreground">
                     {(() => {
                       // Check if traffic predictions exist and have the correct structure
@@ -3421,7 +3361,116 @@ export default function ResultsPage() {
           {!isLiveMode && (
             <Card className="mb-6">
               <CardContent className="p-6">
-            <h3 className="text-xl font-semibold text-card-foreground mb-6">Trip Locations</h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-card-foreground">Trip Locations</h3>
+                  
+                  {/* Live Trip Button - Always visible */}
+                  {(() => {
+                    const now = new Date();
+                    const tripDateTime = new Date(tripDate);
+                    
+                    // Get city from first location to determine timezone
+                    const getCityTimezone = (): string => {
+                      if (locations && locations.length > 0) {
+                        const firstLocation = locations[0];
+                        if (firstLocation.name) {
+                          const parts = firstLocation.name.split(',');
+                          if (parts.length >= 2) {
+                            const city = parts[parts.length - 1].trim();
+                            // Map major cities to their timezones
+                            const cityTimezones: { [key: string]: string } = {
+                              'London': 'Europe/London',
+                              'Paris': 'Europe/Paris',
+                              'New York': 'America/New_York',
+                              'Los Angeles': 'America/Los_Angeles',
+                              'Tokyo': 'Asia/Tokyo',
+                              'Sydney': 'Australia/Sydney',
+                              'Dubai': 'Asia/Dubai',
+                              'Singapore': 'Asia/Singapore',
+                              'Hong Kong': 'Asia/Hong_Kong',
+                              'Mumbai': 'Asia/Kolkata',
+                              'Berlin': 'Europe/Berlin',
+                              'Madrid': 'Europe/Madrid',
+                              'Rome': 'Europe/Rome',
+                              'Amsterdam': 'Europe/Amsterdam',
+                              'Barcelona': 'Europe/Madrid',
+                              'Manchester': 'Europe/London',
+                              'Birmingham': 'Europe/London',
+                              'Edinburgh': 'Europe/London',
+                              'Glasgow': 'Europe/London',
+                              'Liverpool': 'Europe/London',
+                              'Leeds': 'Europe/London',
+                              'Sheffield': 'Europe/London',
+                              'Bristol': 'Europe/London',
+                              'Newcastle': 'Europe/London',
+                              'Nottingham': 'Europe/London',
+                              'Leicester': 'Europe/London',
+                              'Coventry': 'Europe/London',
+                              'Bradford': 'Europe/London',
+                              'Cardiff': 'Europe/London',
+                              'Belfast': 'Europe/London'
+                            };
+                            return cityTimezones[city] || 'Europe/London';
+                          }
+                        }
+                      }
+                      return 'Europe/London'; // Default timezone
+                    };
+
+                    const timezone = getCityTimezone();
+                    
+                    // Convert trip date to local time in the trip city
+                    const tripLocalTime = new Date(tripDateTime.toLocaleString("en-US", {timeZone: timezone}));
+                    const oneHourBefore = new Date(tripLocalTime.getTime() - 60 * 60 * 1000);
+                    const isLiveTripActive = now >= oneHourBefore;
+                    
+                    return (
+                      <button 
+                        className={`px-4 py-2 font-medium rounded-lg transition-all duration-300 flex items-center gap-2 text-sm ${
+                          isLiveTripActive 
+                            ? 'bg-green-500 text-white shadow-md hover:shadow-lg hover:bg-green-600' 
+                            : 'bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:opacity-90'
+                        }`}
+                        onClick={() => {
+                          if (isLiveTripActive) {
+                            if (isLiveMode) {
+                              stopLiveTrip();
+                            } else {
+                              startLiveTrip();
+                            }
+                          } else {
+                            // Scroll to first trip breakdown when not live
+                            const firstBreakdown = document.getElementById('trip-breakdown-0');
+                            if (firstBreakdown) {
+                              firstBreakdown.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                          }
+                        }}
+                        title={isLiveTripActive ? 
+                          (isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking') : 
+                          'View detailed route breakdown'}
+                      >
+                        {isLiveTripActive ? (
+                          <>
+                            <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                            <span className="font-medium">
+                              {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                            </svg>
+                            <span className="font-medium">
+                              View Route Breakdown
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
+                </div>
             <div className="relative">
               {/* Connecting Line */}
               <div 
@@ -3485,66 +3534,47 @@ export default function ResultsPage() {
                               
                               window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
                             }}
-                            className="text-lg text-card-foreground font-medium text-left hover:text-primary hover:underline transition-colors cursor-pointer block w-full truncate"
-                            title={(() => {
-                              const baseLocation = location.formattedAddress || location.fullAddress || location.address || location.name;
-                              const flightMap = extractFlightNumbers(driverNotes);
-                              const locationName = baseLocation;
-                              
-                              // Check if this location is an airport and has flight numbers
-                              const isAirport = locationName.toLowerCase().includes('airport') || 
-                                              locationName.toLowerCase().includes('heathrow') ||
-                                              locationName.toLowerCase().includes('gatwick') ||
-                                              locationName.toLowerCase().includes('stansted') ||
-                                              locationName.toLowerCase().includes('luton');
-                              
-                              if (isAirport && Object.keys(flightMap).length > 0) {
-                                // Find matching airport in flight map
-                                const matchingAirport = Object.keys(flightMap).find(airport => 
-                                  locationName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
-                                );
-                                
-                                if (matchingAirport && flightMap[matchingAirport].length > 0) {
-                                  const flights = flightMap[matchingAirport].join(', ');
-                                  return `${baseLocation} for flight ${flights}`;
-                                }
-                              }
-                              
-                              return baseLocation;
-                            })()}
+                            className="text-left hover:text-primary transition-colors cursor-pointer block w-full"
+                            title={location.formattedAddress || location.fullAddress || location.address || location.name}
                           >
                             {(() => {
-                              const baseLocation = location.formattedAddress || location.fullAddress || location.address || location.name;
+                              const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
+                              const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
                               const flightMap = extractFlightNumbers(driverNotes);
-                              const locationName = baseLocation;
                               
                               // Check if this location is an airport and has flight numbers
-                              const isAirport = locationName.toLowerCase().includes('airport') || 
-                                              locationName.toLowerCase().includes('heathrow') ||
-                                              locationName.toLowerCase().includes('gatwick') ||
-                                              locationName.toLowerCase().includes('stansted') ||
-                                              locationName.toLowerCase().includes('luton');
+                              const isAirport = businessName.toLowerCase().includes('airport') || 
+                                              businessName.toLowerCase().includes('heathrow') ||
+                                              businessName.toLowerCase().includes('gatwick') ||
+                                              businessName.toLowerCase().includes('stansted') ||
+                                              businessName.toLowerCase().includes('luton');
                               
-                              let displayText = baseLocation;
+                              let displayBusinessName = businessName;
                               
                               if (isAirport && Object.keys(flightMap).length > 0) {
                                 // Find matching airport in flight map
                                 const matchingAirport = Object.keys(flightMap).find(airport => 
-                                  locationName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                                  businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
                                 );
                                 
                                 if (matchingAirport && flightMap[matchingAirport].length > 0) {
                                   const flights = flightMap[matchingAirport].join(', ');
-                                  displayText = `${baseLocation} for flight ${flights}`;
+                                  displayBusinessName = `${businessName} for flight ${flights}`;
                                 }
                               }
                               
-                              // Truncate if too long (approximately 60 characters for single line)
-                              if (displayText.length > 60) {
-                                return displayText.substring(0, 57) + '...';
-                              }
-                              
-                              return displayText;
+                              return (
+                                <div>
+                                  <div className="text-lg font-semibold text-card-foreground">
+                                    {displayBusinessName}
+                                  </div>
+                                  {restOfAddress && (
+                                    <div className="text-sm text-muted-foreground mt-0.5">
+                                      {restOfAddress}
+                                    </div>
+                                  )}
+                                </div>
+                              );
                             })()}
                           </button>
                         </div>
@@ -3574,21 +3604,21 @@ export default function ResultsPage() {
               {executiveReport?.exceptionalInformation && (
                 <Card className="bg-muted/50">
                   <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <div>
+                  <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#9e201b' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div>
                         <div className="text-sm text-card-foreground leading-relaxed">
-                          {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
-                            <div key={index} className="flex items-start gap-2 mb-1">
+                        {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
+                          <div key={index} className="flex items-start gap-2 mb-1">
                               <span className="text-muted-foreground mt-1">•</span>
-                              <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
-                            </div>
-                          ))}
-                        </div>
+                            <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
+                  </div>
                   </CardContent>
                 </Card>
               )}
@@ -3597,15 +3627,15 @@ export default function ResultsPage() {
               {executiveReport?.importantInformation && (
                 <Card className="bg-muted/50">
                   <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3">
                       <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
                         <h4 className="font-semibold text-card-foreground mb-1">Important Information</h4>
                         <p className="text-sm text-muted-foreground leading-relaxed">{executiveReport.importantInformation}</p>
-                      </div>
                     </div>
+                  </div>
                   </CardContent>
                 </Card>
               )}
@@ -3650,16 +3680,16 @@ export default function ResultsPage() {
                       <Card className="bg-muted/50">
                         <CardContent className="p-4">
                           <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
-                          <div className="space-y-2">
-                            {executiveReport.recommendations.map((rec: string, idx: number) => (
-                              <div key={idx} className="flex items-start gap-3">
+                      <div className="space-y-2">
+                        {executiveReport.recommendations.map((rec: string, idx: number) => (
+                          <div key={idx} className="flex items-start gap-3">
                                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
-                                  {idx + 1}
-                                </span>
+                              {idx + 1}
+                            </span>
                                 <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
-                              </div>
-                            ))}
                           </div>
+                        ))}
+                      </div>
                         </CardContent>
                       </Card>
                       
@@ -3670,7 +3700,7 @@ export default function ResultsPage() {
                             <h4 className="text-base font-bold text-card-foreground mb-3">Driver Notes</h4>
                             <div className="text-sm text-muted-foreground leading-relaxed">
                               <p>{driverNotes}</p>
-                            </div>
+                    </div>
                           </CardContent>
                         </Card>
                       )}
@@ -3695,16 +3725,16 @@ export default function ResultsPage() {
                       <Card className="bg-muted/50">
                         <CardContent className="p-4">
                           <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
-                          <div className="space-y-2">
-                            {executiveReport.recommendations.map((rec: string, idx: number) => (
-                              <div key={idx} className="flex items-start gap-3">
+                    <div className="space-y-2">
+                      {executiveReport.recommendations.map((rec: string, idx: number) => (
+                        <div key={idx} className="flex items-start gap-3">
                                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
-                                  {idx + 1}
-                                </span>
+                            {idx + 1}
+                          </span>
                                 <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
-                              </div>
-                            ))}
-                          </div>
+                        </div>
+                      ))}
+                    </div>
                         </CardContent>
                       </Card>
                       
@@ -3715,12 +3745,12 @@ export default function ResultsPage() {
                             <h4 className="text-base font-bold text-card-foreground mb-3">Driver Notes</h4>
                             <div className="text-sm text-muted-foreground leading-relaxed">
                               <p>{driverNotes}</p>
-                            </div>
+                  </div>
                           </CardContent>
                         </Card>
                       )}
                     </>
-                  );
+                );
                 }
               })()}
 
@@ -3748,7 +3778,7 @@ export default function ResultsPage() {
               <Card className="mb-6">
                 <CardContent className="p-6">
                 <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5" style={{ color: '#9e201b' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                   Potential Trip Disruptions
@@ -3778,9 +3808,9 @@ export default function ResultsPage() {
                       style={{
                         color: (() => {
                           const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#18815A'; // Success green
-                          if (riskScore <= 6) return '#D97706'; // Warning orange
-                          return '#B22E2E'; // Error red
+                          if (riskScore <= 3) return '#22c55e'; // Success green (green-500)
+                          if (riskScore <= 6) return '#db7304'; // Warning orange
+                          return '#9e201b'; // Error red
                         })()
                       }}
                     >
@@ -3794,9 +3824,9 @@ export default function ResultsPage() {
                       style={{
                         backgroundColor: (() => {
                           const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#18815A'; // Success green
-                          if (riskScore <= 6) return '#D97706'; // Warning orange
-                          return '#B22E2E'; // Error red
+                          if (riskScore <= 3) return '#22c55e'; // Success green (green-500)
+                          if (riskScore <= 6) return '#db7304'; // Warning orange
+                          return '#9e201b'; // Error red
                         })(),
                         color: '#FFFFFF'
                       }}
@@ -3807,7 +3837,7 @@ export default function ResultsPage() {
                     </div>
                     </CardContent>
                   </Card>
-              </div>
+                  </div>
                 </CardContent>
             </Card>
 
@@ -3820,20 +3850,32 @@ export default function ResultsPage() {
           {isLiveMode && (
             <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
             {/* Live Time Display */}
-            <div className="sticky top-20 mb-12 p-4 rounded-lg relative z-20" style={{ backgroundColor: '#21AB78', borderColor: '#21AB78', borderWidth: '1px', borderStyle: 'solid' }}>
-              <div className="flex items-center justify-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-white animate-pulse"></div>
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">Current Time (London)</div>
-                  <div className="text-2xl font-bold text-white">
-                    {currentTime.toLocaleTimeString('en-GB', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                      timeZone: 'Europe/London'
-                    })}
+            <div className="sticky top-20 mb-12 p-4 rounded-lg relative z-20 bg-green-500 border border-green-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center justify-center gap-3 flex-1">
+                  <div className="w-3 h-3 rounded-full bg-white animate-pulse"></div>
+                  <div className="text-center">
+                    <div className="text-sm text-white/80 mb-1">Current Time (London)</div>
+                    <div className="text-2xl font-bold text-white">
+                      {currentTime.toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        timeZone: 'Europe/London'
+                      })}
+                    </div>
                   </div>
                 </div>
+                {/* Close Live Trip Button */}
+                <button
+                  onClick={stopLiveTrip}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  title="Exit Live Trip view"
+                >
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </div>
             {/* Connecting Line - starts after the green box */}
@@ -3857,28 +3899,28 @@ export default function ResultsPage() {
                     <div className="text-sm text-muted-foreground ml-2">
                       {index === 0 ? 'Pick up' : index === tripResults.length - 1 ? 'Drop off' : 'Resume'}
                       {isLiveMode && activeLocationIndex === index && (
-                        <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded" style={{ backgroundColor: '#21AB78' }}>
+                        <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded bg-green-500">
                           LIVE
                         </span>
                       )}
                     </div>
                   </div>
                 <div className="flex-1">
-              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border border-border/40 text-primary-foreground bg-[#05060A] dark:bg-[#E5E7EF]">
+              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border border-border bg-background dark:bg-[#363636] text-foreground">
                 {/* Header with Full Address */}
                 <div className="flex items-center justify-between mb-2 pb-2">
                   <div className="flex items-center gap-3">
                     <div className="relative" style={{ width: '30px', height: '35px' }}>
                       <svg 
                         viewBox="0 0 24 24" 
-                        className="fill-white dark:fill-[#05060A] stroke-[#05060A] dark:stroke-[#E5E7EF]"
+                        className="fill-foreground stroke-background"
                         strokeWidth="1.5"
                         style={{ width: '100%', height: '100%' }}
                       >
                         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
                       </svg>
                       <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '4px' }}>
-                        <span className="font-bold text-xs text-[#05060A] dark:text-white">
+                        <span className="font-bold text-xs text-background">
                           {numberToLetter(index + 1)}
                         </span>
                       </div>
@@ -3899,17 +3941,17 @@ export default function ResultsPage() {
                         />
                       ) : (
                         <div className="flex items-center gap-2 mt-1">
-                           <p className="text-base font-semibold text-primary-foreground">
+                           <p className="text-base font-semibold text-foreground">
                              {locationDisplayNames[result.locationId] || `Stop ${index + 1}`}
                           </p>
                           {/* Only show edit button for owners */}
                           {isOwner && (
                             <button
                                onClick={() => handleEditLocationName(result.locationId, `Stop ${index + 1}`)}
-                              className="p-1 hover:bg-background/20 dark:hover:bg-[#181a23] rounded transition-colors"
+                              className="p-1 hover:bg-muted rounded transition-colors"
                                title="Edit location name"
                             >
-                              <svg className="w-4 h-4 text-primary-foreground/70 hover:text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                              <svg className="w-4 h-4 text-muted-foreground hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
@@ -3917,41 +3959,54 @@ export default function ResultsPage() {
                         </div>
                       )}
                       
-                      {/* Full Address with Flight Info */}
-                      <p className="text-xs text-primary-foreground/70 mt-1">
+                      {/* Full Address with Flight Info - Formatted */}
+                      <div className="mt-1">
                         {(() => {
-                          const baseLocation = result.fullAddress || result.locationName;
+                          const fullAddr = result.fullAddress || result.locationName;
+                          const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
                           const flightMap = extractFlightNumbers(driverNotes);
-                          const locationName = baseLocation;
                           
                           // Check if this location is an airport and has flight numbers
-                          const isAirport = locationName.toLowerCase().includes('airport') || 
-                                          locationName.toLowerCase().includes('heathrow') ||
-                                          locationName.toLowerCase().includes('gatwick') ||
-                                          locationName.toLowerCase().includes('stansted') ||
-                                          locationName.toLowerCase().includes('luton');
+                          const isAirport = businessName.toLowerCase().includes('airport') || 
+                                          businessName.toLowerCase().includes('heathrow') ||
+                                          businessName.toLowerCase().includes('gatwick') ||
+                                          businessName.toLowerCase().includes('stansted') ||
+                                          businessName.toLowerCase().includes('luton');
+                          
+                          let displayBusinessName = businessName;
                           
                           if (isAirport && Object.keys(flightMap).length > 0) {
                             // Find matching airport in flight map
                             const matchingAirport = Object.keys(flightMap).find(airport => 
-                              locationName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                              businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
                             );
                             
                             if (matchingAirport && flightMap[matchingAirport].length > 0) {
                               const flights = flightMap[matchingAirport].join(', ');
-                              return `${baseLocation} for flight ${flights}`;
+                              displayBusinessName = `${businessName} for flight ${flights}`;
                             }
                           }
                           
-                          return baseLocation;
+                          return (
+                            <>
+                              <p className="text-sm font-semibold text-foreground">
+                                {displayBusinessName}
+                              </p>
+                              {restOfAddress && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {restOfAddress}
+                                </p>
+                              )}
+                            </>
+                          );
                         })()}
-                      </p>
+                      </div>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-4">
                     {/* Safety, Cafes, Parking Info */}
-                    <div className="flex items-center gap-4 text-xs text-primary-foreground/80">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
                         <span>Safety: {result.data.crime.safetyScore}/100</span>
@@ -3975,21 +4030,21 @@ export default function ResultsPage() {
                         const truncatedNotes = notes.slice(0, 2); // Show only first 2 notes
                         const hasMore = notes.length > 2;
                         return (
-                          <div className="mt-2 p-2 bg-background/20 rounded border border-primary-foreground/20">
+                          <div className="mt-2 p-2 bg-muted/30 rounded border border-border">
                             <div className="flex items-start gap-1">
-                              <svg className="w-3 h-3 text-primary-foreground/70 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
                               <div className="flex-1">
-                                <h5 className="text-xs font-semibold text-primary-foreground mb-1">Notes</h5>
+                                <h5 className="text-xs font-semibold text-foreground mb-1">Notes</h5>
                                 <div className="space-y-0.5">
                                   {truncatedNotes.map((note, noteIndex) => (
-                                    <p key={noteIndex} className="text-xs text-primary-foreground/80 leading-tight">
+                                    <p key={noteIndex} className="text-xs text-muted-foreground leading-tight">
                                       • {note.length > 50 ? note.substring(0, 50) + '...' : note}
                                     </p>
                                   ))}
                                   {hasMore && (
-                                    <p className="text-xs text-primary-foreground/60 italic">
+                                    <p className="text-xs text-muted-foreground/70 italic">
                                       +{notes.length - 2} more notes
                                     </p>
                                   )}
@@ -4005,11 +4060,11 @@ export default function ResultsPage() {
                     {/* Expand/Collapse Button */}
                     <button
                       onClick={() => toggleLocationExpansion(result.locationId)}
-                      className="p-2 hover:bg-background/20 dark:hover:bg-[#181a23] rounded transition-colors"
+                      className="p-2 hover:bg-muted rounded transition-colors"
                       title={expandedLocations[result.locationId] ? "Collapse details" : "Expand details"}
                     >
                       <svg 
-                        className={`w-5 h-5 text-primary-foreground transition-transform ${expandedLocations[result.locationId] ? 'rotate-180' : ''}`} 
+                        className={`w-5 h-5 text-foreground transition-transform ${expandedLocations[result.locationId] ? 'rotate-180' : ''}`} 
                         fill="none" 
                         stroke="currentColor" 
                         viewBox="0 0 24 24"
@@ -4034,79 +4089,79 @@ export default function ResultsPage() {
                       style={{
                         backgroundColor: (() => {
                           const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#45C48A'; // Success green - dark bg
-                          if (safetyScore >= 40) return '#F7A733'; // Warning orange - dark bg
-                          return '#E05A5A'; // Error red - dark bg
+                          if (safetyScore >= 60) return '#22c55e'; // Success green (green-500)
+                          if (safetyScore >= 40) return '#db7304'; // Warning orange
+                          return '#9e201b'; // Error red
                         })(),
                         borderColor: (() => {
                           const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#45C48A';
-                          if (safetyScore >= 40) return '#F7A733';
-                          return '#E05A5A';
+                          if (safetyScore >= 60) return '#22c55e'; // Green-500
+                          if (safetyScore >= 40) return '#db7304'; // Orange
+                          return '#9e201b'; // Error red
                         })()
                       }}
                   >
-                    <h4 className="font-bold text-primary-foreground mb-2">Traveller Safety</h4>
+                    <h4 className="font-bold text-foreground mb-2">Traveller Safety</h4>
                     <div className="flex items-center gap-2 mb-2">
                       {(() => {
                         const safetyScore = result.data.crime.safetyScore;
                         if (safetyScore >= 80) {
                           return (
                             <>
-                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               <div>
-                                <div className="text-sm font-semibold text-primary-foreground">Very Safe</div>
-                                <div className="text-xs text-primary-foreground/80">Low crime area with excellent safety record</div>
+                                <div className="text-sm font-semibold text-foreground">Very Safe</div>
+                                <div className="text-xs text-muted-foreground">Low crime area with excellent safety record</div>
                               </div>
                             </>
                           );
                         } else if (safetyScore >= 60) {
                           return (
                             <>
-                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               <div>
-                                <div className="text-sm font-semibold text-primary-foreground">Safe</div>
-                                <div className="text-xs text-primary-foreground/80">Generally safe with minimal concerns</div>
+                                <div className="text-sm font-semibold text-foreground">Safe</div>
+                                <div className="text-xs text-muted-foreground">Generally safe with minimal concerns</div>
                               </div>
                             </>
                           );
                         } else if (safetyScore >= 40) {
                           return (
                             <>
-                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                               </svg>
                               <div>
-                                <div className="text-sm font-semibold text-primary-foreground">Moderate</div>
-                                <div className="text-xs text-primary-foreground/80">Mixed safety profile, stay aware</div>
+                                <div className="text-sm font-semibold text-foreground">Moderate</div>
+                                <div className="text-xs text-muted-foreground">Mixed safety profile, stay aware</div>
                               </div>
                             </>
                           );
                         } else if (safetyScore >= 20) {
                           return (
                             <>
-                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                               </svg>
                               <div>
-                                <div className="text-sm font-semibold text-primary-foreground">Caution Advised</div>
-                                <div className="text-xs text-primary-foreground/80">Higher crime area, extra caution needed</div>
+                                <div className="text-sm font-semibold text-foreground">Caution Advised</div>
+                                <div className="text-xs text-muted-foreground">Higher crime area, extra caution needed</div>
                               </div>
                             </>
                           );
                         } else {
                           return (
                             <>
-                              <svg className="w-5 h-5 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               <div>
-                                <div className="text-sm font-semibold text-primary-foreground">High Alert</div>
-                                <div className="text-xs text-primary-foreground/80">High crime area, avoid if possible</div>
+                                <div className="text-sm font-semibold text-foreground">High Alert</div>
+                                <div className="text-xs text-muted-foreground">High crime area, avoid if possible</div>
                               </div>
                             </>
                           );
@@ -4114,14 +4169,14 @@ export default function ResultsPage() {
                       })()}
                     </div>
                     <div className="space-y-1">
-                      <div className="text-xs text-primary-foreground/80 font-medium mb-1">
+                      <div className="text-xs text-muted-foreground font-medium mb-1">
                         These are the 3 most common crimes in this area. Be aware.
                       </div>
                       {result.data.crime.summary.topCategories
                         .filter(cat => !cat.category.toLowerCase().includes('other'))
                         .slice(0, 3)
                         .map((cat, idx) => (
-                          <div key={idx} className="text-xs text-primary-foreground/70">
+                          <div key={idx} className="text-xs text-muted-foreground">
                             {(() => {
                               const category = cat.category.toLowerCase();
                               if (category.includes('violence')) return 'Violence and assault incidents';
@@ -4147,11 +4202,11 @@ export default function ResultsPage() {
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.policeStation.name)}&query_place_id=${result.data.emergencyServices.policeStation.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                          className="flex items-center justify-between text-xs text-foreground hover:underline"
                         >
                           <div>
                             <div className="font-medium">Closest Police Station</div>
-                            <div className="text-primary-foreground/70">{Math.round(result.data.emergencyServices.policeStation.distance)}m away</div>
+                            <div className="text-muted-foreground">{Math.round(result.data.emergencyServices.policeStation.distance)}m away</div>
                           </div>
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -4162,7 +4217,7 @@ export default function ResultsPage() {
                           href={`https://www.google.com/maps/search/police+station+near+${encodeURIComponent(result.locationName)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                          className="flex items-center justify-between text-xs text-foreground hover:underline"
                         >
                           <span className="font-medium">Closest Police Station</span>
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4176,11 +4231,11 @@ export default function ResultsPage() {
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.hospital.name)}&query_place_id=${result.data.emergencyServices.hospital.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                          className="flex items-center justify-between text-xs text-foreground hover:underline"
                         >
                           <div>
                             <div className="font-medium">Closest Hospital</div>
-                            <div className="text-primary-foreground/70">{Math.round(result.data.emergencyServices.hospital.distance)}m away</div>
+                            <div className="text-muted-foreground">{Math.round(result.data.emergencyServices.hospital.distance)}m away</div>
                           </div>
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -4191,7 +4246,7 @@ export default function ResultsPage() {
                           href={`https://www.google.com/maps/search/hospital+near+${encodeURIComponent(result.locationName)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-primary-foreground hover:underline"
+                          className="flex items-center justify-between text-xs text-foreground hover:underline"
                         >
                           <span className="font-medium">Closest Hospital</span>
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4203,35 +4258,35 @@ export default function ResultsPage() {
                   </div>
 
                   {/* Potential Disruptive Events */}
-                  <div className="bg-background/20 border border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-3">Potential Disruptive Events</h4>
+                  <div className="bg-muted/30 border border-border rounded-md p-3">
+                    <h4 className="font-bold text-foreground mb-3">Potential Disruptive Events</h4>
                     {result.data.events.events.length > 0 ? (
                       <>
                         <div className="space-y-2 mb-3">
                           {result.data.events.events.slice(0, 3).map((event: any, idx: number) => (
-                            <div key={idx} className="text-xs text-primary-foreground/80">
+                            <div key={idx} className="text-xs text-muted-foreground">
                               • {event.title}
                             </div>
                           ))}
                         </div>
-                        <div className="text-xs text-primary-foreground/70 italic pt-2 border-t border-primary-foreground/20">
+                        <div className="text-xs text-muted-foreground italic pt-2 border-t border-border">
                           {result.data.events.summary.total === 1 
                             ? 'This event will be in the area. It might affect the trip. Be aware.'
                             : `These ${result.data.events.summary.total} events will be in the area. They might affect the trip. Be aware.`}
                         </div>
                       </>
                     ) : (
-                      <div className="text-xs text-primary-foreground/70">No events found</div>
+                      <div className="text-xs text-muted-foreground">No events found</div>
                     )}
                   </div>
 
                   {/* Nearby Cafes & Parking */}
-                  <div className="bg-background/20 border border-background/30 rounded-md p-3">
-                    <h4 className="font-bold text-primary-foreground mb-3">Nearby Cafes & Parking</h4>
+                  <div className="bg-muted/30 border border-border rounded-md p-3">
+                    <h4 className="font-bold text-foreground mb-3">Nearby Cafes & Parking</h4>
                     
                     {/* Cafes Section */}
                     <div className="mb-4">
-                      <h5 className="text-sm font-semibold text-primary-foreground mb-2">Cafes</h5>
+                      <h5 className="text-sm font-semibold text-foreground mb-2">Cafes</h5>
                     <div className="space-y-2">
                       {result.data.cafes?.cafes && result.data.cafes.cafes.length > 0 ? (
                         result.data.cafes.cafes
@@ -4259,7 +4314,7 @@ export default function ResultsPage() {
                                   >
                                     {cafe.name.length > 20 ? cafe.name.substring(0, 20) + '...' : cafe.name}
                                   </a>
-                                  <div className="text-xs font-medium" style={{ color: '#45C48A' }}>
+                                  <div className="text-xs font-medium text-green-500">
                                     Open
                                   </div>
                                 </div>
@@ -4386,9 +4441,9 @@ export default function ResultsPage() {
                             const leg = trafficPredictions?.data?.[index];
                             if (!leg) return '#808080'; // Default gray if no data
                             const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#45C48A'; // Success green - dark bg (white text)
-                            if (delay < 10) return '#F7A733'; // Warning orange - dark bg (white text)
-                            return '#E05A5A'; // Error red - dark bg (white text)
+                            if (delay < 5) return '#22c55e'; // Success green (green-500)
+                            if (delay < 10) return '#db7304'; // Warning orange
+                            return '#9e201b'; // Error red (white text)
                           })(),
                           color: '#FFFFFF'
                         }}
@@ -4517,9 +4572,9 @@ export default function ResultsPage() {
                           const leg = trafficPredictions?.data?.[index];
                           if (!leg) return 'rgba(128, 128, 128, 0.2)'; // Gray if no data
                           const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                          if (delay < 5) return 'rgba(24, 129, 90, 0.2)'; // Brand green with opacity
-                          if (delay < 10) return 'rgba(212, 145, 92, 0.2)'; // Professional orange with opacity
-                          return 'rgba(173, 82, 82, 0.2)'; // Brand red with opacity
+                          if (delay < 5) return 'rgba(34, 197, 94, 0.2)'; // Green-500 with opacity
+                          if (delay < 10) return 'rgba(219, 115, 4, 0.2)'; // Orange #db7304 with opacity
+                          return 'rgba(158, 32, 27, 0.2)'; // Red #9e201b with opacity
                         })()
                       }}
                     >
@@ -4530,9 +4585,9 @@ export default function ResultsPage() {
                             const leg = trafficPredictions?.data?.[index];
                             if (!leg) return '#808080'; // Gray if no data
                             const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#18815A'; // Success green - light bg
-                            if (delay < 10) return '#D97706'; // Warning orange - light bg
-                            return '#B22E2E'; // Error red - light bg
+                            if (delay < 5) return '#22c55e'; // Success green (green-500)
+                            if (delay < 10) return '#db7304'; // Warning orange
+                            return '#9e201b'; // Error red - light bg
                           })()
                         }}
                       >
@@ -4545,9 +4600,9 @@ export default function ResultsPage() {
                             const leg = trafficPredictions?.data?.[index];
                             if (!leg) return '#808080'; // Gray if no data
                             const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#18815A'; // Success green - light bg
-                            if (delay < 10) return '#D97706'; // Warning orange - light bg
-                            return '#B22E2E'; // Error red - light bg
+                            if (delay < 5) return '#22c55e'; // Success green (green-500)
+                            if (delay < 10) return '#db7304'; // Warning orange
+                            return '#9e201b'; // Error red - light bg
                           })()
                         }}
                       >
@@ -4681,7 +4736,7 @@ export default function ResultsPage() {
                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 </svg>
                               `;
-                              button.style.color = '#18815A';
+                              button.style.color = '#22c55e'; // Green-500
                               setTimeout(() => {
                                 button.innerHTML = originalContent;
                                 button.style.color = '';
@@ -5156,6 +5211,7 @@ export default function ResultsPage() {
     </div>
   );
 }
+
 
 
 

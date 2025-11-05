@@ -290,19 +290,45 @@ function SortableLocationItem({
                 </div>
               ) : (
                 <div 
-                  className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
+                  className="relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                   onClick={() => onEditStart(location.id, 'location')}
                 >
-                  <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <span className="flex-1 truncate text-base md:text-sm">
-                    {location.name || "Search hotels, restaurants, landmarks, or any location..."}
-                  </span>
-                  {location.name && (
-                    <svg className="w-4 h-4 text-green-500 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                  {location.name ? (
+                    <div className="flex items-start gap-3">
+                      <svg className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <div className="flex-1 min-w-0">
+                        {(() => {
+                          const { businessName, restOfAddress } = formatLocationDisplay(location.name);
+                          
+                          return (
+                            <>
+                              <div className="text-sm font-semibold text-card-foreground truncate">
+                                {businessName}
+                              </div>
+                              {restOfAddress && (
+                                <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                  {restOfAddress}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <span className="flex-1 text-base md:text-sm text-muted-foreground">
+                        Search hotels, restaurants, landmarks, or any location...
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -475,20 +501,38 @@ function SortableExtractedLocationItem({
                 </div>
               ) : (
                 <div 
-                  className="relative h-9 flex items-center px-3 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
+                  className="relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                   onClick={() => onEditStart(index, 'location')}
                 >
-                  <svg className="w-4 h-4 text-muted-foreground mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <span className="flex-1 truncate text-base md:text-sm">
-                    {location.location}
-                  </span>
-                  {location.verified && (
-                    <svg className="w-4 h-4 text-green-500 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <div className="flex items-start gap-3">
+                    <svg className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                  )}
+                    <div className="flex-1 min-w-0">
+                      {(() => {
+                        const fullAddr = location.formattedAddress || location.location;
+                        const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                        
+                        return (
+                          <>
+                            <div className="text-sm font-semibold text-card-foreground truncate">
+                              {businessName || location.location}
+                            </div>
+                            {restOfAddress && (
+                              <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                {restOfAddress}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                    {location.verified && (
+                      <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -547,6 +591,49 @@ function SortableExtractedLocationItem({
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
   return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
+};
+
+// Helper function to extract business/place name and format address display
+const formatLocationDisplay = (fullAddress: string): { businessName: string; restOfAddress: string } => {
+  if (!fullAddress) return { businessName: '', restOfAddress: '' };
+  
+  const parts = fullAddress.split(',').map(p => p.trim());
+  
+  if (parts.length === 0) return { businessName: fullAddress, restOfAddress: '' };
+  if (parts.length === 1) return { businessName: parts[0], restOfAddress: '' };
+  
+  // Special handling for airports - look for airport name in the address
+  const lowerAddress = fullAddress.toLowerCase();
+  const airportKeywords = [
+    { keyword: 'heathrow', fullName: 'Heathrow Airport' },
+    { keyword: 'gatwick', fullName: 'Gatwick Airport' },
+    { keyword: 'stansted', fullName: 'Stansted Airport' },
+    { keyword: 'luton', fullName: 'Luton Airport' },
+    { keyword: 'london city airport', fullName: 'London City Airport' },
+  ];
+  
+  for (const airport of airportKeywords) {
+    if (lowerAddress.includes(airport.keyword)) {
+      // If it's a terminal, show "Airport Name - Terminal X"
+      const terminalMatch = parts[0].match(/terminal\s+\d+/i);
+      if (terminalMatch) {
+        const businessName = `${airport.fullName} - ${terminalMatch[0]}`;
+        const restOfAddress = parts.slice(1).join(', ');
+        return { businessName, restOfAddress };
+      }
+      // Otherwise, use the airport name
+      const businessName = airport.fullName;
+      const restOfAddress = parts.join(', ');
+      return { businessName, restOfAddress };
+    }
+  }
+  
+  // For non-airports, first part is typically the business/place name
+  const businessName = parts[0];
+  // Rest is the detailed address
+  const restOfAddress = parts.slice(1).join(', ');
+  
+  return { businessName, restOfAddress };
 };
 
 // Generate a random password for password protection
