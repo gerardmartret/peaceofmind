@@ -386,74 +386,6 @@ export default function ResultsPage() {
     });
   };
 
-  // Function to extract location-specific notes from driver notes
-  const extractLocationNotes = (locationName: string, notes: string): string[] => {
-    if (!notes || !locationName) return [];
-    
-    const locationNotes: string[] = [];
-    const locationLower = locationName.toLowerCase();
-    const notesLower = notes.toLowerCase();
-    
-    // Split notes into sentences and check for location mentions
-    const sentences = notes.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    
-    sentences.forEach(sentence => {
-      const sentenceLower = sentence.toLowerCase();
-      
-      // Check if sentence mentions this location
-      const locationMentioned = locationLower.split(/[,\s]+/).some(word => 
-        word.length > 2 && sentenceLower.includes(word)
-      ) || sentenceLower.includes(locationLower) || 
-      // Check for partial matches (e.g., "Heathrow" matches "London Heathrow Airport")
-      locationLower.includes(sentenceLower.split(/[,\s]+/).find(word => word.length > 2) || '');
-      
-      if (locationMentioned) {
-        // Clean up the sentence and add it
-        const cleanSentence = sentence.trim().replace(/^[-•*]\s*/, '');
-        if (cleanSentence.length > 10) { // Only add meaningful notes
-          locationNotes.push(cleanSentence);
-        }
-      }
-    });
-    
-    return locationNotes;
-  };
-
-  // Function to extract route-specific notes from driver notes
-  const extractRouteNotes = (fromLocation: string, toLocation: string, notes: string): string[] => {
-    if (!notes || !fromLocation || !toLocation) return [];
-    
-    const routeNotes: string[] = [];
-    const notesLower = notes.toLowerCase();
-    
-    // Split notes into sentences and check for route mentions
-    const sentences = notes.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    
-    sentences.forEach(sentence => {
-      const sentenceLower = sentence.toLowerCase();
-      
-      // Check for route-related keywords
-      const routeKeywords = ['route', 'journey', 'drive', 'travel', 'between', 'from', 'to', 'via', 'through'];
-      const hasRouteKeyword = routeKeywords.some(keyword => sentenceLower.includes(keyword));
-      
-      // Check if sentence mentions both locations or route context
-      const mentionsFrom = fromLocation.toLowerCase().split(/[,\s]+/).some(word => 
-        word.length > 2 && sentenceLower.includes(word)
-      );
-      const mentionsTo = toLocation.toLowerCase().split(/[,\s]+/).some(word => 
-        word.length > 2 && sentenceLower.includes(word)
-      );
-      
-      if ((hasRouteKeyword || (mentionsFrom && mentionsTo)) && !sentenceLower.includes('pickup') && !sentenceLower.includes('drop off')) {
-        const cleanSentence = sentence.trim().replace(/^[-•*]\s*/, '');
-        if (cleanSentence.length > 10) {
-          routeNotes.push(cleanSentence);
-        }
-      }
-    });
-    
-    return routeNotes;
-  };
 
   // Function to extract flight numbers from driver notes
   const extractFlightNumbers = (notes: string): {[locationName: string]: string[]} => {
@@ -2087,25 +2019,51 @@ export default function ResultsPage() {
             };
           }
         } else if (locChange.action === 'unchanged') {
-          // Add unchanged location to final locations
-          if (locChange.finalLocation) {
+          // Add unchanged location to final locations - ALWAYS preserve from current trip data
+          const currentLoc = tripData?.locations[locChange.currentIndex];
+          if (currentLoc) {
+            // Always use current location data for unchanged locations to preserve coordinates
+            finalLocationsMap[locChange.currentIndex] = {
+              id: currentLoc.id,
+              name: currentLoc.name,
+              address: currentLoc.name,
+              time: currentLoc.time,
+              purpose: currentLoc.name,
+              lat: currentLoc.lat,
+              lng: currentLoc.lng,
+              fullAddress: (currentLoc as any).fullAddress || currentLoc.name,
+            };
+          } else if (locChange.finalLocation) {
+            // Fallback to finalLocation only if currentLoc doesn't exist
             finalLocationsMap[locChange.currentIndex] = locChange.finalLocation;
-          } else if (locChange.currentLocation && locChange.currentIndex >= 0) {
-            // Preserve current location as-is
-            const currentLoc = tripData?.locations[locChange.currentIndex];
-            if (currentLoc) {
-              finalLocationsMap[locChange.currentIndex] = {
-                id: currentLoc.id,
-                name: currentLoc.name,
-                address: currentLoc.name,
-                time: currentLoc.time,
-                purpose: currentLoc.name,
-                lat: currentLoc.lat,
-                lng: currentLoc.lng,
-                fullAddress: currentLoc.name,
-              };
-            }
           }
+        }
+      });
+    }
+
+    // CRITICAL FIX: Ensure ALL current locations are preserved if not explicitly removed
+    // This handles cases where the AI comparison might miss some unchanged locations
+    if (tripData?.locations && tripData.locations.length > 0) {
+      tripData.locations.forEach((currentLoc: any, idx: number) => {
+        // If this location index doesn't exist in finalLocationsMap yet, add it
+        if (finalLocationsMap[idx] === undefined) {
+          console.log(`🔄 Preserving missing location at index ${idx}: ${currentLoc.name}`);
+          finalLocationsMap[idx] = {
+            id: currentLoc.id,
+            name: currentLoc.name,
+            address: currentLoc.name,
+            time: currentLoc.time,
+            purpose: currentLoc.name,
+            lat: currentLoc.lat,
+            lng: currentLoc.lng,
+            fullAddress: (currentLoc as any).fullAddress || currentLoc.name,
+          };
+        }
+        // Also ensure existing entries have valid coordinates
+        else if (finalLocationsMap[idx] && (!finalLocationsMap[idx].lat || !finalLocationsMap[idx].lng || finalLocationsMap[idx].lat === 0 || finalLocationsMap[idx].lng === 0)) {
+          console.log(`🔄 Restoring coordinates for location at index ${idx}: ${currentLoc.name}`);
+          finalLocationsMap[idx].lat = currentLoc.lat;
+          finalLocationsMap[idx].lng = currentLoc.lng;
         }
       });
     }
@@ -2120,6 +2078,7 @@ export default function ResultsPage() {
 
     // If no locations in final (shouldn't happen, but fallback), preserve all current locations
     if (diff.finalLocations.length === 0 && tripData?.locations && tripData.locations.length > 0) {
+      console.log('⚠️ No final locations found, preserving all current locations as fallback');
       diff.finalLocations = tripData.locations.map((loc: any, idx: number) => ({
         id: loc.id,
         name: loc.name,
@@ -3692,18 +3651,6 @@ export default function ResultsPage() {
                       </div>
                         </CardContent>
                       </Card>
-                      
-                      {/* Driver Notes */}
-                      {driverNotes && driverNotes.length > 0 && (
-                        <Card className="bg-muted/50">
-                          <CardContent className="p-4">
-                            <h4 className="text-base font-bold text-card-foreground mb-3">Driver Notes</h4>
-                            <div className="text-sm text-muted-foreground leading-relaxed">
-                              <p>{driverNotes}</p>
-                    </div>
-                          </CardContent>
-                        </Card>
-                      )}
                     </>
                   );
                 }
@@ -3737,18 +3684,6 @@ export default function ResultsPage() {
                     </div>
                         </CardContent>
                       </Card>
-                      
-                      {/* Driver Notes */}
-                      {driverNotes && driverNotes.length > 0 && (
-                        <Card className="bg-muted/50">
-                          <CardContent className="p-4">
-                            <h4 className="text-base font-bold text-card-foreground mb-3">Driver Notes</h4>
-                            <div className="text-sm text-muted-foreground leading-relaxed">
-                              <p>{driverNotes}</p>
-                  </div>
-                          </CardContent>
-                        </Card>
-                      )}
                     </>
                 );
                 }
@@ -3769,7 +3704,6 @@ export default function ResultsPage() {
               {console.log('🔍 Highlights:', executiveReport.highlights)}
               {console.log('🔍 Exceptional Info:', executiveReport.exceptionalInformation)}
               {console.log('🔍 Important Info:', executiveReport.importantInformation)}
-              {console.log('🔍 Driver Notes:', driverNotes)}
 
 
 
@@ -4020,42 +3954,6 @@ export default function ResultsPage() {
                         <span>{result.data.parking?.carParks?.length || 0} Parking</span>
                       </div>
                     </div>
-                    
-                    {/* Location-specific notes from driver notes */}
-                    {(() => {
-                      const locationName = locationDisplayNames[result.locationId] || `Stop ${index + 1}`;
-                      const notes = extractLocationNotes(locationName, driverNotes);
-                      if (notes.length > 0) {
-                        // Truncate notes to fit better in the box
-                        const truncatedNotes = notes.slice(0, 2); // Show only first 2 notes
-                        const hasMore = notes.length > 2;
-                        return (
-                          <div className="mt-2 p-2 bg-muted/30 rounded border border-border">
-                            <div className="flex items-start gap-1">
-                              <svg className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <div className="flex-1">
-                                <h5 className="text-xs font-semibold text-foreground mb-1">Notes</h5>
-                                <div className="space-y-0.5">
-                                  {truncatedNotes.map((note, noteIndex) => (
-                                    <p key={noteIndex} className="text-xs text-muted-foreground leading-tight">
-                                      • {note.length > 50 ? note.substring(0, 50) + '...' : note}
-                                    </p>
-                                  ))}
-                                  {hasMore && (
-                                    <p className="text-xs text-muted-foreground/70 italic">
-                                      +{notes.length - 2} more notes
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
                     
                     {/* Expand/Collapse Button */}
                     <button
@@ -4654,43 +4552,6 @@ export default function ResultsPage() {
                       </div>
                     </div>
                   )}
-                  
-                  {/* Route-specific notes from driver notes */}
-                  {(() => {
-                    const fromLocation = tripResults[index].locationName;
-                    const toLocation = tripResults[index + 1].locationName;
-                    const notes = extractRouteNotes(fromLocation, toLocation, driverNotes);
-                    if (notes.length > 0) {
-                      // Truncate notes to fit better in the box
-                      const truncatedNotes = notes.slice(0, 2); // Show only first 2 notes
-                      const hasMore = notes.length > 2;
-                      return (
-                        <div className="mt-2 p-2 bg-secondary/30 rounded border border-border">
-                          <div className="flex items-start gap-1">
-                            <svg className="w-3 h-3 text-card-foreground/70 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <div className="flex-1">
-                              <h5 className="text-xs font-semibold text-card-foreground mb-1">Notes</h5>
-                              <div className="space-y-0.5">
-                                {truncatedNotes.map((note, noteIndex) => (
-                                  <p key={noteIndex} className="text-xs text-card-foreground/80 leading-tight">
-                                    • {note.length > 50 ? note.substring(0, 50) + '...' : note}
-                                  </p>
-                                ))}
-                                {hasMore && (
-                                  <p className="text-xs text-card-foreground/60 italic">
-                                    +{notes.length - 2} more notes
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
                   
                     </div>
                   </div>
