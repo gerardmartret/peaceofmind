@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Car } from 'lucide-react';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
@@ -315,6 +316,9 @@ export default function ResultsPage() {
   // Trip status state
   const [tripStatus, setTripStatus] = useState<string>('not confirmed');
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
+  const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [sendingStatusNotification, setSendingStatusNotification] = useState<boolean>(false);
   
   // Quotes state
   const [quotes, setQuotes] = useState<Array<{
@@ -345,6 +349,17 @@ export default function ResultsPage() {
   const [notifyingDriver, setNotifyingDriver] = useState<boolean>(false);
   const [notificationSuccess, setNotificationSuccess] = useState<boolean>(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
+  
+  // Quote request state (for inviting drivers to quote)
+  const [allocateDriverEmail, setAllocateDriverEmail] = useState<string>('');
+  const [allocateDriverEmailError, setAllocateDriverEmailError] = useState<string | null>(null);
+  const [sendingQuoteRequest, setSendingQuoteRequest] = useState<boolean>(false);
+  const [quoteRequestSuccess, setQuoteRequestSuccess] = useState<string | null>(null);
+  const [quoteRequestError, setQuoteRequestError] = useState<string | null>(null);
+  const [sentDriverEmails, setSentDriverEmails] = useState<Array<{
+    email: string;
+    sentAt: string;
+  }>>([]);
   
   // Guest signup state
   const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
@@ -1220,10 +1235,19 @@ export default function ResultsPage() {
     router.push('/');
   };
 
-  const handleStatusToggle = async () => {
+  const handleStatusToggle = () => {
     if (!tripId || !isOwner || updatingStatus) return;
     
     const newStatus = tripStatus === 'confirmed' ? 'not confirmed' : 'confirmed';
+    
+    // Show modal to confirm status change
+    setPendingStatus(newStatus);
+    setShowStatusModal(true);
+  };
+
+  const handleConfirmStatusChange = async (notifyDriver: boolean = false) => {
+    if (!tripId || !isOwner || !pendingStatus) return;
+    
     setUpdatingStatus(true);
 
     try {
@@ -1232,15 +1256,24 @@ export default function ResultsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tripId: tripId,
-          status: newStatus,
+          status: pendingStatus,
         }),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        setTripStatus(newStatus);
-        console.log(`✅ Trip status updated to: ${newStatus}`);
+        setTripStatus(pendingStatus);
+        console.log(`✅ Trip status updated to: ${pendingStatus}`);
+        
+        // Send notification if requested and driver is set
+        if (notifyDriver && driverEmail) {
+          await sendStatusChangeNotification();
+        }
+        
+        // Close modal
+        setShowStatusModal(false);
+        setPendingStatus(null);
       } else {
         console.error('❌ Failed to update status:', result.error);
       }
@@ -1248,6 +1281,45 @@ export default function ResultsPage() {
       console.error('❌ Error updating trip status:', err);
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const sendStatusChangeNotification = async () => {
+    if (!tripId || !driverEmail || !pendingStatus) return;
+    
+    setSendingStatusNotification(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.error('❌ No session found');
+        return;
+      }
+
+      const response = await fetch('/api/notify-status-change', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          tripId: tripId,
+          newStatus: pendingStatus,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log(`✅ Status change notification sent to ${driverEmail}`);
+      } else {
+        console.error('❌ Failed to send status notification:', result.error);
+      }
+    } catch (err) {
+      console.error('❌ Error sending status notification:', err);
+    } finally {
+      setSendingStatusNotification(false);
     }
   };
 
@@ -1519,6 +1591,80 @@ export default function ResultsPage() {
       setQuoteEmailError('Failed to submit quote. Please try again.');
     } finally {
       setSubmittingQuote(false);
+    }
+  };
+
+  const handleSendQuoteRequest = async () => {
+    if (!tripId || !isOwner || !allocateDriverEmail || sendingQuoteRequest) return;
+    
+    // Reset errors and success
+    setAllocateDriverEmailError(null);
+    setQuoteRequestError(null);
+    setQuoteRequestSuccess(null);
+
+    // Validate email
+    const emailValidation = validateBusinessEmail(allocateDriverEmail.trim());
+    if (!emailValidation.isValid) {
+      setAllocateDriverEmailError(emailValidation.error || 'Invalid email address');
+      return;
+    }
+
+    // Check if already sent to this email
+    const normalizedEmail = allocateDriverEmail.trim().toLowerCase();
+    if (sentDriverEmails.some(sent => sent.email.toLowerCase() === normalizedEmail)) {
+      setAllocateDriverEmailError('Quote request already sent to this email');
+      return;
+    }
+
+    setSendingQuoteRequest(true);
+
+    try {
+      // Get the current session to send auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setQuoteRequestError('You must be logged in to send quote requests');
+        setSendingQuoteRequest(false);
+        return;
+      }
+
+      const response = await fetch('/api/request-quote', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          tripId: tripId,
+          driverEmail: allocateDriverEmail.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Add to sent emails list
+        setSentDriverEmails([
+          ...sentDriverEmails,
+          {
+            email: allocateDriverEmail.trim(),
+            sentAt: new Date().toISOString(),
+          }
+        ]);
+        
+        setQuoteRequestSuccess(`Quote request sent to ${allocateDriverEmail.trim()}`);
+        // Clear form
+        setAllocateDriverEmail('');
+        // Hide success message after 5 seconds
+        setTimeout(() => setQuoteRequestSuccess(null), 5000);
+      } else {
+        setQuoteRequestError(result.error || 'Failed to send quote request');
+      }
+    } catch (err) {
+      console.error('❌ Error sending quote request:', err);
+      setQuoteRequestError('Failed to send quote request. Please try again.');
+    } finally {
+      setSendingQuoteRequest(false);
     }
   };
 
@@ -4663,6 +4809,121 @@ export default function ResultsPage() {
           </div>
         )}
 
+        {/* Request Quotes from Drivers - Only for Owners with Password Protection */}
+        {isOwner && isPasswordProtected && (
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Request Quotes from Drivers</h2>
+              
+              {tripStatus === 'confirmed' ? (
+                <Alert className="mb-4 bg-muted">
+                  <AlertDescription>
+                    Quote requests are disabled because this trip is confirmed. Change the trip status to "Not Confirmed" to invite more drivers.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <p className="text-muted-foreground mb-6">
+                  Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details and password.
+                </p>
+              )}
+              
+              {quoteRequestSuccess && (
+                <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+                  <AlertDescription className="text-[#3ea34b]">
+                    ✅ {quoteRequestSuccess}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {quoteRequestError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>{quoteRequestError}</AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label htmlFor="allocate-driver-email" className="block text-sm font-medium mb-2">
+                      Driver Email Address
+                    </label>
+                    <Input
+                      id="allocate-driver-email"
+                      type="email"
+                      value={allocateDriverEmail}
+                      onChange={(e) => setAllocateDriverEmail(e.target.value)}
+                      placeholder="driver@company.com"
+                      disabled={sendingQuoteRequest || tripStatus === 'confirmed'}
+                      className={allocateDriverEmailError ? 'border-destructive' : ''}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && allocateDriverEmail && !sendingQuoteRequest && tripStatus !== 'confirmed') {
+                          handleSendQuoteRequest();
+                        }
+                      }}
+                    />
+                    {allocateDriverEmailError && (
+                      <p className="text-sm text-destructive mt-1">{allocateDriverEmailError}</p>
+                    )}
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      onClick={handleSendQuoteRequest}
+                      disabled={sendingQuoteRequest || !allocateDriverEmail || tripStatus === 'confirmed'}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    >
+                      {sendingQuoteRequest ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Sending...
+                        </>
+                      ) : (
+                        'Send Request'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* List of sent invitations */}
+                {sentDriverEmails.length > 0 && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-sm font-semibold mb-3">Quote Requests Sent ({sentDriverEmails.length})</h3>
+                    <div className="space-y-2">
+                      {sentDriverEmails.map((sent, index) => {
+                        const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
+                        return (
+                          <div 
+                            key={index} 
+                            className={`flex items-center justify-between p-3 rounded-md ${
+                              hasQuote 
+                                ? 'bg-[#3ea34b]/10 border border-[#3ea34b]/30' 
+                                : 'bg-secondary/50'
+                            }`}
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{sent.email}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
+                              </p>
+                            </div>
+                            {hasQuote && (
+                              <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                QUOTE RECEIVED
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quotes Table - Only for Owners */}
         {isOwner && (
           <Card className="mb-8">
@@ -5079,6 +5340,82 @@ export default function ResultsPage() {
           </p>
         </div>
       </div>
+
+      {/* Status Change Confirmation Modal */}
+      <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {driverEmail ? 'Notify Driver?' : 'Driver Not Allocated'}
+            </DialogTitle>
+            <DialogDescription>
+              {driverEmail ? (
+                <>
+                  The trip status will be changed to <strong>{pendingStatus}</strong>.
+                  <br /><br />
+                  Do you want to notify the driver about this status change?
+                </>
+              ) : (
+                <>
+                  Please allocate a driver on the page before confirming the trip.
+                  <br /><br />
+                  You can set a driver in the "Add Driver Manually" or "Received Quotes" section below.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            {driverEmail ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => handleConfirmStatusChange(false)}
+                  disabled={updatingStatus || sendingStatusNotification}
+                >
+                  {updatingStatus && !sendingStatusNotification ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Updating...
+                    </>
+                  ) : (
+                    'No, Just Update Status'
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleConfirmStatusChange(true)}
+                  disabled={updatingStatus || sendingStatusNotification}
+                  className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                >
+                  {updatingStatus || sendingStatusNotification ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      {sendingStatusNotification ? 'Sending...' : 'Updating...'}
+                    </>
+                  ) : (
+                    'Yes, Notify Driver'
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => {
+                  setShowStatusModal(false);
+                  setPendingStatus(null);
+                }}
+                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+              >
+                OK
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
