@@ -2106,7 +2106,8 @@ export default function ResultsPage() {
     passengerCount?: number,
     tripDestination?: string,
     passengerNames?: string[],
-    driverNotes?: string
+    driverNotes?: string,
+    latestChanges?: any
   ) => {
     if (!isGoogleMapsLoaded) {
       setError('Google Maps API is not loaded. Please refresh the page and try again.');
@@ -2341,6 +2342,7 @@ export default function ResultsPage() {
         trip_destination: tripDestination || null,
         version: (currentVersion || 1) + 1,
         updated_at: new Date().toISOString(),
+        latest_changes: latestChanges || null,
       };
 
       // Update trip in database
@@ -2534,7 +2536,8 @@ export default function ResultsPage() {
         updatedPassengerCount,
         updatedTripDestination,
         updatedPassengerNames,
-        mergedNotes
+        mergedNotes,
+        comparisonDiff
       );
     } catch (err) {
       console.error('Error regenerating report:', err);
