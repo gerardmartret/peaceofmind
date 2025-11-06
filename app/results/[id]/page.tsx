@@ -1529,7 +1529,7 @@ export default function ResultsPage() {
   };
 
   const getSafetyColor = (score: number) => {
-    if (score >= 80) return 'text-green-500';
+    if (score >= 80) return 'text-[#3ea34b]';
     if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
     if (score >= 40) return 'text-[#db7304]';
     return 'text-[#9e201b]';
@@ -2020,17 +2020,17 @@ export default function ResultsPage() {
           }
         } else if (locChange.action === 'unchanged') {
           // Add unchanged location to final locations - ALWAYS preserve from current trip data
-          const currentLoc = tripData?.locations[locChange.currentIndex];
-          if (currentLoc) {
+            const currentLoc = tripData?.locations[locChange.currentIndex];
+            if (currentLoc) {
             // Always use current location data for unchanged locations to preserve coordinates
-            finalLocationsMap[locChange.currentIndex] = {
-              id: currentLoc.id,
-              name: currentLoc.name,
-              address: currentLoc.name,
-              time: currentLoc.time,
-              purpose: currentLoc.name,
-              lat: currentLoc.lat,
-              lng: currentLoc.lng,
+              finalLocationsMap[locChange.currentIndex] = {
+                id: currentLoc.id,
+                name: currentLoc.name,
+                address: currentLoc.name,
+                time: currentLoc.time,
+                purpose: currentLoc.name,
+                lat: currentLoc.lat,
+                lng: currentLoc.lng,
               fullAddress: (currentLoc as any).fullAddress || currentLoc.name,
             };
           } else if (locChange.finalLocation) {
@@ -2705,8 +2705,8 @@ export default function ResultsPage() {
         {isOwner && driverEmail && (
           <div className="mb-6">
             {notificationSuccess && (
-              <Alert className="mb-4 bg-green-500/10 border-green-500/30">
-                <AlertDescription className="text-green-500">
+              <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+                <AlertDescription className="text-[#3ea34b]">
                   ✅ Driver notified successfully! Email sent to {driverEmail}
                 </AlertDescription>
               </Alert>
@@ -2888,7 +2888,7 @@ export default function ResultsPage() {
                         key={idx}
                         className={`p-3 rounded-lg ${
                           locChange.type === 'added'
-                            ? 'bg-green-500/10'
+                            ? 'bg-[#3ea34b]/10'
                             : locChange.type === 'removed'
                             ? 'bg-red-50 dark:bg-red-900/20'
                             : 'bg-yellow-50 dark:bg-yellow-900/20'
@@ -3137,8 +3137,8 @@ export default function ResultsPage() {
                     {/* Trip Status - Aligned to right of trip name */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                        <span className={`text-lg font-semibold ${tripStatus === 'confirmed' ? 'text-green-500' : 'text-gray-600'}`}>
+                        <div className={`w-3 h-3 rounded-full ${tripStatus === 'confirmed' ? 'bg-[#3ea34b]' : 'bg-gray-400'}`}></div>
+                        <span className={`text-lg font-semibold ${tripStatus === 'confirmed' ? 'text-[#3ea34b]' : 'text-gray-600'}`}>
                           {tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}
                         </span>
                       </div>
@@ -3147,7 +3147,7 @@ export default function ResultsPage() {
                           onClick={handleStatusToggle}
                           disabled={updatingStatus}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                            tripStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'
+                            tripStatus === 'confirmed' ? 'bg-[#3ea34b]' : 'bg-gray-400'
                           } ${updatingStatus ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                           aria-label="Toggle trip status"
                         >
@@ -3387,7 +3387,7 @@ export default function ResultsPage() {
                       <button 
                         className={`px-4 py-2 font-medium rounded-lg transition-all duration-300 flex items-center gap-2 text-sm ${
                           isLiveTripActive 
-                            ? 'bg-green-500 text-white shadow-md hover:shadow-lg hover:bg-green-600' 
+                            ? 'bg-[#3ea34b] text-white shadow-md hover:shadow-lg hover:bg-[#359840]' 
                             : 'bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:opacity-90'
                         }`}
                         onClick={() => {
@@ -3469,7 +3469,7 @@ export default function ResultsPage() {
                              index === locations.length - 1 ? 'Drop-off' : 
                              'Resume at'}
                             {((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
-                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-green-500 rounded">
+                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
                                 LIVE
                               </span>
                             )}
@@ -3592,7 +3592,14 @@ export default function ResultsPage() {
                     </svg>
                     <div>
                         <h4 className="font-semibold text-card-foreground mb-1">Important Information</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{executiveReport.importantInformation}</p>
+                        <div className="text-sm text-card-foreground leading-relaxed">
+                        {executiveReport.importantInformation?.split('\n').map((point: string, index: number) => (
+                          <div key={index} className="flex items-start gap-2 mb-1">
+                              <span className="text-muted-foreground mt-1">•</span>
+                            <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   </CardContent>
@@ -3742,7 +3749,7 @@ export default function ResultsPage() {
                       style={{
                         color: (() => {
                           const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#22c55e'; // Success green (green-500)
+                          if (riskScore <= 3) return '#3ea34b'; // Success green ([#3ea34b])
                           if (riskScore <= 6) return '#db7304'; // Warning orange
                           return '#9e201b'; // Error red
                         })()
@@ -3758,7 +3765,7 @@ export default function ResultsPage() {
                       style={{
                         backgroundColor: (() => {
                           const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#22c55e'; // Success green (green-500)
+                          if (riskScore <= 3) return '#3ea34b'; // Success green ([#3ea34b])
                           if (riskScore <= 6) return '#db7304'; // Warning orange
                           return '#9e201b'; // Error red
                         })(),
@@ -3784,21 +3791,21 @@ export default function ResultsPage() {
           {isLiveMode && (
             <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
             {/* Live Time Display */}
-            <div className="sticky top-20 mb-12 p-4 rounded-lg relative z-20 bg-green-500 border border-green-500">
+            <div className="sticky top-20 mb-12 p-4 rounded-lg relative z-20 bg-[#3ea34b] border border-[#3ea34b]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center justify-center gap-3 flex-1">
-                  <div className="w-3 h-3 rounded-full bg-white animate-pulse"></div>
-                  <div className="text-center">
-                    <div className="text-sm text-white/80 mb-1">Current Time (London)</div>
-                    <div className="text-2xl font-bold text-white">
-                      {currentTime.toLocaleTimeString('en-GB', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        timeZone: 'Europe/London'
-                      })}
-                    </div>
+                <div className="w-3 h-3 rounded-full bg-white animate-pulse"></div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">Current Time (London)</div>
+                  <div className="text-2xl font-bold text-white">
+                    {currentTime.toLocaleTimeString('en-GB', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      timeZone: 'Europe/London'
+                    })}
                   </div>
+                </div>
                 </div>
                 {/* Close Live Trip Button */}
                 <button
@@ -3833,7 +3840,7 @@ export default function ResultsPage() {
                     <div className="text-sm text-muted-foreground ml-2">
                       {index === 0 ? 'Pick up' : index === tripResults.length - 1 ? 'Drop off' : 'Resume'}
                       {isLiveMode && activeLocationIndex === index && (
-                        <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded bg-green-500">
+                        <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded bg-[#3ea34b]">
                           LIVE
                         </span>
                       )}
@@ -3942,7 +3949,7 @@ export default function ResultsPage() {
                     {/* Safety, Cafes, Parking Info */}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        <span className="w-2 h-2 rounded-full bg-[#3ea34b]"></span>
                         <span>Safety: {result.data.crime.safetyScore}/100</span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -3987,13 +3994,13 @@ export default function ResultsPage() {
                       style={{
                         backgroundColor: (() => {
                           const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#22c55e'; // Success green (green-500)
+                          if (safetyScore >= 60) return '#3ea34b'; // Success green ([#3ea34b])
                           if (safetyScore >= 40) return '#db7304'; // Warning orange
                           return '#9e201b'; // Error red
                         })(),
                         borderColor: (() => {
                           const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#22c55e'; // Green-500
+                          if (safetyScore >= 60) return '#3ea34b'; // Green-500
                           if (safetyScore >= 40) return '#db7304'; // Orange
                           return '#9e201b'; // Error red
                         })()
@@ -4212,7 +4219,7 @@ export default function ResultsPage() {
                                   >
                                     {cafe.name.length > 20 ? cafe.name.substring(0, 20) + '...' : cafe.name}
                                   </a>
-                                  <div className="text-xs font-medium text-green-500">
+                                  <div className="text-xs font-medium text-[#3ea34b]">
                                     Open
                                   </div>
                                 </div>
@@ -4339,7 +4346,7 @@ export default function ResultsPage() {
                             const leg = trafficPredictions?.data?.[index];
                             if (!leg) return '#808080'; // Default gray if no data
                             const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#22c55e'; // Success green (green-500)
+                            if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
                             if (delay < 10) return '#db7304'; // Warning orange
                             return '#9e201b'; // Error red (white text)
                           })(),
@@ -4470,7 +4477,7 @@ export default function ResultsPage() {
                           const leg = trafficPredictions?.data?.[index];
                           if (!leg) return 'rgba(128, 128, 128, 0.2)'; // Gray if no data
                           const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                          if (delay < 5) return 'rgba(34, 197, 94, 0.2)'; // Green-500 with opacity
+                          if (delay < 5) return 'rgba(62, 163, 75, 0.2)'; // Green-500 with opacity
                           if (delay < 10) return 'rgba(219, 115, 4, 0.2)'; // Orange #db7304 with opacity
                           return 'rgba(158, 32, 27, 0.2)'; // Red #9e201b with opacity
                         })()
@@ -4483,7 +4490,7 @@ export default function ResultsPage() {
                             const leg = trafficPredictions?.data?.[index];
                             if (!leg) return '#808080'; // Gray if no data
                             const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#22c55e'; // Success green (green-500)
+                            if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
                             if (delay < 10) return '#db7304'; // Warning orange
                             return '#9e201b'; // Error red - light bg
                           })()
@@ -4498,7 +4505,7 @@ export default function ResultsPage() {
                             const leg = trafficPredictions?.data?.[index];
                             if (!leg) return '#808080'; // Gray if no data
                             const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#22c55e'; // Success green (green-500)
+                            if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
                             if (delay < 10) return '#db7304'; // Warning orange
                             return '#9e201b'; // Error red - light bg
                           })()
@@ -4597,7 +4604,7 @@ export default function ResultsPage() {
                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 </svg>
                               `;
-                              button.style.color = '#22c55e'; // Green-500
+                              button.style.color = '#3ea34b'; // Green-500
                               setTimeout(() => {
                                 button.innerHTML = originalContent;
                                 button.style.color = '';
@@ -4687,13 +4694,13 @@ export default function ResultsPage() {
                           <tr 
                             key={quote.id} 
                             className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${
-                              isDriver ? 'bg-green-500/10 border-green-500/30' : ''
+                              isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
                             }`}
                           >
                             <td className="py-3 px-4 text-sm">
                               {quote.email}
                               {isDriver && (
-                                <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-green-500 rounded">
+                                <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
                                   DRIVER
                                 </span>
                               )}
@@ -4711,7 +4718,7 @@ export default function ResultsPage() {
                                 variant={isDriver ? "outline" : "default"}
                                 onClick={() => handleSetDriver(quote.email)}
                                 disabled={settingDriver}
-                                className={isDriver ? "border-green-500 text-green-500 hover:bg-green-500/10" : ""}
+                                className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
                               >
                                 {settingDriver ? (
                                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
@@ -4747,10 +4754,10 @@ export default function ResultsPage() {
                 )}
                 
                 {driverEmail && (
-                  <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-md">
+                  <div className="mb-4 p-3 bg-[#3ea34b]/10 border border-[#3ea34b]/30 rounded-md">
                     <p className="text-sm">
                       <span className="font-semibold">Current driver:</span>{' '}
-                      <span className="text-green-500">{driverEmail}</span>
+                      <span className="text-[#3ea34b]">{driverEmail}</span>
                     </p>
                   </div>
                 )}
@@ -4781,7 +4788,7 @@ export default function ResultsPage() {
                             <div className="flex items-center justify-between">
                               <span>{driver}</span>
                               {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
-                                <span className="text-xs px-2 py-1 bg-green-500 text-white rounded">
+                                <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
                                   Current
                                 </span>
                               )}
@@ -4832,8 +4839,8 @@ export default function ResultsPage() {
               </p>
               
               {quoteSuccess && (
-                <Alert className="mb-4 bg-green-500/10 border-green-500/30">
-                  <AlertDescription className="text-green-500">
+                <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+                  <AlertDescription className="text-[#3ea34b]">
                     ✅ {quoteSuccessMessage}
                   </AlertDescription>
                 </Alert>
@@ -4938,37 +4945,37 @@ export default function ResultsPage() {
                 {/* Benefits Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Edit trips anytime</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Share with links</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Get driver quotes</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Password protect</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Notify drivers</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span>Save all trips</span>
@@ -5042,8 +5049,8 @@ export default function ResultsPage() {
 
         {/* Success message after signup */}
         {guestSignupSuccess && (
-          <Alert className="mb-8 bg-green-500/10 border-green-500/30">
-            <AlertDescription className="text-green-500 text-center">
+          <Alert className="mb-8 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+            <AlertDescription className="text-[#3ea34b] text-center">
               ✅ Account created successfully! This trip is now saved to your account. Refreshing...
             </AlertDescription>
           </Alert>

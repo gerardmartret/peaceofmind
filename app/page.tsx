@@ -2588,7 +2588,7 @@ export default function Home() {
                     }}
                     placeholder="Additional notes, contact info, special instructions, etc."
                     rows={6}
-                    className="w-full bg-background dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
+                    className="w-full bg-background dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#323236] transition-colors border resize-y focus:outline-none focus-visible:border-ring dark:focus-visible:border-[#323236]"
                   />
                 </div>
 
@@ -2864,7 +2864,7 @@ export default function Home() {
               onChange={(e) => setExtractedDriverSummary(e.target.value)}
               placeholder="Additional notes, contact info, special instructions, etc."
               rows={6}
-              className="w-full bg-background dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#181a23] transition-colors border resize-y focus:outline-none focus-visible:border-ring"
+              className="w-full bg-background dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#323236] transition-colors border resize-y focus:outline-none focus-visible:border-ring dark:focus-visible:border-[#323236]"
             />
           </div>
 
