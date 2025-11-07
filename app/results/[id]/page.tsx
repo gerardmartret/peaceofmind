@@ -1866,7 +1866,7 @@ export default function ResultsPage() {
               passengerCount: passengerCount,
               tripDestination: tripDestination,
               tripNotes: driverNotes,
-              locations: tripData.locations.map((loc: any) => ({
+              locations: tripData.locations.map((loc: any, idx: number) => ({
                 id: loc.id,
                 name: loc.name,
                 address: loc.name, // Use name as address for comparison
@@ -1874,6 +1874,7 @@ export default function ResultsPage() {
                 purpose: loc.name, // Purpose is stored in name field
                 lat: loc.lat,
                 lng: loc.lng,
+                role: idx === 0 ? 'pickup' : (idx === tripData.locations.length - 1 ? 'drop-off' : 'stop'), // Add role for AI to understand
               })),
             },
           }),
@@ -2013,6 +2014,15 @@ export default function ResultsPage() {
             if ((!finalLoc.lng || finalLoc.lng === 0) && tripData?.locations[locChange.extractedIndex]?.lng) {
               finalLoc.lng = tripData.locations[locChange.extractedIndex].lng;
             }
+            
+            // CRITICAL FIX: Ensure fullAddress is set from extractedLocation for proper display
+            if (!finalLoc.fullAddress && locChange.extractedLocation) {
+              finalLoc.fullAddress = locChange.extractedLocation.formattedAddress || 
+                                     locChange.extractedLocation.location || 
+                                     finalLoc.address || 
+                                     finalLoc.name;
+            }
+            
             finalLocationsMap[locChange.extractedIndex] = finalLoc;
           }
         } else if (locChange.action === 'modified') {
@@ -2072,6 +2082,15 @@ export default function ResultsPage() {
             if ((!finalLoc.lng || finalLoc.lng === 0) && currentLoc?.lng && currentLoc.lng !== 0) {
               finalLoc.lng = currentLoc.lng;
             }
+            
+            // CRITICAL FIX: Ensure fullAddress is set from extractedLocation for proper display
+            if (!finalLoc.fullAddress && locChange.extractedLocation) {
+              finalLoc.fullAddress = locChange.extractedLocation.formattedAddress || 
+                                     locChange.extractedLocation.location || 
+                                     finalLoc.address || 
+                                     finalLoc.name;
+            }
+            
             finalLocationsMap[locChange.currentIndex] = finalLoc;
           } else if (locChange.currentLocation && locChange.extractedLocation) {
             // Build final location from current + extracted
@@ -2084,6 +2103,13 @@ export default function ResultsPage() {
               ? locChange.extractedLocation.lng 
               : (currentLoc?.lng && currentLoc.lng !== 0 ? currentLoc.lng : 0);
             
+            // CRITICAL FIX: Ensure fullAddress is properly set for display
+            const fullAddress = locChange.extractedLocation.formattedAddress || 
+                                locChange.extractedLocation.location || 
+                                locChange.currentLocation.address ||
+                                (currentLoc as any)?.fullAddress ||
+                                locChange.currentLocation.name;
+            
             finalLocationsMap[locChange.currentIndex] = {
               id: currentLoc?.id || (locChange.currentIndex + 1).toString(),
               name: locChange.extractedLocation.purpose || locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
@@ -2092,7 +2118,7 @@ export default function ResultsPage() {
               purpose: locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name,
               lat: lat,
               lng: lng,
-              fullAddress: locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location || locChange.currentLocation.address,
+              fullAddress: fullAddress,
             };
           }
         } else if (locChange.action === 'unchanged') {
