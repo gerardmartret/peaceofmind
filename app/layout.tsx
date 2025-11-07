@@ -12,8 +12,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Peace of Mind - Trip Safety Planner",
-  description: "Plan safer trips in London with real-time safety insights",
+  title: "Driverbrief - Roadshow planner",
+  description: "Plan your roadshow with ease",
 };
 
 export default function RootLayout({

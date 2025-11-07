@@ -379,26 +379,21 @@ export default function ResultsPage() {
     }
   }, [isLiveMode]);
 
-  // Function to convert stored time to London local time
+  // Function to format stored time - returns time as-is without any timezone conversion
   const getLondonLocalTime = (timeString: string): string => {
     if (!timeString) return 'N/A';
     
+    // Simply return the time string as formatted HH:MM
     // Parse the time string (e.g., "18:35" or "18")
     const timeParts = timeString.split(':');
     const hours = parseInt(timeParts[0]) || 0;
     const minutes = parseInt(timeParts[1]) || 0;
     
-    // Create a date for today with the specified time in London timezone
-    const today = new Date();
-    const londonDate = new Date(today.toLocaleString("en-US", {timeZone: 'Europe/London'}));
-    londonDate.setHours(hours, minutes, 0, 0);
+    // Format as HH:MM (pad with zeros if needed)
+    const formattedHours = hours.toString().padStart(2, '0');
+    const formattedMinutes = minutes.toString().padStart(2, '0');
     
-    // Format as HH:MM
-    return londonDate.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Europe/London'
-    });
+    return `${formattedHours}:${formattedMinutes}`;
   };
 
 
@@ -754,46 +749,10 @@ export default function ResultsPage() {
     }));
   };
 
-  // Live Trip helper functions
+  // Live Trip helper functions - returns current local time without timezone conversion
   const getCurrentTripTime = (): Date => {
-    if (!tripData?.locations || tripData.locations.length === 0) {
-      return new Date();
-    }
-
-    // Get city from first location to determine timezone
-    const getCityTimezone = (): string => {
-      const firstLocation = tripData.locations[0];
-      if (firstLocation.name) {
-        const parts = firstLocation.name.split(',');
-        if (parts.length >= 2) {
-          const city = parts[parts.length - 1].trim();
-          const cityTimezones: { [key: string]: string } = {
-            'London': 'Europe/London',
-            'Paris': 'Europe/Paris',
-            'New York': 'America/New_York',
-            'Los Angeles': 'America/Los_Angeles',
-            'Tokyo': 'Asia/Tokyo',
-            'Sydney': 'Australia/Sydney',
-            'Berlin': 'Europe/Berlin',
-            'Madrid': 'Europe/Madrid',
-            'Rome': 'Europe/Rome',
-            'Amsterdam': 'Europe/Amsterdam',
-            'Dublin': 'Europe/Dublin',
-            'Edinburgh': 'Europe/London',
-            'Manchester': 'Europe/London',
-            'Birmingham': 'Europe/London',
-            'Liverpool': 'Europe/London',
-            'Glasgow': 'Europe/London'
-          };
-          return cityTimezones[city] || 'Europe/London';
-        }
-      }
-      return 'Europe/London';
-    };
-
-    const timezone = getCityTimezone();
-    const now = new Date();
-    return new Date(now.toLocaleString("en-US", {timeZone: timezone}));
+    // Simply return the current local time
+    return new Date();
   };
 
   const findClosestLocation = (): number => {
@@ -823,7 +782,7 @@ export default function ResultsPage() {
     return closestIndex;
   };
 
-  // Check if trip is within 1 hour of starting
+  // Check if trip is within 1 hour of starting - simplified without timezone conversions
   const isTripWithinOneHour = (): boolean => {
     if (!tripData?.tripDate || !tripData?.locations || tripData.locations.length === 0) {
       return false;
@@ -831,35 +790,7 @@ export default function ResultsPage() {
 
     const now = new Date();
     const tripDateTime = new Date(tripData.tripDate);
-    
-    // Get the timezone for the trip city (default to London)
-    const getCityTimezone = () => {
-      const cityTimezones: {[key: string]: string} = {
-        'London': 'Europe/London',
-        'Birmingham': 'Europe/London',
-        'Manchester': 'Europe/London',
-        'Liverpool': 'Europe/London',
-        'Leeds': 'Europe/London',
-        'Sheffield': 'Europe/London',
-        'Bristol': 'Europe/London',
-        'Newcastle': 'Europe/London',
-        'Nottingham': 'Europe/London',
-        'Leicester': 'Europe/London',
-        'Coventry': 'Europe/London',
-        'Bradford': 'Europe/London',
-        'Cardiff': 'Europe/London',
-        'Belfast': 'Europe/London',
-        'Glasgow': 'Europe/London',
-        'Edinburgh': 'Europe/London'
-      };
-      return cityTimezones['London'] || 'Europe/London';
-    };
-
-    const timezone = getCityTimezone();
-    
-    // Convert trip date to local time in the trip city
-    const tripLocalTime = new Date(tripDateTime.toLocaleString("en-US", {timeZone: timezone}));
-    const oneHourBefore = new Date(tripLocalTime.getTime() - 60 * 60 * 1000);
+    const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
     
     return now >= oneHourBefore;
   };
@@ -3476,60 +3407,7 @@ export default function ResultsPage() {
                   {(() => {
                     const now = new Date();
                     const tripDateTime = new Date(tripDate);
-                    
-                    // Get city from first location to determine timezone
-                    const getCityTimezone = (): string => {
-                      if (locations && locations.length > 0) {
-                        const firstLocation = locations[0];
-                        if (firstLocation.name) {
-                          const parts = firstLocation.name.split(',');
-                          if (parts.length >= 2) {
-                            const city = parts[parts.length - 1].trim();
-                            // Map major cities to their timezones
-                            const cityTimezones: { [key: string]: string } = {
-                              'London': 'Europe/London',
-                              'Paris': 'Europe/Paris',
-                              'New York': 'America/New_York',
-                              'Los Angeles': 'America/Los_Angeles',
-                              'Tokyo': 'Asia/Tokyo',
-                              'Sydney': 'Australia/Sydney',
-                              'Dubai': 'Asia/Dubai',
-                              'Singapore': 'Asia/Singapore',
-                              'Hong Kong': 'Asia/Hong_Kong',
-                              'Mumbai': 'Asia/Kolkata',
-                              'Berlin': 'Europe/Berlin',
-                              'Madrid': 'Europe/Madrid',
-                              'Rome': 'Europe/Rome',
-                              'Amsterdam': 'Europe/Amsterdam',
-                              'Barcelona': 'Europe/Madrid',
-                              'Manchester': 'Europe/London',
-                              'Birmingham': 'Europe/London',
-                              'Edinburgh': 'Europe/London',
-                              'Glasgow': 'Europe/London',
-                              'Liverpool': 'Europe/London',
-                              'Leeds': 'Europe/London',
-                              'Sheffield': 'Europe/London',
-                              'Bristol': 'Europe/London',
-                              'Newcastle': 'Europe/London',
-                              'Nottingham': 'Europe/London',
-                              'Leicester': 'Europe/London',
-                              'Coventry': 'Europe/London',
-                              'Bradford': 'Europe/London',
-                              'Cardiff': 'Europe/London',
-                              'Belfast': 'Europe/London'
-                            };
-                            return cityTimezones[city] || 'Europe/London';
-                          }
-                        }
-                      }
-                      return 'Europe/London'; // Default timezone
-                    };
-
-                    const timezone = getCityTimezone();
-                    
-                    // Convert trip date to local time in the trip city
-                    const tripLocalTime = new Date(tripDateTime.toLocaleString("en-US", {timeZone: timezone}));
-                    const oneHourBefore = new Date(tripLocalTime.getTime() - 60 * 60 * 1000);
+                    const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
                     const isLiveTripActive = now >= oneHourBefore;
                     
                     return (
@@ -3935,13 +3813,12 @@ export default function ResultsPage() {
                 <div className="flex items-center justify-center gap-3 flex-1">
                 <div className="w-3 h-3 rounded-full bg-white animate-pulse"></div>
                 <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">Current Time (London)</div>
+                  <div className="text-sm text-white/80 mb-1">Current Time</div>
                   <div className="text-2xl font-bold text-white">
                     {currentTime.toLocaleTimeString('en-GB', {
                       hour: '2-digit',
                       minute: '2-digit',
-                      second: '2-digit',
-                      timeZone: 'Europe/London'
+                      second: '2-digit'
                     })}
                   </div>
                 </div>
