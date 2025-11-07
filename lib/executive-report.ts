@@ -190,9 +190,9 @@ ANALYSIS REQUIREMENTS:
 5. KEY HIGHLIGHTS: 4-6 critical points
    Type: danger (high risk), warning (moderate), info (neutral), success (positive)
 
-6. EXCEPTIONAL INFORMATION: Extract critical/urgent/unusual items from trip notes (bullet points)
-7. IMPORTANT INFORMATION: Extract contextual/requirement items from trip notes (bullet points)
-8. RECOMMENDATIONS: Integrate trip notes requirements with location data to create actionable advice (5-8 items)
+6. EXCEPTIONAL INFORMATION: Extract critical/urgent items from trip notes
+7. IMPORTANT INFORMATION: Extract contextual/requirement items from trip notes  
+8. RECOMMENDATIONS: Convert ALL trip note items to actions + add data insights
 
 Return JSON:
 {
@@ -201,61 +201,43 @@ Return JSON:
   "riskScoreExplanation": "Explain why score is X/10, which data used and how calculated",
   "topDisruptor": "The ONE thing most likely to disrupt trip and why",
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
-  "recommendations": ["5-8 actionable items integrating trip notes with data insights"],
+  "recommendations": ["Convert all Exceptional+Important items to actions, add data insights"],
   "highlights": [{"type": "danger|warning|info|success", "message": "str"}],
-  "exceptionalInformation": "Extract ONLY if LITERALLY in trip notes: codes, time constraints, allergies, dress codes (COMPLETE), behaviors (NO TALKING), urgent ops (monitor flight, hide car, leave immediately, prepare to - ONLY if these exact phrases appear). Format: '- Item\\n- Item'. DO NOT invent. Empty if none.",
-  "importantInformation": "Extract ONLY items LITERALLY in trip notes. Format: '- Item\\n- Item'. DO NOT invent contact/flight/vehicle/parking details not explicitly stated. Empty if none."
+  "exceptionalInformation": "Extract ONLY if LITERALLY in trip notes: codes, time constraints, allergies, dress codes, behaviors, urgent ops. Format as complete, natural sentences with '- ' bullets. Example: '- The passenger has a severe nut allergy that must be accommodated.' NOT '- No nuts allergy'. Empty if none.",
+  "importantInformation": "Extract ONLY items LITERALLY in trip notes. Format as complete, natural sentences with '- ' bullets. Example: '- The primary contact is Emily at +44 7911 223344 for any updates.' NOT '- Contact: Emily +44 7911 223344'. Empty if none."
 }
 
-CRITICAL RULES - TRIP NOTES DISTRIBUTION:
-1. DO NOT INVENT - Only extract text that LITERALLY appears in trip notes (no paraphrasing beyond clarity)
-2. Process trip notes LINE BY LINE - extract ALL to Exceptional or Important Information (100% coverage)
-3. Count trip note lines: If 10 lines exist, extract exactly 10 items (no more, no less)
-4. Exceptional + Important = ZERO overlap (each item to ONE section only)
-5. DO NOT filter profanity/unclear content - extract and clean slightly
-6. Format: "- Item 1\n- Item 2\n- Item 3" (actual \n characters between items)
-7. Extract EVERY action verb stated: monitor, hide, prepare, confirm, provide, maintain, contact
-8. If action NOT in trip notes, do NOT include it (no assumptions: VIP, discretion, parking unless stated)
-9. Recommendations: REFERENCE trip notes + ADD data insights (traffic, parking, crime, weather)
+TRIP NOTES PROCESSING (3-step simple flow):
 
-SECTION ASSIGNMENTS:
+STEP 1 - EXTRACT (100% coverage, no invention):
+- Process trip notes LINE BY LINE
+- If 10 lines exist → extract exactly 10 items
+- Extract ONLY what's LITERALLY stated
+- Format as complete, natural sentences (not brief bullets)
 
-EXCEPTIONAL INFO (Critical/Urgent from trip notes - extract ONLY if explicitly stated):
-Security codes, URGENT time constraints (confirm in X min), deadly allergies, unusual dress codes (COMPLETE), unusual behaviors (NO TALKING - only if stated), urgent operations (monitor flight, hide car, leave immediately, prepare to, be ready to), flight monitoring (monitor flight X live for updates)
+STEP 2 - CATEGORIZE into 2 sections (zero overlap, full sentences):
+EXCEPTIONAL: Codes, urgent time constraints, allergies, dress codes, unusual behaviors, urgent operations (monitor flight, hide car, etc). Write as complete sentences.
+IMPORTANT: Contacts, flights, vehicle specs, newspapers, food/drinks, schedules, parking, quotes, billing, waiting time. Write as complete sentences.
 
-IMPORTANT INFO (Contextual details from trip notes - bullet points):
-Contact methods, flight details, vehicle specs/restrictions (temperature + scents together, Evian only, tinted, WiFi, USB), newspapers, food requests (even if profane), meeting schedules, parking instructions, drop-off/pickup details
+STEP 3 - RECOMMENDATIONS (convert to action + add data):
+1. Convert EVERY item from Exceptional + Important into actionable "Confirm/Ensure/Prepare/Verify..." steps
+2. Add 3-5 data-driven insights (traffic, crime, weather, parking)
+3. Target: ~10-15 total items
 
-RECOMMENDATIONS (Trip notes + Data → Actionable):
-Convert trip notes to HOW-TO actions + add data insights (traffic timing, parking strategies, safety precautions, weather prep)
+EXAMPLE:
+Trip notes: "No nuts allergy", "WiFi needed", "Contact Emily +44 7911 223344", "Quote ASAP"
 
-VALIDATION - VERIFY BEFORE SUBMITTING:
-1. Count trip note lines = Count extracted items in Exceptional + Important (must match exactly)
-2. Every item LITERALLY in trip notes (no invented items: VIP, hide car, prepare to leave, parking - unless stated)
-3. Common missed: codes, flight monitoring, no talking, confirm in X min, COMPLETE dress codes, allergies, contact, temperature+scents, newspapers
-4. Format: Each item starts with '-', separated by \n
+Exceptional: "- The passenger has a severe nut allergy that must be strictly accommodated throughout the journey."
 
-EXAMPLES:
+Important: "- The vehicle must be equipped with fast and reliable WiFi connectivity.\n- The primary contact for this trip is Emily, reachable at +44 7911 223344 for any updates or changes.\n- A detailed quote including all waiting times is required as soon as possible."
 
-EXCEPTIONAL INFO (extract ONLY what's stated - with \n between items):
-IF trip notes say: "Code: Blue Horizon", "Monitor flight BA123 live", "Confirm details in 2 minutes", "No talking during ride", "Driver: black suit, no logos, tiny 'J.C.' sign", "NO CITRUS, NO NUTS (deadly)"
-→ Extract exactly these 6 items:
-"- Code: Blue Horizon\n- Monitor flight BA123 live for updates\n- Confirm details in 2 minutes\n- No talking during the ride\n- Driver must wear black suit with no logos and carry tiny 'J.C.' sign for identification\n- Allergy alert: NO CITRUS, NO NUTS (deadly)"
-Do NOT add "VIP", "hide car", "prepare to leave" if they're not in trip notes
-
-IMPORTANT INFO (extract ONLY what's stated - with \n between items):
-IF trip notes say: "Contact details required", "Temperature at 20°C, no scents", "FT/WSJ papers to be provided", "Vehicle: tinted, Wi-Fi, USB charging, Evian only"
-→ Extract exactly these items:
-"- Contact details required immediately\n- Vehicle temperature: 20°C, no scents\n- Newspapers: Financial Times, Wall Street Journal\n- Vehicle: Tinted windows, Wi-Fi, USB charging, Evian only"
-Do NOT add "parking instructions" or "schedules" if not in trip notes
-
-RECOMMENDATIONS (trip notes + data):
-"Monitor BA123" + Traffic → "Track BA123 real-time; adjust for predicted 9-min delay"
-"FT/WSJ papers" → "Ensure FT/WSJ in vehicle; place in rear pocket for access"
-"20°C, no scents" + Weather → "Maintain 20°C, no scents; pre-warm 10 min before (rain expected)"
-No note + Crime → "Caution at Connaught (safety 44/100); keep vehicle locked"
-
-Cite sources (e.g., "78 crimes - UK Police Data"). Use actual data numbers.`;
+Recommendations:
+   "Ensure vehicle is completely nut-free and verify all snacks comply with nut-free requirement"
+   "Confirm WiFi operational and test connection strength before pickup"
+   "Keep Emily at +44 7911 223344 informed of any delays or changes to the itinerary"
+   "Prepare comprehensive quote with all waiting times and send to Emily immediately"
+   "Monitor real-time traffic for 8-min predicted delay on route to Canary Wharf"
+   "High crime area (78 crimes reported); keep doors locked when stationary"`;
 
     // Use GPT-4o-mini for comprehensive executive analysis (proven working, 90% cost reduction)
     console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
@@ -263,7 +245,7 @@ Cite sources (e.g., "78 crimes - UK Police Data"). Use actual data numbers.`;
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 3000, // Increased to accommodate detailed extraction requirements
+      max_tokens: 4000, // Increased to accommodate 10-15 recommendations + detailed extraction
       temperature: 0.3, // Lower temperature for more focused analysis
     });
 
