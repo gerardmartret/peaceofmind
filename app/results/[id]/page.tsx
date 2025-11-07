@@ -3642,9 +3642,7 @@ export default function ResultsPage() {
                 if (notes.includes('language') || notes.includes('translate') || notes.includes('interpreter')) {
                   warnings.push('🗣️ LANGUAGE: Translation or language assistance needed');
                 }
-                if (notes.includes('medical') || notes.includes('health') || notes.includes('assistance')) {
-                  warnings.push('🏥 MEDICAL: Health considerations or assistance required');
-                }
+                // Medical/health info is now handled in exceptional information section
 
                 // Check trip purpose for additional warnings
                 if (destination.includes('airport') && (destination.includes('international') || destination.includes('terminal'))) {
@@ -3657,60 +3655,42 @@ export default function ResultsPage() {
                   warnings.push('💒 WEDDING EVENT: Formal attire and timing requirements');
                 }
                 if (destination.includes('business') && destination.includes('meeting')) {
-                  // Show driver recommendations instead of business meeting warning
-                  return (
-                    <>
-                      <Card className="bg-muted/50">
-                        <CardContent className="p-4">
-                          <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
-                      <div className="space-y-2">
-                        {executiveReport.recommendations.map((rec: string, idx: number) => (
-                          <div key={idx} className="flex items-start gap-3">
-                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
-                              {idx + 1}
-                            </span>
-                                <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
-                          </div>
-                        ))}
-                      </div>
-                        </CardContent>
-                      </Card>
-                    </>
-                  );
+                  warnings.push('💼 BUSINESS MEETING: Professional presentation required');
                 }
                 if (destination.includes('school') || destination.includes('university')) {
                   warnings.push('🎓 EDUCATIONAL INSTITUTION: Check access restrictions and timing');
                 }
 
-                if (warnings.length > 0) {
-                  return warnings.map((warning, index) => (
-                    <Card key={index} className="bg-muted/50">
+                // Show warnings if any
+                const warningElements = warnings.length > 0 ? warnings.map((warning, index) => (
+                  <Card key={index} className="bg-muted/50">
+                    <CardContent className="p-4">
+                      <p className="text-sm text-card-foreground font-medium">{warning}</p>
+                    </CardContent>
+                  </Card>
+                )) : null;
+
+                // Always show recommendations
+                return (
+                  <>
+                    {warningElements}
+                    <Card className="bg-muted/50">
                       <CardContent className="p-4">
-                        <p className="text-sm text-card-foreground font-medium">{warning}</p>
+                        <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
+                        <div className="space-y-2">
+                          {executiveReport.recommendations.map((rec: string, idx: number) => (
+                            <div key={idx} className="flex items-start gap-3">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
+                                {idx + 1}
+                              </span>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
+                            </div>
+                          ))}
+                        </div>
                       </CardContent>
                     </Card>
-                  ));
-                } else {
-                  return (
-                    <>
-                      <Card className="bg-muted/50">
-                        <CardContent className="p-4">
-                          <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
-                    <div className="space-y-2">
-                      {executiveReport.recommendations.map((rec: string, idx: number) => (
-                        <div key={idx} className="flex items-start gap-3">
-                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
-                            {idx + 1}
-                          </span>
-                                <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
-                        </div>
-                      ))}
-                    </div>
-                        </CardContent>
-                      </Card>
-                    </>
+                  </>
                 );
-                }
               })()}
 
 
