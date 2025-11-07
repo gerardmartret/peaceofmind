@@ -190,9 +190,9 @@ ANALYSIS REQUIREMENTS:
 5. KEY HIGHLIGHTS: 4-6 critical points
    Type: danger (high risk), warning (moderate), info (neutral), success (positive)
 
-6. EXCEPTIONAL INFORMATION: Extract critical/urgent items from trip notes
-7. IMPORTANT INFORMATION: Extract contextual/requirement items from trip notes  
-8. RECOMMENDATIONS: Convert ALL trip note items to actions + add data insights
+6. EXCEPTIONAL INFORMATION: Critical/urgent trip requirements as actionable statements
+7. IMPORTANT INFORMATION: Contextual trip requirements as actionable statements
+8. RECOMMENDATIONS: Data-driven insights from location analysis (traffic, crime, weather, parking)
 
 Return JSON:
 {
@@ -201,43 +201,86 @@ Return JSON:
   "riskScoreExplanation": "Explain why score is X/10, which data used and how calculated",
   "topDisruptor": "The ONE thing most likely to disrupt trip and why",
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
-  "recommendations": ["Convert all Exceptional+Important items to actions, add data insights"],
+  "recommendations": ["Data-driven only: traffic timing, parking strategies, crime precautions, weather prep"],
   "highlights": [{"type": "danger|warning|info|success", "message": "str"}],
-  "exceptionalInformation": "Extract ONLY if LITERALLY in trip notes: codes, time constraints, allergies, dress codes, behaviors, urgent ops. Format as complete, natural sentences with '- ' bullets. Example: '- The passenger has a severe nut allergy that must be accommodated.' NOT '- No nuts allergy'. Empty if none.",
-  "importantInformation": "Extract ONLY items LITERALLY in trip notes. Format as complete, natural sentences with '- ' bullets. Example: '- The primary contact is Emily at +44 7911 223344 for any updates.' NOT '- Contact: Emily +44 7911 223344'. Empty if none."
+  "exceptionalInformation": "Trip notes ONLY. Actionable statements with verbs. Example: '- Ensure vehicle is completely nut-free (passenger has severe allergy)' NOT '- The passenger has a severe nut allergy'. Empty if none.",
+  "importantInformation": "Trip notes ONLY. Actionable statements with verbs. Example: '- Keep Emily (+44 7911 223344) informed of any delays or changes' NOT '- The primary contact is Emily'. Empty if none."
 }
 
-TRIP NOTES PROCESSING (3-step simple flow):
+TRIP NOTES → EXCEPTIONAL & IMPORTANT (actionable statements):
+
+BEFORE STARTING: Count how many lines are in trip notes. This number = total items you must extract to Exceptional + Important.
 
 STEP 1 - EXTRACT (100% coverage, no invention):
-- Process trip notes LINE BY LINE
-- If 10 lines exist → extract exactly 10 items
+- COUNT trip note lines FIRST: If 10 lines → must extract exactly 10 items
+- Process trip notes LINE BY LINE - extract EVERY line without exception
 - Extract ONLY what's LITERALLY stated
-- Format as complete, natural sentences (not brief bullets)
+- If line contains multiple items with "and" (e.g., "WiFi and chargers"), extract as ONE item mentioning BOTH parts
+- NEVER SKIP: ANY food restrictions (no X, avoid Y, etc), signs to hold, dress codes (suits, uniforms), bags/luggage help, vehicle features (WiFi, chargers, glass, temperature), water/drinks, newspapers, quiet driver, contact info, quotes, waiting time
 
-STEP 2 - CATEGORIZE into 2 sections (zero overlap, full sentences):
-EXCEPTIONAL: Codes, urgent time constraints, allergies, dress codes, unusual behaviors, urgent operations (monitor flight, hide car, etc). Write as complete sentences.
-IMPORTANT: Contacts, flights, vehicle specs, newspapers, food/drinks, schedules, parking, quotes, billing, waiting time. Write as complete sentences.
+STEP 2 - CATEGORIZE (zero overlap):
+EXCEPTIONAL: ANY food restrictions/allergies (any mention of "no X", "allergy", "allergic", "cannot have", food avoidances), dress codes (suits, uniforms, specific attire), signs to hold, unusual behaviors (quiet driver, no talking), codes, urgent time constraints, urgent operations (monitor flight, hide car, etc)
+IMPORTANT: Contacts (names, phone numbers, emails), vehicle specs (WiFi, chargers, privacy glass, temperature), newspapers (FT, WSJ, etc), food/drinks (water, sparkling, snacks), luggage/bags help, flight numbers, schedules, parking instructions, quotes, billing, waiting time
 
-STEP 3 - RECOMMENDATIONS (convert to action + add data):
-1. Convert EVERY item from Exceptional + Important into actionable "Confirm/Ensure/Prepare/Verify..." steps
-2. Add 3-5 data-driven insights (traffic, crime, weather, parking)
-3. Target: ~10-15 total items
+CRITICAL: If trip notes mention any food that passenger should NOT have (e.g., "no nuts", "no gluten", "no dairy", "avoid X"), treat as ALLERGY and place in EXCEPTIONAL - this is a safety requirement.
 
-EXAMPLE:
-Trip notes: "No nuts allergy", "WiFi needed", "Contact Emily +44 7911 223344", "Quote ASAP"
+STEP 3 - FORMAT as actionable statements with verbs:
+- Use action verbs: "Ensure", "Confirm", "Verify", "Maintain", "Stock", "Keep", "Prepare", "Monitor", "Assist"
+- Include context in parentheses if helpful
+- For food restrictions, always mark as safety-critical: "no nuts" → "Ensure vehicle completely nut-free and verify all snacks comply (safety critical)"
+- For compound items, mention ALL parts: "WiFi and chargers" → "Confirm fast WiFi and multiple charging ports..."
+- Examples: "Ensure vehicle completely nut-free (passenger has severe allergy)", "Stock vehicle with both still water and sparkling water"
 
-Exceptional: "- The passenger has a severe nut allergy that must be strictly accommodated throughout the journey."
+API DATA → RECOMMENDATIONS (data-driven insights ONLY):
+- Generate 5-8 insights from location data analysis (NOT from trip notes)
+- Traffic: timing strategies, route adjustments, delay warnings
+- Crime: safety precautions, locking protocols, area cautions
+- Weather: preparation needs, vehicle pre-conditioning
+- Parking: CPZ restrictions, car park locations, cost info
 
-Important: "- The vehicle must be equipped with fast and reliable WiFi connectivity.\n- The primary contact for this trip is Emily, reachable at +44 7911 223344 for any updates or changes.\n- A detailed quote including all waiting times is required as soon as possible."
+CRITICAL VALIDATION (ENFORCE STRICTLY):
+1. COUNT FIRST: Trip note lines = Items in (Exceptional + Important) - MUST BE EQUAL OR REPORT FAILS
+2. Check every line extracted: ANY food restrictions/allergies, signs, dress codes, newspapers, privacy glass, quiet driver, bags, water, WiFi, chargers, contacts, quotes
+3. Recommendations contain ZERO trip note items (only data-driven insights)
+4. All three sections use same actionable verb style
+5. Compound items (X and Y) preserve both X AND Y
+6. COMMON FAILURES: Missing food restrictions ("no X", allergies), missing signs to hold, missing dress codes, missing newspapers, missing privacy glass, missing quiet driver - these are UNACCEPTABLE
 
-Recommendations:
-   "Ensure vehicle is completely nut-free and verify all snacks comply with nut-free requirement"
-   "Confirm WiFi operational and test connection strength before pickup"
-   "Keep Emily at +44 7911 223344 informed of any delays or changes to the itinerary"
-   "Prepare comprehensive quote with all waiting times and send to Emily immediately"
-   "Monitor real-time traffic for 8-min predicted delay on route to Canary Wharf"
-   "High crime area (78 crimes reported); keep doors locked when stationary"`;
+EXAMPLE (showing ALL 10 items extracted):
+Trip notes (10 lines):
+1. "Contact Emily at +44 7911 223344 for any issues"
+2. "Driver to hold sign 'J HALE' and wear a dark suit"
+3. "Help with bags"
+4. "Require fast Wi-Fi and chargers everywhere"
+5. "Provide water and sparkling water"
+6. "No nuts in snacks"
+7. "FT newspaper requested"
+8. "Privacy glass up"
+9. "Quiet driver"
+10. "Quote needed ASAP, include all waiting time"
+
+Exceptional (4 items - food restrictions, dress codes, signs, behaviors):
+   "- Ensure vehicle is completely nut-free and verify all snacks comply with no-nuts requirement (safety critical)
+   - Confirm driver holds sign reading 'J HALE' and wears dark suit as specified
+   - Ensure driver maintains quiet, professional demeanor without unnecessary conversation
+   - Maintain privacy glass raised throughout entire journey"
+
+Important (6 items - contacts, vehicle specs, items, quotes):
+   "- Keep Emily (+44 7911 223344) informed of any delays or changes to the itinerary
+   - Ensure driver is prepared to assist with all luggage at pickup and drop-off
+   - Confirm fast WiFi and multiple charging ports are operational and test before pickup
+   - Stock vehicle with both still water and sparkling water before passenger arrival
+   - Ensure Financial Times newspaper is available in vehicle
+   - Prepare comprehensive quote including all waiting times and send to Emily immediately"
+
+COUNT CHECK: 10 trip note lines = 4 Exceptional + 6 Important = 10 items ✓
+
+Recommendations (data-driven ONLY, not from trip notes):
+   "Monitor real-time traffic to adjust for predicted 8-min delay on route to Canary Wharf"
+   "Exercise caution in high crime area (78 crimes reported); keep doors locked when stationary"
+   "Rain expected at 15:00; ensure umbrella available and pre-warm vehicle 10 minutes before departure"
+   "CPZ Zone active until 18:30; use nearby NCP car park at £4.50/hr to avoid penalties"
+   "Limited parking availability at destination; arrive 10 minutes early to secure spot"`;
 
     // Use GPT-4o-mini for comprehensive executive analysis (proven working, 90% cost reduction)
     console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
