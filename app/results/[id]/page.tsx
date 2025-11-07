@@ -3540,23 +3540,13 @@ export default function ResultsPage() {
                             : 'bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:opacity-90'
                         }`}
                         onClick={() => {
-                          if (isLiveTripActive) {
-                            if (isLiveMode) {
-                              stopLiveTrip();
-                            } else {
-                              startLiveTrip();
-                            }
+                          if (isLiveMode) {
+                            stopLiveTrip();
                           } else {
-                            // Scroll to first trip breakdown when not live
-                            const firstBreakdown = document.getElementById('trip-breakdown-0');
-                            if (firstBreakdown) {
-                              firstBreakdown.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }
+                            startLiveTrip();
                           }
                         }}
-                        title={isLiveTripActive ? 
-                          (isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking') : 
-                          'View detailed route breakdown'}
+                        title={isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking'}
                       >
                         {isLiveTripActive ? (
                           <>
