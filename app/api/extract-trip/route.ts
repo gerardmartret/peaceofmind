@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { extractFlightNumbers, matchFlightsToLocations } from '@/lib/flight-parser';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -305,11 +306,13 @@ Rules for driver notes:
       });
     }
 
-    // If no locations but has other info (notes, instructions, etc.), allow it (for updates)
+    // OPTIMIZATION: Skip Google Maps verification for note-only updates (massive performance gain)
     let verifiedLocations = [];
     if (hasLocations) {
+      const verificationStartTime = Date.now();
       console.log(`🗺️ [API] Starting Google Maps verification for ${parsed.locations.length} locations...`);
-      // Verify each location with Google Maps API
+      
+      // Verify each location with Google Maps API (parallelized for speed)
       verifiedLocations = await Promise.all(
         parsed.locations.map(async (loc: any, index: number) => {
           console.log(`🔍 [API] Verifying location ${index + 1}/${parsed.locations.length}: "${loc.location}"`);
@@ -334,12 +337,53 @@ Rules for driver notes:
           return verifiedLoc;
         })
       );
-      console.log('🎉 [API] All locations verified!');
+      
+      const verificationTime = Date.now() - verificationStartTime;
+      console.log(`🎉 [API] All locations verified in ${verificationTime}ms!`);
     } else {
-      console.log('ℹ️ [API] No locations found, but other information extracted (notes, instructions, etc.) - this is valid for updates');
+      console.log('⚡️ [OPTIMIZATION] No locations to verify - skipping Google Maps API calls entirely!');
+      console.log('💡 [API] Note-only update detected (driver instructions, passenger info, etc.)');
+      console.log('⏱️ [API] Estimated time saved: ~3-6 seconds (no geocoding needed)');
     }
 
     console.log('📤 [API] Preparing response...');
+    
+    // FLIGHT NUMBER MATCHING: Extract and match flight numbers to airport locations
+    let enrichedLocations = verifiedLocations;
+    if (verifiedLocations.length > 0 && parsed.driverNotes) {
+      console.log('✈️ [API] Extracting flight numbers from driver notes...');
+      const flights = extractFlightNumbers(parsed.driverNotes);
+      
+      if (flights.length > 0) {
+        console.log(`✈️ [API] Found ${flights.length} flight(s):`, flights.map(f => `${f.code} (${f.direction || 'unknown direction'})`).join(', '));
+        
+        // Match flights to airport locations
+        const flightMatches = matchFlightsToLocations(flights, verifiedLocations, parsed.driverNotes);
+        
+        if (flightMatches.size > 0) {
+          console.log(`✈️ [API] Matched ${flightMatches.size} flight(s) to airport locations`);
+          
+          // Enrich locations with flight numbers
+          enrichedLocations = verifiedLocations.map((loc, index) => {
+            const matchedFlight = flightMatches.get(index);
+            if (matchedFlight) {
+              console.log(`✈️ [API] Location ${index + 1} (${loc.location}): Flight ${matchedFlight.code}`);
+              return {
+                ...loc,
+                flightNumber: matchedFlight.code,
+                flightDirection: matchedFlight.direction,
+              };
+            }
+            return loc;
+          });
+        } else {
+          console.log('✈️ [API] No flight matches found for airport locations');
+        }
+      } else {
+        console.log('✈️ [API] No flight numbers found in driver notes');
+      }
+    }
+    
     const response = {
       success: true,
       date: parsed.date || null,
@@ -349,7 +393,7 @@ Rules for driver notes:
       vehicleInfo: parsed.vehicleInfo || null,
       passengerNames: parsed.passengerNames || [],
       driverNotes: parsed.driverNotes || null,
-      locations: verifiedLocations, // Empty array if no locations found
+      locations: enrichedLocations, // Now includes flightNumber and flightDirection for airports
     };
     console.log('📤 [API] Final response:', JSON.stringify(response, null, 2));
 

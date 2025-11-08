@@ -234,6 +234,8 @@ interface TripData {
     lat: number;
     lng: number;
     time: string;
+    flightNumber?: string;
+    flightDirection?: 'arrival' | 'departure';
   }>;
   tripResults: Array<{
     locationId: string;
@@ -287,6 +289,7 @@ export default function ResultsPage() {
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
   const [comparisonDiff, setComparisonDiff] = useState<any>(null);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
+  const updateTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Enhanced error tracking with step information
   const [updateProgress, setUpdateProgress] = useState<{
@@ -382,6 +385,19 @@ export default function ResultsPage() {
       return () => clearInterval(timeInterval);
     }
   }, [isLiveMode]);
+
+  // Auto-resize textarea as content changes (up to 3 lines)
+  useEffect(() => {
+    const textarea = updateTextareaRef.current;
+    if (textarea) {
+      // Reset height to allow shrinking
+      textarea.style.height = '44px';
+      
+      // Calculate new height based on content (up to max 3 lines ~120px)
+      const newHeight = Math.min(textarea.scrollHeight, 120);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [updateText]);
 
   // Function to format stored time - returns time as-is without any timezone conversion
   const getLondonLocalTime = (timeString: string): string => {
@@ -2871,108 +2887,103 @@ export default function ResultsPage() {
   const { tripDate, locations, tripResults, trafficPredictions, executiveReport } = tripData;
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header with Navigation */}
-
-        {/* Update Trip Section - Only show for owners */}
-        {isOwner && !isLiveMode && (
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Update Trip Information</h2>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="update-text" className="block text-sm font-medium mb-2">
-                    Paste updated trip information (email, message, etc.)
-                  </label>
-                  <textarea
-                    id="update-text"
-                    value={updateText}
-                    onChange={(e) => setUpdateText(e.target.value)}
-                    placeholder="Paste any updated trip information here..."
-                    className="w-full min-h-[120px] p-3 border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-primary"
-                    disabled={isExtracting || isRegenerating}
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleExtractUpdates}
-                    disabled={!updateText.trim() || isExtracting || isRegenerating}
-                    size="lg"
-                    className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                  >
-                    {isExtracting ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span>Extracting...</span>
-                      </>
+    <div className="min-h-screen bg-background">
+      {/* Update Trip Section - Second Top Bar - Only show for owners */}
+      {isOwner && !isLiveMode && (
+        <div className="fixed top-[57px] left-0 right-0 z-40 bg-background border-b border-border shadow-sm">
+          <div className="container mx-auto px-4 pt-6 pb-3">
+            <div className="flex gap-3 items-start">
+              <textarea
+                ref={updateTextareaRef}
+                id="update-text"
+                value={updateText}
+                onChange={(e) => setUpdateText(e.target.value)}
+                placeholder="Paste any updated trip information here..."
+                className="flex-1 h-[44px] px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#181a23] transition-colors"
+                disabled={isExtracting || isRegenerating}
+              />
+              <div className="flex gap-3 flex-shrink-0">
+                <Button
+                  onClick={handleExtractUpdates}
+                  disabled={!updateText.trim() || isExtracting || isRegenerating}
+                  size="lg"
+                  className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                >
+                  {isExtracting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Extracting...</span>
+                    </>
                     ) : (
-                      'Extract Updates'
+                      'Update Trip'
                     )}
+                </Button>
+                {extractedUpdates && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setUpdateText('');
+                      setExtractedUpdates(null);
+                      setShowPreview(false);
+                      setComparisonDiff(null);
+                      setUpdateProgress({ step: '', error: null, canRetry: false });
+                    }}
+                  >
+                    Clear
                   </Button>
-                  {extractedUpdates && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setUpdateText('');
-                        setExtractedUpdates(null);
-                        setShowPreview(false);
-                        setComparisonDiff(null);
-                        setUpdateProgress({ step: '', error: null, canRetry: false });
-                      }}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-
-                {/* Enhanced Error Display with Step Information */}
-                {updateProgress.error && (
-                  <Alert variant="destructive" className="mt-4">
-                    <AlertDescription>
-                      <div className="space-y-2">
-                        <p className="font-semibold">
-                          ❌ Failed at: {updateProgress.step}
-                        </p>
-                        <p className="text-sm">
-                          {updateProgress.error}
-                        </p>
-                        {updateProgress.canRetry && (
-                          <Button
-                            onClick={handleExtractUpdates}
-                            variant="outline"
-                            size="sm"
-                            className="mt-2"
-                          >
-                            🔄 Retry
-                          </Button>
-                        )}
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Progress Indicator */}
-                {isExtracting && updateProgress.step && !updateProgress.error && (
-                  <Alert className="mt-4">
-                    <AlertDescription>
-                      <div className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span className="text-sm">{updateProgress.step}...</span>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+
+            {/* Enhanced Error Display with Step Information */}
+            {updateProgress.error && (
+              <Alert variant="destructive" className="mt-2">
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p className="font-semibold">
+                      ❌ Failed at: {updateProgress.step}
+                    </p>
+                    <p className="text-sm">
+                      {updateProgress.error}
+                    </p>
+                    {updateProgress.canRetry && (
+                      <Button
+                        onClick={handleExtractUpdates}
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                      >
+                        🔄 Retry
+                      </Button>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Progress Indicator */}
+            {isExtracting && updateProgress.step && !updateProgress.error && (
+              <Alert className="mt-2">
+                <AlertDescription>
+                  <div className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span className="text-sm">{updateProgress.step}...</span>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className={`container mx-auto px-4 ${isOwner && !isLiveMode ? 'pt-32 pb-8' : 'py-8'}`}>
 
         {/* Preview/Diff Section */}
         {showPreview && comparisonDiff && isOwner && !isLiveMode && (

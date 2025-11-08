@@ -16,6 +16,8 @@ interface TripLocation {
   lng: number;
   time: string;
   safetyScore?: number;
+  flightNumber?: string;
+  flightDirection?: 'arrival' | 'departure';
 }
 
 interface GoogleTripMapProps {
@@ -395,6 +397,16 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
               <div className="text-sm text-gray-600 mt-1">
                 🕐 {validLocations[selectedMarker].time}
               </div>
+              {validLocations[selectedMarker].flightNumber && (
+                <div className="text-sm text-blue-600 mt-1 flex items-center gap-1">
+                  ✈️ {validLocations[selectedMarker].flightNumber}
+                  {validLocations[selectedMarker].flightDirection && (
+                    <span className="text-xs text-gray-500">
+                      ({validLocations[selectedMarker].flightDirection === 'arrival' ? 'Arrival' : 'Departure'})
+                    </span>
+                  )}
+                </div>
+              )}
               {validLocations[selectedMarker].safetyScore && (
                 <div 
                   className="text-sm font-bold mt-1"
