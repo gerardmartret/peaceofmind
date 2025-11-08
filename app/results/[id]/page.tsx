@@ -1186,6 +1186,13 @@ export default function ResultsPage() {
     setUpdatingStatus(true);
 
     try {
+      // If changing from confirmed to not confirmed AND notifying driver, send notification FIRST
+      if (tripStatus === 'confirmed' && pendingStatus === 'not confirmed' && notifyDriver && driverEmail) {
+        console.log('📧 Sending notification before clearing driver...');
+        await sendStatusChangeNotification();
+      }
+
+      // Now update the status (this will clear the driver if going from confirmed to not confirmed)
       const response = await fetch('/api/update-trip-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1198,11 +1205,18 @@ export default function ResultsPage() {
       const result = await response.json();
 
       if (result.success) {
+        const oldStatus = tripStatus;
         setTripStatus(pendingStatus);
         console.log(`✅ Trip status updated to: ${pendingStatus}`);
         
-        // Send notification if requested and driver is set
-        if (notifyDriver && driverEmail) {
+        // If changing from confirmed to not confirmed, clear driver in UI
+        if (oldStatus === 'confirmed' && pendingStatus === 'not confirmed') {
+          setDriverEmail(null);
+          console.log(`✅ Driver assignment cleared in UI`);
+        }
+        
+        // Send notification for other cases (confirmed -> confirmed, not confirmed -> confirmed)
+        if (notifyDriver && driverEmail && !(oldStatus === 'confirmed' && pendingStatus === 'not confirmed')) {
           await sendStatusChangeNotification();
         }
         
@@ -2861,63 +2875,6 @@ export default function ResultsPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header with Navigation */}
 
-        {/* Notify Driver Button - Only for Owners */}
-        {isOwner && driverEmail && (
-          <div className="mb-6">
-            {notificationSuccess && (
-              <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-                <AlertDescription className="text-[#3ea34b]">
-                  ✅ Driver notified successfully! Email sent to {driverEmail}
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {notificationError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>{notificationError}</AlertDescription>
-              </Alert>
-            )}
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-              <div>
-                    <p className="text-base font-semibold text-card-foreground">
-                  Driver: <span className="text-primary">{driverEmail}</span>
-                </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                  Send email notification to the assigned driver
-                </p>
-              </div>
-              <Button
-                onClick={handleNotifyDriver}
-                disabled={notifyingDriver}
-                    size="lg"
-                className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-              >
-                {notifyingDriver ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                        <span>Sending...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Send report to driver
-                  </>
-                )}
-              </Button>
-            </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {/* Update Trip Section - Only show for owners */}
         {isOwner && !isLiveMode && (
           <Card className="mb-6">
@@ -3043,64 +3000,85 @@ export default function ResultsPage() {
                 {comparisonDiff.locations.length > 0 && (
                   <div className="space-y-2">
                     <div className="font-medium mb-2">Location Changes:</div>
-                    {comparisonDiff.locations.map((locChange: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-lg ${
-                          locChange.type === 'added'
-                            ? 'bg-[#3ea34b]/10'
-                            : locChange.type === 'removed'
-                            ? 'bg-red-50 dark:bg-red-900/20'
-                            : 'bg-yellow-50 dark:bg-yellow-900/20'
-                        }`}
-                      >
-                        <div className="font-medium mb-1">
-                          Location {idx + 1} - {locChange.type === 'added' ? 'Added' : locChange.type === 'removed' ? 'Removed' : 'Modified'}
+                    {comparisonDiff.locations.map((locChange: any, idx: number) => {
+                      // Determine the location name to display
+                      const locationName = locChange.type === 'added' 
+                        ? locChange.newAddress 
+                        : (locChange.type === 'removed' ? locChange.oldAddress : (locChange.newAddress || locChange.oldAddress));
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-lg border-l-4 ${
+                            locChange.type === 'added'
+                              ? 'bg-[#3ea34b]/10 border-[#3ea34b]'
+                              : locChange.type === 'removed'
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-500'
+                              : 'bg-yellow-50 dark:bg-yellow-900/20 border-orange-500'
+                          }`}
+                        >
+                          <div className="font-semibold mb-2 text-base">
+                            {locationName || `Location ${idx + 1}`}
+                          </div>
+                          <div className={`text-xs font-medium mb-2 ${
+                            locChange.type === 'added' 
+                              ? 'text-[#3ea34b]' 
+                              : locChange.type === 'removed' 
+                              ? 'text-red-600' 
+                              : 'text-orange-600'
+                          }`}>
+                            {locChange.type === 'added' ? '✓ Added' : locChange.type === 'removed' ? '✗ Removed' : '⟳ Modified'}
+                          </div>
+                          
+                          {locChange.type === 'modified' && (
+                            <div className="text-sm space-y-2">
+                              {locChange.addressChanged && (
+                                <div className="space-y-1">
+                                  <div className="font-medium text-xs text-muted-foreground">Address:</div>
+                                  <div className="pl-2">
+                                    <div className="line-through text-muted-foreground text-xs">{locChange.oldAddress}</div>
+                                    <div className="text-orange-600">→</div>
+                                    <div className="font-semibold">{locChange.newAddress}</div>
+                                  </div>
+                                </div>
+                              )}
+                              {locChange.timeChanged && (
+                                <div className="space-y-1">
+                                  <div className="font-medium text-xs text-muted-foreground">Time:</div>
+                                  <div className="pl-2">
+                                    <span className="line-through text-muted-foreground">{locChange.oldTime}</span>
+                                    <span className="text-orange-600 mx-2">→</span>
+                                    <span className="font-semibold">{locChange.newTime}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {locChange.purposeChanged && (
+                                <div className="space-y-1">
+                                  <div className="font-medium text-xs text-muted-foreground">Purpose:</div>
+                                  <div className="pl-2">
+                                    <div className="line-through text-muted-foreground text-xs">{locChange.oldPurpose}</div>
+                                    <div className="text-orange-600">→</div>
+                                    <div className="font-semibold">{locChange.newPurpose}</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {locChange.type === 'added' && (
+                            <div className="text-sm space-y-1">
+                              <div><span className="font-medium text-xs text-muted-foreground">Time:</span> <span className="font-semibold">{locChange.newTime}</span></div>
+                              {locChange.newPurpose && <div><span className="font-medium text-xs text-muted-foreground">Purpose:</span> <span>{locChange.newPurpose}</span></div>}
+                            </div>
+                          )}
+                          {locChange.type === 'removed' && (
+                            <div className="text-sm space-y-1 opacity-75">
+                              <div><span className="font-medium text-xs text-muted-foreground">Time:</span> {locChange.oldTime}</div>
+                              {locChange.oldPurpose && <div><span className="font-medium text-xs text-muted-foreground">Purpose:</span> {locChange.oldPurpose}</div>}
+                            </div>
+                          )}
                         </div>
-                        {locChange.type === 'modified' && (
-                          <div className="text-sm space-y-1">
-                            {locChange.addressChanged && (
-                              <div>
-                                <span className="text-muted-foreground">Address: </span>
-                                <span className="line-through">{locChange.oldAddress}</span>
-                                {' → '}
-                                <span className="font-semibold">{locChange.newAddress}</span>
-                              </div>
-                            )}
-                            {locChange.timeChanged && (
-                              <div>
-                                <span className="text-muted-foreground">Time: </span>
-                                <span className="line-through">{locChange.oldTime}</span>
-                                {' → '}
-                                <span className="font-semibold">{locChange.newTime}</span>
-                              </div>
-                            )}
-                            {locChange.purposeChanged && (
-                              <div>
-                                <span className="text-muted-foreground">Purpose: </span>
-                                <span className="line-through">{locChange.oldPurpose}</span>
-                                {' → '}
-                                <span className="font-semibold">{locChange.newPurpose}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {locChange.type === 'added' && (
-                          <div className="text-sm">
-                            <div><span className="font-semibold">Address:</span> {locChange.newAddress}</div>
-                            <div><span className="font-semibold">Time:</span> {locChange.newTime}</div>
-                            <div><span className="font-semibold">Purpose:</span> {locChange.newPurpose}</div>
-                          </div>
-                        )}
-                        {locChange.type === 'removed' && (
-                          <div className="text-sm">
-                            <div><span className="font-semibold">Address:</span> {locChange.oldAddress}</div>
-                            <div><span className="font-semibold">Time:</span> {locChange.oldTime}</div>
-                            <div><span className="font-semibold">Purpose:</span> {locChange.oldPurpose}</div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
@@ -4742,17 +4720,9 @@ export default function ResultsPage() {
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Request Quotes from Drivers</h2>
               
-              {tripStatus === 'confirmed' ? (
-                <Alert className="mb-4 bg-muted">
-                  <AlertDescription>
-                    Quote requests are disabled because this trip is confirmed. Change the trip status to "Not Confirmed" to invite more drivers.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <p className="text-muted-foreground mb-6">
-                  Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details.
-                </p>
-              )}
+              <p className="text-muted-foreground mb-6">
+                Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details.
+              </p>
               
               {quoteRequestSuccess && (
                 <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
@@ -4780,10 +4750,10 @@ export default function ResultsPage() {
                       value={allocateDriverEmail}
                       onChange={(e) => setAllocateDriverEmail(e.target.value)}
                       placeholder="driver@company.com"
-                      disabled={sendingQuoteRequest || tripStatus === 'confirmed'}
+                      disabled={sendingQuoteRequest}
                       className={allocateDriverEmailError ? 'border-destructive' : ''}
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter' && allocateDriverEmail && !sendingQuoteRequest && tripStatus !== 'confirmed') {
+                        if (e.key === 'Enter' && allocateDriverEmail && !sendingQuoteRequest) {
                           handleSendQuoteRequest();
                         }
                       }}
@@ -4795,7 +4765,7 @@ export default function ResultsPage() {
                   <div className="flex items-end">
                     <Button
                       onClick={handleSendQuoteRequest}
-                      disabled={sendingQuoteRequest || !allocateDriverEmail || tripStatus === 'confirmed'}
+                      disabled={sendingQuoteRequest || !allocateDriverEmail}
                       className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                     >
                       {sendingQuoteRequest ? (

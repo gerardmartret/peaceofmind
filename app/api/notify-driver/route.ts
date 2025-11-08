@@ -117,27 +117,91 @@ export async function POST(request: NextRequest) {
         changesHtml += `<div style="margin-bottom: 16px;"><p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #05060A;">Trip Details Updated:</p><ul style="margin: 0; padding-left: 20px; list-style-type: disc;">${detailChanges.join('')}</ul></div>`;
       }
 
-      // Location changes
+      // Location changes - DETAILED VIEW with before/after values
       if (changes.locations && changes.locations.length > 0) {
         const locationChanges = changes.locations.filter((loc: any) => loc.type !== 'unchanged');
         if (locationChanges.length > 0) {
-          const locationItems = locationChanges.map((loc: any) => {
+          const locationItems = locationChanges.map((loc: any, index: number) => {
+            // Determine the location name to display
+            const locationName = loc.type === 'added' 
+              ? loc.newAddress 
+              : (loc.type === 'removed' ? loc.oldAddress : (loc.newAddress || loc.oldAddress));
+            
             if (loc.type === 'added') {
-              return `<li style="margin: 4px 0; color: #333333;"><span style="color: #3ea34b; font-weight: 600;">Added:</span> ${loc.newAddress || 'New location'} at ${loc.newTime || 'N/A'}</li>`;
+              return `
+                <div style="margin: 12px 0; padding: 12px; background-color: #f0fdf4; border-left: 3px solid #3ea34b; border-radius: 4px;">
+                  <p style="margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: #05060A;">${locationName || `Location ${loc.index || index + 1}`}</p>
+                  <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #3ea34b;">✓ Added</p>
+                  <p style="margin: 4px 0; font-size: 13px; color: #333333;"><strong>Time:</strong> ${loc.newTime || 'N/A'}</p>
+                  ${loc.newPurpose ? `<p style="margin: 4px 0; font-size: 13px; color: #333333;"><strong>Purpose:</strong> ${loc.newPurpose}</p>` : ''}
+                </div>
+              `;
             } else if (loc.type === 'removed') {
-              return `<li style="margin: 4px 0; color: #333333;"><span style="color: #9e201b; font-weight: 600;">Removed:</span> ${loc.oldAddress || 'Location'}</li>`;
+              return `
+                <div style="margin: 12px 0; padding: 12px; background-color: #fef2f2; border-left: 3px solid #9e201b; border-radius: 4px;">
+                  <p style="margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: #05060A;">${locationName || `Location ${loc.index || index + 1}`}</p>
+                  <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #9e201b;">✗ Removed</p>
+                  <p style="margin: 4px 0; font-size: 13px; color: #333333;"><strong>Time:</strong> ${loc.oldTime || 'N/A'}</p>
+                  ${loc.oldPurpose ? `<p style="margin: 4px 0; font-size: 13px; color: #333333;"><strong>Purpose:</strong> ${loc.oldPurpose}</p>` : ''}
+                </div>
+              `;
             } else if (loc.type === 'modified') {
-              const changes = [];
-              if (loc.addressChanged) changes.push('address');
-              if (loc.timeChanged) changes.push('time');
-              if (loc.purposeChanged) changes.push('purpose');
-              return `<li style="margin: 4px 0; color: #333333;"><span style="color: #db7304; font-weight: 600;">Modified:</span> ${loc.oldAddress || 'Location'} (${changes.join(', ')} changed)</li>`;
+              let modifiedFields = '';
+              
+              if (loc.addressChanged) {
+                modifiedFields += `
+                  <p style="margin: 8px 0 4px 0; font-size: 12px; font-weight: 600; color: #666666;">Address:</p>
+                  <p style="margin: 0 0 2px 8px; font-size: 12px; text-decoration: line-through; color: #999999;">${loc.oldAddress || 'N/A'}</p>
+                  <p style="margin: 0 0 2px 8px; font-size: 13px; color: #db7304;">→</p>
+                  <p style="margin: 0 0 4px 8px; font-size: 13px; font-weight: 600; color: #333333;">${loc.newAddress || 'N/A'}</p>
+                `;
+              }
+              
+              if (loc.timeChanged) {
+                modifiedFields += `
+                  <p style="margin: 8px 0 4px 0; font-size: 12px; font-weight: 600; color: #666666;">Time:</p>
+                  <p style="margin: 0 0 0 8px; font-size: 13px; color: #333333;">
+                    <span style="text-decoration: line-through; color: #999999;">${loc.oldTime || 'N/A'}</span>
+                    <span style="color: #db7304;"> → </span>
+                    <span style="font-weight: 600;">${loc.newTime || 'N/A'}</span>
+                  </p>
+                `;
+              }
+              
+              if (loc.purposeChanged) {
+                modifiedFields += `
+                  <p style="margin: 8px 0 4px 0; font-size: 12px; font-weight: 600; color: #666666;">Purpose:</p>
+                  <p style="margin: 0 0 2px 8px; font-size: 12px; text-decoration: line-through; color: #999999;">${loc.oldPurpose || 'N/A'}</p>
+                  <p style="margin: 0 0 2px 8px; font-size: 13px; color: #db7304;">→</p>
+                  <p style="margin: 0 0 4px 8px; font-size: 13px; font-weight: 600; color: #333333;">${loc.newPurpose || 'N/A'}</p>
+                `;
+              }
+              
+              return `
+                <div style="margin: 12px 0; padding: 12px; background-color: #fffbeb; border-left: 3px solid #db7304; border-radius: 4px;">
+                  <p style="margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: #05060A;">${locationName || `Location ${loc.index || index + 1}`}</p>
+                  <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #db7304;">⟳ Modified</p>
+                  ${modifiedFields}
+                </div>
+              `;
             }
             return '';
           }).filter(Boolean).join('');
 
-          changesHtml += `<div style="margin-bottom: 16px;"><p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #05060A;">Location Changes:</p><ul style="margin: 0; padding-left: 20px; list-style-type: disc;">${locationItems}</ul></div>`;
+          changesHtml += `<div style="margin-bottom: 16px;"><p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #05060A;">Location Changes:</p>${locationItems}</div>`;
         }
+      }
+
+      // Add merged notes preview if available
+      if (trip.trip_notes && tripVersion > 1) {
+        changesHtml += `
+          <div style="margin-bottom: 16px;">
+            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #05060A;">Current Trip Notes:</p>
+            <div style="background-color: #eff6ff; padding: 12px; border-radius: 4px; border-left: 3px solid #3b82f6;">
+              <pre style="margin: 0; font-family: inherit; font-size: 13px; color: #333333; white-space: pre-wrap; word-wrap: break-word;">${trip.trip_notes}</pre>
+            </div>
+          </div>
+        `;
       }
 
       if (changesHtml) {

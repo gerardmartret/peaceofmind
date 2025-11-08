@@ -23,10 +23,34 @@ export async function POST(request: NextRequest) {
 
     console.log(`📝 Updating trip status: ${tripId} -> ${status}`);
 
-    // Update the trip status in the database
+    // First, get the current trip to check the current status
+    const { data: currentTrip, error: fetchError } = await supabase
+      .from('trips')
+      .select('status, driver')
+      .eq('id', tripId)
+      .single();
+
+    if (fetchError || !currentTrip) {
+      console.error('❌ Error fetching trip:', fetchError);
+      return NextResponse.json(
+        { success: false, error: 'Trip not found' },
+        { status: 404 }
+      );
+    }
+
+    // Prepare update data
+    const updateData: { status: string; driver?: null } = { status };
+
+    // If changing from confirmed to not confirmed, clear the driver
+    if (currentTrip.status === 'confirmed' && status === 'not confirmed') {
+      updateData.driver = null;
+      console.log(`🔄 Clearing driver assignment (was: ${currentTrip.driver})`);
+    }
+
+    // Update the trip status (and driver if needed) in the database
     const { data, error: updateError } = await supabase
       .from('trips')
-      .update({ status })
+      .update(updateData)
       .eq('id', tripId)
       .select()
       .single();
@@ -40,6 +64,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`✅ Trip status updated successfully to: ${status}`);
+    if (updateData.driver === null) {
+      console.log(`✅ Driver assignment cleared`);
+    }
     return NextResponse.json({ success: true, status: data.status });
   } catch (error) {
     console.error('❌ Error in update-trip-status API:', error);
