@@ -117,7 +117,7 @@ Extract:
 Return a JSON object with this exact structure:
 {
   "success": true,
-  "date": "YYYY-MM-DD or null if not mentioned. IMPORTANT: If year is not mentioned, always use the current year (${new Date().getFullYear()})",
+  "date": "YYYY-MM-DD ONLY if explicitly mentioned in text, otherwise null. CRITICAL: If no date is mentioned at all, return null. Do NOT invent or assume a date. If year is not mentioned but date is, use current year (${new Date().getFullYear()})",
   "leadPassengerName": "Main passenger name (e.g., 'Mr. Smith', 'John Doe') or null if not mentioned",
   "passengerCount": number,
   "tripDestination": "Main destination city only (e.g., 'London', 'Manchester', 'Birmingham')",
@@ -150,7 +150,7 @@ Rules for extraction:
     - "pickup time is now 3pm" → locations: [], driverNotes: "- Pickup time is now 3pm"
     - "bring a watermelon" → locations: [], driverNotes: "- Bring a watermelon"
 - If no extractable information at all (no locations, no notes, no passenger info, etc.), then return success: false
-- If date is mentioned in various formats, convert to YYYY-MM-DD. CRITICAL: If the year is NOT mentioned in the date, always assume it is the current year (${new Date().getFullYear()}). For example: "March 15" should become "${new Date().getFullYear()}-03-15", "Dec 25" should become "${new Date().getFullYear()}-12-25"
+- CRITICAL DATE RULE: Return date as null if NO date is mentioned in text. Do NOT invent, assume, or default to any date. ONLY if date IS mentioned: convert to YYYY-MM-DD format. If year is NOT mentioned but date is, use current year (${new Date().getFullYear()}). Examples: "March 15" → "${new Date().getFullYear()}-03-15", "Dec 25" → "${new Date().getFullYear()}-12-25", but if text has NO date → null
 - Pay attention to context around each location: who is involved, what type of activity, company names, venue names
 - Look for clues like "meeting with", "dinner at", "pickup from", "drop-off at", "check-in at", etc.
 - CRITICAL RULE: Avoid ALL redundancy between driverNotes and structured fields. If information is captured in location, time, purpose, date, vehicleInfo, or passengerNames, do NOT repeat it in driverNotes

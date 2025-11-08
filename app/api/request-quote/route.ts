@@ -68,14 +68,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify trip is password protected
-    if (!trip.password) {
-      return NextResponse.json(
-        { success: false, error: 'Trip must be password protected to request quotes' },
-        { status: 400 }
-      );
-    }
-
     // Initialize Resend
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {

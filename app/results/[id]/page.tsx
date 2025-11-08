@@ -4682,8 +4682,8 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Request Quotes from Drivers - Only for Owners with Password Protection */}
-        {isOwner && isPasswordProtected && (
+        {/* Request Quotes from Drivers - Only for Owners */}
+        {isOwner && (
           <Card className="mb-8">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Request Quotes from Drivers</h2>
@@ -4696,7 +4696,7 @@ export default function ResultsPage() {
                 </Alert>
               ) : (
                 <p className="text-muted-foreground mb-6">
-                  Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details and password.
+                  Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details.
                 </p>
               )}
               

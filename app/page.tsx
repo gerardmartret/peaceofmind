@@ -298,17 +298,17 @@ function SortableLocationItem({
                       <svg className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
                         {(() => {
                           const { businessName, restOfAddress } = formatLocationDisplay(location.name);
                           
                           return (
                             <>
-                              <div className="text-sm font-semibold text-card-foreground truncate">
+                              <div className="text-sm font-semibold text-card-foreground truncate flex-shrink-0">
                                 {businessName}
                               </div>
                               {restOfAddress && (
-                                <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                <div className="text-xs text-muted-foreground truncate">
                                   {restOfAddress}
                                 </div>
                               )}
@@ -334,8 +334,8 @@ function SortableLocationItem({
               )}
             </div>
 
-            {/* Purpose Field */}
-            <div>
+            {/* Purpose Field - Hidden */}
+            {/* <div>
               <Label className="text-xs font-medium text-secondary-foreground mb-1">Purpose</Label>
               {editingIndex === index && editingField === 'purpose' ? (
                 <div className="editing-purpose" data-editing="true">
@@ -365,7 +365,7 @@ function SortableLocationItem({
                   </span>
                 </div>
               )}
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -508,18 +508,18 @@ function SortableExtractedLocationItem({
                     <svg className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
                       {(() => {
                         const fullAddr = location.formattedAddress || location.location;
                         const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
                         
                         return (
                           <>
-                            <div className="text-sm font-semibold text-card-foreground truncate">
+                            <div className="text-sm font-semibold text-card-foreground truncate flex-shrink-0">
                               {businessName || location.location}
                             </div>
                             {restOfAddress && (
-                              <div className="text-xs text-muted-foreground truncate mt-0.5">
+                              <div className="text-xs text-muted-foreground truncate">
                                 {restOfAddress}
                               </div>
                             )}
@@ -537,8 +537,8 @@ function SortableExtractedLocationItem({
               )}
             </div>
 
-            {/* Purpose Field */}
-            <div>
+            {/* Purpose Field - Hidden */}
+            {/* <div>
               <Label className="text-xs font-medium text-secondary-foreground mb-1">Purpose</Label>
               {editingIndex === index && editingField === 'purpose' ? (
                 <div className="editing-purpose" data-editing="true">
@@ -568,7 +568,7 @@ function SortableExtractedLocationItem({
                   </span>
                 </div>
               )}
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -2341,12 +2341,19 @@ export default function Home() {
                           type="date"
                           value={extractedDate || ''}
                           onChange={(e) => handleDateEdit(e.target.value)}
-                          className="bg-background border-border rounded-md h-9 pl-10 text-foreground"
+                          className={`bg-background border-border rounded-md h-9 pl-10 text-foreground ${
+                            !extractedDate ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700' : ''
+                          }`}
                         />
                         <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
+                      {!extractedDate && (
+                        <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                          Please select a trip date to continue
+                        </p>
+                      )}
                     </div>
 
                     {/* Trip Destination - spans 2 columns */}
