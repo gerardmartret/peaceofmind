@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { validateBusinessEmail } from '@/lib/email-validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,11 +13,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate email
-    const emailValidation = validateBusinessEmail(email.trim());
-    if (!emailValidation.isValid) {
+    // Basic email format validation (accept personal emails like Gmail)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
       return NextResponse.json(
-        { success: false, error: emailValidation.error || 'Invalid email address' },
+        { success: false, error: 'Please enter a valid email address' },
         { status: 400 }
       );
     }

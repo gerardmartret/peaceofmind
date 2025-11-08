@@ -291,6 +291,9 @@ export default function ResultsPage() {
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const updateTextareaRef = useRef<HTMLTextAreaElement>(null);
   
+  // Driver view modal state
+  const [showDriverModal, setShowDriverModal] = useState<boolean>(false);
+  
   // Enhanced error tracking with step information
   const [updateProgress, setUpdateProgress] = useState<{
     step: string;
@@ -1547,10 +1550,10 @@ export default function ResultsPage() {
     setQuotePriceError(null);
     setQuoteSuccess(false);
 
-    // Validate email
-    const emailValidation = validateBusinessEmail(quoteEmail.trim());
-    if (!emailValidation.isValid) {
-      setQuoteEmailError(emailValidation.error || 'Invalid email address');
+    // Basic email format validation (accept personal emails like Gmail)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(quoteEmail.trim())) {
+      setQuoteEmailError('Please enter a valid email address');
       return;
     }
 
@@ -1611,10 +1614,10 @@ export default function ResultsPage() {
     setQuoteRequestError(null);
     setQuoteRequestSuccess(null);
 
-    // Validate email
-    const emailValidation = validateBusinessEmail(allocateDriverEmail.trim());
-    if (!emailValidation.isValid) {
-      setAllocateDriverEmailError(emailValidation.error || 'Invalid email address');
+    // Basic email format validation (accept personal emails like Gmail)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(allocateDriverEmail.trim())) {
+      setAllocateDriverEmailError('Please enter a valid email address');
       return;
     }
 
@@ -2921,6 +2924,23 @@ export default function ResultsPage() {
                       'Update Trip'
                     )}
                 </Button>
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="flex items-center gap-2"
+                    onClick={() => setShowDriverModal(true)}
+                  >
+                    My Driver
+                  </Button>
+                  {driverEmail && (
+                    <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 bg-[#3ea34b] text-white rounded-full border-2 border-background">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  )}
+                </div>
                 {extractedUpdates && (
                   <Button
                     variant="outline"
@@ -4725,8 +4745,8 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Request Quotes from Drivers - Only for Owners */}
-        {isOwner && (
+        {/* Request Quotes from Drivers - Now only in modal */}
+        {false && (
           <Card className="mb-8">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Request Quotes from Drivers</h2>
@@ -4832,8 +4852,8 @@ export default function ResultsPage() {
           </Card>
         )}
 
-        {/* Quotes Table - Only for Owners */}
-        {isOwner && (
+        {/* Quotes Table - Now only in modal */}
+        {false && (
           <Card className="mb-8">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Received Quotes</h2>
@@ -5001,8 +5021,8 @@ export default function ResultsPage() {
           </Card>
         )}
 
-        {/* Quote Submission Form - Only for Guests on Password-Protected Reports */}
-        {!isOwner && isPasswordProtected && (
+        {/* Quote Submission Form - Only for Guests (all reports) */}
+        {!isOwner && (
           <Card className="mb-8">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">Add Your Quote</h2>
@@ -5248,6 +5268,298 @@ export default function ResultsPage() {
           </p>
         </div>
       </div>
+
+      {/* Driver & Quotes Modal */}
+      {showDriverModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-background rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h2 className="text-2xl font-semibold text-card-foreground">Driver & Quotes Management</h2>
+              <button
+                onClick={() => setShowDriverModal(false)}
+                className="p-2 hover:bg-secondary/50 rounded-md transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Modal Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* Request Quotes from Drivers Section */}
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold mb-4">Request Quotes from Drivers</h3>
+                
+                <p className="text-muted-foreground mb-6">
+                  Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details.
+                </p>
+                
+                {quoteRequestSuccess && (
+                  <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+                    <AlertDescription className="text-[#3ea34b]">
+                      ✅ {quoteRequestSuccess}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {quoteRequestError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertDescription>{quoteRequestError}</AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label htmlFor="allocate-driver-email-modal" className="block text-sm font-medium mb-2">
+                        Driver Email Address
+                      </label>
+                      <Input
+                        id="allocate-driver-email-modal"
+                        type="email"
+                        value={allocateDriverEmail}
+                        onChange={(e) => setAllocateDriverEmail(e.target.value)}
+                        placeholder="driver@company.com"
+                        disabled={sendingQuoteRequest}
+                        className={allocateDriverEmailError ? 'border-destructive' : ''}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && allocateDriverEmail && !sendingQuoteRequest) {
+                            handleSendQuoteRequest();
+                          }
+                        }}
+                      />
+                      {allocateDriverEmailError && (
+                        <p className="text-sm text-destructive mt-1">{allocateDriverEmailError}</p>
+                      )}
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        onClick={handleSendQuoteRequest}
+                        disabled={sendingQuoteRequest || !allocateDriverEmail}
+                        className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                      >
+                        {sendingQuoteRequest ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Sending...
+                          </>
+                        ) : (
+                          'Send Request'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* List of sent invitations */}
+                  {sentDriverEmails.length > 0 && (
+                    <div className="mt-6 pt-6 border-t">
+                      <h3 className="text-sm font-semibold mb-3">Quote Requests Sent ({sentDriverEmails.length})</h3>
+                      <div className="space-y-2">
+                        {sentDriverEmails.map((sent, index) => {
+                          const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
+                          return (
+                            <div 
+                              key={index} 
+                              className={`flex items-center justify-between p-3 rounded-md ${
+                                hasQuote 
+                                  ? 'bg-[#3ea34b]/10 border border-[#3ea34b]/30' 
+                                  : 'bg-secondary/50'
+                              }`}
+                            >
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{sent.email}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
+                                </p>
+                              </div>
+                              {hasQuote && (
+                                <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                  QUOTE RECEIVED
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Received Quotes Section */}
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold mb-4">Received Quotes</h3>
+                {loadingQuotes ? (
+                  <div className="flex items-center justify-center py-8">
+                    <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span className="ml-2 text-muted-foreground">Loading quotes...</span>
+                  </div>
+                ) : quotes.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="border-b">
+                        <tr>
+                          <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
+                          <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
+                          <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
+                          <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
+                          <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quotes.map((quote) => {
+                          const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
+                          return (
+                            <tr 
+                              key={quote.id} 
+                              className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${
+                                isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
+                              }`}
+                            >
+                              <td className="py-3 px-4 text-sm">
+                                {quote.email}
+                                {isDriver && (
+                                  <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                    DRIVER
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-right font-medium">
+                                {quote.price.toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-sm">{quote.currency}</td>
+                              <td className="py-3 px-4 text-sm text-muted-foreground">
+                                {new Date(quote.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <Button
+                                  size="sm"
+                                  variant={isDriver ? "outline" : "default"}
+                                  onClick={() => handleSetDriver(quote.email)}
+                                  disabled={settingDriver}
+                                  className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
+                                >
+                                  {settingDriver ? (
+                                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                  ) : isDriver ? (
+                                    '✓ Driver'
+                                  ) : (
+                                    'Select Driver'
+                                  )}
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Manual Driver Form */}
+              <div className="pt-6 border-t">
+                <h3 className="text-lg font-semibold mb-4">Add Driver Manually</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Set a driver email address manually. Personal emails (Gmail, Yahoo, etc.) are accepted.
+                </p>
+                
+                {manualDriverError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertDescription>{manualDriverError}</AlertDescription>
+                  </Alert>
+                )}
+                
+                {driverEmail && (
+                  <div className="mb-4 p-3 bg-[#3ea34b]/10 border border-[#3ea34b]/30 rounded-md">
+                    <p className="text-sm">
+                      <span className="font-semibold">Current driver:</span>{' '}
+                      <span className="text-[#3ea34b]">{driverEmail}</span>
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      type="email"
+                      value={manualDriverEmail}
+                      onChange={(e) => handleManualDriverInputChange(e.target.value)}
+                      onFocus={handleManualDriverInputFocus}
+                      onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
+                      placeholder="driver@gmail.com or driver@company.com"
+                      disabled={settingDriver}
+                      className={manualDriverError ? 'border-destructive' : ''}
+                    />
+                    
+                    {/* Autocomplete Dropdown */}
+                    {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {filteredDriverSuggestions.map((driver, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleSelectDriverSuggestion(driver)}
+                            className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{driver}</span>
+                              {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
+                                <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Show message when no suggestions match */}
+                    {showDriverSuggestions && manualDriverEmail.trim().length > 0 && filteredDriverSuggestions.length === 0 && driverSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4">
+                        <p className="text-sm text-muted-foreground">No matching drivers found</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Button
+                    onClick={() => handleSetDriver(manualDriverEmail)}
+                    disabled={settingDriver || !manualDriverEmail.trim()}
+                    className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                  >
+                    {settingDriver ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Setting...
+                      </>
+                    ) : (
+                      'Set as Driver'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Change Confirmation Modal */}
       <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
