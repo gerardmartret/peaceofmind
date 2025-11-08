@@ -87,8 +87,11 @@ export async function POST(request: NextRequest) {
       day: 'numeric'
     });
 
-    // Create trip link
-    const tripLink = `https://driverbrief.com/results/${tripId}`;
+    // Create trip link using the current host or environment variable
+    const host = request.headers.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+    const tripLink = `${baseUrl}/results/${tripId}`;
     const password = trip.password;
 
     // Send email
