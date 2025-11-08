@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Verify trip exists and user is owner
     const { data: trip, error: tripError } = await supabase
       .from('trips')
-      .select('id, user_id, user_email')
+      .select('id, user_id, user_email, status, driver')
       .eq('id', tripId)
       .single();
 
@@ -81,6 +81,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'You are not authorized to modify this trip' },
         { status: 403 }
+      );
+    }
+
+    // Check if trip is confirmed and has a driver
+    if (trip.status === 'confirmed' && trip.driver) {
+      console.log(`⚠️ Cannot change driver for confirmed trip ${tripId}`);
+      return NextResponse.json(
+        { success: false, error: 'Change status to not confirmed first' },
+        { status: 400 }
       );
     }
 

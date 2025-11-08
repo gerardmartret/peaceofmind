@@ -320,6 +320,10 @@ export default function ResultsPage() {
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [sendingStatusNotification, setSendingStatusNotification] = useState<boolean>(false);
   
+  // Trip update notification state
+  const [showUpdateNotificationModal, setShowUpdateNotificationModal] = useState<boolean>(false);
+  const [sendingUpdateNotification, setSendingUpdateNotification] = useState<boolean>(false);
+  
   // Quotes state
   const [quotes, setQuotes] = useState<Array<{
     id: string;
@@ -1461,6 +1465,50 @@ export default function ResultsPage() {
     }
   };
 
+  const handleUpdateNotificationResponse = async (notify: boolean) => {
+    if (notify && driverEmail) {
+      setSendingUpdateNotification(true);
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          console.error('❌ No session found');
+          window.location.reload();
+          return;
+        }
+
+        const response = await fetch('/api/notify-driver', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            tripId: tripId,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          console.log(`✅ Driver notified about trip update: ${driverEmail}`);
+        } else {
+          console.error('❌ Failed to notify driver:', result.error);
+        }
+      } catch (err) {
+        console.error('❌ Error notifying driver:', err);
+      } finally {
+        setSendingUpdateNotification(false);
+        // Always reload after attempting notification
+        window.location.reload();
+      }
+    } else {
+      // User chose not to notify, just reload
+      window.location.reload();
+    }
+  };
+
   const handleSubmitQuote = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -2466,8 +2514,14 @@ export default function ResultsPage() {
       console.log(`🔗 Trip ID: ${tripId}`);
       console.log(`📌 Version: ${updateData.version}`);
 
-      // Refresh the page to show updated data
-      window.location.reload();
+      // Show notification modal if driver is set
+      if (driverEmail) {
+        setShowUpdateNotificationModal(true);
+        setIsRegenerating(false);
+      } else {
+        // No driver, just reload
+        window.location.reload();
+      }
     } catch (err) {
       console.error('❌ Error regenerating report:', err);
       setError(err instanceof Error ? err.message : 'Failed to regenerate report');
@@ -2854,7 +2908,7 @@ export default function ResultsPage() {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    Notify Driver
+                    Send report to driver
                   </>
                 )}
               </Button>
@@ -5240,40 +5294,75 @@ export default function ResultsPage() {
           <DialogFooter>
             {driverEmail ? (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => handleConfirmStatusChange(false)}
-                  disabled={updatingStatus || sendingStatusNotification}
-                >
-                  {updatingStatus && !sendingStatusNotification ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Updating...
-                    </>
-                  ) : (
-                    'No, Just Update Status'
-                  )}
-                </Button>
-                <Button
-                  onClick={() => handleConfirmStatusChange(true)}
-                  disabled={updatingStatus || sendingStatusNotification}
-                  className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                >
-                  {updatingStatus || sendingStatusNotification ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      {sendingStatusNotification ? 'Sending...' : 'Updating...'}
-                    </>
-                  ) : (
-                    'Yes, Notify Driver'
-                  )}
-                </Button>
+                {/* If changing from confirmed to not confirmed, force notification */}
+                {pendingStatus === 'not confirmed' && tripStatus === 'confirmed' ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowStatusModal(false);
+                        setPendingStatus(null);
+                      }}
+                      disabled={updatingStatus || sendingStatusNotification}
+                    >
+                      Discard
+                    </Button>
+                    <Button
+                      onClick={() => handleConfirmStatusChange(true)}
+                      disabled={updatingStatus || sendingStatusNotification}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    >
+                      {updatingStatus || sendingStatusNotification ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          {sendingStatusNotification ? 'Sending...' : 'Updating...'}
+                        </>
+                      ) : (
+                        'Yes, Notify Driver'
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleConfirmStatusChange(false)}
+                      disabled={updatingStatus || sendingStatusNotification}
+                    >
+                      {updatingStatus && !sendingStatusNotification ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Updating...
+                        </>
+                      ) : (
+                        'No, Just Update Status'
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleConfirmStatusChange(true)}
+                      disabled={updatingStatus || sendingStatusNotification}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    >
+                      {updatingStatus || sendingStatusNotification ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          {sendingStatusNotification ? 'Sending...' : 'Updating...'}
+                        </>
+                      ) : (
+                        'Yes, Notify Driver'
+                      )}
+                    </Button>
+                  </>
+                )}
               </>
             ) : (
               <Button
@@ -5286,6 +5375,46 @@ export default function ResultsPage() {
                 OK
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Trip Update Notification Modal */}
+      <Dialog open={showUpdateNotificationModal} onOpenChange={setShowUpdateNotificationModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Trip Updated</DialogTitle>
+            <DialogDescription>
+              The trip was updated successfully.
+              <br /><br />
+              Do you want to notify the driver about these changes?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => handleUpdateNotificationResponse(false)}
+              disabled={sendingUpdateNotification}
+            >
+              No
+            </Button>
+            <Button
+              onClick={() => handleUpdateNotificationResponse(true)}
+              disabled={sendingUpdateNotification}
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+            >
+              {sendingUpdateNotification ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Sending...
+                </>
+              ) : (
+                'Yes, Notify Driver'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
