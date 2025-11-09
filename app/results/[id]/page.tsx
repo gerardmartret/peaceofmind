@@ -299,6 +299,9 @@ export default function ResultsPage() {
   // Driver view modal state
   const [showDriverModal, setShowDriverModal] = useState<boolean>(false);
   
+  // Map modal state
+  const [showMapModal, setShowMapModal] = useState<boolean>(false);
+  
   // Enhanced error tracking with step information
   const [updateProgress, setUpdateProgress] = useState<{
     step: string;
@@ -1469,7 +1472,6 @@ export default function ResultsPage() {
   const handleSelectDriverSuggestion = (driver: string) => {
     setManualDriverEmail(driver);
     setShowDriverSuggestions(false);
-    handleSetDriver(driver);
   };
 
   const handleNotifyDriver = async () => {
@@ -2916,8 +2918,128 @@ export default function ResultsPage() {
     <div className="min-h-screen bg-background">
       {/* Update Trip Section - Second Top Bar - Only show for owners */}
       {isOwner && !isLiveMode && (
-        <div className="fixed top-[57px] left-0 right-0 z-40 bg-background border-b border-border shadow-sm">
+        <div className="fixed top-[57px] left-0 right-0 z-40 bg-background border-b border-border">
           <div className="container mx-auto px-4 pt-6 pb-3">
+            {/* Trip Title */}
+            <h1 className="text-2xl font-light text-card-foreground mb-3 tracking-tight">
+              {(() => {
+                // Extract passenger name from driver notes
+                const extractPassengerName = (text: string | null): string | null => {
+                  if (!text) return null;
+                  const patterns = [
+                    /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                    /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                    /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                    /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
+                  ];
+                  
+                  for (const pattern of patterns) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                      return match[1].trim();
+                    }
+                  }
+                  return null;
+                };
+
+                // Get lead passenger name
+                const leadPassenger = passengerNames && passengerNames.length > 0 
+                                    ? passengerNames[0] 
+                                    : leadPassengerName || extractPassengerName(driverNotes) || 'Passenger';
+
+                // Extract number of passengers (default to 1 if not specified)
+                const extractPassengerCount = (text: string | null): number => {
+                  if (!text) return 1;
+                  const patterns = [
+                    /(\d+)\s*(?:passengers?|people|guests?)/i,
+                    /(?:x|×)\s*(\d+)/i,
+                    /(\d+)\s*(?:pax|persons?)/i,
+                  ];
+                  
+                  for (const pattern of patterns) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                      const count = parseInt(match[1]);
+                      if (count > 0 && count <= 20) return count;
+                    }
+                  }
+                  return 1;
+                };
+
+                const numberOfPassengers = passengerCount || 
+                                    extractPassengerCount(driverNotes) || 
+                                    1;
+
+                // Get trip destination
+                const getDestination = (): string => {
+                  // First try tripDestination
+                  if (tripDestination) return tripDestination;
+                  
+                  // Then try to get city from first location
+                  if (locations && locations.length > 0) {
+                    const firstLocation = locations[0];
+                    if (firstLocation.name) {
+                      const parts = firstLocation.name.split(',');
+                      if (parts.length >= 2) {
+                        return parts[parts.length - 1].trim();
+                      }
+                    }
+                  }
+                  return 'Location';
+                };
+
+                const destination = getDestination();
+                
+                // Calculate trip duration or determine if it's a transfer
+                const getTripDurationOrTransfer = (): string => {
+                  if (locations && locations.length === 2) {
+                    // Calculate duration
+                    const pickupTime = parseInt(locations[0]?.time) || 0;
+                    const dropoffTime = parseInt(locations[1]?.time) || 0;
+                    const durationHours = dropoffTime - pickupTime;
+                    
+                    // If duration is under 3 hours, it's a transfer
+                    if (durationHours < 3) {
+                      // Check if either location is an airport
+                      const hasAirport = locations.some((loc: any) => {
+                        const locName = loc.name?.toLowerCase() || loc.formattedAddress?.toLowerCase() || '';
+                        return locName.includes('airport') || 
+                               locName.includes('heathrow') || 
+                               locName.includes('gatwick') || 
+                               locName.includes('stansted') || 
+                               locName.includes('luton') ||
+                               locName.includes('city airport');
+                      });
+                      
+                      return hasAirport ? 'Airport Transfer' : 'Transfer';
+                } else {
+                      // Show duration if 3 hours or more
+                      const hours = Math.floor(durationHours);
+                      const minutes = Math.round((durationHours - hours) * 60);
+                      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                    }
+                  } else if (locations && locations.length >= 2) {
+                    // Calculate duration for trips with more than 2 locations
+                    const pickupTime = parseInt(locations[0]?.time) || 0;
+                    const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                    const durationHours = dropoffTime - pickupTime;
+                    
+                    if (durationHours > 0) {
+                      const hours = Math.floor(durationHours);
+                      const minutes = Math.round((durationHours - hours) * 60);
+                      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                    }
+                  }
+                  return 'Transfer';
+                };
+
+                const durationOrTransfer = getTripDurationOrTransfer();
+                
+                // Format: "Name Duration/Transfer in Destination (x Number)"
+                return `${leadPassenger} ${durationOrTransfer} in ${destination} (x${numberOfPassengers})`;
+              })()}
+            </h1>
+            
             <div className="flex gap-3 items-start">
               <div className="flex-1 relative">
                 <textarea
@@ -2947,7 +3069,9 @@ export default function ResultsPage() {
                     />
                   </button>
               </div>
-              <div className="flex gap-3 flex-shrink-0">
+              
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Driver Button */}
                 <div className="relative">
                   <Button
                     variant="outline"
@@ -2992,7 +3116,7 @@ export default function ResultsPage() {
                   )}
                 </div>
                 
-                {/* Live Trip / View Route Breakdown Button */}
+                {/* Live Trip / Trip Breakdown Button */}
                 {(() => {
                   const now = new Date();
                   const tripDateTime = new Date(tripDate);
@@ -3024,19 +3148,30 @@ export default function ResultsPage() {
                           </span>
                         </>
                       ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                          </svg>
-                          <span>
-                            Trip Breakdown
-                          </span>
-                        </>
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                      </>
                       )}
                     </Button>
                   );
                 })()}
                 
+                {/* Route View Button */}
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex items-center gap-2"
+                  onClick={() => setShowMapModal(true)}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                </Button>
+              </div>
+              
+              <div className="flex gap-3 flex-shrink-0">
                 {extractedUpdates && (
                   <Button
                     variant="outline"
@@ -3275,9 +3410,9 @@ export default function ResultsPage() {
 
           {/* Service Introduction */}
           {!isLiveMode && (
-              <div className="p-8 mb-6">
+              <div className="mb-6">
                 {/* Header with Passenger Information, Status, and Live Trip Button */}
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mb-4 px-8">
                   {/* Passenger Information with Status */}
                   <div className="flex-1 flex items-center justify-between gap-4">
                     <h1 className="text-4xl font-light text-card-foreground mb-1 tracking-tight">
@@ -3401,59 +3536,72 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* Trip Details Grid */}
-                <div className="grid grid-cols-1 gap-1">
-                  {/* Trip Date */}
-                  <div className="py-2">
-                    <div className="flex items-center gap-4">
-                      <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <div>
-                        <span className="text-base text-muted-foreground">Trip date: </span>
-                        <span className="text-lg font-semibold text-card-foreground">{new Date(tripDate).toLocaleDateString('en-GB', { 
+                {/* Trip Details Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* Trip Date Card */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4 h-full flex flex-col">
+                      <div className="flex items-center gap-3 mb-2">
+                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-sm text-muted-foreground font-medium">Trip Date</span>
+                      </div>
+                      <p className="text-base font-semibold text-card-foreground break-words">
+                        {new Date(tripDate).toLocaleDateString('en-GB', { 
                           weekday: 'long', 
                           day: 'numeric', 
                           month: 'long', 
                           year: 'numeric' 
-                        })}</span>
-                      </div>
-                    </div>
-                  </div>
+                        })}
+                      </p>
+                    </CardContent>
+                  </Card>
                   
-                  {/* Passenger Name(s) */}
-                  {leadPassengerName && (
-                    <div className="py-2">
-                      <div className="flex items-center gap-4">
-                        <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  {/* Pickup Time Card */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4 h-full flex flex-col">
+                      <div className="flex items-center gap-3 mb-2">
+                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <div>
-                          <span className="text-base text-muted-foreground">Passenger{leadPassengerName.includes(',') ? 's' : ''}: </span>
-                          <span className="text-lg font-semibold text-card-foreground">{leadPassengerName}</span>
-                        </div>
+                        <span className="text-sm text-muted-foreground font-medium">Pickup Time</span>
                       </div>
-                    </div>
-                  )}
+                      <p className="text-base font-semibold text-card-foreground">
+                        {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
+                      </p>
+                    </CardContent>
+                  </Card>
                   
-                  {/* Vehicle Information */}
-                  {(() => {
-                    const carInfo = vehicleInfo || extractCarInfo(driverNotes);
-                    if (carInfo) {
-                      return (
-                        <div className="py-2">
-                          <div className="flex items-center gap-4">
-                            <Car className="w-6 h-6 text-muted-foreground" />
-                            <div>
-                              <span className="text-base text-muted-foreground">Vehicle: </span>
-                              <span className="text-lg font-semibold text-card-foreground">{carInfo}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {/* Trip Duration Card */}
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4 h-full flex flex-col">
+                      <div className="flex items-center gap-3 mb-2">
+                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="text-sm text-muted-foreground font-medium">Trip Duration</span>
+                      </div>
+                      <p className="text-base font-semibold text-card-foreground">
+                        {(() => {
+                          if (locations && locations.length >= 2) {
+                            const pickupTime = parseInt(locations[0]?.time) || 0;
+                            const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                            const duration = dropoffTime - pickupTime;
+                            
+                            if (duration > 0) {
+                              const hours = Math.floor(duration);
+                              const minutes = Math.round((duration - hours) * 60);
+                              return `${hours}h ${minutes}m`;
+                            } else {
+                              return 'Same day';
+                            }
+                          }
+                          return 'N/A';
+                        })()}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
 
               </div>
@@ -3461,63 +3609,72 @@ export default function ResultsPage() {
 
           {/* Trip Summary Cards */}
           {!isLiveMode && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {/* Pickup Time */}
-              <Card className="border border-border/40">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                    <span className="text-sm font-medium text-foreground">Pickup Time</span>
-                </div>
-                  <p className="text-3xl font-bold text-foreground">
-                    {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Estimated Duration */}
-              <Card className="border border-border/40">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                    <span className="text-sm font-medium text-foreground">Trip Duration</span>
-                </div>
-                  <p className="text-3xl font-bold text-foreground">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {/* Vehicle Information */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4 h-full flex flex-col">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
+                  </div>
+                  <p className="text-base font-semibold text-card-foreground break-words">
                     {(() => {
-                      if (locations && locations.length >= 2) {
-                        const pickupTime = parseInt(locations[0]?.time) || 0;
-                        const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
-                        const duration = dropoffTime - pickupTime;
-                        
-                        if (duration > 0) {
-                          const hours = Math.floor(duration);
-                          const minutes = Math.round((duration - hours) * 60);
-                          return `${hours}h ${minutes}m`;
-                        } else {
-                          return 'Same day';
-                        }
-                      }
-                      return 'N/A';
+                      const carInfo = vehicleInfo || extractCarInfo(driverNotes);
+                      return carInfo || 'N/A';
                     })()}
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Estimated Mileage */}
-              <Card className="border border-border/40">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                    <span className="text-sm font-medium text-foreground">Estimated Distance</span>
-                </div>
-                  <p className="text-3xl font-bold text-foreground">
+              {/* Number of Passengers */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4 h-full flex flex-col">
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="text-sm text-muted-foreground font-medium">
+                      Number of Passengers
+                    </span>
+                  </div>
+                  <p className="text-base font-semibold text-card-foreground">
+                    {(() => {
+                      const extractPassengerCount = (text: string | null): number => {
+                        if (!text) return 1;
+                        const patterns = [
+                          /(\d+)\s*(?:passengers?|people|guests?)/i,
+                          /(?:x|×)\s*(\d+)/i,
+                          /(\d+)\s*(?:pax|persons?)/i,
+                        ];
+                        
+                        for (const pattern of patterns) {
+                          const match = text.match(pattern);
+                          if (match && match[1]) {
+                            const count = parseInt(match[1]);
+                            if (count > 0 && count <= 20) return count;
+                          }
+                        }
+                        return 1;
+                      };
+
+                      const numberOfPassengers = passengerCount || extractPassengerCount(driverNotes) || 1;
+                      return numberOfPassengers;
+                    })()}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Estimated Distance */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4 h-full flex flex-col">
+                  <div className="flex items-center gap-3 mb-2">
+                    <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-sm text-muted-foreground font-medium">Estimated Distance</span>
+                  </div>
+                  <p className="text-base font-semibold text-card-foreground">
                     {(() => {
                       // Check if traffic predictions exist and have the correct structure
                       if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
@@ -3785,25 +3942,69 @@ export default function ResultsPage() {
                   </Card>
                 )) : null;
 
-                // Always show recommendations
+                // Always show recommendations with risk score side by side
                 return (
                   <>
                     {warningElements}
-                    <Card className="bg-muted/50">
-                      <CardContent className="p-4">
-                        <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
-                        <div className="space-y-2">
-                          {executiveReport.recommendations.map((rec: string, idx: number) => (
-                            <div key={idx} className="flex items-start gap-3">
-                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
-                                {idx + 1}
-                              </span>
-                              <p className="text-lg text-card-foreground leading-relaxed">{rec}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <div className="flex gap-4">
+                      {/* Risk Score - 25% width */}
+                      <Card className="bg-muted/50 w-1/4 flex-shrink-0">
+                        <CardContent className="p-4 text-center flex flex-col justify-center h-full">
+                          <h4 className="text-base font-bold text-card-foreground mb-3">
+                            Risk Score
+                          </h4>
+                          <div 
+                            className="text-4xl font-bold mb-2"
+                            style={{
+                              color: (() => {
+                                const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                                if (riskScore <= 3) return '#3ea34b';
+                                if (riskScore <= 6) return '#db7304';
+                                return '#9e201b';
+                              })()
+                            }}
+                          >
+                            {Math.max(0, executiveReport.tripRiskScore)}
+                          </div>
+                          <div className="text-sm text-muted-foreground font-medium mb-2">
+                            out of 10
+                          </div>
+                          <div 
+                            className="text-xs font-semibold tracking-wide px-3 py-1 rounded"
+                            style={{
+                              backgroundColor: (() => {
+                                const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                                if (riskScore <= 3) return '#3ea34b';
+                                if (riskScore <= 6) return '#db7304';
+                                return '#9e201b';
+                              })(),
+                              color: '#FFFFFF'
+                            }}
+                          >
+                            {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                             Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                             Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      {/* Recommendations for the Driver - 75% width */}
+                      <Card className="bg-muted/50 flex-1">
+                        <CardContent className="p-4">
+                          <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
+                          <div className="space-y-2">
+                            {executiveReport.recommendations.map((rec: string, idx: number) => (
+                              <div key={idx} className="flex items-start gap-3">
+                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
+                                  {idx + 1}
+                                </span>
+                                <p className="text-lg text-card-foreground leading-relaxed">{rec}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </>
                 );
               })()}
@@ -3837,60 +4038,17 @@ export default function ResultsPage() {
                   Potential Trip Disruptions
                 </h3>
 
-                {/* 2 Subboxes: Top Disruptor and Risk Score */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4">
+                {/* Top Disruptor */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-4">
                     <h4 className="text-base font-bold text-card-foreground mb-3">
                       Top Disruptor
                     </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                  {executiveReport.topDisruptor}
-                </p>
-                    </CardContent>
-              </Card>
-                  
-                  {/* Risk Score */}
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4 text-center">
-                    <h4 className="text-base font-bold text-card-foreground mb-3">
-                      Risk Score
-                    </h4>
-                    <div 
-                      className="text-4xl font-bold mb-2"
-                      style={{
-                        color: (() => {
-                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#3ea34b'; // Success green ([#3ea34b])
-                          if (riskScore <= 6) return '#db7304'; // Warning orange
-                          return '#9e201b'; // Error red
-                        })()
-                      }}
-                    >
-                      {Math.max(0, executiveReport.tripRiskScore)}
-                    </div>
-                    <div className="text-sm text-muted-foreground font-medium mb-2">
-                      out of 10
-                    </div>
-                    <div 
-                      className="text-xs font-semibold tracking-wide px-3 py-1 rounded"
-                      style={{
-                        backgroundColor: (() => {
-                          const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                          if (riskScore <= 3) return '#3ea34b'; // Success green ([#3ea34b])
-                          if (riskScore <= 6) return '#db7304'; // Warning orange
-                          return '#9e201b'; // Error red
-                        })(),
-                        color: '#FFFFFF'
-                      }}
-                    >
-                      {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
-                       Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
-                       Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
-                    </div>
-                    </CardContent>
-                  </Card>
-                  </div>
+                      {executiveReport.topDisruptor}
+                    </p>
+                  </CardContent>
+                </Card>
                 </CardContent>
             </Card>
 
@@ -5433,43 +5591,43 @@ export default function ResultsPage() {
                       )}
                     </div>
                     
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleSendQuoteRequest(manualDriverEmail)}
-                        disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver}
-                        className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                      >
-                        {sendingQuoteRequest ? (
-                          <>
-                            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            Sending...
-                          </>
-                        ) : (
-                          'Request Quote'
-                        )}
-                      </Button>
-                      
-                      <Button
-                        onClick={() => handleSetDriver(manualDriverEmail)}
-                        disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest}
-                        variant="outline"
-                      >
-                        {settingDriver ? (
-                          <>
-                            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            Assigning...
-                          </>
-                        ) : (
-                          'Assign Driver'
-                        )}
-                      </Button>
-                    </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleSendQuoteRequest(manualDriverEmail)}
+                          disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver}
+                          variant="outline"
+                        >
+                          {sendingQuoteRequest ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              Sending...
+                            </>
+                          ) : (
+                            'Request Quote'
+                          )}
+                        </Button>
+                        
+                        <Button
+                          onClick={() => handleSetDriver(manualDriverEmail)}
+                          disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest}
+                          className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                        >
+                          {settingDriver ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              Assigning...
+                            </>
+                          ) : (
+                            'Assign Driver'
+                          )}
+                        </Button>
+                      </div>
                   </div>
                   
                   {/* Error message below the input row */}
@@ -5706,6 +5864,44 @@ export default function ResultsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Route View Map Modal */}
+      {showMapModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card dark:bg-[#1f1f21] rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col border border-border/40">
+            <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
+              <div>
+                <h3 className="text-lg font-semibold">Route View</h3>
+                <p className="text-sm text-muted-foreground">View your trip route on the map</p>
+              </div>
+              <Button
+                onClick={() => setShowMapModal(false)}
+                variant="ghost"
+                size="sm"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </Button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <div className="w-full h-full">
+                <GoogleTripMap 
+                  locations={locations.map((loc, index) => ({
+                    id: (index + 1).toString(),
+                    name: loc.name || `Location ${index + 1}`,
+                    lat: loc.lat,
+                    lng: loc.lng,
+                    time: loc.time || '12:00'
+                  }))}
+                  height="100%"
+                  compact={false}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trip Update Notification Modal */}
       <Dialog open={showUpdateNotificationModal} onOpenChange={setShowUpdateNotificationModal}>
