@@ -869,7 +869,12 @@ export default function Home() {
           
           // Restore the data
           setExtractionText(parsed.text || '');
-          setExtractedLocations(parsed.locations || null);
+          // Mark all restored locations as verified
+          const restoredLocations = parsed.locations?.map((loc: any) => ({
+            ...loc,
+            verified: true
+          }));
+          setExtractedLocations(restoredLocations || null);
           setExtractedDate(parsed.date || null);
           setExtractedDriverSummary(parsed.driverSummary || null);
           setLeadPassengerName(parsed.leadPassengerName || '');
@@ -1887,7 +1892,12 @@ export default function Home() {
       console.log('🔍 [FRONTEND] driverNotes type:', typeof data.driverNotes);
       console.log('🔍 [FRONTEND] driverNotes value:', data.driverNotes);
       
-      setExtractedLocations(data.locations);
+      // Mark all extracted locations as verified
+      const verifiedLocations = data.locations?.map((loc: any) => ({
+        ...loc,
+        verified: true
+      }));
+      setExtractedLocations(verifiedLocations);
       setExtractedDate(data.date);
       setExtractedDriverSummary(data.driverNotes);
       setLeadPassengerName(data.leadPassengerName || '');

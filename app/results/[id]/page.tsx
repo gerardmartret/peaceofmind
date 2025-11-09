@@ -2052,12 +2052,13 @@ export default function ResultsPage() {
           finalLocationsMap[idx] = {
             id: loc.id,
             name: loc.name,
+            formattedAddress: loc.formattedAddress || loc.fullAddress || loc.name,
             address: loc.name,
             time: loc.time,
             purpose: loc.name,
             lat: loc.lat,
             lng: loc.lng,
-            fullAddress: loc.name,
+            fullAddress: loc.fullAddress || loc.name,
           };
         });
       }
@@ -2121,9 +2122,15 @@ export default function ResultsPage() {
               finalLoc.lng = tripData.locations[locChange.extractedIndex].lng;
             }
             
-            // CRITICAL FIX: Ensure fullAddress is set from extractedLocation for proper display
+            // CRITICAL FIX: Ensure fullAddress and formattedAddress are set from extractedLocation for proper display
             if (!finalLoc.fullAddress && locChange.extractedLocation) {
               finalLoc.fullAddress = locChange.extractedLocation.formattedAddress || 
+                                     locChange.extractedLocation.location || 
+                                     finalLoc.address || 
+                                     finalLoc.name;
+            }
+            if (!finalLoc.formattedAddress && locChange.extractedLocation) {
+              finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress || 
                                      locChange.extractedLocation.location || 
                                      finalLoc.address || 
                                      finalLoc.name;
@@ -2189,9 +2196,15 @@ export default function ResultsPage() {
               finalLoc.lng = currentLoc.lng;
             }
             
-            // CRITICAL FIX: Ensure fullAddress is set from extractedLocation for proper display
+            // CRITICAL FIX: Ensure fullAddress and formattedAddress are set from extractedLocation for proper display
             if (!finalLoc.fullAddress && locChange.extractedLocation) {
               finalLoc.fullAddress = locChange.extractedLocation.formattedAddress || 
+                                     locChange.extractedLocation.location || 
+                                     finalLoc.address || 
+                                     finalLoc.name;
+            }
+            if (!finalLoc.formattedAddress && locChange.extractedLocation) {
+              finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress || 
                                      locChange.extractedLocation.location || 
                                      finalLoc.address || 
                                      finalLoc.name;
@@ -2219,6 +2232,7 @@ export default function ResultsPage() {
             finalLocationsMap[locChange.currentIndex] = {
               id: currentLoc?.id || (locChange.currentIndex + 1).toString(),
               name: locChange.extractedLocation.purpose || locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
+              formattedAddress: fullAddress,
               address: locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
               time: locChange.extractedLocation.time || locChange.currentLocation.time,
               purpose: locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name,
@@ -2235,6 +2249,7 @@ export default function ResultsPage() {
               finalLocationsMap[locChange.currentIndex] = {
                 id: currentLoc.id,
                 name: currentLoc.name,
+                formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || currentLoc.name,
                 address: currentLoc.name,
                 time: currentLoc.time,
                 purpose: currentLoc.name,
@@ -2244,7 +2259,12 @@ export default function ResultsPage() {
             };
           } else if (locChange.finalLocation) {
             // Fallback to finalLocation only if currentLoc doesn't exist
-            finalLocationsMap[locChange.currentIndex] = locChange.finalLocation;
+            const finalLoc = locChange.finalLocation;
+            // Ensure formattedAddress is set for proper display
+            if (!finalLoc.formattedAddress) {
+              finalLoc.formattedAddress = finalLoc.fullAddress || finalLoc.address || finalLoc.name;
+            }
+            finalLocationsMap[locChange.currentIndex] = finalLoc;
           }
         }
       });
@@ -2260,6 +2280,7 @@ export default function ResultsPage() {
           finalLocationsMap[idx] = {
             id: currentLoc.id,
             name: currentLoc.name,
+            formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || currentLoc.name,
             address: currentLoc.name,
             time: currentLoc.time,
             purpose: currentLoc.name,
@@ -2917,12 +2938,15 @@ export default function ResultsPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Update Trip Section - Second Top Bar - Only show for owners */}
-      {isOwner && !isLiveMode && (
-        <div className="fixed top-[57px] left-0 right-0 z-40 bg-background border-b border-border">
+        {isOwner && !isLiveMode && (
+        <div className="fixed top-[57px] left-0 right-0 z-40 bg-background">
           <div className="container mx-auto px-4 pt-6 pb-3">
-            {/* Trip Title */}
-            <h1 className="text-2xl font-light text-card-foreground mb-3 tracking-tight">
-              {(() => {
+            <div className="rounded-md px-4 py-3 bg-card mb-3">
+              {/* Trip Title with Status */}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-4xl font-light text-card-foreground tracking-tight">
+                {(() => {
                 // Extract passenger name from driver notes
                 const extractPassengerName = (text: string | null): string | null => {
                   if (!text) return null;
@@ -3035,26 +3059,56 @@ export default function ResultsPage() {
 
                 const durationOrTransfer = getTripDurationOrTransfer();
                 
-                // Format: "Name Duration/Transfer in Destination (x Number)"
-                return `${leadPassenger} ${durationOrTransfer} in ${destination} (x${numberOfPassengers})`;
+                // Format: "Name (x Number) Duration/Transfer in Destination"
+                return `${leadPassenger} (x${numberOfPassengers}) ${durationOrTransfer} in ${destination}`;
               })()}
-            </h1>
+                  </h1>
+                  <div className="mt-3 flex items-center gap-3">
+                    <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-sm text-muted-foreground font-medium">Trip Date</span>
+                    <p className="text-xl font-semibold text-card-foreground">
+                      {new Date(tripDate).toLocaleDateString('en-GB', { 
+                        weekday: 'long', 
+                        day: 'numeric', 
+                        month: 'long', 
+                        year: 'numeric' 
+                      })}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Status Badge */}
+                <div 
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ${
+                    tripStatus === 'confirmed' && driverEmail 
+                      ? 'bg-[#3ea34b] text-white' 
+                      : 'bg-destructive text-white'
+                  }`}
+                >
+                  {tripStatus === 'confirmed' && driverEmail ? 'Confirmed' : 'Not Confirmed'}
+                </div>
+              </div>
+            </div>
             
-            <div className="flex gap-3 items-start">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={updateTextareaRef}
-                  id="update-text"
+            <div className="rounded-md px-4 py-2 bg-primary dark:bg-[#1f1f21] border border-border">
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Trip Update</label>
+              <div className="flex gap-3 items-start">
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={updateTextareaRef}
+                    id="update-text"
                   value={updateText}
                   onChange={(e) => setUpdateText(e.target.value)}
-                  placeholder="Paste any updated trip information here..."
-                  className="w-full h-[44px] px-3 py-2 pr-12 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#181a23] transition-colors"
+                  placeholder={isExtracting && updateProgress.step && !updateProgress.error ? `${updateProgress.step}...` : "Paste any updated trip information here..."}
+                  className="w-full h-[51px] px-3 py-2 pr-12 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
                   disabled={isExtracting || isRegenerating}
-                />
+                  />
                   <button
                     onClick={handleExtractUpdates}
                     disabled={!updateText.trim() || isExtracting || isRegenerating}
-                    className={`absolute right-3 top-[10px] p-1 rounded-md transition-all ${
+                    className={`absolute right-3 top-[13px] p-1 rounded-md transition-all ${
                       updateText.trim() 
                         ? 'hover:bg-muted/50 opacity-100' 
                         : 'opacity-30 cursor-not-allowed'
@@ -3068,15 +3122,14 @@ export default function ResultsPage() {
                       className="w-4 h-4 dark:invert"
                     />
                   </button>
-              </div>
-              
-              <div className="flex items-center gap-2 flex-shrink-0">
+                </div>
+                
+                <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Driver Button */}
                 <div className="relative">
                   <Button
                     variant="outline"
-                    size="lg"
-                    className={`flex items-center gap-2 ${
+                    className={`flex items-center gap-2 h-[51px] ${
                       tripStatus === 'confirmed' && driverEmail 
                         ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10' 
                         : driverEmail 
@@ -3086,28 +3139,13 @@ export default function ResultsPage() {
                     onClick={() => setShowDriverModal(true)}
                   >
                     {mounted && (
-                      <>
-                        {/* Driver icon for statuses 1, 4, 5 */}
-                        {(driverEmail || (!quotes.length && !sentDriverEmails.length)) ? (
-                          <img 
-                            src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                            alt="Driver" 
-                            className="w-4 h-4"
-                          />
-                        ) : quotes.length > 0 ? (
-                          /* Status 3: Quoted - Checkmark icon */
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : sentDriverEmails.length > 0 ? (
-                          /* Status 2: Unquoted - Clock icon */
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        ) : null}
-                      </>
+                      <img 
+                        src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                        alt="Driver" 
+                        className="w-4 h-4"
+                      />
                     )}
-                    {tripStatus === 'confirmed' && driverEmail ? 'Confirmed' : driverEmail ? 'Not confirmed' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Unquoted' : 'Unassigned'}
+                    {driverEmail ? 'Driver Assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Unquoted' : 'Driver Unassigned'}
                   </Button>
                   {!driverEmail && quotes.length > 0 && (
                     <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-destructive text-white text-xs font-bold rounded-full border-2 border-background">
@@ -3126,8 +3164,7 @@ export default function ResultsPage() {
                   return (
                     <Button
                       variant={isLiveTripActive ? "default" : "outline"}
-                      size="lg"
-                      className={`flex items-center gap-2 ${
+                      className={`flex items-center gap-2 h-[51px] ${
                         isLiveTripActive 
                           ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]' 
                           : ''
@@ -3146,92 +3183,77 @@ export default function ResultsPage() {
                           <span>
                             {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
                           </span>
-                        </>
-                      ) : (
+                      </>
+                    ) : (
                       <>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                         </svg>
                       </>
-                      )}
-                    </Button>
+                    )}
+                  </Button>
                   );
                 })()}
                 
                 {/* Route View Button */}
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 h-[51px]"
                   onClick={() => setShowMapModal(true)}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                   </svg>
                 </Button>
-              </div>
-              
-              <div className="flex gap-3 flex-shrink-0">
-                {extractedUpdates && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setUpdateText('');
-                      setExtractedUpdates(null);
-                      setShowPreview(false);
-                      setComparisonDiff(null);
-                      setUpdateProgress({ step: '', error: null, canRetry: false });
-                    }}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Enhanced Error Display with Step Information */}
-            {updateProgress.error && (
-              <Alert variant="destructive" className="mt-2">
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p className="font-semibold">
-                      ❌ Failed at: {updateProgress.step}
-                    </p>
-                    <p className="text-sm">
-                      {updateProgress.error}
-                    </p>
-                    {updateProgress.canRetry && (
+                </div>
+                
+                <div className="flex gap-3 flex-shrink-0">
+                    {extractedUpdates && !isExtracting && (
                       <Button
-                        onClick={handleExtractUpdates}
                         variant="outline"
-                        size="sm"
-                        className="mt-2"
+                        onClick={() => {
+                          setUpdateText('');
+                          setExtractedUpdates(null);
+                          setShowPreview(false);
+                          setComparisonDiff(null);
+                          setUpdateProgress({ step: '', error: null, canRetry: false });
+                        }}
                       >
-                        🔄 Retry
+                        Clear
                       </Button>
                     )}
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+                </div>
+                </div>
 
-            {/* Progress Indicator */}
-            {isExtracting && updateProgress.step && !updateProgress.error && (
-              <Alert className="mt-2">
-                <AlertDescription>
-                  <div className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span className="text-sm">{updateProgress.step}...</span>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
+                {/* Enhanced Error Display with Step Information */}
+                {updateProgress.error && (
+                <Alert variant="destructive" className="mt-2">
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-semibold">
+                          ❌ Failed at: {updateProgress.step}
+                        </p>
+                        <p className="text-sm">
+                          {updateProgress.error}
+                        </p>
+                        {updateProgress.canRetry && (
+                          <Button
+                            onClick={handleExtractUpdates}
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                          >
+                            🔄 Retry
+                          </Button>
+                        )}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+              )}
+            </div>
           </div>
         </div>
-      )}
+        )}
 
       {/* Main Content */}
       <div className={`container mx-auto px-4 ${isOwner && !isLiveMode ? 'pt-32 pb-8' : 'py-8'}`}>
@@ -3410,271 +3432,65 @@ export default function ResultsPage() {
 
           {/* Service Introduction */}
           {!isLiveMode && (
-              <div className="mb-6">
-                {/* Header with Passenger Information, Status, and Live Trip Button */}
-                <div className="flex items-start justify-between mb-4 px-8">
-                  {/* Passenger Information with Status */}
-                  <div className="flex-1 flex items-center justify-between gap-4">
-                    <h1 className="text-4xl font-light text-card-foreground mb-1 tracking-tight">
-                      {(() => {
-                        // Extract passenger name from driver notes
-                        const extractPassengerName = (text: string | null): string | null => {
-                          if (!text) return null;
-                          const patterns = [
-                            /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                            /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                            /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                            /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                          ];
-                          
-                          for (const pattern of patterns) {
-                            const match = text.match(pattern);
-                            if (match && match[1]) {
-                              return match[1].trim();
-                            }
-                          }
-                          return null;
-                        };
-
-                        // Get lead passenger name
-                        const leadPassenger = passengerNames && passengerNames.length > 0 
-                                            ? passengerNames[0] 
-                                            : leadPassengerName || extractPassengerName(driverNotes) || 'Passenger';
-
-                        // Extract number of passengers (default to 1 if not specified)
-                        const extractPassengerCount = (text: string | null): number => {
-                          if (!text) return 1;
-                          const patterns = [
-                            /(\d+)\s*(?:passengers?|people|guests?)/i,
-                            /(?:x|×)\s*(\d+)/i,
-                            /(\d+)\s*(?:pax|persons?)/i,
-                          ];
-                          
-                          for (const pattern of patterns) {
-                            const match = text.match(pattern);
-                            if (match && match[1]) {
-                              const count = parseInt(match[1]);
-                              if (count > 0 && count <= 20) return count;
-                            }
-                          }
-                          return 1;
-                        };
-
-                        const numberOfPassengers = passengerCount || 
-                                            extractPassengerCount(driverNotes) || 
-                                            1;
-
-                        // Get trip destination
-                        const getDestination = (): string => {
-                          // First try tripDestination
-                          if (tripDestination) return tripDestination;
-                          
-                          // Then try to get city from first location
-                          if (locations && locations.length > 0) {
-                            const firstLocation = locations[0];
-                            if (firstLocation.name) {
-                              const parts = firstLocation.name.split(',');
-                              if (parts.length >= 2) {
-                                return parts[parts.length - 1].trim();
-                              }
-                            }
-                          }
-                          return 'Location';
-                        };
-
-                        const destination = getDestination();
-                        
-                        // Calculate trip duration or determine if it's a transfer
-                        const getTripDurationOrTransfer = (): string => {
-                          if (locations && locations.length === 2) {
-                            // Calculate duration
-                            const pickupTime = parseInt(locations[0]?.time) || 0;
-                            const dropoffTime = parseInt(locations[1]?.time) || 0;
-                            const durationHours = dropoffTime - pickupTime;
-                            
-                            // If duration is under 3 hours, it's a transfer
-                            if (durationHours < 3) {
-                              // Check if either location is an airport
-                              const hasAirport = locations.some((loc: any) => {
-                                const locName = loc.name?.toLowerCase() || loc.formattedAddress?.toLowerCase() || '';
-                                return locName.includes('airport') || 
-                                       locName.includes('heathrow') || 
-                                       locName.includes('gatwick') || 
-                                       locName.includes('stansted') || 
-                                       locName.includes('luton') ||
-                                       locName.includes('city airport');
-                              });
-                              
-                              return hasAirport ? 'Airport Transfer' : 'Transfer';
-                        } else {
-                              // Show duration if 3 hours or more
-                              const hours = Math.floor(durationHours);
-                              const minutes = Math.round((durationHours - hours) * 60);
-                              return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-                            }
-                          } else if (locations && locations.length >= 2) {
-                            // Calculate duration for trips with more than 2 locations
-                            const pickupTime = parseInt(locations[0]?.time) || 0;
-                            const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
-                            const durationHours = dropoffTime - pickupTime;
-                            
-                            if (durationHours > 0) {
-                              const hours = Math.floor(durationHours);
-                              const minutes = Math.round((durationHours - hours) * 60);
-                              return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-                            }
-                          }
-                          return 'Transfer';
-                        };
-
-                        const durationOrTransfer = getTripDurationOrTransfer();
-                        
-                        // Format: "Name Duration/Transfer in Destination (x Number)"
-                        return `${leadPassenger} ${durationOrTransfer} in ${destination} (x${numberOfPassengers})`;
-                      })()}
-                    </h1>
-                  </div>
-                </div>
-
+              <div className="mb-6 mt-[120px]">
                 {/* Trip Details Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {/* Trip Date Card */}
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4 h-full flex flex-col">
-                      <div className="flex items-center gap-3 mb-2">
-                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="text-sm text-muted-foreground font-medium">Trip Date</span>
-                      </div>
-                      <p className="text-base font-semibold text-card-foreground break-words">
-                        {new Date(tripDate).toLocaleDateString('en-GB', { 
-                          weekday: 'long', 
-                          day: 'numeric', 
-                          month: 'long', 
-                          year: 'numeric' 
-                        })}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
                   {/* Pickup Time Card */}
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4 h-full flex flex-col">
+                  <Card className="shadow-none">
+                    <CardContent className="p-6 h-full flex flex-col">
                       <div className="flex items-center gap-3 mb-2">
                         <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                         <span className="text-sm text-muted-foreground font-medium">Pickup Time</span>
-                      </div>
-                      <p className="text-base font-semibold text-card-foreground">
-                        {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Trip Duration Card */}
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4 h-full flex flex-col">
-                      <div className="flex items-center gap-3 mb-2">
-                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span className="text-sm text-muted-foreground font-medium">Trip Duration</span>
-                      </div>
-                      <p className="text-base font-semibold text-card-foreground">
-                        {(() => {
-                          if (locations && locations.length >= 2) {
-                            const pickupTime = parseInt(locations[0]?.time) || 0;
-                            const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
-                            const duration = dropoffTime - pickupTime;
-                            
-                            if (duration > 0) {
-                              const hours = Math.floor(duration);
-                              const minutes = Math.round((duration - hours) * 60);
-                              return `${hours}h ${minutes}m`;
-                            } else {
-                              return 'Same day';
-                            }
-                          }
-                          return 'N/A';
-                        })()}
-                      </p>
-                    </CardContent>
-                  </Card>
                 </div>
-
-              </div>
-          )}
-
-          {/* Trip Summary Cards */}
-          {!isLiveMode && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Vehicle Information */}
-              <Card className="bg-muted/50">
-                <CardContent className="p-4 h-full flex flex-col">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
-                  </div>
-                  <p className="text-base font-semibold text-card-foreground break-words">
-                    {(() => {
-                      const carInfo = vehicleInfo || extractCarInfo(driverNotes);
-                      return carInfo || 'N/A';
-                    })()}
+                      <p className="text-4xl font-light text-card-foreground">
+                    {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Number of Passengers */}
-              <Card className="bg-muted/50">
-                <CardContent className="p-4 h-full flex flex-col">
-                  <div className="flex items-center gap-3 mb-2">
-                    <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span className="text-sm text-muted-foreground font-medium">
-                      Number of Passengers
-                    </span>
-                  </div>
-                  <p className="text-base font-semibold text-card-foreground">
+                  {/* Trip Duration Card */}
+                  <Card className="shadow-none">
+                    <CardContent className="p-6 h-full flex flex-col">
+                      <div className="flex items-center gap-3 mb-2">
+                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                        <span className="text-sm text-muted-foreground font-medium">Trip Duration</span>
+                </div>
+                      <p className="text-4xl font-light text-card-foreground">
                     {(() => {
-                      const extractPassengerCount = (text: string | null): number => {
-                        if (!text) return 1;
-                        const patterns = [
-                          /(\d+)\s*(?:passengers?|people|guests?)/i,
-                          /(?:x|×)\s*(\d+)/i,
-                          /(\d+)\s*(?:pax|persons?)/i,
-                        ];
+                      if (locations && locations.length >= 2) {
+                        const pickupTime = parseInt(locations[0]?.time) || 0;
+                        const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                        const duration = dropoffTime - pickupTime;
                         
-                        for (const pattern of patterns) {
-                          const match = text.match(pattern);
-                          if (match && match[1]) {
-                            const count = parseInt(match[1]);
-                            if (count > 0 && count <= 20) return count;
-                          }
+                        if (duration > 0) {
+                          const hours = Math.floor(duration);
+                          const minutes = Math.round((duration - hours) * 60);
+                          return `${hours}h ${minutes}m`;
+                        } else {
+                          return 'Same day';
                         }
-                        return 1;
-                      };
-
-                      const numberOfPassengers = passengerCount || extractPassengerCount(driverNotes) || 1;
-                      return numberOfPassengers;
+                      }
+                      return 'N/A';
                     })()}
                   </p>
                 </CardContent>
               </Card>
 
               {/* Estimated Distance */}
-              <Card className="bg-muted/50">
-                <CardContent className="p-4 h-full flex flex-col">
+              <Card className="shadow-none">
+                <CardContent className="p-6 h-full flex flex-col">
                   <div className="flex items-center gap-3 mb-2">
                     <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
                     <span className="text-sm text-muted-foreground font-medium">Estimated Distance</span>
-                  </div>
-                  <p className="text-base font-semibold text-card-foreground">
+                </div>
+                  <p className="text-4xl font-light text-card-foreground">
                     {(() => {
                       // Check if traffic predictions exist and have the correct structure
                       if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
@@ -3709,12 +3525,108 @@ export default function ResultsPage() {
                   </p>
                 </CardContent>
               </Card>
-            </div>
+                </div>
+
+              </div>
           )}
+
+
+          {/* Vehicle Image - Show for sedan services */}
+          {!isLiveMode && (() => {
+            const numberOfPassengers = passengerCount || 1;
+            const extractCarInfo = (text: string | null): string | null => {
+              if (!text) return null;
+              const carPatterns = [
+                /(?:Mercedes|Merc)\s*(?:E|S)[\s-]*Class/i,
+                /(?:Mercedes|Merc)\s*Maybach\s*S/i,
+                /BMW\s*(?:5|7)\s*Series/i,
+                /Audi\s*(?:A6|A8)/i,
+                /Lincoln\s*(?:Continental|MKS)/i,
+                /Lexus\s*(?:E350|LS\s*500)/i,
+                /Volvo\s*S90/i,
+                /Cadillac\s*XTS/i,
+              ];
+              
+              for (const pattern of carPatterns) {
+                if (pattern.test(text)) {
+                  return text.match(pattern)?.[0] || null;
+                }
+              }
+              return null;
+            };
+            
+            const isSedan = numberOfPassengers <= 3 || 
+                            extractCarInfo(vehicleInfo || '') || 
+                            extractCarInfo(driverNotes || '');
+            
+            return isSedan ? (
+              <Card className="mb-6 shadow-none">
+                <CardContent className="pt-6 px-6 pb-2">
+                  {/* Vehicle Info on top */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
+                    </div>
+                    <p className="text-xl font-semibold text-card-foreground break-words">
+                      {(() => {
+                        const carInfo = vehicleInfo || extractCarInfo(driverNotes);
+                        return carInfo || 'N/A';
+                      })()}
+                    </p>
+                  </div>
+                  
+                  {/* Image with Passenger Count on right */}
+                  <div className="flex gap-6 items-start">
+                    <img 
+                      src="/sedan-driverbrief.svg" 
+                      alt="Sedan Vehicle" 
+                      className="h-80 w-auto flex-shrink-0"
+                    />
+                    
+                    {/* Number of Passengers on the right */}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span className="text-sm text-muted-foreground font-medium">
+                          Number of Passengers
+                        </span>
+                      </div>
+                      <p className="text-xl font-semibold text-card-foreground">
+                        {(() => {
+                          const extractPassengerCount = (text: string | null): number => {
+                            if (!text) return 1;
+                            const patterns = [
+                              /(\d+)\s*(?:passengers?|people|guests?)/i,
+                              /(?:x|×)\s*(\d+)/i,
+                              /(\d+)\s*(?:pax|persons?)/i,
+                            ];
+                            
+                            for (const pattern of patterns) {
+                              const match = text.match(pattern);
+                              if (match && match[1]) {
+                                const count = parseInt(match[1]);
+                                if (count > 0 && count <= 20) return count;
+                              }
+                            }
+                            return 1;
+                          };
+
+                          return passengerCount || extractPassengerCount(driverNotes) || 1;
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null;
+          })()}
 
           {/* Trip Locations */}
           {!isLiveMode && (
-            <Card className="mb-6">
+            <Card className="mb-6 shadow-none">
               <CardContent className="p-6">
                 <div className="mb-6">
                   <h3 className="text-xl font-semibold text-card-foreground">Trip Locations</h3>
@@ -3836,22 +3748,10 @@ export default function ResultsPage() {
             </Card>
           )}
 
-          {/* Driver Warnings Box */}
-          {!isLiveMode && (
-            <Card className="mb-6">
+          {/* Exceptional Information */}
+          {!isLiveMode && executiveReport?.exceptionalInformation && (
+            <Card className="mb-6 shadow-none">
               <CardContent className="p-6">
-            <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              Driver Warnings
-            </h3>
-            
-            <div className="space-y-4">
-              {/* Very Important Information */}
-              {executiveReport?.exceptionalInformation && (
-                <Card className="bg-muted/50">
-                  <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                       <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#9e201b' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -3872,16 +3772,15 @@ export default function ResultsPage() {
               )}
 
               {/* Important Information */}
-              {executiveReport?.importantInformation && (
-                <Card className="bg-muted/50">
-                  <CardContent className="p-4">
+          {!isLiveMode && executiveReport?.importantInformation && (
+            <Card className="mb-6 shadow-none">
+              <CardContent className="p-6">
                   <div className="flex items-start gap-3">
                       <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                        <h4 className="font-semibold text-card-foreground mb-1">Important Information</h4>
-                        <div className="text-lg text-card-foreground leading-relaxed">
+                    <div className="text-lg text-card-foreground leading-relaxed">
                         {executiveReport.importantInformation?.split('\n').map((point: string, index: number) => (
                           <div key={index} className="flex items-start gap-2 mb-1">
                               <span className="text-muted-foreground mt-1">•</span>
@@ -3895,6 +3794,18 @@ export default function ResultsPage() {
                 </Card>
               )}
 
+          {/* Driver Warnings Box */}
+          {!isLiveMode && (
+            <Card className="mb-6">
+              <CardContent className="p-6">
+            <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              Driver Warnings
+            </h3>
+            
+            <div className="space-y-4">
               {/* Smart Warning Detection */}
               {(() => {
                 const warnings = [];
@@ -3950,60 +3861,62 @@ export default function ResultsPage() {
                       {/* Risk Score - 25% width */}
                       <Card className="bg-muted/50 w-1/4 flex-shrink-0">
                         <CardContent className="p-4 text-center flex flex-col justify-center h-full">
-                          <h4 className="text-base font-bold text-card-foreground mb-3">
+                          <h4 className="text-base font-bold text-card-foreground mb-2">
                             Risk Score
                           </h4>
-                          <div 
-                            className="text-4xl font-bold mb-2"
-                            style={{
-                              color: (() => {
-                                const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                                if (riskScore <= 3) return '#3ea34b';
-                                if (riskScore <= 6) return '#db7304';
-                                return '#9e201b';
-                              })()
-                            }}
-                          >
-                            {Math.max(0, executiveReport.tripRiskScore)}
-                          </div>
-                          <div className="text-sm text-muted-foreground font-medium mb-2">
-                            out of 10
-                          </div>
-                          <div 
-                            className="text-xs font-semibold tracking-wide px-3 py-1 rounded"
-                            style={{
-                              backgroundColor: (() => {
-                                const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                                if (riskScore <= 3) return '#3ea34b';
-                                if (riskScore <= 6) return '#db7304';
-                                return '#9e201b';
-                              })(),
-                              color: '#FFFFFF'
-                            }}
-                          >
-                            {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
-                             Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
-                             Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                          <div className="bg-card border border-border rounded-md p-3">
+                            <div 
+                              className="text-3xl font-bold mb-1"
+                              style={{
+                                color: (() => {
+                                  const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                                  if (riskScore <= 3) return '#3ea34b';
+                                  if (riskScore <= 6) return '#db7304';
+                                  return '#9e201b';
+                                })()
+                              }}
+                            >
+                              {Math.max(0, executiveReport.tripRiskScore)}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-medium mb-2">
+                              out of 10
+                            </div>
+                            <div 
+                              className="text-xs font-semibold tracking-wide px-2 py-1 rounded"
+                              style={{
+                                backgroundColor: (() => {
+                                  const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                                  if (riskScore <= 3) return '#3ea34b';
+                                  if (riskScore <= 6) return '#db7304';
+                                  return '#9e201b';
+                                })(),
+                                color: '#FFFFFF'
+                              }}
+                            >
+                              {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                               Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                               Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
                       
                       {/* Recommendations for the Driver - 75% width */}
                       <Card className="bg-muted/50 flex-1">
-                        <CardContent className="p-4">
-                          <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
-                          <div className="space-y-2">
-                            {executiveReport.recommendations.map((rec: string, idx: number) => (
-                              <div key={idx} className="flex items-start gap-3">
-                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
-                                  {idx + 1}
-                                </span>
-                                <p className="text-lg text-card-foreground leading-relaxed">{rec}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <CardContent className="p-4">
+                        <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
+                        <div className="space-y-2">
+                          {executiveReport.recommendations.map((rec: string, idx: number) => (
+                            <div key={idx} className="flex items-start gap-3">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
+                                {idx + 1}
+                              </span>
+                                <p className="text-sm text-card-foreground leading-relaxed">{rec}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
                     </div>
                   </>
                 );
@@ -4039,16 +3952,16 @@ export default function ResultsPage() {
                 </h3>
 
                 {/* Top Disruptor */}
-                <Card className="bg-muted/50">
-                  <CardContent className="p-4">
+                  <Card className="bg-muted/50">
+                    <CardContent className="p-4">
                     <h4 className="text-base font-bold text-card-foreground mb-3">
                       Top Disruptor
                     </h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      {executiveReport.topDisruptor}
-                    </p>
-                  </CardContent>
-                </Card>
+                  {executiveReport.topDisruptor}
+                </p>
+                    </CardContent>
+              </Card>
                 </CardContent>
             </Card>
 
@@ -4600,7 +4513,7 @@ export default function ResultsPage() {
                       <div className="text-2xl font-bold text-card-foreground flex items-center gap-2">
                         <span>Route: {numberToLetter(index + 1)}</span>
                         <span 
-                          className="inline-block text-lg animate-[slideArrow_2s_ease-in-out_infinite]"
+                          className="inline-block text-lg"
                         >
                           →
                         </span>
@@ -4991,7 +4904,7 @@ export default function ResultsPage() {
                           </svg>
                           Sending...
                         </>
-                        ) : (
+                      ) : (
                         'Request Quote'
                       )}
                     </Button>
@@ -5127,15 +5040,6 @@ export default function ResultsPage() {
                   <Alert variant="destructive" className="mb-4">
                     <AlertDescription>{manualDriverError}</AlertDescription>
                   </Alert>
-                )}
-                
-                {driverEmail && (
-                  <div className="mb-4 p-3 bg-[#3ea34b]/10 border border-[#3ea34b]/30 rounded-md">
-                    <p className="text-sm">
-                      <span className="font-semibold">Current driver:</span>{' '}
-                      <span className="text-[#3ea34b]">{driverEmail}</span>
-                    </p>
-                  </div>
                 )}
                 
                 <div className="flex gap-2">
@@ -5528,16 +5432,6 @@ export default function ResultsPage() {
                   <Alert variant="destructive" className="mb-4">
                     <AlertDescription>{quoteRequestError || manualDriverError}</AlertDescription>
                   </Alert>
-                )}
-                
-                {/* Current Driver Display */}
-                {driverEmail && (
-                  <div className="mb-4 p-3 bg-[#3ea34b]/10 border border-[#3ea34b]/30 rounded-md">
-                    <p className="text-sm">
-                      <span className="font-semibold">Current driver:</span>{' '}
-                      <span className="text-[#3ea34b]">{driverEmail}</span>
-                    </p>
-                  </div>
                 )}
                 
                 {/* Unified Email Input with Two Buttons */}
