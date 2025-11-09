@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host') || 'localhost:3000';
     const protocol = host.includes('localhost') ? 'http' : 'https';
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
-    const tripLink = `${baseUrl}/results/${tripId}`;
+    // Add quote parameter to highlight quote form for drivers
+    const tripLink = `${baseUrl}/results/${tripId}?quote=true`;
     const password = trip.password;
 
     // Send email

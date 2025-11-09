@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   title: "Driverbrief - Roadshow planner",
   description: "Plan your roadshow with ease",
   icons: {
-    icon: "/favicon-driverbrief-light.svg",
+    icon: "/driv-fav.svg",
   },
 };
 
