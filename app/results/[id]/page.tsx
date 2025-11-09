@@ -2929,43 +2929,25 @@ export default function ResultsPage() {
                   className="w-full h-[44px] px-3 py-2 pr-12 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#181a23] transition-colors"
                   disabled={isExtracting || isRegenerating}
                 />
-                <button
-                  onClick={handleExtractUpdates}
-                  disabled={!updateText.trim() || isExtracting || isRegenerating}
-                  className={`absolute right-3 bottom-[10px] p-1 rounded-md transition-all ${
-                    updateText.trim() 
-                      ? 'hover:bg-muted/50 opacity-100' 
-                      : 'opacity-30 cursor-not-allowed'
-                  }`}
-                  aria-label="Update trip"
-                  type="button"
-                >
-                  <img 
-                    src="/update-dark.png"
-                    alt="Update" 
-                    className="w-4 h-4 dark:invert"
-                  />
-                </button>
+                  <button
+                    onClick={handleExtractUpdates}
+                    disabled={!updateText.trim() || isExtracting || isRegenerating}
+                    className={`absolute right-3 top-[10px] p-1 rounded-md transition-all ${
+                      updateText.trim() 
+                        ? 'hover:bg-muted/50 opacity-100' 
+                        : 'opacity-30 cursor-not-allowed'
+                    }`}
+                    aria-label="Update trip"
+                    type="button"
+                  >
+                    <img 
+                      src="/update-dark.png"
+                      alt="Update" 
+                      className="w-4 h-4 dark:invert"
+                    />
+                  </button>
               </div>
               <div className="flex gap-3 flex-shrink-0">
-                <Button
-                  onClick={handleExtractUpdates}
-                  disabled={!updateText.trim() || isExtracting || isRegenerating}
-                  size="lg"
-                  className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                >
-                  {isExtracting ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      <span>Extracting...</span>
-                    </>
-                    ) : (
-                      'Update Trip'
-                    )}
-                </Button>
                 <div className="relative">
                   <Button
                     variant="outline"
@@ -3009,6 +2991,52 @@ export default function ResultsPage() {
                     </span>
                   )}
                 </div>
+                
+                {/* Live Trip / View Route Breakdown Button */}
+                {(() => {
+                  const now = new Date();
+                  const tripDateTime = new Date(tripDate);
+                  const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
+                  const isLiveTripActive = now >= oneHourBefore;
+                  
+                  return (
+                    <Button
+                      variant={isLiveTripActive ? "default" : "outline"}
+                      size="lg"
+                      className={`flex items-center gap-2 ${
+                        isLiveTripActive 
+                          ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]' 
+                          : ''
+                      }`}
+                      onClick={() => {
+                        if (isLiveMode) {
+                          stopLiveTrip();
+                        } else {
+                          startLiveTrip();
+                        }
+                      }}
+                    >
+                      {isLiveTripActive ? (
+                        <>
+                          <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                          <span>
+                            {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                          </svg>
+                          <span>
+                            Trip Breakdown
+                          </span>
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
+                
                 {extractedUpdates && (
                   <Button
                     variant="outline"
@@ -3531,52 +3559,8 @@ export default function ResultsPage() {
           {!isLiveMode && (
             <Card className="mb-6">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6">
                   <h3 className="text-xl font-semibold text-card-foreground">Trip Locations</h3>
-                  
-                  {/* Live Trip Button - Always visible */}
-                  {(() => {
-                    const now = new Date();
-                    const tripDateTime = new Date(tripDate);
-                    const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
-                    const isLiveTripActive = now >= oneHourBefore;
-                    
-                    return (
-                      <button 
-                        className={`px-4 py-2 font-medium rounded-lg transition-all duration-300 flex items-center gap-2 text-sm ${
-                          isLiveTripActive 
-                            ? 'bg-[#3ea34b] text-white shadow-md hover:shadow-lg hover:bg-[#359840]' 
-                            : 'bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:opacity-90'
-                        }`}
-                        onClick={() => {
-                          if (isLiveMode) {
-                            stopLiveTrip();
-                          } else {
-                            startLiveTrip();
-                          }
-                        }}
-                        title={isLiveMode ? 'Stop live trip tracking' : 'Start live trip tracking'}
-                      >
-                        {isLiveTripActive ? (
-                          <>
-                            <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                            <span className="font-medium">
-                              {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                            </svg>
-                            <span className="font-medium">
-                              View Route Breakdown
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    );
-                  })()}
                 </div>
             <div className="relative">
               {/* Connecting Line */}
@@ -3740,7 +3724,7 @@ export default function ResultsPage() {
                     </svg>
                     <div>
                         <h4 className="font-semibold text-card-foreground mb-1">Important Information</h4>
-                        <div className="text-sm text-card-foreground leading-relaxed">
+                        <div className="text-lg text-card-foreground leading-relaxed">
                         {executiveReport.importantInformation?.split('\n').map((point: string, index: number) => (
                           <div key={index} className="flex items-start gap-2 mb-1">
                               <span className="text-muted-foreground mt-1">•</span>
@@ -3814,7 +3798,7 @@ export default function ResultsPage() {
                               <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
                                 {idx + 1}
                               </span>
-                              <p className="text-sm text-muted-foreground leading-relaxed">{rec}</p>
+                              <p className="text-lg text-card-foreground leading-relaxed">{rec}</p>
                             </div>
                           ))}
                         </div>
