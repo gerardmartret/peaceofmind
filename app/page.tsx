@@ -2741,7 +2741,7 @@ export default function Home() {
                           type="date"
                           value={extractedDate || ''}
                           onChange={(e) => handleDateEdit(e.target.value)}
-                          className={`bg-background border-border rounded-md h-9 pl-10 text-foreground ${
+                          className={`bg-background border-0 rounded-md h-9 pl-10 text-foreground ${
                             !extractedDate ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700' : ''
                           }`}
                         />
@@ -2780,7 +2780,7 @@ export default function Home() {
                         }}
                         disabled={loadingDestinations}
                       >
-                        <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
+                        <SelectTrigger className="w-full bg-background border-0 rounded-md h-9 text-foreground">
                           <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select or enter destination"} />
                         </SelectTrigger>
                         <SelectContent>
@@ -2821,7 +2821,7 @@ export default function Home() {
                           }
                         }}
                         placeholder="e.g., Mr. Smith"
-                        className="bg-background border-border rounded-md h-9 text-foreground"
+                        className="bg-background border-0 rounded-md h-9 text-foreground"
                       />
                     </div>
                     {/* Number of Passengers - spans 1 column */}
@@ -2873,7 +2873,7 @@ export default function Home() {
                           }
                         }}
                         placeholder="e.g., Mercedes S-Class"
-                        className="bg-background border-border rounded-md h-9 text-foreground"
+                        className="bg-background border-0 rounded-md h-9 text-foreground"
                       />
                     </div>
                   </div>
@@ -2972,7 +2972,7 @@ export default function Home() {
                 </div>
 
                 {/* Trip Notes Field */}
-                <div className="mt-8 rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
+                <div className="mt-8 rounded-md p-4 bg-primary dark:bg-[#1f1f21]">
                   <Label className="text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2 block">Trip notes</Label>
                   <textarea
                     value={extractedDriverSummary || ''}
@@ -2995,7 +2995,7 @@ export default function Home() {
                     }}
                     placeholder="Additional notes, contact info, special instructions, etc."
                     rows={6}
-                    className="w-full bg-background dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#323236] transition-colors border resize-y focus:outline-none focus-visible:border-ring dark:focus-visible:border-[#323236]"
+                    className="w-full bg-background dark:bg-input/30 border-0 rounded-md p-2 text-sm text-foreground dark:hover:bg-[#323236] transition-colors resize-y focus:outline-none focus-visible:border-ring dark:focus-visible:border-[#323236]"
                   />
                 </div>
 
@@ -3059,13 +3059,8 @@ export default function Home() {
 
         {/* Multi-Location Trip Planner */}
         {showManualForm && (
-        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8 border border-border">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-medium text-card-foreground">
-                Plan your roadshow
-              </h2>
-            </div>
+        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8">
+          <div className="flex items-center justify-end mb-4">
             <Button
               onClick={() => setShowManualForm(false)}
               variant="outline"
@@ -3074,13 +3069,9 @@ export default function Home() {
               ← Back to Import
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Add multiple locations to analyze safety, traffic, and weather for your entire journey
-          </p>
           
-
           {/* Trip Date and Trip Destination */}
-          <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
+          <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020]">
             {/* Unified Grid for All Trip Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
               {/* Trip Date - spans 2 columns */}
@@ -3094,7 +3085,7 @@ export default function Home() {
                       variant="outline"
                       id="tripDate"
                       className={cn(
-                        "w-full justify-start text-left font-normal bg-background",
+                        "w-full justify-start text-left font-normal bg-background border-0",
                         !tripDate && "text-muted-foreground"
                       )}
                     >
