@@ -297,6 +297,13 @@ export default function ResultsPage() {
   const updateTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [regenerationProgress, setRegenerationProgress] = useState<number>(0);
   const [regenerationStep, setRegenerationStep] = useState<string>('');
+  const [regenerationSteps, setRegenerationSteps] = useState<Array<{
+    id: string;
+    title: string;
+    description: string;
+    source: string;
+    status: 'pending' | 'loading' | 'completed' | 'error';
+  }>>([]);
   
   // Driver view modal state
   const [showDriverModal, setShowDriverModal] = useState<boolean>(false);
@@ -1052,15 +1059,31 @@ export default function ResultsPage() {
         }
 
         // FIX: Validate and fix location IDs when loading from database
+        const usedIds = new Set<string>();
         const locationsWithValidIds = (data.locations as any[]).map((loc: any, idx: number) => {
           // Check if ID is invalid (literal string from AI bug)
           if (!loc.id || loc.id === 'currentLocation.id' || loc.id === 'extractedLocation.id' || loc.id.includes('Location.id')) {
             console.warn(`⚠️ [FIX] Invalid location ID detected in database: "${loc.id}", generating unique ID for location ${idx}`);
+            const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            usedIds.add(newId);
             return {
               ...loc,
-              id: `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+              id: newId
             };
           }
+          
+          // Check for duplicate IDs
+          if (usedIds.has(loc.id)) {
+            const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            console.warn(`⚠️ [FIX] Duplicate location ID detected in database: "${loc.id}" at index ${idx}, generating unique ID: "${newId}"`);
+            usedIds.add(newId);
+            return {
+              ...loc,
+              id: newId
+            };
+          }
+          
+          usedIds.add(loc.id);
           return loc;
         });
 
@@ -2389,6 +2412,18 @@ export default function ResultsPage() {
       .sort((a, b) => a - b);
     
     diff.finalLocations = sortedIndices.map(idx => finalLocationsMap[idx]);
+    
+    // FIX: Ensure unique IDs in final locations array (prevent React duplicate key errors)
+    const usedIds = new Set<string>();
+    diff.finalLocations = diff.finalLocations.map((loc: any, idx: number) => {
+      if (usedIds.has(loc.id)) {
+        const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.warn(`⚠️ [FIX] Duplicate ID detected: "${loc.id}" at index ${idx}, replacing with: "${newId}"`);
+        return { ...loc, id: newId };
+      }
+      usedIds.add(loc.id);
+      return loc;
+    });
 
     // If no locations in final (shouldn't happen, but fallback), preserve all current locations
     if (diff.finalLocations.length === 0 && tripData?.locations && tripData.locations.length > 0) {
@@ -2541,6 +2576,10 @@ export default function ResultsPage() {
       // Get traffic predictions
       setRegenerationProgress(60);
       setRegenerationStep('Calculating traffic predictions...');
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '2' ? { ...s, status: 'completed' as const } :
+        s.id === '3' ? { ...s, status: 'loading' as const } : s
+      ));
       console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
       try {
@@ -2556,6 +2595,10 @@ export default function ResultsPage() {
       // Generate executive report
       setRegenerationProgress(75);
       setRegenerationStep('Generating executive report...');
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '3' ? { ...s, status: 'completed' as const } :
+        s.id === '4' ? { ...s, status: 'loading' as const } : s
+      ));
       console.log('🤖 Generating Executive Peace of Mind Report...');
       let executiveReportData = null;
       
@@ -2668,6 +2711,10 @@ export default function ResultsPage() {
       // Update trip in database
       setRegenerationProgress(90);
       setRegenerationStep('Saving updated report...');
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '4' ? { ...s, status: 'completed' as const } :
+        s.id === '5' ? { ...s, status: 'loading' as const } : s
+      ));
       console.log(`💾 Updating trip ${tripId} with version ${updateData.version}...`);
       const { data: updatedTrip, error: updateError} = await supabase
         .from('trips')
@@ -2687,6 +2734,7 @@ export default function ResultsPage() {
 
       setRegenerationProgress(100);
       setRegenerationStep('Update complete!');
+      setRegenerationSteps(prev => prev.map(s => s.id === '5' ? { ...s, status: 'completed' as const } : s));
 
       // Small delay to show completion, then handle next steps
       setTimeout(() => {
@@ -2728,6 +2776,16 @@ export default function ResultsPage() {
     setError(null);
     setRegenerationProgress(0);
     setRegenerationStep('Preparing updated locations...');
+    
+    // Initialize loading steps
+    const steps = [
+      { id: '1', title: 'Preparing Locations', description: 'Validating and geocoding updated locations', source: 'Google Maps', status: 'loading' as const },
+      { id: '2', title: 'Fetching Location Data', description: 'Gathering crime, weather, disruptions, parking data', source: 'Multiple APIs', status: 'pending' as const },
+      { id: '3', title: 'Traffic Analysis', description: 'Calculating real-time traffic predictions', source: 'Google Maps', status: 'pending' as const },
+      { id: '4', title: 'Executive Report', description: 'Generating AI-powered risk analysis', source: 'OpenAI', status: 'pending' as const },
+      { id: '5', title: 'Saving Report', description: 'Updating database with new information', source: 'Supabase', status: 'pending' as const },
+    ];
+    setRegenerationSteps(steps);
 
     try {
       // Use finalLocations from AI comparison (already merged intelligently)
@@ -2803,6 +2861,7 @@ export default function ResultsPage() {
       console.log(`🗺️ [OPTIMIZATION] Geocoding: ${locationsNeedingGeocoding.length} locations need geocoding, ${locationsWithValidData.length} already have valid data`);
       setRegenerationProgress(10);
       setRegenerationStep(`Geocoding ${locationsNeedingGeocoding.length} location(s)...`);
+      setRegenerationSteps(prev => prev.map(s => s.id === '1' ? { ...s, status: 'loading' as const } : s));
       
       // Only geocode locations that actually need it
       let geocodedLocations: any[] = [];
@@ -2868,6 +2927,10 @@ export default function ResultsPage() {
       });
       setRegenerationProgress(20);
       setRegenerationStep('Fetching updated data for all locations...');
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '1' ? { ...s, status: 'completed' as const } :
+        s.id === '2' ? { ...s, status: 'loading' as const } : s
+      ));
 
       // Get updated trip date (from AI comparison or use current)
       const comparisonData = comparisonDiff.comparisonData;
@@ -3252,18 +3315,25 @@ export default function ResultsPage() {
                     onClick={handleExtractUpdates}
                     disabled={!updateText.trim() || isExtracting || isRegenerating}
                     className={`absolute right-3 top-[13px] p-1 rounded-md transition-all ${
-                      updateText.trim() 
+                      updateText.trim() && !isExtracting
                         ? 'hover:bg-muted/50 opacity-100' 
                         : 'opacity-30 cursor-not-allowed'
                     }`}
                     aria-label="Update trip"
                     type="button"
                   >
-                    <img 
-                      src="/update-dark.png"
-                      alt="Update" 
-                      className="w-4 h-4 dark:invert"
-                    />
+                    {isExtracting ? (
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : (
+                      <img 
+                        src="/update-dark.png"
+                        alt="Update" 
+                        className="w-4 h-4 dark:invert"
+                      />
+                    )}
                   </button>
                 </div>
                 
@@ -3401,6 +3471,168 @@ export default function ResultsPage() {
       {/* Main Content */}
       <div className={`container mx-auto px-4 ${isOwner && !isLiveMode ? 'pt-32 pb-8' : 'py-8'}`}>
 
+        {/* Loading State Modal - Full Screen Overlay (Same as Homepage) */}
+        {isRegenerating && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto">
+              <CardContent className="p-8">
+                <div className="space-y-8">
+                  {/* Circular Progress Indicator */}
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative w-32 h-32">
+                      {/* Background Circle */}
+                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          fill="none"
+                          className="text-secondary dark:text-[#2a2a2c]"
+                        />
+                        {/* Progress Circle */}
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          fill="none"
+                          strokeDasharray="339.292"
+                          strokeDashoffset={339.292 * (1 - regenerationProgress / 100)}
+                          className={regenerationProgress >= 100 ? "text-green-500" : "text-[#05060A] dark:text-[#E5E7EF]"}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      {/* Percentage Text */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-3xl font-bold">
+                          {Math.round(regenerationProgress)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-xl font-semibold mb-1">Updating Report</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {regenerationSteps.filter(s => s.status === 'completed').length} of {regenerationSteps.length} steps completed
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Steps Carousel - Exact Homepage Animation */}
+                  <div className="relative h-[200px] overflow-hidden">
+                    {regenerationSteps.map((step, index) => {
+                      const isActive = step.status === 'loading';
+                      const isCompleted = step.status === 'completed';
+                      const isPending = step.status === 'pending';
+                      
+                      // Calculate position relative to active step
+                      const activeIndex = regenerationSteps.findIndex(s => s.status === 'loading');
+                      const position = index - activeIndex;
+                      
+                      // Determine visibility and styling
+                      let transform = '';
+                      let opacity = 0;
+                      let scale = 0.85;
+                      let zIndex = 0;
+                      let blur = 'blur(4px)';
+                      
+                      if (position === 0) {
+                        // Active step - center
+                        transform = 'translateY(0)';
+                        opacity = 1;
+                        scale = 1;
+                        zIndex = 30;
+                        blur = 'blur(0)';
+                      } else if (position === -1) {
+                        // Previous step - hide completely
+                        transform = 'translateY(-120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
+                      } else if (position === 1) {
+                        // Next step - hide completely
+                        transform = 'translateY(120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
+                      } else if (position < -1) {
+                        // Steps further above
+                        transform = 'translateY(-120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
+                      } else {
+                        // Steps further below
+                        transform = 'translateY(120px)';
+                        opacity = 0;
+                        scale = 0.85;
+                        zIndex = 10;
+                      }
+                      
+                      return (
+                        <div
+                          key={step.id}
+                          className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out"
+                          style={{
+                            transform: `${transform} scale(${scale})`,
+                            opacity: opacity,
+                            zIndex: zIndex,
+                            filter: blur
+                          }}
+                        >
+                          <div
+                            className={`flex items-start gap-4 p-4 rounded-lg border-2 ${
+                              isActive 
+                                ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10' 
+                                : isCompleted
+                                  ? 'border-green-500/30 bg-green-500/5'
+                                  : 'border-border bg-muted/30'
+                            }`}
+                          >
+                            {/* Status Icon */}
+                            <div className="flex-shrink-0 mt-0.5">
+                              {isPending && (
+                                <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
+                              )}
+                              {isActive && (
+                                <div className="w-6 h-6 rounded-full border-2 border-[#05060A] dark:border-[#E5E7EF] border-t-transparent animate-spin"></div>
+                              )}
+                              {isCompleted && (
+                                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Step Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <h4 className={`text-base font-semibold ${isActive ? 'text-[#05060A] dark:text-[#E5E7EF]' : ''}`}>
+                                  {step.title}
+                                </h4>
+                                <span className="text-xs font-medium text-[#05060A] dark:text-[#E5E7EF] bg-secondary dark:bg-[#2a2a2c] px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
+                                  {step.source}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {step.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Preview Modal */}
         {showPreview && comparisonDiff && isOwner && !isLiveMode && (
           <Dialog open={showPreview} onOpenChange={(open) => {
@@ -3411,64 +3643,14 @@ export default function ResultsPage() {
               setUpdateText('');
             }
           }}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              {isRegenerating ? (
-                // Loading State with Homepage Animation
-                <div className="py-8">
-                  <div className="space-y-8">
-                    {/* Circular Progress Indicator */}
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="relative w-32 h-32">
-                        {/* Background Circle */}
-                        <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r="54"
-                            stroke="currentColor"
-                            strokeWidth="8"
-                            fill="none"
-                            className="text-secondary dark:text-[#2a2a2c]"
-                          />
-                          {/* Progress Circle */}
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r="54"
-                            stroke="currentColor"
-                            strokeWidth="8"
-                            fill="none"
-                            strokeDasharray="339.292"
-                            strokeDashoffset={339.292 * (1 - regenerationProgress / 100)}
-                            className={regenerationProgress >= 100 ? "text-green-500" : "text-[#05060A] dark:text-[#E5E7EF]"}
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                        {/* Percentage Text */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-3xl font-bold">
-                            {Math.round(regenerationProgress)}%
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <h3 className="text-xl font-semibold mb-1">Updating Report</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {regenerationStep}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                // Preview State
-                <>
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl">Preview Changes</DialogTitle>
-                    <DialogDescription>
-                      Review the changes before updating the report
-                    </DialogDescription>
-                  </DialogHeader>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-2xl">Preview Changes</DialogTitle>
+                  <DialogDescription>
+                    Review the changes before updating the report
+                  </DialogDescription>
+                </DialogHeader>
               <div className="space-y-4">
                 {/* Trip Date Changes */}
                 {comparisonDiff.tripDateChanged && (
@@ -3629,7 +3811,6 @@ export default function ResultsPage() {
                     </Button>
                   </DialogFooter>
                 </>
-              )}
             </DialogContent>
           </Dialog>
         )}

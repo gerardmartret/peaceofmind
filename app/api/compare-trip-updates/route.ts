@@ -61,7 +61,12 @@ RULES:
 
 2. LOCATION MATCHING (context-aware):
    - "pickup"/"pick up" = FIRST location | "drop-off"/"destination" = LAST location
-   - "change pickup to X" = modify first location address | "pickup time is 3pm" = modify first location time only
+   - EXAMPLES:
+     * "change pickup time to 6am" → First location: timeChanged=true, addressChanged=false, time="06:00"
+     * "pickup at 6am" or "pickup time is 6am" → First location: timeChanged=true, addressChanged=false
+     * "drop off at 11pm" or "dropoff time 11pm" → Last location: timeChanged=true, addressChanged=false
+     * "change pickup to The Ritz Hotel" → First location: addressChanged=true, timeChanged=false
+   - If update mentions ONLY time (no venue/address), set addressChanged=false
 
 3. CHANGE TYPES:
    - unchanged: No changes | modified: Same location, field(s) changed | added: New location | removed: Explicitly mentioned as removed
