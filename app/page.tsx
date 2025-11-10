@@ -2256,7 +2256,7 @@ export default function Home() {
 
         {/* Email/Text Import Section */}
         {!showManualForm && !extractedLocations && (
-        <div className="bg-card rounded-md p-6 mb-8 border border-border">
+        <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <svg className="w-5 h-5 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -2267,13 +2267,14 @@ export default function Home() {
           </div>
 
           <div className="space-y-4">
-            {/* Textarea */}
-            <div>
+            {/* Textarea with Dark Container */}
+            <div className="rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Paste Email or Text</label>
               <textarea
                 value={extractionText}
                 onChange={(e) => setExtractionText(e.target.value)}
                 placeholder="Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you."
-                className="w-full min-h-[150px] p-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-y dark:hover:bg-[#181a23] transition-colors"
+                className="w-full min-h-[150px] p-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-y dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
               />
             </div>
 
@@ -3140,15 +3141,15 @@ export default function Home() {
                             filter: blur
                           }}
                         >
-                          <div
-                            className={`flex items-start gap-4 p-4 rounded-lg border-2 ${
-                              isActive 
-                                ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10' 
-                                : isCompleted
-                                  ? 'border-green-500/30 bg-green-500/5'
-                                  : 'border-border bg-muted/30'
-                            }`}
-                          >
+                            <div
+                              className={`flex items-start gap-4 p-4 rounded-lg border ${
+                                isActive 
+                                  ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10' 
+                                  : isCompleted
+                                    ? 'border-green-500/30 bg-green-500/5'
+                                    : 'border-border bg-muted/30'
+                              }`}
+                            >
                             {/* Status Icon */}
                             <div className="flex-shrink-0 mt-0.5">
                               {isPending && (
