@@ -3147,156 +3147,6 @@ export default function ResultsPage() {
         {isOwner && !isLiveMode && (
         <div className="fixed top-[57px] left-0 right-0 z-40 bg-background">
           <div className="container mx-auto px-4 pt-6 pb-3">
-            <div className="rounded-md px-4 py-3 bg-card mb-3">
-              {/* Trip Title with Status */}
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-4xl font-light text-card-foreground tracking-tight">
-                {(() => {
-                // Extract passenger name from driver notes
-                const extractPassengerName = (text: string | null): string | null => {
-                  if (!text) return null;
-                  const patterns = [
-                    /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                    /(?:Client|Passenger|Guest):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                    /(?:for|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                    /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
-                  ];
-                  
-                  for (const pattern of patterns) {
-                    const match = text.match(pattern);
-                    if (match && match[1]) {
-                      return match[1].trim();
-                    }
-                  }
-                  return null;
-                };
-
-                // Get lead passenger name
-                const leadPassenger = passengerNames && passengerNames.length > 0 
-                                    ? passengerNames[0] 
-                                    : leadPassengerName || extractPassengerName(driverNotes) || 'Passenger';
-
-                // Extract number of passengers (default to 1 if not specified)
-                const extractPassengerCount = (text: string | null): number => {
-                  if (!text) return 1;
-                  const patterns = [
-                    /(\d+)\s*(?:passengers?|people|guests?)/i,
-                    /(?:x|×)\s*(\d+)/i,
-                    /(\d+)\s*(?:pax|persons?)/i,
-                  ];
-                  
-                  for (const pattern of patterns) {
-                    const match = text.match(pattern);
-                    if (match && match[1]) {
-                      const count = parseInt(match[1]);
-                      if (count > 0 && count <= 20) return count;
-                    }
-                  }
-                  return 1;
-                };
-
-                const numberOfPassengers = passengerCount || 
-                                    extractPassengerCount(driverNotes) || 
-                                    1;
-
-                // Get trip destination
-                const getDestination = (): string => {
-                  // First try tripDestination
-                  if (tripDestination) return tripDestination;
-                  
-                  // Then try to get city from first location
-                  if (locations && locations.length > 0) {
-                    const firstLocation = locations[0];
-                    if (firstLocation.name) {
-                      const parts = firstLocation.name.split(',');
-                      if (parts.length >= 2) {
-                        return parts[parts.length - 1].trim();
-                      }
-                    }
-                  }
-                  return 'Location';
-                };
-
-                const destination = getDestination();
-                
-                // Calculate trip duration or determine if it's a transfer
-                const getTripDurationOrTransfer = (): string => {
-                  if (locations && locations.length === 2) {
-                    // Calculate duration
-                    const pickupTime = parseInt(locations[0]?.time) || 0;
-                    const dropoffTime = parseInt(locations[1]?.time) || 0;
-                    const durationHours = dropoffTime - pickupTime;
-                    
-                    // If duration is under 3 hours, it's a transfer
-                    if (durationHours < 3) {
-                      // Check if either location is an airport
-                      const hasAirport = locations.some((loc: any) => {
-                        const locName = loc.name?.toLowerCase() || loc.formattedAddress?.toLowerCase() || '';
-                        return locName.includes('airport') || 
-                               locName.includes('heathrow') || 
-                               locName.includes('gatwick') || 
-                               locName.includes('stansted') || 
-                               locName.includes('luton') ||
-                               locName.includes('city airport');
-                      });
-                      
-                      return hasAirport ? 'Airport Transfer' : 'Transfer';
-                } else {
-                      // Show duration if 3 hours or more
-                      const hours = Math.floor(durationHours);
-                      const minutes = Math.round((durationHours - hours) * 60);
-                      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-                    }
-                  } else if (locations && locations.length >= 2) {
-                    // Calculate duration for trips with more than 2 locations
-                    const pickupTime = parseInt(locations[0]?.time) || 0;
-                    const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
-                    const durationHours = dropoffTime - pickupTime;
-                    
-                    if (durationHours > 0) {
-                      const hours = Math.floor(durationHours);
-                      const minutes = Math.round((durationHours - hours) * 60);
-                      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-                    }
-                  }
-                  return 'Transfer';
-                };
-
-                const durationOrTransfer = getTripDurationOrTransfer();
-                
-                // Format: "Name (x Number) Duration/Transfer in Destination"
-                return `${leadPassenger} (x${numberOfPassengers}) ${durationOrTransfer} in ${destination}`;
-              })()}
-                  </h1>
-                  <div className="mt-3 flex items-center gap-3">
-                    <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-sm text-muted-foreground font-medium">Trip Date</span>
-                    <p className="text-xl font-semibold text-card-foreground">
-                      {new Date(tripDate).toLocaleDateString('en-GB', { 
-                        weekday: 'long', 
-                        day: 'numeric', 
-                        month: 'long', 
-                        year: 'numeric' 
-                      })}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Status Badge */}
-                <div 
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap ${
-                    tripStatus === 'confirmed' && driverEmail 
-                      ? 'bg-[#3ea34b] text-white' 
-                      : 'bg-destructive text-white'
-                  }`}
-                >
-                  {tripStatus === 'confirmed' && driverEmail ? 'Confirmed' : 'Not Confirmed'}
-                </div>
-              </div>
-            </div>
             
             <div className="rounded-md px-4 py-2 bg-primary dark:bg-[#1f1f21] border border-border">
               <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Trip Update</label>
@@ -3821,7 +3671,56 @@ export default function ResultsPage() {
 
           {/* Service Introduction */}
           {!isLiveMode && (
-              <div className="mb-6 mt-[120px]">
+              <div className="mb-6 mt-[80px]">
+                {/* Trip Summary Box */}
+                <div className="mb-6 bg-card rounded-lg p-8 shadow-none">
+                    <div className="flex items-start justify-between gap-6">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-5xl font-normal text-card-foreground mb-5 leading-tight">
+                          {leadPassengerName || 'Passenger'} (x{passengerCount || 1}) {(() => {
+                            if (locations && locations.length >= 2) {
+                              const pickupTime = parseInt(locations[0]?.time) || 0;
+                              const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                              const duration = dropoffTime - pickupTime;
+                              
+                              if (duration > 0) {
+                                const hours = Math.floor(duration);
+                                return `${hours}h`;
+                              }
+                              return '0h';
+                            }
+                            return '0h';
+                          })()} in {tripDestination || 'London'}
+                        </h2>
+                        <div className="flex items-center gap-3">
+                          <svg className="w-7 h-7 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-xl font-normal text-card-foreground">
+                            Trip Date{' '}
+                            <span className="font-semibold">
+                              {new Date(tripDate).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                day: 'numeric', 
+                                month: 'long', 
+                                year: 'numeric' 
+                              })}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <div className={`px-6 py-3.5 rounded-lg text-xl font-medium whitespace-nowrap ${
+                          tripStatus === 'confirmed' 
+                            ? 'bg-[#3ea34b] text-white' 
+                            : 'bg-[#c44444] text-white'
+                        }`}>
+                          {tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}
+                        </div>
+                      </div>
+                    </div>
+                </div>
+
                 {/* Trip Details Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   {/* Pickup Time Card */}
