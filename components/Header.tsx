@@ -88,7 +88,7 @@ export default function Header() {
                 </span>
                 <Link href="/my-trips">
                   <Button variant="outline" size="sm">
-                    My Trips
+                    My trips
                   </Button>
                 </Link>
                 <Button
@@ -108,7 +108,7 @@ export default function Header() {
                 </Link>
                 <Link href="/signup">
                   <Button variant="default" size="sm" className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]">
-                    Sign Up
+                    Sign up
                   </Button>
                 </Link>
               </>

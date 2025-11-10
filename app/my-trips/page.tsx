@@ -192,7 +192,7 @@ export default function MyTripsPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-medium text-foreground mb-2">My Trips</h1>
+          <h1 className="text-3xl font-medium text-foreground mb-2">My trips</h1>
           <p className="text-muted-foreground">
             View all your driver briefs
           </p>
@@ -235,7 +235,7 @@ export default function MyTripsPage() {
                 Start by creating your first trip analysis
               </p>
               <Link href="/">
-                <Button>Create Your First Trip</Button>
+                <Button>Create your first trip</Button>
               </Link>
             </CardContent>
           </Card>
@@ -284,10 +284,10 @@ export default function MyTripsPage() {
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
-                        Trip Date: <span className="font-medium text-foreground">{trip.trip_date}</span>
+                        Trip date: <span className="font-medium text-foreground">{trip.trip_date}</span>
                       </div>
                       <div className="flex items-center gap-2 text-primary font-medium text-sm">
-                        View Report
+                        View report
                         <svg
                           className="w-4 h-4"
                           fill="none"
@@ -328,7 +328,7 @@ export default function MyTripsPage() {
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-                Create New Trip
+                Create new trip
               </Button>
             </Link>
           </div>

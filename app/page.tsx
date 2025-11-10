@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
@@ -696,6 +698,16 @@ export default function Home() {
   const [lastExtractedText, setLastExtractedText] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
+  
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+  
+  // File upload state
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [extractedLocations, setExtractedLocations] = useState<Array<{
     location: string;
     time: string;
@@ -721,6 +733,66 @@ export default function Home() {
   const [passengerNames, setPassengerNames] = useState<string[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | 'purpose' | null>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
+        const recognitionInstance = new SpeechRecognition();
+        
+        // Configure recognition
+        recognitionInstance.continuous = true; // Keep listening until stopped
+        recognitionInstance.interimResults = true; // Show results while speaking
+        recognitionInstance.lang = 'en-GB'; // British English
+        
+        // Handle results
+        recognitionInstance.onresult = (event: any) => {
+          let finalTranscript = '';
+          
+          // Loop through results
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            }
+          }
+          
+          // Update the textarea with final transcript in real-time
+          if (finalTranscript) {
+            setExtractionText(prev => prev + finalTranscript);
+          }
+        };
+        
+        // Handle errors
+        recognitionInstance.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          
+          if (event.error === 'no-speech') {
+            setRecordingError('No speech detected. Please try again.');
+          } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+            setRecordingError('Microphone access denied. Please enable in browser settings.');
+          } else if (event.error === 'aborted') {
+            // User stopped recording, this is normal
+            setRecordingError(null);
+          } else {
+            setRecordingError(`Error: ${event.error}`);
+          }
+          
+          setIsRecording(false);
+        };
+        
+        // Handle end event
+        recognitionInstance.onend = () => {
+          setIsRecording(false);
+        };
+        
+        setRecognition(recognitionInstance);
+      }
+    }
+  }, []);
 
   // Handle click outside to close editing mode
   useEffect(() => {
@@ -1846,6 +1918,204 @@ export default function Home() {
     return 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
   };
 
+  // Handle voice recording
+  const handleStartRecording = async () => {
+    if (!recognition) {
+      setRecordingError('Speech recognition not available in this browser');
+      return;
+    }
+    
+    try {
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Clear any previous errors
+      setRecordingError(null);
+      
+      // Start recognition
+      recognition.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Microphone access error:', err);
+      setRecordingError('Could not access microphone. Please enable permissions.');
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (recognition && isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleToggleRecording = () => {
+    if (isRecording) {
+      handleStopRecording();
+    } else {
+      handleStartRecording();
+    }
+  };
+
+  // Handle Word file (.docx)
+  const handleWordFile = async (file: File) => {
+    try {
+      setIsProcessingFile(true);
+      setFileError(null);
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      const text = result.value;
+      
+      if (text.trim()) {
+        setExtractionText(prev => prev + (prev ? '\n\n' : '') + text);
+      } else {
+        setFileError('No text found in Word document');
+      }
+    } catch (error) {
+      console.error('Error processing Word file:', error);
+      setFileError('Failed to read Word document');
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  // Handle Excel file (.xlsx, .xls)
+  const handleExcelFile = async (file: File) => {
+    try {
+      setIsProcessingFile(true);
+      setFileError(null);
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      
+      // Process all sheets
+      let extractedText = '';
+      workbook.SheetNames.forEach((sheetName) => {
+        const sheet = workbook.Sheets[sheetName];
+        // Convert to text with tab/newline separators
+        const sheetText = XLSX.utils.sheet_to_txt(sheet);
+        if (sheetText.trim()) {
+          extractedText += (extractedText ? '\n\n' : '') + `Sheet: ${sheetName}\n${sheetText}`;
+        }
+      });
+      
+      if (extractedText.trim()) {
+        setExtractionText(prev => prev + (prev ? '\n\n' : '') + extractedText);
+      } else {
+        setFileError('No data found in Excel file');
+      }
+    } catch (error) {
+      console.error('Error processing Excel file:', error);
+      setFileError('Failed to read Excel file');
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  // Handle Audio file (.opus, .m4a, .mp3, etc.)
+  const handleAudioFile = async (file: File) => {
+    try {
+      setIsProcessingFile(true);
+      setFileError(null);
+
+      // Check file size (25MB limit)
+      if (file.size > 25 * 1024 * 1024) {
+        setFileError('Audio file too large. Maximum size is 25MB.');
+        setIsProcessingFile(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      const response = await fetch('/api/transcribe-audio', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.text) {
+        setExtractionText(prev => prev + (prev ? '\n\n' : '') + data.text);
+      } else {
+        setFileError(data.error || 'Failed to transcribe audio file');
+      }
+    } catch (error) {
+      console.error('Error transcribing audio file:', error);
+      setFileError('Failed to transcribe audio file');
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  // Handle file upload (click or drag-and-drop)
+  const processFile = async (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const fileType = file.type;
+    
+    // Check for Word files
+    if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
+      await handleWordFile(file);
+    } 
+    // Check for Excel files
+    else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || 
+               fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+               fileType === 'application/vnd.ms-excel') {
+      await handleExcelFile(file);
+    } 
+    // Check for Audio files
+    else if (fileType.startsWith('audio/') || 
+             fileName.match(/\.(opus|m4a|mp3|ogg|wav|aac|flac|webm)$/)) {
+      await handleAudioFile(file);
+    } 
+    else {
+      setFileError('Unsupported file type. Please upload Word (.docx), Excel (.xlsx), or Audio files.');
+    }
+  };
+
+  // Handle file input change (click upload)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+    // Reset input so same file can be uploaded again
+    e.target.value = '';
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only hide overlay if leaving the container
+    if (e.currentTarget === e.target) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0]; // Take first file only
+      await processFile(file);
+    }
+  };
+
   // Handle text extraction for trip planning
   const handleExtractTrip = async () => {
     console.log('🚀 [FRONTEND] Starting extraction...');
@@ -2242,52 +2512,161 @@ export default function Home() {
 
 
         {/* Tagline for Homepage */}
-        <div className={`mb-12 text-center ${(showManualForm || (extractedLocations && extractedLocations.length > 0)) ? 'mt-0' : '-mt-12'}`}>
+        <div className={`mb-12 text-center ${(showManualForm || (extractedLocations && extractedLocations.length > 0)) ? 'mt-0' : '-mt-40'}`}>
           <img 
             src="/driverbrief-logo-light.png" 
             alt="Driverbrief" 
             className="mx-auto h-6 w-auto mb-12"
           />
           <p className="text-5xl font-light text-foreground">
-            Plan and update your trips,<br />
+            Plan and update your trip,<br />
             with one shareable link.
           </p>
         </div>
 
         {/* Email/Text Import Section */}
         {!showManualForm && !extractedLocations && (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <svg className="w-5 h-5 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-                    <h2 className="text-xl font-medium text-foreground">
-                      Import Trip from Email or Text
-                    </h2>
-          </div>
-
-          <div className="space-y-4">
+        <div className="mb-8 flex justify-center">
+          <div className="space-y-4 w-[85%]">
             {/* Textarea with Dark Container */}
-            <div className="rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
-              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Paste Email or Text</label>
-              <textarea
-                value={extractionText}
-                onChange={(e) => setExtractionText(e.target.value)}
-                placeholder="Paste an email, message, or any text with trip details. We'll automatically extract locations and times for you."
-                className="w-full min-h-[150px] p-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-y dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
-              />
+            <div>
+              <div 
+                className="relative"
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <textarea
+                  value={extractionText}
+                  onChange={(e) => {
+                    setExtractionText(e.target.value);
+                    // Auto-resize textarea
+                    const textarea = e.target;
+                    textarea.style.height = 'auto';
+                    textarea.style.height = Math.min(textarea.scrollHeight, 240) + 'px';
+                  }}
+                  placeholder="Describe your journey"
+                  className="w-full min-h-[86px] max-h-[240px] p-3 pb-10 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
+                  style={{ height: '86px' }}
+                />
+                
+                {/* Drag and Drop Overlay */}
+                {isDragging && (
+                  <div className="absolute inset-0 bg-blue-500/10 border-2 border-blue-500 border-dashed rounded-md flex items-center justify-center pointer-events-none z-10">
+                    <div className="text-center">
+                      <svg className="w-12 h-12 mx-auto mb-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="text-sm font-medium text-blue-500">Drop file to upload</p>
+                      <p className="text-xs text-muted-foreground">Word, Excel, or Audio files</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* File Upload Button (Paperclip) - Lower Left */}
+                <label 
+                  className={`absolute left-3 bottom-5 transition-all cursor-pointer ${
+                    isProcessingFile
+                      ? 'text-blue-500 opacity-100' 
+                      : 'text-muted-foreground opacity-60 hover:opacity-100'
+                  }`}
+                  title="Upload Word, Excel, or Audio file"
+                >
+                  <input
+                    type="file"
+                    accept=".docx,.doc,.xlsx,.xls,.opus,.m4a,.mp3,.ogg,.wav,.aac,.flac,.webm,audio/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <svg 
+                    className={`w-5 h-5 ${isProcessingFile ? 'animate-pulse' : ''}`}
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={1.5} 
+                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" 
+                    />
+                  </svg>
+                </label>
+                
+                {/* Microphone Button - Lower Right */}
+                <button
+                  type="button"
+                  onClick={handleToggleRecording}
+                  disabled={!recognition}
+                  className={`absolute right-3 bottom-5 transition-all ${
+                    isRecording 
+                      ? 'text-red-500 opacity-100 animate-pulse' 
+                      : 'text-muted-foreground opacity-60 hover:opacity-100'
+                  } ${!recognition ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                  title={isRecording ? 'Stop recording' : 'Start recording'}
+                >
+                  <svg 
+                    className="w-5 h-5" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={1.5} 
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" 
+                    />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Recording Status */}
+              {isRecording && (
+                <div className="flex items-center gap-2 mt-2 text-sm text-red-500">
+                  <span className="inline-block w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                  <span>Listening...</span>
+                </div>
+              )}
+              
+              {/* File Processing Status */}
+              {isProcessingFile && (
+                <div className="flex items-center gap-2 mt-2 text-sm text-blue-500">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Processing file...</span>
+                </div>
+              )}
+              
+              {/* Recording Error */}
+              {recordingError && (
+                <div className="mt-2 text-sm text-destructive">
+                  {recordingError}
+                </div>
+              )}
+              
+              {/* File Error */}
+              {fileError && (
+                <div className="mt-2 text-sm text-destructive">
+                  {fileError}
+                </div>
+              )}
+              
+              {/* Browser Compatibility Warning */}
+              {typeof window !== 'undefined' && 
+               !(window as any).SpeechRecognition && 
+               !(window as any).webkitSpeechRecognition && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  💡 Voice recording works best in Chrome, Edge, or Safari
+                </div>
+              )}
             </div>
 
             {/* Extract Button */}
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={() => setShowManualForm(true)}
-                variant="outline"
-                size="lg"
-              >
-                Go to Manual Form
-              </Button>
-
+            <div className="flex items-center justify-between gap-3">
               <Button
                 onClick={handleExtractTrip}
                 disabled={isExtracting || !extractionText.trim()}
@@ -2303,8 +2682,16 @@ export default function Home() {
                     <span>Extracting...</span>
                   </>
                 ) : (
-                  <span>Extract Locations & Times</span>
+                  <span>Extract trip data</span>
                 )}
+              </Button>
+
+              <Button
+                onClick={() => setShowManualForm(true)}
+                variant="outline"
+                size="lg"
+              >
+                Go to manual form
               </Button>
             </div>
 
@@ -2348,7 +2735,7 @@ export default function Home() {
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     {/* Trip Date - spans 2 columns */}
                     <div className="sm:col-span-2">
-                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip Date</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip date</Label>
                       <div className="relative">
                         <Input
                           type="date"
@@ -2371,7 +2758,7 @@ export default function Home() {
 
                     {/* Trip Destination - spans 2 columns */}
                     <div className="sm:col-span-2">
-                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip Destination</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip destination</Label>
                       <Select
                         value={tripDestination || ''}
                         onValueChange={(value) => {
@@ -2413,7 +2800,7 @@ export default function Home() {
 
                     {/* Lead Passenger Name - spans 2 columns */}
                     <div className="sm:col-span-2">
-                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Lead Passenger Name</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Lead passenger name</Label>
                       <Input
                         value={leadPassengerName}
                         onChange={(e) => {
@@ -2439,7 +2826,7 @@ export default function Home() {
                     </div>
                     {/* Number of Passengers - spans 1 column */}
                     <div className="sm:col-span-1">
-                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Number of Passengers</Label>
+                      <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Number of passengers</Label>
                       <PassengerPicker
                         value={passengerCount}
                         onChange={(count) => {
@@ -2580,13 +2967,13 @@ export default function Home() {
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Add Location
+                    Add location
                   </Button>
                 </div>
 
                 {/* Trip Notes Field */}
                 <div className="mt-8 rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
-                  <Label className="text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2 block">Trip Notes</Label>
+                  <Label className="text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2 block">Trip notes</Label>
                   <textarea
                     value={extractedDriverSummary || ''}
                     onChange={(e) => {
@@ -2633,7 +3020,7 @@ export default function Home() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                         </svg>
-                        Create Brief
+                        Create brief
                       </>
                     )}
                   </Button>
@@ -2676,7 +3063,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-xl font-medium text-card-foreground">
-                Plan Your Roadshow
+                Plan your roadshow
               </h2>
             </div>
             <Button
@@ -2699,7 +3086,7 @@ export default function Home() {
               {/* Trip Date - spans 2 columns */}
               <div className="sm:col-span-2">
                 <label htmlFor="tripDate" className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
-                  Trip Date
+                  Trip date
                 </label>
                 <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                   <PopoverTrigger asChild>
@@ -2739,7 +3126,7 @@ export default function Home() {
               {/* Trip Destination - spans 2 columns */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
-                  Trip Destination
+                  Trip destination
                 </label>
                 <Select
                   value={tripDestination || ''}
@@ -2767,7 +3154,7 @@ export default function Home() {
               {/* Lead Passenger Name - spans 2 columns */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
-                  Lead Passenger Name
+                  Lead passenger name
                 </label>
                 <Input
                   value={leadPassengerName}
@@ -2856,7 +3243,7 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <AlertDescription className="text-destructive">
-                Locations reordered! Click "Create Brief" to update the route.
+                Locations reordered! Click "Create brief" to update the route.
               </AlertDescription>
             </Alert>
           )}
