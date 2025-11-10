@@ -203,8 +203,8 @@ Return JSON:
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
   "recommendations": ["Data-driven only: traffic timing, parking strategies, crime precautions, weather prep"],
   "highlights": [{"type": "danger|warning|info|success", "message": "str"}],
-  "exceptionalInformation": "Trip notes ONLY. Actionable statements with verbs. Example: '- Ensure vehicle is completely nut-free (passenger has severe allergy)' NOT '- The passenger has a severe nut allergy'. Empty if none.",
-  "importantInformation": "Trip notes ONLY. Actionable statements with verbs. Example: '- Keep Emily (+44 7911 223344) informed of any delays or changes' NOT '- The primary contact is Emily'. Empty if none."
+  "exceptionalInformation": "Trip notes ONLY. Safety-critical and urgent items as actionable statements. If NO exceptional items found, return empty string ''. Examples: '- Ensure vehicle is completely nut-free (passenger has severe allergy)', '- Confirm driver wears dark suit as specified', '- Maintain driver silence throughout journey'",
+  "importantInformation": "Trip notes ONLY. Contextual and operational items as actionable statements. If NO important items found, return empty string ''. Examples: '- Keep Emily (+44 7911 223344) informed of any delays', '- Confirm fast WiFi and charging ports operational', '- Stock vehicle with still and sparkling water'"
 }
 
 TRIP NOTES → EXCEPTIONAL & IMPORTANT (actionable statements):
@@ -219,10 +219,30 @@ STEP 1 - EXTRACT (100% coverage, no invention):
 - NEVER SKIP: ANY food restrictions (no X, avoid Y, etc), signs to hold, dress codes (suits, uniforms), bags/luggage help, vehicle features (WiFi, chargers, glass, temperature), water/drinks, newspapers, quiet driver, contact info, quotes, waiting time
 
 STEP 2 - CATEGORIZE (zero overlap):
-EXCEPTIONAL: ANY food restrictions/allergies (any mention of "no X", "allergy", "allergic", "cannot have", food avoidances), dress codes (suits, uniforms, specific attire), signs to hold, unusual behaviors (quiet driver, no talking), codes, urgent time constraints, urgent operations (monitor flight, hide car, etc)
-IMPORTANT: Contacts (names, phone numbers, emails), vehicle specs (WiFi, chargers, privacy glass, temperature), newspapers (FT, WSJ, etc), food/drinks (water, sparkling, snacks), luggage/bags help, flight numbers, schedules, parking instructions, quotes, billing, waiting time
+EXCEPTIONAL: 
+  - ANY food restrictions/allergies (any mention of "no X", "allergy", "allergic", "cannot have", food avoidances)
+  - Dress codes: "suit", "uniform", "plain black", "dark suit", any clothing requirements
+  - Driver behavior: "silent", "quiet", "no talking", "maintain discretion"
+  - Signs to hold (name signs for pickup)
+  - Security codes
+  - Urgent operations (monitor flight, hide car, confirm immediately)
+IMPORTANT: 
+  - Contacts (names, phone numbers, emails)
+  - Vehicle specs (WiFi, chargers, privacy glass, temperature, massage seats, fridge, etc.)
+  - Newspapers (FT, WSJ, etc)
+  - Food/drinks to provide (water, sparkling, snacks, champagne)
+  - Luggage/bags help
+  - Flight numbers to track
+  - Parking instructions
+  - Quotes, billing, invoicing
+  - Waiting time
 
-CRITICAL: If trip notes mention any food that passenger should NOT have (e.g., "no nuts", "no gluten", "no dairy", "avoid X"), treat as ALLERGY and place in EXCEPTIONAL - this is a safety requirement.
+CRITICAL CATEGORIZATION RULES:
+- "Driver: suit, silent" → EXCEPTIONAL (suit=dress code, silent=behavior)
+- "Track flight X" → IMPORTANT (flight tracking)
+- "No nuts" or any "no X" food → EXCEPTIONAL (safety)
+- "Contact X" → IMPORTANT (contact info)
+- If unsure, prefer EXCEPTIONAL for safety/urgency items
 
 STEP 3 - FORMAT as actionable statements with verbs:
 - Use action verbs: "Ensure", "Confirm", "Verify", "Maintain", "Stock", "Keep", "Prepare", "Monitor", "Assist"
@@ -246,34 +266,21 @@ CRITICAL VALIDATION (ENFORCE STRICTLY):
 5. Compound items (X and Y) preserve both X AND Y
 6. COMMON FAILURES: Missing food restrictions ("no X", allergies), missing signs to hold, missing dress codes, missing newspapers, missing privacy glass, missing quiet driver - these are UNACCEPTABLE
 
-EXAMPLE (showing ALL 10 items extracted):
-Trip notes (10 lines):
-1. "Contact Emily at +44 7911 223344 for any issues"
-2. "Driver to hold sign 'J HALE' and wear a dark suit"
-3. "Help with bags"
-4. "Require fast Wi-Fi and chargers everywhere"
-5. "Provide water and sparkling water"
-6. "No nuts in snacks"
-7. "FT newspaper requested"
-8. "Privacy glass up"
-9. "Quiet driver"
-10. "Quote needed ASAP, include all waiting time"
+EXAMPLES:
 
-Exceptional (4 items - food restrictions, dress codes, signs, behaviors):
-   "- Ensure vehicle is completely nut-free and verify all snacks comply with no-nuts requirement (safety critical)
-   - Confirm driver holds sign reading 'J HALE' and wears dark suit as specified
-   - Ensure driver maintains quiet, professional demeanor without unnecessary conversation
-   - Maintain privacy glass raised throughout entire journey"
+Example 1 (10 lines):
+Trip notes: "Contact Emily +44 7911 223344" / "Driver: dark suit" / "Help with bags" / "Wi-Fi and chargers" / "Water and sparkling" / "No nuts" / "FT newspaper" / "Privacy glass up" / "Quiet driver" / "Quote ASAP"
+Exceptional (4): "- Ensure vehicle nut-free (safety critical)\n- Confirm driver wears dark suit\n- Maintain driver silence\n- Maintain privacy glass raised"
+Important (6): "- Keep Emily (+44 7911 223344) informed\n- Assist with luggage\n- Confirm WiFi and chargers operational\n- Stock still and sparkling water\n- Ensure FT newspaper available\n- Prepare comprehensive quote"
+COUNT: 10 = 4 + 6 ✓
 
-Important (6 items - contacts, vehicle specs, items, quotes):
-   "- Keep Emily (+44 7911 223344) informed of any delays or changes to the itinerary
-   - Ensure driver is prepared to assist with all luggage at pickup and drop-off
-   - Confirm fast WiFi and multiple charging ports are operational and test before pickup
-   - Stock vehicle with both still water and sparkling water before passenger arrival
-   - Ensure Financial Times newspaper is available in vehicle
-   - Prepare comprehensive quote including all waiting times and send to Emily immediately"
+Example 2 (3 lines) - Simpler trip:
+Trip notes: "Driver: suit, silent" / "Contact Eleanor +44 20 7946 0012" / "Track flight VS026"
+Exceptional (2): "- Confirm driver wears suit as specified\n- Maintain driver silence throughout journey"
+Important (1): "- Keep Eleanor (+44 20 7946 0012) informed of any delays"
+COUNT: 3 = 2 + 1 ✓
 
-COUNT CHECK: 10 trip note lines = 4 Exceptional + 6 Important = 10 items ✓
+KEY: "Driver: suit, silent" = TWO exceptional items (suit=dress code, silent=behavior), NOT one
 
 Recommendations (data-driven ONLY, not from trip notes):
    "Monitor real-time traffic to adjust for predicted 8-min delay on route to Canary Wharf"

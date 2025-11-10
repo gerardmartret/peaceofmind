@@ -50,7 +50,7 @@ Locations: ${extractedLocationsText || 'None'}
 Notes: ${extractedData.driverNotes || 'None'}
 
 JSON SCHEMA:
-{"success":true,"tripDateChanged":bool,"tripDateNew":"YYYY-MM-DD|null","passengerInfoChanged":bool,"passengerInfoNew":"str|null","vehicleInfoChanged":bool,"vehicleInfoNew":"str|null","passengerCountChanged":bool,"passengerCountNew":num|null,"tripDestinationChanged":bool,"tripDestinationNew":"str|null","notesChanged":bool,"mergedNotes":"str","locations":[{"action":"unchanged|modified|removed|added","currentIndex":num,"extractedIndex":num,"locationMatch":{"matched":bool,"confidence":"high|medium|low","reasoning":"str"},"currentLocation":{"name":"str","address":"str","time":"str","purpose":"str"}|null,"extractedLocation":{"formattedAddress":"str","location":"str","time":"str","purpose":"str","lat":num,"lng":num}|null,"changes":{"addressChanged":bool,"timeChanged":bool,"purposeChanged":bool},"finalLocation":{"id":"str","name":"str","formattedAddress":"str","address":"str","time":"str","purpose":"str","lat":num,"lng":num,"fullAddress":"str"}|null}]}
+{"success":true,"tripDateChanged":bool,"tripDateNew":"YYYY-MM-DD|null","passengerInfoChanged":bool,"passengerInfoNew":"str|null","vehicleInfoChanged":bool,"vehicleInfoNew":"str|null","passengerCountChanged":bool,"passengerCountNew":num|null,"tripDestinationChanged":bool,"tripDestinationNew":"str|null","notesChanged":bool,"mergedNotes":"str","locations":[{"action":"unchanged|modified|removed|added","currentIndex":num,"extractedIndex":num,"locationMatch":{"matched":bool,"confidence":"high|medium|low","reasoning":"str"},"currentLocation":{"name":"str","address":"str","time":"str","purpose":"str"}|null,"extractedLocation":{"formattedAddress":"str","location":"str","time":"str","purpose":"str","lat":num,"lng":num}|null,"changes":{"addressChanged":bool,"timeChanged":bool,"purposeChanged":bool},"finalLocation":{"id":"str (ACTUAL id value like 'pickup-001', NOT literal 'currentLocation.id')","name":"str","formattedAddress":"str","address":"str","time":"str","purpose":"str","lat":num,"lng":num,"fullAddress":"str"}|null}]}
 
 RULES:
 1. PARTIAL UPDATES: If extracted locations empty/missing but notes exist:
@@ -69,8 +69,12 @@ RULES:
 4. FIELD PRECISION: Only set addressChanged/timeChanged/purposeChanged=true for actual changes
 
 5. FINAL LOCATION:
-   - unchanged: Copy currentLocation exactly (preserve id, coords, all fields)
-   - modified: Merge currentLocation + extractedLocation (use extracted for changed fields, current for unchanged)
+   - unchanged: Copy currentLocation exactly (preserve id, coords, all fields including time)
+   - modified: Merge fields (extracted if changed, current if unchanged). CRITICAL:
+     * If timeChanged=true, use extractedLocation.time for finalLocation.time
+     * If addressChanged=true, use extractedLocation.formattedAddress
+     * If purposeChanged=true, use extractedLocation.purpose
+     * For name: if address/purpose changed, reconstruct as "{purpose}, {formattedAddress}"
    - added: Use extractedLocation (new id)
    - removed: No finalLocation
 
@@ -110,6 +114,19 @@ RULES:
     }
 
     console.log(`📊 [API] Comparison result: ${parsed.locations?.length || 0} location changes identified`);
+    
+    // DEBUG: Log first location details for troubleshooting
+    if (parsed.locations && parsed.locations.length > 0) {
+      const firstLoc = parsed.locations[0];
+      console.log('🔍 [DEBUG] First location comparison:', {
+        action: firstLoc.action,
+        timeChanged: firstLoc.changes?.timeChanged,
+        oldTime: firstLoc.currentLocation?.time,
+        newTime: firstLoc.extractedLocation?.time,
+        finalTime: firstLoc.finalLocation?.time,
+        finalName: firstLoc.finalLocation?.name,
+      });
+    }
 
     return NextResponse.json({
       success: true,

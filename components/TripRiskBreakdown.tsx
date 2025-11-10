@@ -255,6 +255,12 @@ export default function TripRiskBreakdown({ tripResults, trafficPredictions, tri
                       <h4 className="text-lg font-bold text-card-foreground">
                         {location.locationName.split(',')[0]}
                       </h4>
+                      {/* Show full address if available */}
+                      {location.locationName.includes(',') && (
+                        <p className="text-sm text-muted-foreground">
+                          {location.locationName.split(',').slice(1).join(',').trim()}
+                        </p>
+                      )}
                       <p className="text-sm text-muted-foreground">
                         {location.time} • {tripDate}
                       </p>

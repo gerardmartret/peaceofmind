@@ -295,6 +295,8 @@ export default function ResultsPage() {
   const [comparisonDiff, setComparisonDiff] = useState<any>(null);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const updateTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [regenerationProgress, setRegenerationProgress] = useState<number>(0);
+  const [regenerationStep, setRegenerationStep] = useState<string>('');
   
   // Driver view modal state
   const [showDriverModal, setShowDriverModal] = useState<boolean>(false);
@@ -1049,10 +1051,23 @@ export default function ResultsPage() {
           }
         }
 
+        // FIX: Validate and fix location IDs when loading from database
+        const locationsWithValidIds = (data.locations as any[]).map((loc: any, idx: number) => {
+          // Check if ID is invalid (literal string from AI bug)
+          if (!loc.id || loc.id === 'currentLocation.id' || loc.id === 'extractedLocation.id' || loc.id.includes('Location.id')) {
+            console.warn(`⚠️ [FIX] Invalid location ID detected in database: "${loc.id}", generating unique ID for location ${idx}`);
+            return {
+              ...loc,
+              id: `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            };
+          }
+          return loc;
+        });
+
         const tripData: TripData = {
           tripDate: data.trip_date,
           userEmail: data.user_email,
-          locations: data.locations as any,
+          locations: locationsWithValidIds,
           tripResults: data.trip_results as any,
           trafficPredictions: trafficPredictionsFormatted,
           executiveReport: data.executive_report as any,
@@ -2107,6 +2122,12 @@ export default function ResultsPage() {
               return; // Skip this location
             }
             
+            // FIX: Validate and fix ID for added locations
+            if (!finalLoc.id || finalLoc.id === 'currentLocation.id' || finalLoc.id === 'extractedLocation.id' || finalLoc.id.includes('Location.id')) {
+              console.warn(`⚠️ [FIX] AI returned invalid ID for added location: "${finalLoc.id}", generating new one`);
+              finalLoc.id = `location-added-${locChange.extractedIndex}-${Date.now()}`;
+            }
+            
             // Ensure finalLocation has valid coordinates
             if ((!finalLoc.lat || finalLoc.lat === 0) && locChange.extractedLocation?.lat && locChange.extractedLocation.lat !== 0) {
               finalLoc.lat = locChange.extractedLocation.lat;
@@ -2136,6 +2157,16 @@ export default function ResultsPage() {
                                      finalLoc.name;
             }
             
+            // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
+            // Format: "Purpose, Formatted Address" so that .split(',')[0] shows the purpose
+            if (finalLoc.purpose && finalLoc.formattedAddress && finalLoc.purpose !== finalLoc.formattedAddress) {
+              finalLoc.name = `${finalLoc.purpose}, ${finalLoc.formattedAddress}`;
+            } else if (finalLoc.formattedAddress) {
+              finalLoc.name = finalLoc.formattedAddress;
+            } else {
+              finalLoc.name = finalLoc.purpose || finalLoc.name || finalLoc.fullAddress || finalLoc.address;
+            }
+            
             finalLocationsMap[locChange.extractedIndex] = finalLoc;
           }
         } else if (locChange.action === 'modified') {
@@ -2155,12 +2186,12 @@ export default function ResultsPage() {
           // Add to final locations (modified version) - use currentIndex to preserve position
           if (locChange.finalLocation) {
             const finalLoc = locChange.finalLocation;
+            const currentLoc = tripData?.locations[locChange.currentIndex];
             
             // GUARD: Validate finalLocation is a proper object with required fields
             if (!finalLoc || typeof finalLoc !== 'object') {
               console.error('❌ Invalid finalLocation for modified action (not an object):', finalLoc);
               // Fallback: Use current location if available
-              const currentLoc = tripData?.locations[locChange.currentIndex];
               if (currentLoc) {
                 console.log('↩️ Falling back to current location for index', locChange.currentIndex);
                 finalLocationsMap[locChange.currentIndex] = currentLoc;
@@ -2172,12 +2203,29 @@ export default function ResultsPage() {
             if (finalLoc.lat === undefined || finalLoc.lng === undefined) {
               console.error('❌ Invalid finalLocation for modified action (missing lat/lng):', finalLoc);
               // Fallback: Use current location if available
-              const currentLoc = tripData?.locations[locChange.currentIndex];
               if (currentLoc) {
                 console.log('↩️ Falling back to current location for index', locChange.currentIndex);
                 finalLocationsMap[locChange.currentIndex] = currentLoc;
               }
               return; // Skip to next location
+            }
+            
+            // FIX: Validate and fix ID if AI returned literal string instead of actual value
+            if (!finalLoc.id || finalLoc.id === 'currentLocation.id' || finalLoc.id === 'extractedLocation.id' || finalLoc.id.includes('Location.id')) {
+              console.warn(`⚠️ [FIX] AI returned invalid ID: "${finalLoc.id}", using fallback`);
+              finalLoc.id = currentLoc?.id || `location-${locChange.currentIndex}-${Date.now()}`;
+            }
+            
+            // FIX: Preserve address fields for time-only changes (prevent address corruption)
+            if (locChange.changes?.timeChanged && !locChange.changes?.addressChanged && currentLoc) {
+              console.log(`🔧 [FIX] Time-only change detected, preserving address fields from current location`);
+              finalLoc.fullAddress = (currentLoc as any).fullAddress || finalLoc.fullAddress;
+              finalLoc.formattedAddress = (currentLoc as any).formattedAddress || finalLoc.formattedAddress;
+              finalLoc.address = (currentLoc as any).address || finalLoc.address;
+              // Reconstruct name with preserved address
+              if (finalLoc.purpose && (currentLoc as any).fullAddress) {
+                finalLoc.name = `${finalLoc.purpose}, ${(currentLoc as any).fullAddress}`;
+              }
             }
             
             // Ensure finalLocation has valid coordinates
@@ -2187,8 +2235,7 @@ export default function ResultsPage() {
             if ((!finalLoc.lng || finalLoc.lng === 0) && locChange.extractedLocation?.lng && locChange.extractedLocation.lng !== 0) {
               finalLoc.lng = locChange.extractedLocation.lng;
             }
-            // If still no coordinates, try to get from current location
-            const currentLoc = tripData?.locations[locChange.currentIndex];
+            // If still no coordinates, try to get from current location (already defined above)
             if ((!finalLoc.lat || finalLoc.lat === 0) && currentLoc?.lat && currentLoc.lat !== 0) {
               finalLoc.lat = currentLoc.lat;
             }
@@ -2210,10 +2257,30 @@ export default function ResultsPage() {
                                      finalLoc.name;
             }
             
+            // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
+            // Format: "Purpose, Formatted Address" so that .split(',')[0] shows the purpose
+            // ALSO: If addressChanged, force name reconstruction (handles AI missing it)
+            const addressChanged = locChange.changes?.addressChanged;
+            if (addressChanged || (finalLoc.purpose && finalLoc.formattedAddress && finalLoc.purpose !== finalLoc.formattedAddress)) {
+              finalLoc.name = `${finalLoc.purpose}, ${finalLoc.formattedAddress}`;
+            } else if (finalLoc.formattedAddress) {
+              finalLoc.name = finalLoc.formattedAddress;
+            } else {
+              finalLoc.name = finalLoc.purpose || finalLoc.name || finalLoc.fullAddress || finalLoc.address;
+            }
+            
             finalLocationsMap[locChange.currentIndex] = finalLoc;
           } else if (locChange.currentLocation && locChange.extractedLocation) {
             // Build final location from current + extracted
             const currentLoc = tripData?.locations[locChange.currentIndex];
+            
+            // FIX: Validate ID first
+            let locationId = currentLoc?.id || (locChange.currentIndex + 1).toString();
+            if (locationId === 'currentLocation.id' || locationId === 'extractedLocation.id' || locationId.includes('Location.id')) {
+              console.warn(`⚠️ [FIX] Invalid ID detected: "${locationId}", generating new one`);
+              locationId = `location-${locChange.currentIndex}-${Date.now()}`;
+            }
+            
             // Prioritize extracted coordinates, fallback to current, ensure we never use 0
             let lat = locChange.extractedLocation.lat && locChange.extractedLocation.lat !== 0 
               ? locChange.extractedLocation.lat 
@@ -2223,19 +2290,36 @@ export default function ResultsPage() {
               : (currentLoc?.lng && currentLoc.lng !== 0 ? currentLoc.lng : 0);
             
             // CRITICAL FIX: Ensure fullAddress is properly set for display
-            const fullAddress = locChange.extractedLocation.formattedAddress || 
-                                locChange.extractedLocation.location || 
-                                locChange.currentLocation.address ||
-                                (currentLoc as any)?.fullAddress ||
-                                locChange.currentLocation.name;
+            // For time-only changes, preserve the original fullAddress from currentLoc
+            const timeOnlyChange = locChange.changes?.timeChanged && !locChange.changes?.addressChanged;
+            const fullAddress = timeOnlyChange && (currentLoc as any)?.fullAddress
+              ? (currentLoc as any).fullAddress
+              : (locChange.extractedLocation.formattedAddress || 
+                 locChange.extractedLocation.location || 
+                 locChange.currentLocation.address ||
+                 (currentLoc as any)?.fullAddress ||
+                 locChange.currentLocation.name);
+            
+            const purpose = locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name;
+            const formattedAddress = fullAddress;
+            
+            // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
+            // Force reconstruction if address changed (handles AI not reconstructing name)
+            const addressChanged = locChange.changes?.addressChanged;
+            let displayName = purpose;
+            if (addressChanged || (purpose && formattedAddress && purpose !== formattedAddress)) {
+              displayName = `${purpose}, ${formattedAddress}`;
+            } else if (formattedAddress) {
+              displayName = formattedAddress;
+            }
             
             finalLocationsMap[locChange.currentIndex] = {
-              id: currentLoc?.id || (locChange.currentIndex + 1).toString(),
-              name: locChange.extractedLocation.purpose || locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
-              formattedAddress: fullAddress,
+              id: locationId,
+              name: displayName,
+              formattedAddress: formattedAddress,
               address: locChange.extractedLocation.formattedAddress || locChange.extractedLocation.location,
               time: locChange.extractedLocation.time || locChange.currentLocation.time,
-              purpose: locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name,
+              purpose: purpose,
               lat: lat,
               lng: lng,
               fullAddress: fullAddress,
@@ -2360,6 +2444,8 @@ export default function ResultsPage() {
       const days = 7; // Fixed period for trip planning
 
       // Fetch data for all locations in parallel
+      setRegenerationProgress(40);
+      setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
       const results = await Promise.all(
         validLocations.map(async (location) => {
           console.log(`\n🔍 Fetching data for Location ${numberToLetter(validLocations.indexOf(location) + 1)}: ${location.name} at ${location.time}`);
@@ -2453,6 +2539,8 @@ export default function ResultsPage() {
       );
 
       // Get traffic predictions
+      setRegenerationProgress(60);
+      setRegenerationStep('Calculating traffic predictions...');
       console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
       try {
@@ -2466,6 +2554,8 @@ export default function ResultsPage() {
       }
 
       // Generate executive report
+      setRegenerationProgress(75);
+      setRegenerationStep('Generating executive report...');
       console.log('🤖 Generating Executive Peace of Mind Report...');
       let executiveReportData = null;
       
@@ -2576,8 +2666,10 @@ export default function ResultsPage() {
       };
 
       // Update trip in database
+      setRegenerationProgress(90);
+      setRegenerationStep('Saving updated report...');
       console.log(`💾 Updating trip ${tripId} with version ${updateData.version}...`);
-      const { data: updatedTrip, error: updateError } = await supabase
+      const { data: updatedTrip, error: updateError} = await supabase
         .from('trips')
         .update(updateData)
         .eq('id', tripId)
@@ -2593,14 +2685,27 @@ export default function ResultsPage() {
       console.log(`🔗 Trip ID: ${tripId}`);
       console.log(`📌 Version: ${updateData.version}`);
 
-      // Show notification modal if driver is set
-      if (driverEmail) {
-        setShowUpdateNotificationModal(true);
+      setRegenerationProgress(100);
+      setRegenerationStep('Update complete!');
+
+      // Small delay to show completion, then handle next steps
+      setTimeout(() => {
         setIsRegenerating(false);
-      } else {
-        // No driver, just reload
-        window.location.reload();
-      }
+        setShowPreview(false); // Close preview modal
+        
+        // Show notification modal if driver is set
+        if (driverEmail) {
+          console.log('🔔 [DEBUG] Driver assigned, showing notification modal. Driver:', driverEmail);
+          setTimeout(() => {
+            console.log('🔔 [DEBUG] Setting showUpdateNotificationModal to true');
+            setShowUpdateNotificationModal(true);
+          }, 500); // Increased delay for modal transition
+        } else {
+          console.log('📝 [DEBUG] No driver assigned, reloading page');
+          // No driver, just reload
+          window.location.reload();
+        }
+      }, 1000); // Increased to show "Update complete!" clearly
     } catch (err) {
       console.error('❌ Error regenerating report:', err);
       setError(err instanceof Error ? err.message : 'Failed to regenerate report');
@@ -2621,6 +2726,8 @@ export default function ResultsPage() {
 
     setIsRegenerating(true);
     setError(null);
+    setRegenerationProgress(0);
+    setRegenerationStep('Preparing updated locations...');
 
     try {
       // Use finalLocations from AI comparison (already merged intelligently)
@@ -2673,13 +2780,36 @@ export default function ResultsPage() {
         return;
       }
 
-      // Geocode any locations that don't have valid coordinates before analysis
-      // This ensures we have accurate coordinates from Google Maps (like in original flow)
-      console.log('🗺️ [DEBUG] Geocoding locations without valid coordinates...');
-      const geocodedLocations = await Promise.all(
-        validLocations.map(async (loc: any) => {
-          // If coordinates are invalid (0, 0), geocode the location
-          if (loc.lat === 0 && loc.lng === 0) {
+      // OPTIMIZATION: Separate locations that need geocoding from those that don't
+      // Check for: 1) Invalid coordinates OR 2) Incomplete/missing fullAddress
+      const needsGeocoding = (loc: any): boolean => {
+        // No coordinates = definitely needs geocoding
+        if (loc.lat === 0 && loc.lng === 0) return true;
+        
+        // Has coordinates but missing/incomplete address = needs geocoding
+        const fullAddr = loc.fullAddress || '';
+        const hasIncompleteAddress = fullAddr.length < 20 || !fullAddr.includes(',');
+        
+        if (hasIncompleteAddress) {
+          console.log(`   ⚠️ Location "${loc.name}" has incomplete address: "${fullAddr}" (needs geocoding)`);
+        }
+        
+        return hasIncompleteAddress;
+      };
+      
+      const locationsNeedingGeocoding = validLocations.filter(needsGeocoding);
+      const locationsWithValidData = validLocations.filter((loc: any) => !needsGeocoding(loc));
+      
+      console.log(`🗺️ [OPTIMIZATION] Geocoding: ${locationsNeedingGeocoding.length} locations need geocoding, ${locationsWithValidData.length} already have valid data`);
+      setRegenerationProgress(10);
+      setRegenerationStep(`Geocoding ${locationsNeedingGeocoding.length} location(s)...`);
+      
+      // Only geocode locations that actually need it
+      let geocodedLocations: any[] = [];
+      if (locationsNeedingGeocoding.length > 0) {
+        console.log('🗺️ [DEBUG] Geocoding locations without valid coordinates...');
+        geocodedLocations = await Promise.all(
+          locationsNeedingGeocoding.map(async (loc: any) => {
             try {
               console.log(`   Geocoding: ${loc.name || loc.fullAddress || loc.address || 'Unknown location'}`);
               
@@ -2714,19 +2844,30 @@ export default function ResultsPage() {
               // Keep original location if geocoding fails
               return loc;
             }
-          }
-          // Location already has valid coordinates
-          return loc;
-        })
-      );
+          })
+        );
+        console.log(`✅ [DEBUG] Geocoding complete for ${geocodedLocations.length} locations`);
+      } else {
+        console.log('⚡️ [OPTIMIZATION] No geocoding needed - all locations have valid coordinates!');
+      }
 
-      console.log('✅ [DEBUG] Geocoding complete');
-      geocodedLocations.forEach((loc, idx) => {
-        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
+      // Combine geocoded locations with those that already had valid data
+      // Preserve original order by matching indices
+      const finalValidLocations = validLocations.map((loc: any) => {
+        if (needsGeocoding(loc)) {
+          // Find this location in geocoded results
+          const geocoded = geocodedLocations.find((g: any) => g.id === loc.id);
+          return geocoded || loc;
+        }
+        return loc; // Already has valid coordinates and complete address
       });
 
-      // Replace validLocations with geocoded locations
-      const finalValidLocations = geocodedLocations;
+      console.log('✅ [DEBUG] Final locations ready');
+      finalValidLocations.forEach((loc: any, idx: number) => {
+        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
+      });
+      setRegenerationProgress(20);
+      setRegenerationStep('Fetching updated data for all locations...');
 
       // Get updated trip date (from AI comparison or use current)
       const comparisonData = comparisonDiff.comparisonData;
@@ -2764,6 +2905,8 @@ export default function ResultsPage() {
       const updatedPassengerNames = extractedUpdates.passengerNames || [];
 
       // Call the regeneration function
+      setRegenerationProgress(30);
+      setRegenerationStep('Analyzing trip data...');
       await performTripAnalysisUpdate(
         finalValidLocations,
         tripDateObj,
@@ -3258,11 +3401,74 @@ export default function ResultsPage() {
       {/* Main Content */}
       <div className={`container mx-auto px-4 ${isOwner && !isLiveMode ? 'pt-32 pb-8' : 'py-8'}`}>
 
-        {/* Preview/Diff Section */}
+        {/* Preview Modal */}
         {showPreview && comparisonDiff && isOwner && !isLiveMode && (
-          <Card className="mb-6 border border-primary/60">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Preview Changes</h2>
+          <Dialog open={showPreview} onOpenChange={(open) => {
+            if (!open && !isRegenerating) {
+              setShowPreview(false);
+              setComparisonDiff(null);
+              setExtractedUpdates(null);
+              setUpdateText('');
+            }
+          }}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              {isRegenerating ? (
+                // Loading State with Homepage Animation
+                <div className="py-8">
+                  <div className="space-y-8">
+                    {/* Circular Progress Indicator */}
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative w-32 h-32">
+                        {/* Background Circle */}
+                        <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
+                          <circle
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            stroke="currentColor"
+                            strokeWidth="8"
+                            fill="none"
+                            className="text-secondary dark:text-[#2a2a2c]"
+                          />
+                          {/* Progress Circle */}
+                          <circle
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            stroke="currentColor"
+                            strokeWidth="8"
+                            fill="none"
+                            strokeDasharray="339.292"
+                            strokeDashoffset={339.292 * (1 - regenerationProgress / 100)}
+                            className={regenerationProgress >= 100 ? "text-green-500" : "text-[#05060A] dark:text-[#E5E7EF]"}
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        {/* Percentage Text */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-3xl font-bold">
+                            {Math.round(regenerationProgress)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-xl font-semibold mb-1">Updating Report</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {regenerationStep}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Preview State
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl">Preview Changes</DialogTitle>
+                    <DialogDescription>
+                      Review the changes before updating the report
+                    </DialogDescription>
+                  </DialogHeader>
               <div className="space-y-4">
                 {/* Trip Date Changes */}
                 {comparisonDiff.tripDateChanged && (
@@ -3392,38 +3598,40 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* Notes Preview */}
-                {comparisonDiff.notesChanged && (
+                {/* Notes Preview - Show only NEW notes */}
+                {comparisonDiff.notesChanged && extractedUpdates?.driverNotes && (
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="font-medium mb-2">Merged Notes Preview:</div>
-                    <div className="text-sm whitespace-pre-wrap">{comparisonDiff.mergedNotes}</div>
+                    <div className="font-medium mb-2">New Notes Added:</div>
+                    <div className="text-sm whitespace-pre-wrap">{extractedUpdates.driverNotes}</div>
                   </div>
                 )}
-
-                {/* Regenerate Button */}
-                <div className="pt-4 border-t">
-                  <Button
-                    onClick={handleRegenerateReport}
-                    disabled={isRegenerating}
-                    size="lg"
-                    className="w-full flex items-center justify-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                  >
-                    {isRegenerating ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span>Regenerating Report...</span>
-                      </>
-                    ) : (
-                      'Regenerate Report'
-                    )}
-                  </Button>
-                </div>
               </div>
-            </CardContent>
-          </Card>
+
+              <DialogFooter className="gap-2 sm:gap-0 mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowPreview(false);
+                        setComparisonDiff(null);
+                        setExtractedUpdates(null);
+                        setUpdateText('');
+                      }}
+                      disabled={isRegenerating}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleRegenerateReport}
+                      disabled={isRegenerating}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    >
+                      Confirm & Update
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         )}
 
         {/* Results Section */}
