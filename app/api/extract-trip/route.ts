@@ -114,18 +114,26 @@ export async function POST(request: NextRequest) {
 
 CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
 
+METRO AREA COVERAGE:
+- "New York" = NYC metro area (Manhattan, Brooklyn, Queens, Bronx, Staten Island, Yonkers, Jersey City, Newark, Hoboken, Long Island)
+- "London" = Greater London (all 32 boroughs + City of London)
+- Include locations in surrounding areas within ~50km of city center
+
 CRITICAL: For driverNotes, preserve ALL unique content from the original email BUT exclude ANY information that's already extracted into structured fields (locations, times, dates, names). Do NOT repeat location names, addresses, times, or dates in driverNotes - these are already in the locations array. ONLY include contextual details not captured elsewhere.
 
 Extract:
-1. All locations (addresses, landmarks, stations, airports, etc.) - identify which city they belong to
+1. All locations (addresses, landmarks, stations, airports, etc.) - identify which city/metro area they belong to
+   - For New York: Include NYC proper (Manhattan, Brooklyn, Queens, Bronx, Staten Island) AND metro area (Yonkers, Jersey City, Newark, Long Island, etc.)
+   - For London: Include Greater London area
 2. Associated times for each location
 3. Trip date if mentioned
 4. Lead passenger name (main/first passenger name)
 5. Number of passengers (total count)
 6. Trip destination/city - CRITICAL: Detect from context! Look for:
    - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", etc.
-   - Airport codes: JFK/LGA/EWR = New York, LHR/LGW/STN/LTN = London
-   - Address patterns: "NY", "Manhattan", "Brooklyn" = New York; "UK", "Westminster" = London
+   - Airport codes: JFK/LGA/EWR/Newark = New York, LHR/LGW/STN/LTN = London
+   - Address patterns: "NY", "Manhattan", "Brooklyn", "Queens", "Bronx", "Yonkers", "Jersey City" = New York
+   - Address patterns: "UK", "Westminster", "Camden" = London
 7. Vehicle information (ONLY brand and model, e.g., 'Mercedes S-Class', 'BMW 7 Series')
 8. Driver notes (ONLY information that doesn't fit in structured fields - NO location names, NO times, NO dates. Include: contact info, special instructions, flight details, vehicle features, dress codes, allergies, preferences, etc.)
 9. Passenger names (all passenger names as array)
@@ -168,7 +176,9 @@ Rules for extraction:
 - Expand abbreviated locations appropriately:
   * Airport codes: JFK/LGA/EWR → include "Airport" suffix
   * LHR/LGW/STN/LTN → include "Airport" suffix
-- ONLY include locations in the trip destination city (auto-detect from context)
+- ONLY include locations in the trip destination city/metro area (auto-detect from context)
+- For New York: Include all NYC metro area locations (Yonkers, Jersey City, Newark, etc. are valid)
+- For London: Include all Greater London locations
 - IMPORTANT: If the text contains ONLY instructions, notes, or verbal updates WITHOUT locations:
   * Return locations as empty array []
   * Put all instructions/notes in driverNotes field
@@ -229,8 +239,10 @@ Rules for trip destination (CRITICAL - AUTO-DETECT):
   * Explicit mentions: "London", "Londres" → "London"
   * Airport codes: JFK/LaGuardia/LGA/Newark/EWR → "New York"
   * Airport codes: Heathrow/LHR/Gatwick/LGW/Stansted/Luton → "London"
-  * Address patterns: "NY", "Manhattan", "Brooklyn", "Queens" → "New York"
-  * Address patterns: "UK", "Westminster", "Camden" → "London"
+  * Address patterns: "NY", "Manhattan", "Brooklyn", "Queens", "Bronx", "Yonkers", "Jersey City", "Newark NJ" → "New York"
+  * Address patterns: "UK", "Westminster", "Camden", "Greater London" → "London"
+- IMPORTANT: "New York" includes the entire NYC metro area (5 boroughs + Yonkers + Jersey City + Newark + Long Island)
+- IMPORTANT: "London" includes Greater London area
 - Do NOT include specific addresses, airports, or venues in the city name
 - If multiple cities mentioned, choose where most locations are
 - ONLY if absolutely no city clues exist, default to "${cityConfig.cityName}"

@@ -29,10 +29,36 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
   // Get city configuration for location bias
   const cityConfig = getCityConfig(tripDestination);
   const countryCode = cityConfig.isLondon ? 'gb' : 'us'; // gb for London, us for other cities (New York, etc.)
+  
+  // City-specific location bounds (prioritizes metro area while allowing broader searches)
+  const getLocationBounds = () => {
+    if (tripDestination === 'New York') {
+      // NYC metro area bounds: covers Manhattan, Bronx, Queens, Brooklyn, Staten Island, Yonkers, Jersey City, Newark, Long Island
+      // Southwest corner to Northeast corner (~50km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(40.4774, -74.2591), // Southwest (Staten Island)
+        new google.maps.LatLng(40.9176, -73.7004)  // Northeast (Yonkers/Long Island)
+      );
+    } else if (cityConfig.isLondon) {
+      // Greater London bounds: covers all 32 boroughs
+      // Southwest corner to Northeast corner (~30km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(51.2868, -0.5103), // Southwest
+        new google.maps.LatLng(51.6918, 0.3340)   // Northeast
+      );
+    }
+    return undefined; // No bounds for other cities
+  };
 
   const onLoad = (autocompleteInstance: google.maps.places.Autocomplete) => {
     setAutocomplete(autocompleteInstance);
-    console.log(`🔍 Google Places Autocomplete loaded for ${cityConfig.cityName} (country: ${countryCode})`);
+    const bounds = getLocationBounds();
+    if (bounds) {
+      autocompleteInstance.setBounds(bounds);
+      console.log(`🔍 Google Places Autocomplete loaded for ${cityConfig.cityName} (country: ${countryCode}, with metro area bounds)`);
+    } else {
+      console.log(`🔍 Google Places Autocomplete loaded for ${cityConfig.cityName} (country: ${countryCode})`);
+    }
   };
 
   // Sync input value with currentLocation prop changes
@@ -146,6 +172,7 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
           options={{
             types: ['establishment', 'geocode'], // Include businesses and addresses
             componentRestrictions: { country: countryCode }, // Dynamic country based on trip destination
+            // Note: bounds are set via setBounds() in onLoad (not in options)
             fields: [
               'formatted_address',
               'name',
