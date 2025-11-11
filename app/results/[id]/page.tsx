@@ -4059,7 +4059,7 @@ export default function ResultsPage() {
             <Card className="mb-6 shadow-none">
               <CardContent className="p-6">
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold">Special remarks</h3>
+                  <h3 className="text-xl font-semibold">Exceptional information</h3>
                 </div>
                 <div className="text-lg leading-relaxed">
                   {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
@@ -4078,7 +4078,7 @@ export default function ResultsPage() {
             <Card className="mb-6 shadow-none">
               <CardContent className="p-6">
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold">Potential trip disruptions</h3>
+                  <h3 className="text-xl font-semibold">Important information</h3>
                 </div>
                 <div className="text-lg leading-relaxed">
                   {executiveReport.importantInformation?.split('\n').map((point: string, index: number) => (
@@ -4907,20 +4907,23 @@ export default function ResultsPage() {
                       <GoogleTripMap 
                         height="200px"
                         compact={true}
+                        tripDestination={tripDestination}
                         locations={[
                           {
                             id: tripResults[index].locationId,
                             name: tripResults[index].locationName,
-                            lat: result.data.crime.coordinates.lat,
-                            lng: result.data.crime.coordinates.lng,
+                            // Use weather coordinates (universal) instead of crime (London-only, 0,0 for other cities)
+                            lat: result.data.weather.coordinates.lat,
+                            lng: result.data.weather.coordinates.lng,
                             time: tripResults[index].time,
                             safetyScore: result.data.crime.safetyScore,
                           },
                           {
                             id: tripResults[index + 1].locationId,
                             name: tripResults[index + 1].locationName,
-                            lat: tripResults[index + 1].data.crime.coordinates.lat,
-                            lng: tripResults[index + 1].data.crime.coordinates.lng,
+                            // Use weather coordinates (universal) instead of crime (London-only, 0,0 for other cities)
+                            lat: tripResults[index + 1].data.weather.coordinates.lat,
+                            lng: tripResults[index + 1].data.weather.coordinates.lng,
                             time: tripResults[index + 1].time,
                             safetyScore: tripResults[index + 1].data.crime.safetyScore,
                           }
@@ -6079,15 +6082,18 @@ export default function ResultsPage() {
             <div className="flex-1 overflow-hidden">
               <div className="w-full h-full">
                 <GoogleTripMap 
-                  locations={locations.map((loc, index) => ({
-                    id: (index + 1).toString(),
-                    name: loc.name || `Location ${index + 1}`,
-                    lat: loc.lat,
-                    lng: loc.lng,
-                    time: loc.time || '12:00'
+                  locations={tripResults.map((result, index) => ({
+                    id: result.locationId,
+                    name: result.locationName,
+                    // Use weather coordinates (universal, works for all cities)
+                    lat: result.data.weather.coordinates.lat,
+                    lng: result.data.weather.coordinates.lng,
+                    time: result.time,
+                    safetyScore: result.data.crime.safetyScore || undefined,
                   }))}
                   height="100%"
                   compact={false}
+                  tripDestination={tripDestination}
                 />
               </div>
             </div>

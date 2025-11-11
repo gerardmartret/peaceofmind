@@ -3568,6 +3568,7 @@ export default function Home() {
                       }))}
                       height="100%"
                       compact={false}
+                      tripDestination={tripDestination}
                     />
                   </div>
                 ) : (

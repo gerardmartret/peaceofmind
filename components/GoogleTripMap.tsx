@@ -24,6 +24,7 @@ interface GoogleTripMapProps {
   locations: TripLocation[];
   height?: string;
   compact?: boolean;
+  tripDestination?: string; // Add trip destination for dynamic center
 }
 
 const getMapContainerStyle = (height: string) => ({
@@ -34,9 +35,17 @@ const getMapContainerStyle = (height: string) => ({
   display: 'block',
 });
 
-const defaultCenter = {
-  lat: 51.5074,
-  lng: -0.1278,
+// City-specific default centers
+const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
+  'London': { lat: 51.5074, lng: -0.1278 },
+  'New York': { lat: 40.7128, lng: -74.0060 },
+  'Paris': { lat: 48.8566, lng: 2.3522 },
+  'Tokyo': { lat: 35.6762, lng: 139.6503 },
+  'Dubai': { lat: 25.2048, lng: 55.2708 },
+};
+
+const getDefaultCenter = (tripDestination?: string) => {
+  return CITY_CENTERS[tripDestination || 'London'] || CITY_CENTERS['London'];
 };
 
 // Corporate monochrome map style matching your brand colors
@@ -113,7 +122,7 @@ const corporateMapStyle = [
   }
 ];
 
-export default function GoogleTripMap({ locations, height = '384px', compact = false }: GoogleTripMapProps) {
+export default function GoogleTripMap({ locations, height = '384px', compact = false, tripDestination }: GoogleTripMapProps) {
   const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
@@ -124,6 +133,9 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
   // Calculate valid locations at the top level
   const validLocations = locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name);
+  
+  // Get city-specific default center
+  const defaultCenter = getDefaultCenter(tripDestination);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
@@ -322,7 +334,10 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
   // Calculate center point to show all locations
   const calculateCenter = () => {
-    if (validLocations.length === 0) return defaultCenter;
+    if (validLocations.length === 0) {
+      console.log(`🗺️ No valid locations, using default center for ${tripDestination || 'London'}`);
+      return defaultCenter;
+    }
     if (validLocations.length === 1) {
       return { lat: validLocations[0].lat, lng: validLocations[0].lng };
     }
