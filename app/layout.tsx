@@ -14,9 +14,18 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Driverbrief - Roadshow planner",
   description: "Plan your roadshow with ease",
-  icons: {
-    icon: "/driv-fav.svg",
-  },
+  icons: [
+    {
+      rel: 'icon',
+      url: '/driver-fav-light.svg',
+      media: '(prefers-color-scheme: dark)', // Light icon for dark mode
+    },
+    {
+      rel: 'icon',
+      url: '/driver-fav-dark.svg',
+      media: '(prefers-color-scheme: light)', // Dark icon for light mode
+    },
+  ],
 };
 
 export default function RootLayout({

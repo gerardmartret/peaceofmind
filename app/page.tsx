@@ -2483,7 +2483,7 @@ export default function Home() {
                     textarea.style.height = 'auto';
                     textarea.style.height = Math.min(textarea.scrollHeight, 240) + 'px';
                   }}
-                  placeholder="Describe your journey"
+                  placeholder="Where are we going?"
                   className="w-full min-h-[86px] max-h-[240px] p-3 pb-10 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
                   style={{ height: '86px' }}
                 />
@@ -2605,6 +2605,14 @@ export default function Home() {
             {/* Extract Button */}
             <div className="flex items-center justify-between gap-3">
               <Button
+                onClick={() => setShowManualForm(true)}
+                variant="outline"
+                size="lg"
+              >
+                Go to manual form
+              </Button>
+
+              <Button
                 onClick={handleExtractTrip}
                 disabled={isExtracting || !extractionText.trim()}
                 size="lg"
@@ -2621,14 +2629,6 @@ export default function Home() {
                 ) : (
                   <span>Extract trip data</span>
                 )}
-              </Button>
-
-              <Button
-                onClick={() => setShowManualForm(true)}
-                variant="outline"
-                size="lg"
-              >
-                Go to manual form
               </Button>
             </div>
 

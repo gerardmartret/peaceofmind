@@ -19,6 +19,26 @@ import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { validateBusinessEmail } from '@/lib/email-validation';
 import { getCityConfig, createMockResponse, MOCK_DATA } from '@/lib/city-helpers';
+import GoogleLocationSearch from '@/components/GoogleLocationSearch';
+import { TimePicker } from '@/components/ui/time-picker';
+import { Label } from '@/components/ui/label';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
@@ -67,6 +87,191 @@ const formatLocationDisplay = (fullAddress: string): { businessName: string; res
   
   return { businessName, restOfAddress };
 };
+
+// Sortable location item for edit route modal
+interface SortableEditLocationItemProps {
+  location: {
+    location: string;
+    time: string;
+    confidence: string;
+    purpose: string;
+    verified: boolean;
+    formattedAddress: string;
+    lat: number;
+    lng: number;
+    placeId: string | null;
+  };
+  index: number;
+  totalLocations: number;
+  onLocationSelect: (index: number, location: any) => void;
+  onTimeChange: (index: number, time: string) => void;
+  onRemove: (index: number) => void;
+  canRemove: boolean;
+  editingIndex: number | null;
+  editingField: 'location' | 'time' | null;
+  onEditStart: (index: number, field: 'location' | 'time') => void;
+  onEditEnd: () => void;
+  tripDestination?: string;
+}
+
+function SortableEditLocationItem({
+  location,
+  index,
+  totalLocations,
+  onLocationSelect,
+  onTimeChange,
+  onRemove,
+  canRemove,
+  editingIndex,
+  editingField,
+  onEditStart,
+  onEditEnd,
+  tripDestination,
+}: SortableEditLocationItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `${location.location}-${index}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const getTimeLabel = () => {
+    if (index === 0) return 'Pickup time';
+    if (index === totalLocations - 1) return 'Dropoff time';
+    return 'Resume at';
+  };
+
+  // Click outside handler to close editing field
+  const editingRef = React.useRef<HTMLDivElement>(null);
+  
+  React.useEffect(() => {
+    if (editingIndex === index && editingField === 'location') {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (editingRef.current && !editingRef.current.contains(event.target as Node)) {
+          onEditEnd();
+        }
+      };
+      
+      // Add listener with a small delay to prevent immediate closure
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [editingIndex, index, editingField, onEditEnd]);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-card rounded-md p-4 border border-border relative"
+    >
+      <div className="absolute top-2 left-2 text-muted-foreground/40 text-xs font-normal">
+        {numberToLetter(index + 1)}
+      </div>
+      
+      <div className="flex items-center gap-3">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted dark:hover:bg-[#181a23] rounded transition-colors flex items-center"
+          title="Drag to reorder"
+        >
+          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+
+        <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
+          <div>
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">
+              {getTimeLabel()}
+            </Label>
+            <TimePicker
+              value={location.time}
+              onChange={(value) => onTimeChange(index, value)}
+              className="h-9"
+            />
+          </div>
+
+          <div className="min-w-0">
+            <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
+            {editingIndex === index && editingField === 'location' ? (
+              <div className="editing-location" data-editing="true" ref={editingRef}>
+                <GoogleLocationSearch
+                  currentLocation={`${location.location} - ${location.formattedAddress || location.location}`}
+                  tripDestination={tripDestination}
+                  onLocationSelect={(loc) => {
+                    onLocationSelect(index, loc);
+                    onEditEnd();
+                  }}
+                />
+              </div>
+            ) : (
+              <div 
+                className="relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
+                onClick={() => onEditStart(index, 'location')}
+              >
+                <div className="flex items-start gap-3">
+                  <svg className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                    {(() => {
+                      const fullAddr = location.formattedAddress || location.location;
+                      const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                      
+                      return (
+                        <>
+                          <div className="text-sm font-semibold text-card-foreground truncate flex-shrink-0">
+                            {businessName || location.location}
+                          </div>
+                          {restOfAddress && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {restOfAddress}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  {location.verified && (
+                    <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {canRemove && (
+          <button 
+            className="flex-shrink-0 p-2 text-muted-foreground hover:text-destructive transition-colors"
+            onClick={() => onRemove(index)}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface CrimeData {
   district: string;
@@ -312,6 +517,12 @@ export default function ResultsPage() {
   // Map modal state
   const [showMapModal, setShowMapModal] = useState<boolean>(false);
   
+  // Edit route modal state
+  const [showEditRouteModal, setShowEditRouteModal] = useState<boolean>(false);
+  const [editingLocations, setEditingLocations] = useState<any[]>([]);
+  const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
+  const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | 'purpose' | null>(null);
+  
   // Enhanced error tracking with step information
   const [updateProgress, setUpdateProgress] = useState<{
     step: string;
@@ -396,9 +607,31 @@ export default function ResultsPage() {
   const [guestSignupLoading, setGuestSignupLoading] = useState<boolean>(false);
   const [guestSignupSuccess, setGuestSignupSuccess] = useState<boolean>(false);
 
+  // Scroll position state for sticky update bar
+  const [scrollY, setScrollY] = useState(0);
+  
+
+  // Drag and drop sensors for edit route modal
+  const editRouteSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // Avoid hydration mismatch for theme-dependent content
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Track scroll position for sticky update bar
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Update current time when in live mode
@@ -779,6 +1012,275 @@ export default function ResultsPage() {
       console.error('Error saving location name:', error);
       setEditingLocationId(null);
       setEditingLocationName('');
+    }
+  };
+
+  // Edit route modal handlers
+  const handleEditRouteDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      setEditingLocations((items) => {
+        const oldIndex = items.findIndex((item, idx) => `${item.location}-${idx}` === active.id);
+        const newIndex = items.findIndex((item, idx) => `${item.location}-${idx}` === over.id);
+        
+        const reorderedItems = arrayMove(items, oldIndex, newIndex);
+        console.log(`🔄 Edit route: Location reordered ${oldIndex + 1} → ${newIndex + 1}`);
+        return reorderedItems;
+      });
+    }
+  };
+
+  const handleEditLocationSelect = (index: number, location: any) => {
+    setEditingLocations(prev => prev.map((loc, idx) => 
+      idx === index ? {
+        ...loc,
+        location: location.name,
+        formattedAddress: location.name,
+        lat: location.lat,
+        lng: location.lng,
+        verified: true,
+      } : loc
+    ));
+  };
+
+  const handleEditTimeChange = (index: number, time: string) => {
+    setEditingLocations(prev => prev.map((loc, idx) => 
+      idx === index ? { ...loc, time } : loc
+    ));
+  };
+
+  const handleEditLocationRemove = (index: number) => {
+    if (editingLocations.length > 1) {
+      setEditingLocations(prev => prev.filter((_, idx) => idx !== index));
+    }
+  };
+
+  const handleAddEditLocation = () => {
+    const newLocation = {
+      location: '',
+      formattedAddress: '',
+      lat: 0,
+      lng: 0,
+      time: '12:00',
+      purpose: '',
+      confidence: 'low',
+      verified: false,
+      placeId: null,
+    };
+    setEditingLocations(prev => [...prev, newLocation]);
+  };
+
+  const handleSaveRouteEdits = async () => {
+    try {
+      console.log('💾 Saving route edits and regenerating...');
+      
+      // Validate all locations have valid coordinates
+      const validLocations = editingLocations.filter(loc => 
+        loc.lat !== 0 && loc.lng !== 0 && loc.location.trim() !== ''
+      );
+      
+      if (validLocations.length === 0) {
+        alert('Please select at least one valid location');
+        return;
+      }
+      
+      // Convert to database format
+      const locationsForDb = validLocations.map((loc, idx) => ({
+        id: `location-${idx + 1}`,
+        name: loc.location,
+        fullAddress: loc.formattedAddress || loc.location,
+        lat: loc.lat,
+        lng: loc.lng,
+        time: loc.time,
+      }));
+      
+      setShowEditRouteModal(false);
+      setIsRegenerating(true);
+      setRegenerationProgress(0);
+      setRegenerationStep('Preparing to regenerate route...');
+      
+      // Call the existing regeneration logic (reuse from lines ~2660)
+      const tripDateStr = tripDate;
+      const days = 7;
+      
+      console.log(`🚀 [EDIT-ROUTE] Regenerating for ${validLocations.length} locations`);
+      
+      // Get city configuration
+      const cityConfig = getCityConfig(tripDestination);
+      console.log(`🌍 [EDIT-ROUTE] City: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
+      
+      setRegenerationProgress(40);
+      setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
+      
+      // Fetch data for all locations (same as existing regeneration logic)
+      const results = await Promise.all(
+        locationsForDb.map(async (location) => {
+          console.log(`\n🔍 [EDIT-ROUTE] Fetching data for: ${location.name} at ${location.time}`);
+          
+          const tempDistrictId = `custom-${Date.now()}-${location.id}`;
+          
+          // Universal APIs
+          const universalCalls = [
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+          ];
+          
+          // London-specific APIs (conditional)
+          const londonCalls = cityConfig.isLondon ? [
+            fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
+            fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
+            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`),
+          ] : [
+            createMockResponse('crime', MOCK_DATA.crime),
+            createMockResponse('disruptions', MOCK_DATA.disruptions),
+            createMockResponse('parking', MOCK_DATA.parking),
+          ];
+          
+          const [crimeResponse, disruptionsResponse, parkingResponse, weatherResponse] = await Promise.all([
+            ...londonCalls,
+            ...universalCalls,
+          ]);
+          
+          if (cityConfig.isLondon) {
+            const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
+            const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
+            
+            for (let i = 0; i < responses.length; i++) {
+              if (!responses[i].ok) {
+                const errorText = await responses[i].text();
+                console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
+                throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
+              }
+            }
+          } else {
+            if (!weatherResponse.ok) {
+              const errorText = await weatherResponse.text();
+              console.error(`❌ weather API failed:`, weatherResponse.status, errorText);
+              throw new Error(`weather API returned ${weatherResponse.status}: ${errorText}`);
+            }
+          }
+          
+          const [crimeData, disruptionsData, parkingData, weatherData] = await Promise.all([
+            crimeResponse.json(),
+            disruptionsResponse.json(),
+            parkingResponse.json(),
+            weatherResponse.json(),
+          ]);
+          
+          const eventsData = {
+            success: true,
+            data: {
+              location: location.name,
+              coordinates: { lat: location.lat, lng: location.lng },
+              date: tripDateStr,
+              events: [],
+              summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 }
+            }
+          };
+          
+          let cafeData = null;
+          try {
+            const cafes = await searchNearbyCafes(location.lat, location.lng, location.name);
+            cafeData = { success: true, data: cafes };
+          } catch (cafeError) {
+            console.error(`⚠️ Cafe search failed for ${location.name}:`, cafeError);
+            cafeData = {
+              success: true,
+              data: {
+                location: location.name,
+                coordinates: { lat: location.lat, lng: location.lng },
+                cafes: [],
+                summary: { total: 0, averageRating: 0, averageDistance: 0 }
+              }
+            };
+          }
+          
+          return {
+            locationId: location.id,
+            locationName: location.name,
+            fullAddress: location.fullAddress,
+            time: location.time,
+            data: {
+              crime: crimeData.data,
+              disruptions: disruptionsData.data,
+              weather: weatherData.data,
+              events: eventsData.data,
+              parking: parkingData.data,
+              cafes: cafeData.data,
+            },
+          };
+        })
+      );
+      
+      setRegenerationProgress(70);
+      setRegenerationStep('Calculating traffic predictions...');
+      
+      // Get traffic predictions
+      const trafficData = await getTrafficPredictions(
+        locationsForDb.map(loc => ({
+          name: loc.name,
+          lat: loc.lat,
+          lng: loc.lng,
+          time: loc.time,
+        }))
+      );
+      
+      setRegenerationProgress(90);
+      setRegenerationStep('Generating executive report...');
+      
+      // Generate executive report
+      const reportResponse = await fetch('/api/executive-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tripData: results,
+          tripDate: tripDateStr,
+          routeDistance: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.distanceMeters || 0), 0) / 1000,
+          routeDuration: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.minutes || 0), 0),
+          trafficPredictions: trafficData.data,
+          emailContent: null,
+          leadPassengerName,
+          vehicleInfo,
+          passengerCount,
+          tripDestination,
+          passengerNames,
+          driverNotes, // Preserve existing notes
+        }),
+      });
+      
+      const reportData = await reportResponse.json();
+      
+      if (!reportData.success) {
+        throw new Error('Failed to generate executive report');
+      }
+      
+      // Update database with new locations (preserve notes and other fields)
+      const { error: updateError } = await supabase
+        .from('trips')
+        .update({
+          locations: JSON.stringify(locationsForDb),
+          trip_results: JSON.stringify(results),
+          traffic_predictions: JSON.stringify(trafficData),
+          executive_report: JSON.stringify(reportData.data),
+          updated_at: new Date().toISOString(),
+          version: (currentVersion || 0) + 1,
+          // CRITICAL: trip_notes NOT updated (preserved)
+        })
+        .eq('id', tripId);
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      console.log('✅ [EDIT-ROUTE] Route updated successfully!');
+      
+      // Reload page to show updated data
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('❌ [EDIT-ROUTE] Error saving route edits:', error);
+      setIsRegenerating(false);
+      alert('Failed to update route. Please try again.');
     }
   };
 
@@ -3182,14 +3684,18 @@ export default function ResultsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Update Trip Section - Second Top Bar - Only show for owners */}
+      {/* Update Trip Section - Sticky Bar - Only show for owners */}
         {isOwner && !isLiveMode && (
-        <div className="fixed top-[57px] left-0 right-0 z-40 bg-background">
+        <div 
+          className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
+            scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
+          }`}
+        >
           <div className="container mx-auto px-4 pt-8 pb-3">
             
-            <div className="rounded-md px-4 py-2 bg-primary dark:bg-[#1f1f21] border border-border">
+            <div className="rounded-md px-6 py-2 bg-primary dark:bg-[#1f1f21] border border-border">
               <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Trip Update</label>
-              <div className="flex gap-3 items-start">
+              <div className="flex gap-6 items-start">
                 <div className="flex-1 relative">
                   <textarea
                     ref={updateTextareaRef}
@@ -3227,6 +3733,33 @@ export default function ResultsPage() {
                 </div>
                 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Edit Route Button */}
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 h-[51px]"
+                  onClick={() => {
+                    // Pre-fill modal with current trip data - use locations array instead of tripResults
+                    // locations array has clean data without purpose mixed in
+                    setEditingLocations(locations.map(loc => ({
+                      location: loc.fullAddress || loc.name,
+                      formattedAddress: loc.fullAddress || loc.name,
+                      lat: loc.lat,
+                      lng: loc.lng,
+                      time: loc.time,
+                      purpose: '',
+                      confidence: 'high',
+                      verified: true,
+                      placeId: null,
+                    })));
+                    setShowEditRouteModal(true);
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit route
+                </Button>
+
                 {/* Driver Button */}
                 <div className="relative">
                   <Button
@@ -3255,58 +3788,6 @@ export default function ResultsPage() {
                     </span>
                   )}
                 </div>
-                
-                {/* Live Trip / Trip Breakdown Button */}
-                {(() => {
-                  const now = new Date();
-                  const tripDateTime = new Date(tripDate);
-                  const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
-                  const isLiveTripActive = now >= oneHourBefore;
-                  
-                  return (
-                    <Button
-                      variant={isLiveTripActive ? "default" : "outline"}
-                      className={`flex items-center gap-2 h-[51px] ${
-                        isLiveTripActive 
-                          ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]' 
-                          : ''
-                      }`}
-                      onClick={() => {
-                        if (isLiveMode) {
-                          stopLiveTrip();
-                        } else {
-                          startLiveTrip();
-                        }
-                      }}
-                    >
-                      {isLiveTripActive ? (
-                        <>
-                          <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                          <span>
-                            {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
-                          </span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                        </svg>
-                      </>
-                    )}
-                  </Button>
-                  );
-                })()}
-                
-                {/* Route View Button */}
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2 h-[51px]"
-                  onClick={() => setShowMapModal(true)}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                  </svg>
-                </Button>
                 </div>
                 
                 <div className="flex gap-3 flex-shrink-0">
@@ -3934,8 +4415,67 @@ export default function ResultsPage() {
           {!isLiveMode && (
             <Card className="mb-6 shadow-none">
               <CardContent className="p-6">
-                <div className="mb-6">
+                <div className="mb-6 flex items-center justify-between gap-4">
                   <h3 className="text-xl font-semibold text-card-foreground">Trip Locations</h3>
+                  
+                  {/* Action Buttons - Right Side */}
+                  <div className="flex items-center gap-2">
+                    {/* Trip Breakdown Button */}
+                    {(() => {
+                      const now = new Date();
+                      const tripDateTime = new Date(tripDate);
+                      const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
+                      const isLiveTripActive = now >= oneHourBefore;
+                      
+                      return (
+                        <Button
+                          variant={isLiveTripActive ? "default" : "outline"}
+                          size="sm"
+                          className={`flex items-center gap-2 ${
+                            isLiveTripActive 
+                              ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]' 
+                              : ''
+                          }`}
+                          onClick={() => {
+                            if (isLiveMode) {
+                              stopLiveTrip();
+                            } else {
+                              startLiveTrip();
+                            }
+                          }}
+                        >
+                          {isLiveTripActive ? (
+                            <>
+                              <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                              <span>
+                                {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
+                              </span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
+                            Trip Breakdown
+                          </>
+                        )}
+                        </Button>
+                      );
+                    })()}
+                    
+                    {/* View Map Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => setShowMapModal(true)}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                      View Map
+                    </Button>
+                  </div>
                 </div>
             <div className="relative">
               {/* Connecting Line */}
@@ -4056,34 +4596,50 @@ export default function ResultsPage() {
 
           {/* Exceptional Information */}
           {!isLiveMode && executiveReport?.exceptionalInformation && (
-            <Card className="mb-6 shadow-none">
-              <CardContent className="p-6">
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold">Exceptional information</h3>
-                </div>
-                <div className="text-lg leading-relaxed">
-                  {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
-                    <div key={index} className="flex items-start gap-2 mb-1">
-                      <span className="text-muted-foreground mt-1">•</span>
-                      <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div 
+              className={`sticky z-[59] transition-all duration-300 ${
+                scrollY > 0 ? 'top-[146px]' : 'top-[203px]'
+              }`}
+            >
+              <Card className="mb-6 shadow-none bg-[#9e2622] dark:bg-[#3b1c1c] border-[#9e2622] dark:border-[#3b1c1c]">
+                <CardContent className="px-3 py-1 pl-6">
+                  <div className="mb-3">
+                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                      <svg className="w-5 h-5 text-red-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Protocol alerts
+                    </h3>
+                  </div>
+                  <div className="text-lg leading-snug text-white/95">
+                    {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
+                      <div key={index} className="flex items-start gap-2 mb-0.5">
+                        <span className="text-white mt-0.5">-</span>
+                        <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
               {/* Important Information */}
           {!isLiveMode && executiveReport?.importantInformation && (
             <Card className="mb-6 shadow-none">
-              <CardContent className="p-6">
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold">Important information</h3>
+              <CardContent className="px-3 py-1 pl-6">
+                <div className="mb-3">
+                  <h3 className="text-xl font-semibold flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600 dark:text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Operational notes
+                  </h3>
                 </div>
-                <div className="text-lg leading-relaxed">
+                <div className="text-lg leading-snug">
                   {executiveReport.importantInformation?.split('\n').map((point: string, index: number) => (
-                    <div key={index} className="flex items-start gap-2 mb-1">
-                      <span className="text-muted-foreground mt-1">•</span>
+                    <div key={index} className="flex items-start gap-2 mb-0.5">
+                      <span className="text-muted-foreground mt-0.5">-</span>
                       <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
                     </div>
                   ))}
@@ -4092,79 +4648,20 @@ export default function ResultsPage() {
             </Card>
           )}
 
-          {/* Driver Warnings Box */}
-          {!isLiveMode && (
-            <Card className="mb-6">
-              <CardContent className="p-6">
-            <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              Driver Warnings
-            </h3>
-            
-            <div className="space-y-4">
-              {/* Smart Warning Detection */}
-              {(() => {
-                const warnings = [];
-                const notes = driverNotes?.toLowerCase() || '';
-                const destination = tripDestination?.toLowerCase() || '';
-                
-                // Check driver notes for warning patterns
-                if (notes.includes('onboard') || notes.includes('in car') || notes.includes('during trip')) {
-                  warnings.push('🚙 ONBOARD SERVICES: Special services required during the journey');
-                }
-                if (notes.includes('time') && (notes.includes('strict') || notes.includes('exact') || notes.includes('precise'))) {
-                  warnings.push('⏱️ TIME CRITICAL: Strict timing requirements must be followed');
-                }
-                if (notes.includes('access') || notes.includes('restricted') || notes.includes('permit')) {
-                  warnings.push('🚧 ACCESS RESTRICTIONS: Special access or permits may be required');
-                }
-                if (notes.includes('language') || notes.includes('translate') || notes.includes('interpreter')) {
-                  warnings.push('🗣️ LANGUAGE: Translation or language assistance needed');
-                }
-                // Medical/health info is now handled in exceptional information section
-
-                // Check trip purpose for additional warnings
-                if (destination.includes('airport') && (destination.includes('international') || destination.includes('terminal'))) {
-                  warnings.push('✈️ AIRPORT TERMINAL: Check specific terminal and international requirements');
-                }
-                if (destination.includes('hospital') || destination.includes('medical')) {
-                  warnings.push('🏥 MEDICAL FACILITY: Special access and parking considerations');
-                }
-                if (destination.includes('wedding') || destination.includes('ceremony')) {
-                  warnings.push('💒 WEDDING EVENT: Formal attire and timing requirements');
-                }
-                if (destination.includes('business') && destination.includes('meeting')) {
-                  warnings.push('💼 BUSINESS MEETING: Professional presentation required');
-                }
-                if (destination.includes('school') || destination.includes('university')) {
-                  warnings.push('🎓 EDUCATIONAL INSTITUTION: Check access restrictions and timing');
-                }
-
-                // Show warnings if any
-                const warningElements = warnings.length > 0 ? warnings.map((warning, index) => (
-                  <Card key={index} className="bg-muted/50">
-                    <CardContent className="p-4">
-                      <p className="text-sm text-card-foreground font-medium">{warning}</p>
-                    </CardContent>
-                  </Card>
-                )) : null;
-
-                // Always show recommendations with risk score side by side
-                return (
-                  <>
-                    {warningElements}
+          {/* Risk Score and Recommendations */}
+          {!isLiveMode && executiveReport && (
+            <div className="space-y-4 mb-6">
+                    {/* Top row: Risk Score (33%) and Top Disruptor (66%) */}
                     <div className="flex gap-4">
-                      {/* Risk Score - 25% width */}
-                      <Card className="bg-muted/50 w-1/4 flex-shrink-0">
-                        <CardContent className="p-4 text-center flex flex-col justify-center h-full">
-                          <h4 className="text-base font-bold text-card-foreground mb-2">
-                            Risk Score
+                      {/* Risk Score - 33% width */}
+                      <Card className="bg-muted/50 w-1/3 flex-shrink-0">
+                        <CardContent className="p-4">
+                          <h4 className="text-xl font-semibold text-card-foreground mb-3">
+                            Risk score
                           </h4>
-                          <div className="bg-card border border-border rounded-md p-3">
+                          <div className="bg-card border border-border rounded-md p-4 text-center">
                             <div 
-                              className="text-3xl font-bold mb-1"
+                              className="text-5xl font-bold mb-2"
                               style={{
                                 color: (() => {
                                   const riskScore = Math.max(0, executiveReport.tripRiskScore);
@@ -4176,11 +4673,11 @@ export default function ResultsPage() {
                             >
                               {Math.max(0, executiveReport.tripRiskScore)}
                             </div>
-                            <div className="text-xs text-muted-foreground font-medium mb-2">
+                            <div className="text-base text-muted-foreground font-medium mb-3">
                               out of 10
                             </div>
                             <div 
-                              className="text-xs font-semibold tracking-wide px-2 py-1 rounded"
+                              className="text-sm font-semibold tracking-wide px-3 py-2 rounded"
                               style={{
                                 backgroundColor: (() => {
                                   const riskScore = Math.max(0, executiveReport.tripRiskScore);
@@ -4199,8 +4696,21 @@ export default function ResultsPage() {
                         </CardContent>
                       </Card>
                       
-                      {/* Recommendations for the Driver - 75% width */}
-                      <Card className="bg-muted/50 flex-1">
+                      {/* Top Disruptor - 66% width */}
+                      <Card className="bg-muted/50 w-2/3 flex-shrink-0">
+                        <CardContent className="p-4">
+                          <h4 className="text-base font-bold text-card-foreground mb-3">
+                            Top Disruptor
+                          </h4>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {executiveReport.topDisruptor}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Bottom row: Recommendations for the Driver - full width */}
+                    <Card className="bg-muted/50">
                       <CardContent className="p-4">
                         <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
                         <div className="space-y-2">
@@ -4209,21 +4719,13 @@ export default function ResultsPage() {
                               <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
                                 {idx + 1}
                               </span>
-                                <p className="text-sm text-card-foreground leading-relaxed">{rec}</p>
+                              <p className="text-sm text-card-foreground leading-relaxed">{rec}</p>
                             </div>
                           ))}
                         </div>
                       </CardContent>
                     </Card>
-                    </div>
-                  </>
-                );
-              })()}
-
-
             </div>
-              </CardContent>
-            </Card>
           )}
 
           {/* Executive Report */}
@@ -4271,36 +4773,21 @@ export default function ResultsPage() {
           {/* Chronological Journey Flow */}
           {isLiveMode && (
             <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
-            {/* Live Time Display */}
-            <div className="sticky top-20 mb-12 p-4 rounded-lg relative z-20 bg-[#3ea34b] border border-[#3ea34b]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center justify-center gap-3 flex-1">
-                <div className="w-3 h-3 rounded-full bg-white animate-pulse"></div>
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">Current Time</div>
-                  <div className="text-2xl font-bold text-white">
-                    {currentTime.toLocaleTimeString('en-GB', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit'
-                    })}
-                  </div>
-                </div>
-                </div>
-                {/* Close Live Trip Button */}
-                <button
-                  onClick={stopLiveTrip}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                  title="Exit Live Trip view"
-                >
-                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+            {/* Back Button - Top Right */}
+            <div className="sticky top-20 mb-6 flex justify-end z-20">
+              <Button
+                onClick={stopLiveTrip}
+                size="lg"
+                className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back
+              </Button>
             </div>
-            {/* Connecting Line - starts after the green box */}
-            <div className="absolute left-6 w-0.5 bg-border" style={{ top: '6rem', bottom: 0 }}></div>
+            {/* Connecting Line */}
+            <div className="absolute left-6 w-0.5 bg-border" style={{ top: '4rem', bottom: 0 }}></div>
             {tripResults.map((result, index) => (
               <React.Fragment key={result.locationId}>
                 {/* Location Hour Display */}
@@ -6135,6 +6622,97 @@ export default function ResultsPage() {
                 </>
               ) : (
                 'Yes, Notify Driver'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Route Modal */}
+      <Dialog open={showEditRouteModal} onOpenChange={setShowEditRouteModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Route</DialogTitle>
+            <DialogDescription>
+              Update locations and times. Trip notes and other details will be preserved.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Sortable Location Cards */}
+            <DndContext
+              sensors={editRouteSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleEditRouteDragEnd}
+            >
+              <SortableContext
+                items={editingLocations.map((loc, index) => `${loc.location}-${index}`)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4">
+                  {editingLocations.map((loc, index) => (
+                    <SortableEditLocationItem
+                      key={`${loc.location}-${index}`}
+                      location={loc}
+                      index={index}
+                      totalLocations={editingLocations.length}
+                      onLocationSelect={handleEditLocationSelect}
+                      onTimeChange={handleEditTimeChange}
+                      onRemove={handleEditLocationRemove}
+                      canRemove={editingLocations.length > 1}
+                      editingIndex={editingExtractedIndex}
+                      editingField={editingExtractedField}
+                      tripDestination={tripDestination}
+                      onEditStart={(index, field) => {
+                        setEditingExtractedIndex(index);
+                        setEditingExtractedField(field);
+                      }}
+                      onEditEnd={() => {
+                        setEditingExtractedIndex(null);
+                        setEditingExtractedField(null);
+                      }}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            
+            {/* Add Location Button */}
+            <Button
+              onClick={handleAddEditLocation}
+              variant="outline"
+              className="w-full"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add location
+            </Button>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditRouteModal(false)}
+              disabled={isRegenerating}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveRouteEdits}
+              disabled={isRegenerating || editingLocations.filter(loc => loc.lat !== 0 && loc.lng !== 0).length === 0}
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+            >
+              {isRegenerating ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Updating...
+                </>
+              ) : (
+                'Update route'
               )}
             </Button>
           </DialogFooter>
