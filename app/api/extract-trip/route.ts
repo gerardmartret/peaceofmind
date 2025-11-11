@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { extractFlightNumbers, matchFlightsToLocations } from '@/lib/flight-parser';
+import { getCityConfig } from '@/lib/city-helpers';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -12,8 +13,12 @@ const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.en
 console.log('🔑 [API] Google Maps API Key status:', GOOGLE_MAPS_API_KEY ? `LOADED ✅ (length: ${GOOGLE_MAPS_API_KEY.length})` : 'MISSING ❌');
 
 // Function to verify location with Google Maps Geocoding API
-async function verifyLocationWithGoogle(locationQuery: string) {
+async function verifyLocationWithGoogle(locationQuery: string, tripDestination?: string) {
   console.log(`🔍 [API] Verifying location with Google Maps: "${locationQuery}"`);
+  
+  // Get city-specific configuration
+  const cityConfig = getCityConfig(tripDestination);
+  console.log(`🌍 [API] City context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias}, region: ${cityConfig.geocodingRegion})`);
   
   // Check if API key is available
   if (!GOOGLE_MAPS_API_KEY) {
@@ -30,9 +35,9 @@ async function verifyLocationWithGoogle(locationQuery: string) {
   
   try {
     const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
-    url.searchParams.append('address', `${locationQuery}, London, UK`);
+    url.searchParams.append('address', `${locationQuery}, ${cityConfig.geocodingBias}`);
     url.searchParams.append('key', GOOGLE_MAPS_API_KEY);
-    url.searchParams.append('region', 'uk');
+    url.searchParams.append('region', cityConfig.geocodingRegion);
 
     const maskedUrl = url.toString().replace(GOOGLE_MAPS_API_KEY, `***${GOOGLE_MAPS_API_KEY.slice(-4)}`);
     console.log(`📡 [API] Google Maps API URL:`, maskedUrl);
@@ -80,8 +85,11 @@ export async function POST(request: NextRequest) {
   console.log('🚀 [API] Starting trip extraction...');
   
   try {
-    const { text } = await request.json();
+    const { text, tripDestination } = await request.json();
     console.log(`📝 [API] Received text (${text?.length || 0} chars):`, text?.substring(0, 100) + '...');
+    if (tripDestination) {
+      console.log(`🌍 [API] Trip destination specified: ${tripDestination}`);
+    }
 
     if (!text || typeof text !== 'string') {
       console.log('❌ [API] Invalid text provided');
@@ -90,6 +98,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    
+    // Get city configuration for context
+    const cityConfig = getCityConfig(tripDestination);
 
     console.log('🤖 [API] Calling OpenAI for extraction and summary generation...');
     // Call OpenAI to extract locations, times, date, AND generate professional summary
@@ -101,15 +112,20 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a trip planning assistant that extracts location and time information from unstructured text (emails, messages, etc.).
 
+CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
+
 CRITICAL: For driverNotes, preserve ALL unique content from the original email BUT exclude ANY information that's already extracted into structured fields (locations, times, dates, names). Do NOT repeat location names, addresses, times, or dates in driverNotes - these are already in the locations array. ONLY include contextual details not captured elsewhere.
 
 Extract:
-1. All locations in London (addresses, landmarks, stations, airports, etc.)
+1. All locations (addresses, landmarks, stations, airports, etc.) - identify which city they belong to
 2. Associated times for each location
 3. Trip date if mentioned
 4. Lead passenger name (main/first passenger name)
 5. Number of passengers (total count)
-6. Trip destination/city
+6. Trip destination/city - CRITICAL: Detect from context! Look for:
+   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", etc.
+   - Airport codes: JFK/LGA/EWR = New York, LHR/LGW/STN/LTN = London
+   - Address patterns: "NY", "Manhattan", "Brooklyn" = New York; "UK", "Westminster" = London
 7. Vehicle information (ONLY brand and model, e.g., 'Mercedes S-Class', 'BMW 7 Series')
 8. Driver notes (ONLY information that doesn't fit in structured fields - NO location names, NO times, NO dates. Include: contact info, special instructions, flight details, vehicle features, dress codes, allergies, preferences, etc.)
 9. Passenger names (all passenger names as array)
@@ -121,27 +137,38 @@ Return a JSON object with this exact structure:
   "date": "YYYY-MM-DD ONLY if explicitly mentioned in text, otherwise null. CRITICAL: If no date is mentioned at all, return null. Do NOT invent or assume a date. If year is not mentioned but date is, use current year (${new Date().getFullYear()})",
   "leadPassengerName": "Main passenger name (e.g., 'Mr. Smith', 'John Doe') or null if not mentioned",
   "passengerCount": number,
-  "tripDestination": "Main destination city only (e.g., 'London', 'Manchester', 'Birmingham')",
+  "tripDestination": "Main destination city only (e.g., 'London', 'New York', 'Paris')",
   "vehicleInfo": "ONLY vehicle brand and model (e.g., 'Mercedes S-Class', 'BMW 7 Series', 'Audi A8'). Do NOT include color, features, amenities, or requirements. Put those details in driverNotes instead. Null if not mentioned.",
   "passengerNames": ["Name1", "Name2", "Name3"],
   "driverNotes": "ONLY contextual information NOT captured elsewhere. ABSOLUTELY EXCLUDE: ALL location names (airports, hotels, restaurants, venues, addresses), ALL times (pickup, dropoff, stops), ALL dates, ALL passenger names, vehicle brand/model, trip destination. ONLY INCLUDE: flight numbers, contact info, special instructions, vehicle features (color/amenities), dress codes, allergies, security requirements, operational codes, waiting procedures, preferences. Zero redundancy with locations array or other fields. Format as bullet points.",
   "locations": [
     {
-      "location": "Full location name in London",
-      "time": "HH:MM in 24-hour format",
-      "confidence": "high/medium/low",
-      "purpose": "Comprehensive short name that summarizes the purpose with specific details (e.g., 'Pick up at Gatwick Airport', 'Investment Meeting at UBS Bank with Mr John', 'Dinner at Belladonna with Mr. Smith', 'Hotel check-in at The Savoy')"
+      "location": "Full location name",
+      "time": "HH:MM in 24-hour format (ALWAYS use HH:MM format like '09:30', '15:00', NEVER put confidence level here)",
+      "confidence": "high/medium/low (this is separate from time - indicates how certain you are about the time estimate)",
+      "purpose": "Comprehensive short name that summarizes the purpose with specific details (e.g., 'Pick up at JFK Airport', 'Investment Meeting at UBS Bank with Mr John', 'Dinner at Nobu with Mr. Smith', 'Hotel check-in at The Langham')"
     }
   ]
 }
+
+CRITICAL TIME FORMATTING RULES:
+- "time" field MUST ALWAYS be in "HH:MM" format (e.g., "09:30", "14:00", "21:45")
+- NEVER put "low", "medium", "high" in the time field - those go in "confidence" field
+- If no specific time mentioned, estimate based on context and previous/next locations
+- Example: If pickup is 13:45 and dropoff is 21:30, spread middle stops evenly (14:30, 16:00, 17:30, 19:00, 20:00)
+- Use "confidence": "low" for estimated times, but time field must still be "HH:MM" format
 
 Rules for extraction:
 - Sort locations chronologically by time (if locations exist)
 - Convert all times to 24-hour format (e.g., "3pm" -> "15:00", "9am" -> "09:00")
 - If time is relative (e.g., "2 hours later"), calculate based on previous time
-- If no time specified, use "confidence": "low" and make reasonable estimate
-- Expand abbreviated locations (e.g., "LHR" -> "Heathrow Airport, London")
-- Only include locations in London area
+- CRITICAL: If no specific time mentioned, ESTIMATE a reasonable time in HH:MM format
+  * Example: Pickup at 13:45, then estimate: 14:45 (breakfast), 16:00 (meeting), 18:00 (lunch), 19:30 (pitch), 20:30 (shower), 21:30 (dropoff)
+  * Set "confidence": "low" for estimates, but "time" must ALWAYS be "HH:MM" format like "14:45", NEVER "low"
+- Expand abbreviated locations appropriately:
+  * Airport codes: JFK/LGA/EWR → include "Airport" suffix
+  * LHR/LGW/STN/LTN → include "Airport" suffix
+- ONLY include locations in the trip destination city (auto-detect from context)
 - IMPORTANT: If the text contains ONLY instructions, notes, or verbal updates WITHOUT locations:
   * Return locations as empty array []
   * Put all instructions/notes in driverNotes field
@@ -195,12 +222,18 @@ Rules for vehicle information extraction:
 - If vehicle brand/model is not explicitly mentioned, return null
 - Generic terms like "luxury vehicle" or "executive sedan" without brand/model should return null and go in driverNotes
 
-Rules for trip destination:
-- Extract ONLY the city name (e.g., "London", "Manchester", "Birmingham")
-- Do NOT include specific addresses, airports, or venues
-- If multiple cities mentioned, choose the main destination city
-- If no specific city mentioned, use "London" as default
-- Examples: "London City Airport" → "London", "Heathrow Airport" → "London", "Manchester Airport" → "Manchester"
+Rules for trip destination (CRITICAL - AUTO-DETECT):
+- Extract ONLY the city name (e.g., "London", "New York", "Paris", "Tokyo")
+- AUTO-DETECT from text clues:
+  * Explicit mentions: "New York", "NYC", "Nueva York" → "New York"
+  * Explicit mentions: "London", "Londres" → "London"
+  * Airport codes: JFK/LaGuardia/LGA/Newark/EWR → "New York"
+  * Airport codes: Heathrow/LHR/Gatwick/LGW/Stansted/Luton → "London"
+  * Address patterns: "NY", "Manhattan", "Brooklyn", "Queens" → "New York"
+  * Address patterns: "UK", "Westminster", "Camden" → "London"
+- Do NOT include specific addresses, airports, or venues in the city name
+- If multiple cities mentioned, choose where most locations are
+- ONLY if absolutely no city clues exist, default to "${cityConfig.cityName}"
 
 Rules for driver notes:
 - Include ONLY information that does NOT fit in any structured field above
@@ -316,7 +349,7 @@ Rules for driver notes:
       verifiedLocations = await Promise.all(
         parsed.locations.map(async (loc: any, index: number) => {
           console.log(`🔍 [API] Verifying location ${index + 1}/${parsed.locations.length}: "${loc.location}"`);
-          const googleData = await verifyLocationWithGoogle(loc.location);
+          const googleData = await verifyLocationWithGoogle(loc.location, parsed.tripDestination || tripDestination);
           const verifiedLoc = {
             location: loc.location, // Original extracted text
             time: loc.time,

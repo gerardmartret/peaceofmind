@@ -18,6 +18,7 @@ import { searchNearbyCafes } from '@/lib/google-cafes';
 import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { validateBusinessEmail } from '@/lib/email-validation';
+import { getCityConfig, createMockResponse, MOCK_DATA } from '@/lib/city-helpers';
 
 // Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
 const numberToLetter = (num: number): string => {
@@ -1973,7 +1974,10 @@ export default function ResultsPage() {
       const extractResponse = await fetch('/api/extract-trip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: updateText }),
+        body: JSON.stringify({ 
+          text: updateText,
+          tripDestination: tripDestination || undefined // Pass current trip destination for proper geocoding
+        }),
       });
 
       const extractedData = await extractResponse.json();
@@ -2481,6 +2485,10 @@ export default function ResultsPage() {
 
       const days = 7; // Fixed period for trip planning
 
+      // Get city configuration for conditional API calls
+      const cityConfig = getCityConfig(tripDestination);
+      console.log(`🌍 [RESULTS] City configuration: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
+
       // Fetch data for all locations in parallel
       setRegenerationProgress(40);
       setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
@@ -2490,22 +2498,46 @@ export default function ResultsPage() {
           
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
-          const [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse] = await Promise.all([
+          // Universal APIs (always called)
+          const universalCalls = [
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+          ];
+
+          // London-specific APIs (conditional)
+          const londonCalls = cityConfig.isLondon ? [
             fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
             fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
-            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
-            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`)
+            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`),
+          ] : [
+            // Mock responses for non-London cities
+            createMockResponse('crime', MOCK_DATA.crime),
+            createMockResponse('disruptions', MOCK_DATA.disruptions),
+            createMockResponse('parking', MOCK_DATA.parking),
+          ];
+
+          const [crimeResponse, disruptionsResponse, parkingResponse, weatherResponse] = await Promise.all([
+            ...londonCalls,
+            ...universalCalls,
           ]);
 
-          // Check if any response failed
-          const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
-          const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
-          
-          for (let i = 0; i < responses.length; i++) {
-            if (!responses[i].ok) {
-              const errorText = await responses[i].text();
-              console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
-              throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
+          // Check if any response failed (only for London, mocks always succeed)
+          if (cityConfig.isLondon) {
+            const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
+            const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
+            
+            for (let i = 0; i < responses.length; i++) {
+              if (!responses[i].ok) {
+                const errorText = await responses[i].text();
+                console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
+                throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
+              }
+            }
+          } else {
+            // For non-London, only check weather API
+            if (!weatherResponse.ok) {
+              const errorText = await weatherResponse.text();
+              console.error(`❌ weather API failed:`, weatherResponse.status, errorText);
+              throw new Error(`weather API returned ${weatherResponse.status}: ${errorText}`);
             }
           }
 
@@ -2870,6 +2902,10 @@ export default function ResultsPage() {
       let geocodedLocations: any[] = [];
       if (locationsNeedingGeocoding.length > 0) {
         console.log('🗺️ [DEBUG] Geocoding locations without valid coordinates...');
+        // Get city configuration for geocoding
+        const cityConfig = getCityConfig(tripDestination);
+        console.log(`🌍 [GEOCODING] Using city context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias})`);
+        
         geocodedLocations = await Promise.all(
           locationsNeedingGeocoding.map(async (loc: any) => {
             try {
@@ -2881,7 +2917,7 @@ export default function ResultsPage() {
               
               return new Promise<typeof loc>((resolve) => {
                 geocoder.geocode(
-                  { address: `${query}, London, UK`, region: 'uk' },
+                  { address: `${query}, ${cityConfig.geocodingBias}`, region: cityConfig.geocodingRegion },
                   (results, status) => {
                     if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
                       const result = results[0];

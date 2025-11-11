@@ -2,6 +2,7 @@
 // Generates a comprehensive trip analysis report with AI-powered risk scoring
 
 import openai from './openai';
+import { getCityConfig } from './city-helpers';
 
 export interface TripLocation {
   name: string;
@@ -77,6 +78,8 @@ export async function generateExecutiveReport(
   passengerNames?: string[],
   driverNotes?: string
 ): Promise<ExecutiveReport> {
+  // Get city configuration for conditional analysis
+  const cityConfig = getCityConfig(tripDestination);
   try {
     console.log('\n' + '='.repeat(80));
     console.log('🤖 GENERATING EXECUTIVE PEACE OF MIND REPORT WITH GPT-4O-MINI...');
@@ -85,7 +88,8 @@ export async function generateExecutiveReport(
     console.log(`👤 Lead Passenger Name: ${leadPassengerName}`);
     console.log(`🚗 Vehicle Info: ${vehicleInfo}`);
     console.log(`👥 Passenger Count: ${passengerCount}`);
-    console.log(`🏙️ Trip Destination: ${tripDestination}`);
+    console.log(`🏙️ Trip Destination: ${cityConfig.cityName}`);
+    console.log(`🌍 City Mode: ${cityConfig.isLondon ? 'London (Full APIs)' : `${cityConfig.cityName} (Limited APIs)`}`);
     console.log(`👤 Passenger Names: ${passengerNames}`);
     console.log(`📝 Driver Notes: ${driverNotes}`);
     console.log(`📍 Locations: ${tripData.length}`);
@@ -95,32 +99,44 @@ export async function generateExecutiveReport(
       console.log(`🚦 Traffic Predictions: ${trafficPredictions.length} legs, +${totalTrafficDelay} min delay`);
     }
 
-    // Prepare data summary for GPT
-    const dataSummary = tripData.map((loc, idx) => ({
-      stop: idx + 1,
-      location: loc.locationName,
-      time: loc.time,
-      safetyScore: loc.crime.safetyScore,
-      totalCrimes: loc.crime.summary.totalCrimes,
-      topCrimes: loc.crime.summary.topCategories.slice(0, 3).map((c: any) => `${c.category} (${c.count})`),
-      trafficDisruptions: loc.disruptions.analysis.total,
-      moderateDisruptions: loc.disruptions.analysis.bySeverity['Moderate'] || 0,
-      topDisruptions: loc.disruptions.disruptions.slice(0, 2).map((d: any) => d.location),
-      weatherSummary: `${loc.weather.summary.avgMinTemp}°C-${loc.weather.summary.avgMaxTemp}°C, ${loc.weather.summary.rainyDays} rainy days`,
-      eventsCount: loc.events.summary.total,
-      events: loc.events.events.map((e: any) => `${e.title} (${e.severity})`),
-      parkingRiskScore: loc.parking.parkingRiskScore,
-      nearbyCarParks: loc.parking.summary.totalNearby,
-      nearestParkingDistance: loc.parking.carParks[0]?.distance || 'None within 1km',
-      cpzRestrictions: loc.parking.cpzInfo.inCPZ
-        ? `${loc.parking.cpzInfo.zoneName} - ${loc.parking.cpzInfo.operatingHours} (${loc.parking.cpzInfo.chargeInfo})`
-        : 'No CPZ restrictions',
-      premiumCafes: loc.cafes.cafes.length,
-      topCafes: loc.cafes.cafes.slice(0, 3).map((c: any) => `${c.name} (${c.rating}⭐, ${'$'.repeat(c.priceLevel)}, ${Math.round(c.distance)}m)`),
-      cafesAverageRating: loc.cafes.summary.averageRating,
-    }));
+    // Prepare data summary for GPT (conditional based on city)
+    const dataSummary = tripData.map((loc, idx) => {
+      // Base data available for all cities
+      const base = {
+        stop: idx + 1,
+        location: loc.locationName,
+        time: loc.time,
+        weatherSummary: `${loc.weather.summary.avgMinTemp}°C-${loc.weather.summary.avgMaxTemp}°C, ${loc.weather.summary.rainyDays} rainy days`,
+        eventsCount: loc.events.summary.total,
+        events: loc.events.events.map((e: any) => `${e.title} (${e.severity})`),
+        premiumCafes: loc.cafes.cafes.length,
+        topCafes: loc.cafes.cafes.slice(0, 3).map((c: any) => `${c.name} (${c.rating}⭐, ${'$'.repeat(c.priceLevel)}, ${Math.round(c.distance)}m)`),
+        cafesAverageRating: loc.cafes.summary.averageRating,
+      };
 
-    const prompt = `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in London.
+      // Add London-specific fields only for London
+      if (cityConfig.isLondon) {
+        return {
+          ...base,
+          safetyScore: loc.crime.safetyScore,
+          totalCrimes: loc.crime.summary.totalCrimes,
+          topCrimes: loc.crime.summary.topCategories.slice(0, 3).map((c: any) => `${c.category} (${c.count})`),
+          trafficDisruptions: loc.disruptions.analysis.total,
+          moderateDisruptions: loc.disruptions.analysis.bySeverity['Moderate'] || 0,
+          topDisruptions: loc.disruptions.disruptions.slice(0, 2).map((d: any) => d.location),
+          parkingRiskScore: loc.parking.parkingRiskScore,
+          nearbyCarParks: loc.parking.summary.totalNearby,
+          nearestParkingDistance: loc.parking.carParks[0]?.distance || 'None within 1km',
+          cpzRestrictions: loc.parking.cpzInfo.inCPZ
+            ? `${loc.parking.cpzInfo.zoneName} - ${loc.parking.cpzInfo.operatingHours} (${loc.parking.cpzInfo.chargeInfo})`
+            : 'No CPZ restrictions',
+        };
+      }
+      
+      return base;
+    });
+
+    const prompt = `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in ${cityConfig.cityName}.
 
 PASSENGER INFORMATION:
 ${(() => {
@@ -175,24 +191,64 @@ ${JSON.stringify(trafficPredictions.map(leg => ({
 LOCATION DATA:
 ${JSON.stringify(dataSummary)}
 
+${cityConfig.isLondon ? `
+DATA SOURCES AVAILABLE (London):
+- UK Police crime statistics (safetyScore, totalCrimes, topCrimes)
+- Transport for London disruptions (trafficDisruptions, topDisruptions)
+- TfL parking + CPZ zones (parkingRiskScore, cpzRestrictions, nearbyCarParks)
+- Weather forecast (Open-Meteo)
+- Google Maps traffic predictions
+- Premium cafes (Google Places)
+- Events data
+
 ANALYSIS REQUIREMENTS:
 
 1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
-   Include parking difficulty (10-15% weight)
+   Include crime data, TfL disruptions, and parking difficulty (10-15% weight) in your assessment
 
 2. Give the ONE thing that most likely to disrupt the trip. Explain why.
 3. Explain why the trip risk score is what it is. Explain which data is used and how it is used to calculate the score.
 
 4. ROUTE DISRUPTIONS:
-   - Driving risks (traffic, road closures, weather)
+   - Driving risks (traffic, TfL disruptions, road closures, weather)
    - External disruptions ${trafficPredictions ? '\n   - Historical traffic delays' : ''}
+   - Crime and safety concerns
 
 5. KEY HIGHLIGHTS: 4-6 critical points
    Type: danger (high risk), warning (moderate), info (neutral), success (positive)
 
 6. EXCEPTIONAL INFORMATION: Critical/urgent trip requirements as actionable statements
 7. IMPORTANT INFORMATION: Contextual trip requirements as actionable statements
-8. RECOMMENDATIONS: Data-driven insights from location analysis (traffic, crime, weather, parking)
+8. RECOMMENDATIONS: Data-driven insights from location analysis (traffic, crime, TfL disruptions, weather, parking, CPZ zones)
+` : `
+DATA SOURCES AVAILABLE (${cityConfig.cityName} - Non-London):
+- Weather forecast (Open-Meteo)
+- Google Maps traffic predictions
+- Premium cafes (Google Places)
+- Events data
+
+NOTE: UK Police crime data, TfL disruptions, and CPZ parking data NOT available for ${cityConfig.cityName}.
+
+ANALYSIS REQUIREMENTS:
+
+1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
+   Focus assessment on weather conditions, traffic predictions, and events. No crime/TfL/parking data available.
+
+2. Give the ONE thing that most likely to disrupt the trip. Explain why (focus on weather, traffic, events).
+3. Explain why the trip risk score is what it is. Explain which data sources you used (weather, traffic predictions, events) and how they influenced the score.
+
+4. ROUTE DISRUPTIONS:
+   - Driving risks (traffic, weather, road conditions)
+   - External disruptions ${trafficPredictions ? '\n   - Historical traffic delays' : ''}
+   - Major events
+
+5. KEY HIGHLIGHTS: 4-6 critical points
+   Type: danger (high risk), warning (moderate), info (neutral), success (positive)
+
+6. EXCEPTIONAL INFORMATION: Critical/urgent trip requirements as actionable statements
+7. IMPORTANT INFORMATION: Contextual trip requirements as actionable statements
+8. RECOMMENDATIONS: Data-driven insights from available data (traffic predictions, weather, events, cafes). Do NOT mention crime, TfL disruptions, or parking restrictions as these are not available.
+`}
 
 Return JSON:
 {

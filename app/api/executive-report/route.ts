@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     console.log('\n🔍 Generating Executive Report...');
     console.log(`📍 Processing ${tripData.length} location(s)`);
     console.log(`📅 Trip Date: ${tripDate}`);
+    console.log(`🏙️ Trip Destination: ${tripDestination || 'London (default)'}`);
     console.log(`📏 Route Distance: ${routeDistance}`);
     console.log(`⏱️ Route Duration: ${routeDuration} minutes`);
     if (trafficPredictions) {
@@ -17,7 +18,6 @@ export async function POST(request: Request) {
     console.log(`👤 Lead Passenger Name: ${leadPassengerName}`);
     console.log(`🚗 Vehicle Info: ${vehicleInfo}`);
     console.log(`👥 Passenger Count: ${passengerCount}`);
-    console.log(`🏙️ Trip Destination: ${tripDestination}`);
     console.log(`👤 Passenger Names: ${passengerNames}`);
     console.log(`📝 Driver Notes: ${driverNotes}`);
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       leadPassengerName,
       vehicleInfo,
       passengerCount,
-      tripDestination,
+      tripDestination, // This is now properly passed
       passengerNames,
       driverNotes
     );

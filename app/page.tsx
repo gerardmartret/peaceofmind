@@ -27,6 +27,7 @@ import { supabase } from '@/lib/supabase';
 import { validateBusinessEmail } from '@/lib/email-validation';
 import { useAuth } from '@/lib/auth-context';
 import { useHomepageContext } from '@/lib/homepage-context';
+import { getCityConfig, createMockResponse, MOCK_DATA } from '@/lib/city-helpers';
 import {
   DndContext,
   closestCenter,
@@ -199,6 +200,7 @@ interface SortableLocationItemProps {
   editingField: 'location' | 'time' | 'purpose' | null;
   onEditStart: (id: string, field: 'location' | 'time' | 'purpose') => void;
   onEditEnd: () => void;
+  tripDestination?: string; // Add trip destination for city-aware location search
 }
 
 function SortableLocationItem({
@@ -214,6 +216,7 @@ function SortableLocationItem({
   editingField,
   onEditStart,
   onEditEnd,
+  tripDestination,
 }: SortableLocationItemProps) {
   const {
     attributes,
@@ -284,6 +287,7 @@ function SortableLocationItem({
                 <div className="editing-location" data-editing="true">
                   <GoogleLocationSearch
                     currentLocation={location.name}
+                    tripDestination={tripDestination}
                     onLocationSelect={(loc) => {
                       onLocationSelect(location.id, loc);
                       onEditEnd();
@@ -410,6 +414,7 @@ interface SortableExtractedLocationItemProps {
   editingField: 'location' | 'time' | 'purpose' | null;
   onEditStart: (index: number, field: 'location' | 'time' | 'purpose') => void;
   onEditEnd: () => void;
+  tripDestination?: string; // Add trip destination for city-aware location search
 }
 
 function SortableExtractedLocationItem({
@@ -425,6 +430,7 @@ function SortableExtractedLocationItem({
   editingField,
   onEditStart,
   onEditEnd,
+  tripDestination,
 }: SortableExtractedLocationItemProps) {
   const {
     attributes,
@@ -495,6 +501,7 @@ function SortableExtractedLocationItem({
                 <div className="editing-location" data-editing="true">
                   <GoogleLocationSearch
                     currentLocation={`${location.location} - ${location.formattedAddress || location.location}`}
+                    tripDestination={tripDestination}
                     onLocationSelect={(loc) => {
                       onLocationSelect(index, loc);
                       onEditEnd();
@@ -1112,36 +1119,40 @@ export default function Home() {
     })
   );
 
-  // Professional loading steps generator
-  const generateLoadingSteps = (locations: any[]) => {
+  // Professional loading steps generator (city-aware)
+  const generateLoadingSteps = (locations: any[], tripDestination?: string) => {
+    const cityConfig = getCityConfig(tripDestination);
     const steps = [];
     let stepId = 1;
 
-    // Simplified data sources - not per location
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Analyzing Crime & Safety Data`,
-      description: `Retrieving safety statistics and crime reports from official UK Police database`,
-      source: 'UK Police National Database',
-      status: 'pending' as const
-    });
+    // London-specific data sources
+    if (cityConfig.isLondon) {
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Analyzing Crime & Safety Data`,
+        description: `Retrieving safety statistics and crime reports from official UK Police database`,
+        source: 'UK Police National Database',
+        status: 'pending' as const
+      });
 
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Assessing Traffic Conditions`,
-      description: `Pulling real-time traffic data, road closures, and congestion patterns`,
-      source: 'Transport for London',
-      status: 'pending' as const
-    });
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Assessing Traffic Conditions`,
+        description: `Pulling real-time traffic data, road closures, and congestion patterns`,
+        source: 'Transport for London',
+        status: 'pending' as const
+      });
 
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Checking Public Transport Disruptions`,
-      description: `Monitoring Underground, bus, and rail service disruptions`,
-      source: 'TfL Unified API',
-      status: 'pending' as const
-    });
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Checking Public Transport Disruptions`,
+        description: `Monitoring Underground, bus, and rail service disruptions`,
+        source: 'TfL Unified API',
+        status: 'pending' as const
+      });
+    }
 
+    // Universal data sources (all cities)
     steps.push({
       id: `step-${stepId++}`,
       title: `Analyzing Weather Conditions`,
@@ -1159,14 +1170,18 @@ export default function Home() {
     //   status: 'pending' as const
     // });
 
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Evaluating Parking Availability`,
-      description: `Analyzing parking facilities, restrictions, and pricing information`,
-      source: 'TfL Parking Database',
-      status: 'pending' as const
-    });
+    // London-specific parking
+    if (cityConfig.isLondon) {
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Evaluating Parking Availability`,
+        description: `Analyzing parking facilities, restrictions, and pricing information`,
+        source: 'TfL Parking Database',
+        status: 'pending' as const
+      });
+    }
 
+    // Universal: Route calculation
     steps.push({
       id: `step-${stepId++}`,
       title: `Calculating Optimal Routes`,
@@ -1175,6 +1190,7 @@ export default function Home() {
       status: 'pending' as const
     });
 
+    // Universal: AI analysis
     steps.push({
       id: `step-${stepId++}`,
       title: `Generating Risk Assessment`,
@@ -1386,8 +1402,8 @@ export default function Home() {
     setExtractionError(null); // Clear extraction errors too
     setLocationsReordered(false); // Clear reorder indicator
 
-    // Initialize loading steps
-    const steps = generateLoadingSteps(validLocations);
+    // Initialize loading steps (pass tripDestination for city-aware steps)
+    const steps = generateLoadingSteps(validLocations, tripDestination);
     setLoadingSteps(steps);
     setLoadingProgress(0);
 
@@ -1456,29 +1472,48 @@ export default function Home() {
 
       const days = 7; // Fixed period for trip planning
 
+      // Get city configuration for conditional API calls
+      const cityConfig = getCityConfig(tripDestination);
+      console.log(`🌍 [HOMEPAGE] City configuration: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
+
       // Fetch data for all locations in parallel
       const results = await Promise.all(
         validLocations.map(async (location) => {
           
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
-          const [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse] = await Promise.all([
+          // Universal APIs (always called)
+          const universalCalls = [
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+          ];
+
+          // London-specific APIs (conditional)
+          const londonCalls = cityConfig.isLondon ? [
             fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
             fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
-            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
-            // DISABLED: Event search to reduce OpenAI costs
-            // fetch(`/api/events?location=${encodeURIComponent(location.name)}&lat=${location.lat}&lng=${location.lng}&date=${tripDateStr}`),
-            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`)
+            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`),
+          ] : [
+            // Mock responses for non-London cities
+            createMockResponse('crime', MOCK_DATA.crime),
+            createMockResponse('disruptions', MOCK_DATA.disruptions),
+            createMockResponse('parking', MOCK_DATA.parking),
+          ];
+
+          const [crimeResponse, disruptionsResponse, parkingResponse, weatherResponse] = await Promise.all([
+            ...londonCalls,
+            ...universalCalls,
           ]);
 
-          // Check critical APIs (crime, disruptions, parking must succeed)
-          const criticalResponses = [crimeResponse, disruptionsResponse, parkingResponse];
-          const criticalNames = ['crime', 'disruptions', 'parking'];
-          
-          for (let i = 0; i < criticalResponses.length; i++) {
-            if (!criticalResponses[i].ok) {
-              const errorText = await criticalResponses[i].text();
-              throw new Error(`${criticalNames[i]} API returned ${criticalResponses[i].status}: ${errorText}`);
+          // Check critical APIs only for London (for non-London, mocks always succeed)
+          if (cityConfig.isLondon) {
+            const criticalResponses = [crimeResponse, disruptionsResponse, parkingResponse];
+            const criticalNames = ['crime', 'disruptions', 'parking'];
+            
+            for (let i = 0; i < criticalResponses.length; i++) {
+              if (!criticalResponses[i].ok) {
+                const errorText = await criticalResponses[i].text();
+                throw new Error(`${criticalNames[i]} API returned ${criticalResponses[i].status}: ${errorText}`);
+              }
             }
           }
 
@@ -2072,7 +2107,10 @@ export default function Home() {
       const response = await fetch('/api/extract-trip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: extractionText }),
+        body: JSON.stringify({ 
+          text: extractionText,
+          tripDestination: tripDestination || undefined // Pass tripDestination if available, let AI detect if not
+        }),
       });
 
       const data = await response.json();
@@ -2683,16 +2721,22 @@ export default function Home() {
                           <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select or enter destination"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableDestinations.map((destination) => (
-                            <SelectItem key={destination} value={destination}>
-                              {destination}
-                            </SelectItem>
-                          ))}
-                          {availableDestinations.length === 0 && !loadingDestinations && (
-                            <SelectItem value="London" disabled>
-                              No destinations found
-                            </SelectItem>
-                          )}
+                          {/* Default city options */}
+                          <SelectItem key="London" value="London">
+                            London
+                          </SelectItem>
+                          <SelectItem key="New York" value="New York">
+                            New York
+                          </SelectItem>
+                          
+                          {/* Database destinations (exclude default cities) */}
+                          {availableDestinations
+                            .filter(dest => !['London', 'New York'].includes(dest))
+                            .map((destination) => (
+                              <SelectItem key={destination} value={destination}>
+                                {destination}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -2803,6 +2847,7 @@ export default function Home() {
                             canRemove={extractedLocations.length > 1}
                             editingIndex={editingExtractedIndex}
                             editingField={editingExtractedField}
+                            tripDestination={tripDestination}
                             onEditStart={(index, field) => {
                               setEditingExtractedIndex(index);
                               setEditingExtractedField(field);
@@ -3026,16 +3071,22 @@ export default function Home() {
                     <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select destination"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableDestinations.map((destination) => (
-                      <SelectItem key={destination} value={destination}>
-                        {destination}
-                      </SelectItem>
-                    ))}
-                    {availableDestinations.length === 0 && !loadingDestinations && (
-                      <SelectItem value="London" disabled>
-                        No destinations found
-                      </SelectItem>
-                    )}
+                    {/* Default city options */}
+                    <SelectItem key="London" value="London">
+                      London
+                    </SelectItem>
+                    <SelectItem key="New York" value="New York">
+                      New York
+                    </SelectItem>
+                    
+                    {/* Database destinations (exclude default cities) */}
+                    {availableDestinations
+                      .filter(dest => !['London', 'New York'].includes(dest))
+                      .map((destination) => (
+                        <SelectItem key={destination} value={destination}>
+                          {destination}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -3105,6 +3156,7 @@ export default function Home() {
                       canRemove={locations.length > 1}
                       editingIndex={editingManualIndex}
                       editingField={editingManualField}
+                      tripDestination={tripDestination}
                       onEditStart={(id, field) => {
                         const locationIndex = locations.findIndex(loc => loc.id === id);
                         setEditingManualIndex(locationIndex);

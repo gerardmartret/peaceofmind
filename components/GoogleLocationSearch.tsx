@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Autocomplete } from '@react-google-maps/api';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { Input } from '@/components/ui/input';
+import { getCityConfig } from '@/lib/city-helpers';
 
 interface SearchResult {
   name: string;
@@ -14,19 +15,24 @@ interface SearchResult {
 interface GoogleLocationSearchProps {
   onLocationSelect?: (location: SearchResult) => void;
   currentLocation?: string;
+  tripDestination?: string; // Add trip destination prop for city-aware search
 }
 
-export default function GoogleLocationSearch({ onLocationSelect, currentLocation }: GoogleLocationSearchProps) {
+export default function GoogleLocationSearch({ onLocationSelect, currentLocation, tripDestination }: GoogleLocationSearchProps) {
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<SearchResult | null>(null);
   const [inputValue, setInputValue] = useState(currentLocation || '');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { isLoaded, loadError } = useGoogleMaps();
+  
+  // Get city configuration for location bias
+  const cityConfig = getCityConfig(tripDestination);
+  const countryCode = cityConfig.isLondon ? 'gb' : 'us'; // gb for London, us for other cities (New York, etc.)
 
   const onLoad = (autocompleteInstance: google.maps.places.Autocomplete) => {
     setAutocomplete(autocompleteInstance);
-    console.log('🔍 Google Places Autocomplete loaded');
+    console.log(`🔍 Google Places Autocomplete loaded for ${cityConfig.cityName} (country: ${countryCode})`);
   };
 
   // Sync input value with currentLocation prop changes
@@ -139,7 +145,7 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
           onPlaceChanged={onPlaceChanged}
           options={{
             types: ['establishment', 'geocode'], // Include businesses and addresses
-            componentRestrictions: { country: 'gb' }, // UK only
+            componentRestrictions: { country: countryCode }, // Dynamic country based on trip destination
             fields: [
               'formatted_address',
               'name',
