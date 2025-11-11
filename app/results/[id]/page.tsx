@@ -1996,7 +1996,9 @@ export default function ResultsPage() {
       // Step 2: Intelligently compare with current state using AI
       if (tripData) {
         setUpdateProgress({ step: 'Comparing with current trip', error: null, canRetry: false });
-        console.log('🔄 Step 2: Comparing extracted updates with current trip...');
+        console.log('🔄 [UPDATE] Step 2: Comparing updates...');
+        console.log('📍 [UPDATE] Current:', tripData.locations.length, 'locations');
+        console.log('📍 [UPDATE] Extracted:', extractedData.locations?.length || 0, 'locations');
         
         const compareResponse = await fetch('/api/compare-trip-updates', {
           method: 'POST',
@@ -2028,7 +2030,7 @@ export default function ResultsPage() {
 
         if (!compareResult.success) {
           const errorMsg = compareResult.error || 'Failed to compare updates';
-          console.error('❌ Comparison failed:', errorMsg);
+          console.error('❌ [UPDATE] Comparison failed:', errorMsg);
           setError(errorMsg); // Keep old error state as fallback
           setUpdateProgress({
             step: 'Comparison',
@@ -2038,7 +2040,8 @@ export default function ResultsPage() {
           return;
         }
 
-        console.log('✅ Step 2 complete: Comparison successful');
+        console.log('✅ [UPDATE] Step 2: Comparison successful');
+        console.log('📊 [UPDATE] Changes detected:', compareResult.comparison?.locations?.filter((l: any) => l.action !== 'unchanged').length || 0);
         
         // Transform AI comparison result to our diff format
         setUpdateProgress({ step: 'Preparing preview', error: null, canRetry: false });

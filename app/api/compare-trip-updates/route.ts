@@ -6,7 +6,7 @@ const openai = new OpenAI({
 });
 
 export async function POST(request: NextRequest) {
-  console.log('🔄 [API] Starting intelligent trip update comparison...');
+  console.log('🔄 [COMPARE] Starting comparison...');
   
   try {
     const body = await request.json();
@@ -19,9 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('📊 [API] Comparing extracted updates with current trip state');
-    console.log(`   Current locations: ${currentTripData.locations?.length || 0}`);
-    console.log(`   Extracted locations: ${extractedData.locations?.length || 0}`);
+    console.log(`📍 [COMPARE] Current: ${currentTripData.locations?.length || 0} locations, Extracted: ${extractedData.locations?.length || 0} locations`);
 
     // Prepare context for OpenAI to intelligently compare
     const currentLocationsText = (currentTripData.locations || []).map((loc: any, idx: number) => 
@@ -32,10 +30,6 @@ export async function POST(request: NextRequest) {
       `${idx + 1}. ${loc.formattedAddress || loc.location || 'Unknown'} at ${loc.time || 'N/A'}${loc.purpose ? ` (Purpose: ${loc.purpose})` : ''}`
     ).join('\n');
 
-    // Log for debugging
-    console.log(`📝 [API] Current locations count: ${currentTripData.locations?.length || 0}`);
-    console.log(`📝 [API] Extracted locations count: ${extractedData.locations?.length || 0}`);
-    console.log(`📝 [API] Extracted notes: ${extractedData.driverNotes ? 'YES (' + extractedData.driverNotes.length + ' chars)' : 'NO'}`);
 
     const prompt = `Compare trip update with existing plan and identify changes. Return valid JSON only.
 
@@ -106,31 +100,48 @@ RULES:
     });
 
     const result = completion.choices[0].message.content;
-    console.log('✅ [API] OpenAI comparison response received');
+    console.log('✅ [COMPARE] AI response received');
     
     const parsed = JSON.parse(result || '{}');
     
     if (!parsed.success) {
-      console.error('❌ [API] Comparison failed:', parsed.error);
+      console.error('❌ [COMPARE] Failed:', parsed.error);
       return NextResponse.json({
         success: false,
         error: parsed.error || 'Comparison failed',
       });
     }
 
-    console.log(`📊 [API] Comparison result: ${parsed.locations?.length || 0} location changes identified`);
+    // Log comparison summary
+    const unchanged = parsed.locations?.filter((l: any) => l.action === 'unchanged').length || 0;
+    const modified = parsed.locations?.filter((l: any) => l.action === 'modified').length || 0;
+    const added = parsed.locations?.filter((l: any) => l.action === 'added').length || 0;
+    const removed = parsed.locations?.filter((l: any) => l.action === 'removed').length || 0;
     
-    // DEBUG: Log first location details for troubleshooting
-    if (parsed.locations && parsed.locations.length > 0) {
-      const firstLoc = parsed.locations[0];
-      console.log('🔍 [DEBUG] First location comparison:', {
-        action: firstLoc.action,
-        timeChanged: firstLoc.changes?.timeChanged,
-        oldTime: firstLoc.currentLocation?.time,
-        newTime: firstLoc.extractedLocation?.time,
-        finalTime: firstLoc.finalLocation?.time,
-        finalName: firstLoc.finalLocation?.name,
+    console.log(`📊 [COMPARE] Results: ${unchanged} unchanged, ${modified} modified, ${added} added, ${removed} removed`);
+    
+    // Log modified locations details
+    if (modified > 0) {
+      parsed.locations.filter((l: any) => l.action === 'modified').forEach((loc: any, idx: number) => {
+        const changes = [];
+        if (loc.changes?.addressChanged) changes.push('address');
+        if (loc.changes?.timeChanged) changes.push(`time: ${loc.currentLocation?.time} → ${loc.finalLocation?.time}`);
+        if (loc.changes?.purposeChanged) changes.push('purpose');
+        console.log(`   ${idx + 1}. Modified: ${loc.finalLocation?.name} (${changes.join(', ')})`);
       });
+    }
+    
+    // Log trip detail changes
+    const tripChanges = [];
+    if (parsed.tripDateChanged) tripChanges.push('date');
+    if (parsed.passengerInfoChanged) tripChanges.push('passenger');
+    if (parsed.vehicleInfoChanged) tripChanges.push('vehicle');
+    if (parsed.passengerCountChanged) tripChanges.push('count');
+    if (parsed.tripDestinationChanged) tripChanges.push('destination');
+    if (parsed.notesChanged) tripChanges.push('notes');
+    
+    if (tripChanges.length > 0) {
+      console.log(`📝 [COMPARE] Trip details changed: ${tripChanges.join(', ')}`);
     }
 
     return NextResponse.json({
@@ -139,7 +150,7 @@ RULES:
     });
 
   } catch (error) {
-    console.error('❌ [API] Error in comparison:', error);
+    console.error('❌ [COMPARE] Error:', error);
     return NextResponse.json(
       {
         success: false,

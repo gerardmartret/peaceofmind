@@ -930,14 +930,11 @@ export default function Home() {
     setTripDate(today);
     
     // Restore extracted data from session storage
-    console.log('🔄 [FRONTEND] Checking session storage for saved data...');
     if (typeof window !== 'undefined') {
       const savedData = sessionStorage.getItem('extractedTripData');
       if (savedData) {
         try {
           const parsed = JSON.parse(savedData);
-          console.log('📦 [FRONTEND] Found saved extraction data:', parsed);
-          console.log('📅 [FRONTEND] Saved timestamp:', parsed.timestamp);
           
           // Restore the data
           setExtractionText(parsed.text || '');
@@ -954,13 +951,9 @@ export default function Home() {
           setPassengerCount(parsed.passengerCount || 1);
           setTripDestination(parsed.tripDestination || '');
           setPassengerNames(parsed.passengerNames || []);
-          
-          console.log('✅ [FRONTEND] Restored extraction data from session storage');
         } catch (error) {
-          console.error('❌ [FRONTEND] Error parsing session storage data:', error);
+          console.error('❌ [SESSION] Error restoring data:', error);
         }
-      } else {
-        console.log('ℹ️ [FRONTEND] No saved extraction data found in session storage');
       }
     }
 
@@ -1108,7 +1101,6 @@ export default function Home() {
           passengerNames: passengerNames,
           timestamp: new Date().toISOString(),
         }));
-        console.log('💾 [FRONTEND] Saved reordered extracted locations to session storage');
       }
     }
   };
@@ -1460,17 +1452,13 @@ export default function Home() {
     try {
       const tripDateStr = tripDateObj.toISOString().split('T')[0];
       
-      console.log(`\n${'='.repeat(80)}`);
-      console.log(`🗓️  Trip Date: ${tripDateStr}`);
-      console.log(`📍 Analyzing ${validLocations.length} location(s)`);
-      console.log(`${'='.repeat(80)}\n`);
+      console.log(`🚀 [GENERATE] Starting report for ${validLocations.length} locations on ${tripDateStr}`);
 
       const days = 7; // Fixed period for trip planning
 
       // Fetch data for all locations in parallel
       const results = await Promise.all(
         validLocations.map(async (location) => {
-          console.log(`\n🔍 Fetching data for Location ${numberToLetter(validLocations.indexOf(location) + 1)}: ${location.name} at ${location.time}`);
           
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
@@ -1490,7 +1478,6 @@ export default function Home() {
           for (let i = 0; i < criticalResponses.length; i++) {
             if (!criticalResponses[i].ok) {
               const errorText = await criticalResponses[i].text();
-              console.error(`❌ ${criticalNames[i]} API failed:`, criticalResponses[i].status, errorText);
               throw new Error(`${criticalNames[i]} API returned ${criticalResponses[i].status}: ${errorText}`);
             }
           }
@@ -1500,7 +1487,6 @@ export default function Home() {
           if (weatherResponse.ok) {
             weatherData = await weatherResponse.json();
           } else {
-            console.warn('⚠️ Weather API failed, using fallback data');
             weatherData = {
               success: true,
               data: {
@@ -1537,17 +1523,13 @@ export default function Home() {
           };
 
           // Fetch cafes using Google Places API (client-side)
-          console.log(`☕ Searching for top cafes near ${location.name}...`);
           let cafeData = null;
           try {
             if (!isGoogleMapsLoaded) {
-              console.warn('⚠️ Google Maps API not loaded, skipping cafe search');
               throw new Error('Google Maps API not loaded');
             }
             cafeData = await searchNearbyCafes(location.lat, location.lng, location.name);
-            console.log(`✅ Found ${cafeData.cafes.length} cafes`);
           } catch (cafeError) {
-            console.error('❌ Error fetching cafes:', cafeError);
             // Provide empty cafe data if fetch fails
             cafeData = {
               location: location.name,
@@ -1558,17 +1540,13 @@ export default function Home() {
           }
 
           // Fetch emergency services using Google Places API (client-side)
-          console.log(`🚨 Searching for emergency services near ${location.name}...`);
           let emergencyServicesData = null;
           try {
             if (!isGoogleMapsLoaded) {
-              console.warn('⚠️ Google Maps API not loaded, skipping emergency services search');
               throw new Error('Google Maps API not loaded');
             }
             emergencyServicesData = await searchEmergencyServices(location.lat, location.lng, location.name);
-            console.log(`✅ Found emergency services`);
           } catch (emergencyError) {
-            console.error('❌ Error fetching emergency services:', emergencyError);
             // Provide empty emergency services data if fetch fails
             emergencyServicesData = {
               location: location.name,
@@ -1577,31 +1555,6 @@ export default function Home() {
           }
 
           if (crimeData.success && disruptionsData.success && weatherData.success && parkingData.success) {
-            console.log(`✅ ${location.name}: Safety ${crimeData.data.safetyScore}/100, Events: DISABLED (cost optimization), Parking Risk: ${parkingData.data.parkingRiskScore}/10, Cafes: ${cafeData.cafes.length}`);
-            
-            // Events search disabled for cost optimization
-            console.log(`📰 Events search disabled for ${location.name} (OpenAI cost optimization)`);
-
-            // Log parking summary
-            console.log(`\n🅿️  Parking at ${location.name}:`);
-            console.log(`   ${parkingData.data.summary.totalNearby} car parks within 1km`);
-            if (parkingData.data.cpzInfo.inCPZ) {
-              console.log(`   ⚠️  CPZ: ${parkingData.data.cpzInfo.zoneName} (${parkingData.data.cpzInfo.operatingHours})`);
-            } else {
-              console.log(`   ✓ No CPZ restrictions`);
-            }
-
-            // Log cafes summary
-            console.log(`\n☕ Top Cafes at ${location.name}:`);
-            if (cafeData.cafes.length > 0) {
-              cafeData.cafes.forEach((cafe: any, idx: number) => {
-                const priceDisplay = cafe.priceLevel > 0 ? '$'.repeat(cafe.priceLevel) : 'N/A';
-                console.log(`   ${idx + 1}. ${cafe.name} - ${cafe.rating}⭐ (${cafe.userRatingsTotal} reviews, ${priceDisplay}) - ${Math.round(cafe.distance)}m`);
-              });
-            } else {
-              console.log(`   ⚠️  No cafes found within 250m`);
-            }
-            
             return {
               locationId: location.id,
               locationName: location.name,
@@ -1623,23 +1576,11 @@ export default function Home() {
         })
       );
 
-      console.log(`\n${'='.repeat(80)}`);
-      console.log(`✅ Successfully analyzed all ${results.length} location(s)`);
-      console.log(`${'='.repeat(80)}\n`);
-
       // Get traffic predictions for the route
-      console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
       try {
         trafficData = await getTrafficPredictions(validLocations, tripDateStr);
-        
-        if (trafficData.success) {
-          console.log('✅ Traffic predictions completed successfully');
-        } else {
-          console.error('⚠️ Traffic predictions failed:', trafficData.error);
-        }
       } catch (trafficError) {
-        console.error('❌ Traffic prediction error:', trafficError);
         trafficData = {
           success: false,
           error: 'Failed to get traffic predictions',
@@ -1647,7 +1588,7 @@ export default function Home() {
       }
 
       // Generate executive report
-      console.log('🤖 Generating Executive Peace of Mind Report...');
+      console.log('🤖 [GENERATE] Creating executive report...');
       let executiveReportData = null;
       
       try {
@@ -1787,7 +1728,7 @@ export default function Home() {
           console.log('✅ Background process complete, redirecting...');
           // Small delay to show the green completion state
           setTimeout(() => {
-            console.log(`🚀 Redirecting to /results/${savedTripId}`);
+            console.log(`✅ [GENERATE] Complete - redirecting to report`);
             router.push(`/results/${savedTripId}`);
           }, 1000); // Show completion state for 1 second
         }, 500);
@@ -1891,9 +1832,6 @@ export default function Home() {
       
       const allResults = await Promise.all(districtPromises);
       
-      console.log(`\n${'='.repeat(80)}`);
-      console.log(`✅ Successfully retrieved data for all ${allResults.length} district(s)!`);
-      console.log(`${'='.repeat(80)}\n`);
       
       setResults(allResults);
     } catch (error) {
@@ -2118,11 +2056,9 @@ export default function Home() {
 
   // Handle text extraction for trip planning
   const handleExtractTrip = async () => {
-    console.log('🚀 [FRONTEND] Starting extraction...');
-    console.log('📝 [FRONTEND] Input text:', extractionText.substring(0, 100) + '...');
+    console.log('🚀 [EXTRACT] Starting extraction...');
     
     if (!extractionText.trim()) {
-      console.log('❌ [FRONTEND] Empty text provided');
       setExtractionError('Please enter some text to extract trip information.');
       return;
     }
@@ -2133,34 +2069,21 @@ export default function Home() {
     setExtractedDate(null);
 
     try {
-      console.log('📡 [FRONTEND] Sending request to /api/extract-trip...');
       const response = await fetch('/api/extract-trip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: extractionText }),
       });
 
-      console.log('📥 [FRONTEND] Response status:', response.status);
       const data = await response.json();
-      console.log('📥 [FRONTEND] Response data:', data);
 
       if (!data.success) {
-        console.log('❌ [FRONTEND] Extraction failed:', data.error);
+        console.log('❌ [EXTRACT] Failed:', data.error);
         setExtractionError(data.error || 'Failed to extract trip information.');
         return;
       }
 
-      console.log('✅ [FRONTEND] Extraction successful!');
-      console.log(`📍 [FRONTEND] Extracted ${data.locations?.length || 0} locations`);
-      console.log('📍 [FRONTEND] Locations:', data.locations);
-      if (data.driverSummary) {
-        console.log('📝 [FRONTEND] Driver summary:', data.driverSummary);
-      }
-      
-      console.log('🔍 [FRONTEND] Full API response:', data);
-      console.log('🔍 [FRONTEND] Data keys:', Object.keys(data));
-      console.log('🔍 [FRONTEND] driverNotes type:', typeof data.driverNotes);
-      console.log('🔍 [FRONTEND] driverNotes value:', data.driverNotes);
+      console.log(`✅ [EXTRACT] Success - ${data.locations?.length || 0} locations, date: ${data.date}`);
       
       // Mark all extracted locations as verified
       const verifiedLocations = data.locations?.map((loc: any) => ({
@@ -2175,25 +2098,9 @@ export default function Home() {
       setPassengerCount(data.passengerCount || 1);
       setTripDestination(data.tripDestination || '');
       setPassengerNames(data.passengerNames || []);
-      
-      // Console logging for testing
-      console.log('📝 [FRONTEND] Driver Notes:', data.driverNotes);
-      console.log('👤 [FRONTEND] Lead Passenger Name:', data.leadPassengerName);
-      console.log('🚗 [FRONTEND] Vehicle Info:', data.vehicleInfo);
-      console.log('👥 [FRONTEND] Passenger Count:', data.passengerCount);
-      console.log('🏙️ [FRONTEND] Trip Destination:', data.tripDestination);
-      console.log('👤 [FRONTEND] Passenger Names:', data.passengerNames);
-      
-      // Debug: Log the values being set
-      console.log('🔧 [FRONTEND] Setting leadPassengerName to:', data.leadPassengerName || '');
-      console.log('🔧 [FRONTEND] Setting vehicleInfo to:', data.vehicleInfo || '');
-      console.log('🔧 [FRONTEND] Setting passengerCount to:', data.passengerCount || 1);
-      console.log('🔧 [FRONTEND] Setting tripDestination to:', data.tripDestination || '');
-      console.log('🔧 [FRONTEND] Setting passengerNames to:', data.passengerNames || []);
       setLastExtractedText(extractionText);
 
       // Save to session storage
-      console.log('💾 [FRONTEND] Saving to session storage...');
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('extractedTripData', JSON.stringify({
           text: extractionText,
@@ -2207,21 +2114,18 @@ export default function Home() {
           passengerNames: data.passengerNames,
           timestamp: new Date().toISOString(),
         }));
-        console.log('✅ [FRONTEND] Saved to session storage');
       }
     } catch (error) {
-      console.error('❌ [FRONTEND] Error extracting trip:', error);
+      console.error('❌ [EXTRACT] Error:', error);
       setExtractionError('An error occurred while extracting trip information.');
     } finally {
       setIsExtracting(false);
-      console.log('🏁 [FRONTEND] Extraction process complete');
     }
   };
 
 
   // Handle clearing extraction results
   const handleClearExtraction = () => {
-    console.log('🧹 [FRONTEND] Clearing extraction results...');
     setExtractedLocations(null);
     setExtractedDate(null);
     setExtractedDriverSummary(null);
@@ -2323,7 +2227,6 @@ export default function Home() {
             passengerNames: passengerNames,
             timestamp: new Date().toISOString(),
           }));
-          console.log('💾 [FRONTEND] Saved manual location edit to session storage');
         }, 500); // Save after 500ms of no typing
       }
     }
@@ -2368,7 +2271,6 @@ export default function Home() {
             passengerNames: passengerNames,
             timestamp: new Date().toISOString(),
           }));
-          console.log('💾 [FRONTEND] Saved time edit to session storage');
         }, 500); // Save after 500ms of no typing
       }
     }
@@ -2406,7 +2308,6 @@ export default function Home() {
             passengerNames: passengerNames,
             timestamp: new Date().toISOString(),
           }));
-          console.log('💾 [FRONTEND] Saved purpose edit to session storage');
         }, 500); // Save after 500ms of no typing
       }
     }
@@ -2462,7 +2363,6 @@ export default function Home() {
           passengerNames: passengerNames,
           timestamp: new Date().toISOString(),
         }));
-        console.log('💾 [FRONTEND] Saved Google Maps selection to session storage');
       }
     }
   };
@@ -2487,7 +2387,6 @@ export default function Home() {
           passengerNames: passengerNames,
           timestamp: new Date().toISOString(),
         }));
-        console.log('💾 [FRONTEND] Saved location removal to session storage');
       }
     }
   };
@@ -2741,7 +2640,7 @@ export default function Home() {
                           type="date"
                           value={extractedDate || ''}
                           onChange={(e) => handleDateEdit(e.target.value)}
-                          className={`bg-background border-0 rounded-md h-9 pl-10 text-foreground ${
+                          className={`bg-background border-border rounded-md h-9 pl-10 text-foreground ${
                             !extractedDate ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700' : ''
                           }`}
                         />
@@ -2780,7 +2679,7 @@ export default function Home() {
                         }}
                         disabled={loadingDestinations}
                       >
-                        <SelectTrigger className="w-full bg-background border-0 rounded-md h-9 text-foreground">
+                        <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
                           <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select or enter destination"} />
                         </SelectTrigger>
                         <SelectContent>
@@ -2821,7 +2720,7 @@ export default function Home() {
                           }
                         }}
                         placeholder="e.g., Mr. Smith"
-                        className="bg-background border-0 rounded-md h-9 text-foreground"
+                        className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
                     {/* Number of Passengers - spans 1 column */}
@@ -2873,7 +2772,7 @@ export default function Home() {
                           }
                         }}
                         placeholder="e.g., Mercedes S-Class"
-                        className="bg-background border-0 rounded-md h-9 text-foreground"
+                        className="bg-background border-border rounded-md h-9 text-foreground"
                       />
                     </div>
                   </div>
@@ -2956,7 +2855,6 @@ export default function Home() {
                             passengerNames: passengerNames,
                             timestamp: new Date().toISOString(),
                           }));
-                          console.log('💾 [FRONTEND] Saved new location to session storage');
                         }
                       }
                     }}
@@ -2972,7 +2870,7 @@ export default function Home() {
                 </div>
 
                 {/* Trip Notes Field */}
-                <div className="mt-8 rounded-md p-4 bg-primary dark:bg-[#1f1f21]">
+                <div className="mt-8 rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
                   <Label className="text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2 block">Trip notes</Label>
                   <textarea
                     value={extractedDriverSummary || ''}
@@ -2995,7 +2893,7 @@ export default function Home() {
                     }}
                     placeholder="Additional notes, contact info, special instructions, etc."
                     rows={6}
-                    className="w-full bg-background dark:bg-input/30 border-0 rounded-md p-2 text-sm text-foreground dark:hover:bg-[#323236] transition-colors resize-y focus:outline-none focus-visible:border-ring dark:focus-visible:border-[#323236]"
+                    className="w-full bg-background dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#323236] transition-colors border resize-y focus:outline-none focus-visible:border-ring dark:focus-visible:border-[#323236]"
                   />
                 </div>
 
@@ -3059,7 +2957,7 @@ export default function Home() {
 
         {/* Multi-Location Trip Planner */}
         {showManualForm && (
-        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8">
+        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8 border border-border">
           <div className="flex items-center justify-end mb-4">
             <Button
               onClick={() => setShowManualForm(false)}
@@ -3071,7 +2969,7 @@ export default function Home() {
           </div>
           
           {/* Trip Date and Trip Destination */}
-          <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020]">
+          <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
             {/* Unified Grid for All Trip Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
               {/* Trip Date - spans 2 columns */}
@@ -3085,7 +2983,7 @@ export default function Home() {
                       variant="outline"
                       id="tripDate"
                       className={cn(
-                        "w-full justify-start text-left font-normal bg-background border-0",
+                        "w-full justify-start text-left font-normal bg-background",
                         !tripDate && "text-muted-foreground"
                       )}
                     >

@@ -39,7 +39,7 @@ export function PassengerPicker({ value, onChange, className, id }: PassengerPic
 
   return (
     <Select value={value.toString()} onValueChange={handleChange}>
-      <SelectTrigger id={id} className={cn("w-full bg-background border-0", className)}>
+      <SelectTrigger id={id} className={cn("w-full bg-white", className)}>
         <div className="flex items-center gap-2 w-full">
           <Users className="h-4 w-4" />
           <SelectValue>{getDisplayValue()}</SelectValue>
