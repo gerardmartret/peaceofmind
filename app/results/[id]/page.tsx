@@ -3693,9 +3693,9 @@ export default function ResultsPage() {
         >
           <div className="container mx-auto px-4 pt-8 pb-3">
             
-            <div className="rounded-md px-6 py-2 bg-primary dark:bg-[#1f1f21] border border-border">
-              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Trip Update</label>
-              <div className="flex gap-6 items-start">
+            <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Trip Update</label>
+              <div className="flex gap-4 items-start">
                 <div className="flex-1 relative">
                   <textarea
                     ref={updateTextareaRef}
@@ -3732,7 +3732,7 @@ export default function ResultsPage() {
                   </button>
                 </div>
                 
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-3 flex-shrink-0">
                 {/* Edit Route Button */}
                 <Button
                   variant="outline"
@@ -4244,7 +4244,7 @@ export default function ResultsPage() {
                         <div className={`px-6 py-3.5 rounded-lg text-xl font-medium whitespace-nowrap ${
                           tripStatus === 'confirmed' 
                             ? 'bg-[#3ea34b] text-white' 
-                            : 'bg-[#c44444] text-white'
+                            : 'bg-[#9e201b] text-white'
                         }`}>
                           {tripStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed'}
                         </div>
@@ -4288,18 +4288,18 @@ export default function ResultsPage() {
                           <img 
                             src="/sedan-driverbrief.svg" 
                             alt="Sedan Vehicle" 
-                            className="h-36 w-auto flex-shrink-0"
+                            className="h-32 w-auto flex-shrink-0"
                           />
                           
                           {/* Vehicle Box on the right */}
                           <div className="flex-1 flex items-start">
-                            <Card className="shadow-none border-0 h-36 w-full">
+                            <Card className="shadow-none border-0 h-32 w-full">
                               <CardContent className="p-5 pl-8 pb-8 h-full flex flex-col justify-end">
                                 <div className="flex items-center gap-3 mb-2">
                                   <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                                   <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
                                 </div>
-                                <p className="text-4xl font-semibold text-card-foreground break-words">
+                                <p className="text-3xl font-semibold text-card-foreground break-words">
                                   {(() => {
                                     const carInfo = vehicleInfo || extractCarInfo(driverNotes);
                                     return carInfo || 'N/A';
@@ -4654,9 +4654,9 @@ export default function ResultsPage() {
                     {/* Top row: Risk Score (33%) and Top Disruptor (66%) */}
                     <div className="flex gap-4">
                       {/* Risk Score - 33% width */}
-                      <Card className="bg-muted/50 w-1/3 flex-shrink-0">
+                      <Card className="bg-primary dark:bg-[#1f1f21] w-1/3 flex-shrink-0">
                         <CardContent className="p-4">
-                          <h4 className="text-xl font-semibold text-card-foreground mb-3">
+                          <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-3">
                             Risk score
                           </h4>
                           <div className="bg-card border border-border rounded-md p-4 text-center">
@@ -4697,12 +4697,12 @@ export default function ResultsPage() {
                       </Card>
                       
                       {/* Top Disruptor - 66% width */}
-                      <Card className="bg-muted/50 w-2/3 flex-shrink-0">
-                        <CardContent className="p-4">
-                          <h4 className="text-base font-bold text-card-foreground mb-3">
+                      <Card className="bg-primary dark:bg-[#1f1f21] w-2/3 flex-shrink-0">
+                        <CardContent className="px-3 py-1 pl-6">
+                          <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-3">
                             Top Disruptor
                           </h4>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
+                          <p className="text-lg text-primary-foreground/80 dark:text-muted-foreground leading-snug">
                             {executiveReport.topDisruptor}
                           </p>
                         </CardContent>
@@ -4710,16 +4710,16 @@ export default function ResultsPage() {
                     </div>
 
                     {/* Bottom row: Recommendations for the Driver - full width */}
-                    <Card className="bg-muted/50">
-                      <CardContent className="p-4">
-                        <h4 className="text-base font-bold text-card-foreground mb-3">Recommendations for the Driver</h4>
-                        <div className="space-y-2">
+                    <Card className="shadow-none">
+                      <CardContent className="px-3 py-1 pl-6">
+                        <div className="mb-3">
+                          <h4 className="text-xl font-semibold text-card-foreground">Recommendations for the Driver</h4>
+                        </div>
+                        <div className="text-lg leading-snug">
                           {executiveReport.recommendations.map((rec: string, idx: number) => (
-                            <div key={idx} className="flex items-start gap-3">
-                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-card-foreground">
-                                {idx + 1}
-                              </span>
-                              <p className="text-sm text-card-foreground leading-relaxed">{rec}</p>
+                            <div key={idx} className="flex items-start gap-2 mb-0.5">
+                              <span className="text-muted-foreground mt-0.5">-</span>
+                              <span>{rec}</span>
                             </div>
                           ))}
                         </div>
@@ -4738,32 +4738,6 @@ export default function ResultsPage() {
               {console.log('🔍 Exceptional Info:', executiveReport.exceptionalInformation)}
               {console.log('🔍 Important Info:', executiveReport.importantInformation)}
 
-
-
-
-              {/* Potential Trip Disruptions */}
-              <Card className="mb-6">
-                <CardContent className="p-6">
-                <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
-                  <svg className="w-5 h-5" style={{ color: '#9e201b' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  Potential Trip Disruptions
-                </h3>
-
-                {/* Top Disruptor */}
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4">
-                    <h4 className="text-base font-bold text-card-foreground mb-3">
-                      Top Disruptor
-                    </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                  {executiveReport.topDisruptor}
-                </p>
-                    </CardContent>
-              </Card>
-                </CardContent>
-            </Card>
 
 
 
@@ -5542,93 +5516,6 @@ export default function ResultsPage() {
           )}
 
         </div>
-
-        {/* Shareable Link - Only for Owners */}
-        {isOwner && (
-          <div className="bg-secondary border border-border/40 rounded-md p-6 mb-8">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-secondary-foreground mb-1">Shareable Link</p>
-                <p className="text-sm text-muted-foreground font-mono truncate">
-                  {typeof window !== 'undefined' ? window.location.href : ''}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Copy this link to share with your driver
-                </p>
-                {tripData?.password && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-xs font-medium text-secondary-foreground mb-1">Password Protection</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-mono bg-background px-3 py-1 rounded border border-border">
-                        {tripData.password}
-                      </p>
-                      <button
-                        onClick={() => {
-                          if (tripData.password) {
-                            navigator.clipboard.writeText(tripData.password);
-                            const button = document.getElementById('copy-password-button');
-                            if (button) {
-                              const originalContent = button.innerHTML;
-                              button.innerHTML = `
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                              `;
-                              button.style.color = '#3ea34b'; // Green-500
-                              setTimeout(() => {
-                                button.innerHTML = originalContent;
-                                button.style.color = '';
-                              }, 2000);
-                            }
-                          }
-                        }}
-                        id="copy-password-button"
-                        className="flex-shrink-0 p-1 rounded-md hover:bg-background/20 dark:hover:bg-[#181a23] transition-colors"
-                        title="Copy password"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Share this password with your driver to access the report
-                    </p>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    navigator.clipboard.writeText(window.location.href);
-                    // Visual feedback with brand green
-                    const button = document.getElementById('copy-button');
-                    if (button) {
-                      const originalContent = button.innerHTML;
-                      button.innerHTML = `
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                      `;
-                      button.style.color = '#18815A'; // Success green - light bg
-                      setTimeout(() => {
-                        button.innerHTML = originalContent;
-                        button.style.color = '';
-                      }, 2000);
-                    }
-                  }
-                }}
-                id="copy-button"
-                className="flex-shrink-0 p-2 rounded-md hover:bg-background/20 dark:hover:bg-[#181a23] transition-colors"
-                title="Copy link"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Request Quotes from Drivers - Now only in modal */}
         {false && (
