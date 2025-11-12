@@ -493,6 +493,10 @@ export default function ResultsPage() {
   const [showDriverModal, setShowDriverModal] = useState<boolean>(false);
   const [assignOnlyMode, setAssignOnlyMode] = useState<boolean>(false); // When true, hide quote functionality
   
+  // Driver confirmation dialog state (for drivers to confirm pending trips)
+  const [showDriverConfirmDialog, setShowDriverConfirmDialog] = useState<boolean>(false);
+  const [confirmingTrip, setConfirmingTrip] = useState<boolean>(false);
+  
   // Map modal state
   const [showMapModal, setShowMapModal] = useState<boolean>(false);
   
@@ -1814,7 +1818,21 @@ export default function ResultsPage() {
   };
 
   const handleStatusToggle = () => {
-    if (!tripId || !isOwner || updatingStatus) return;
+    if (!tripId || updatingStatus) return;
+    
+    // Check if user is the assigned driver (not owner)
+    const isAssignedDriver = !isOwner && driverEmail && quoteEmail && 
+      driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim();
+    
+    // DRIVER FLOW: Assigned driver clicking to confirm pending trip
+    if (isAssignedDriver && tripStatus === 'pending') {
+      console.log('🚗 [DRIVER] Assigned driver clicked confirmation button, opening confirmation dialog');
+      setShowDriverConfirmDialog(true);
+      return;
+    }
+    
+    // OWNER FLOW: Block non-owners who aren't the assigned driver
+    if (!isOwner) return;
     
     // If trip is rejected, allow user to request quotes or assign driver again
     // Rejected behaves like "not confirmed" - service is not secured
@@ -2421,6 +2439,45 @@ export default function ResultsPage() {
     // For now, just redirect to home
     // Future: could pre-fill form with current trip data
     router.push('/');
+  };
+
+  // Handler for driver to confirm a pending trip
+  const handleDriverConfirmTrip = async () => {
+    if (!tripId || !quoteEmail || confirmingTrip) return;
+
+    setConfirmingTrip(true);
+
+    try {
+      console.log('🔄 Driver confirming trip:', { tripId, driverEmail: quoteEmail });
+
+      const response = await fetch('/api/driver-confirm-trip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tripId,
+          driverEmail: quoteEmail,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Trip confirmed by driver');
+        setShowDriverConfirmDialog(false);
+        // Show success message
+        setQuoteSuccess(true);
+        setQuoteSuccessMessage('✅ Trip confirmed! The trip owner will be notified.');
+        // The realtime subscription will update the UI automatically
+      } else {
+        console.error('❌ Failed to confirm trip:', result.error);
+        alert(result.error || 'Failed to confirm trip');
+      }
+    } catch (err) {
+      console.error('❌ Error confirming trip:', err);
+      alert('Failed to confirm trip. Please try again.');
+    } finally {
+      setConfirmingTrip(false);
+    }
   };
 
   const getSafetyColor = (score: number) => {
@@ -6235,6 +6292,56 @@ export default function ResultsPage() {
           </Card>
         )}
 
+        {/* Driver Confirmation Card - Only for assigned drivers when trip is pending */}
+        {!isOwner && tripStatus === 'pending' && driverEmail && quoteEmail && 
+         driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim() && (
+          <Card className="mb-8 border-2 border-[#e77500] shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#e77500]/10 flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-[#e77500]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">Trip confirmation required</h2>
+                  <p className="text-muted-foreground">You've been assigned to this trip</p>
+                </div>
+              </div>
+              
+              <Alert className="mb-4 bg-[#e77500]/10 border-[#e77500]/30">
+                <AlertDescription className="text-[#e77500] font-medium">
+                  ⏱️ This trip is waiting for your confirmation
+                </AlertDescription>
+              </Alert>
+              
+              <div className="space-y-3">
+                <p className="text-muted-foreground">
+                  To confirm your availability for this trip:
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-2">
+                  <li>Enter your email address in the form below (if you haven't already)</li>
+                  <li>Click the orange <strong className="text-[#e77500]">"Pending"</strong> button at the top of the page</li>
+                  <li>Confirm when prompted</li>
+                </ol>
+                <p className="text-sm text-muted-foreground mt-4">
+                  💡 The trip owner will be notified once you confirm.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quote Submission Form - Only for Guests (all reports) */}
         {!isOwner && (
           <Card ref={quoteFormRef} className={`mb-8 ${searchParams.get('quote') === 'true' ? 'border-2 border-[#3ea34b] shadow-lg' : ''}`}>
@@ -6246,7 +6353,7 @@ export default function ResultsPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              <h2 className="text-xl font-semibold mb-4">Add Your Quote</h2>
+              <h2 className="text-xl font-semibold mb-4">Add your quote</h2>
               <p className="text-muted-foreground mb-6">
                 Submit your pricing quote for this trip. The trip owner will be able to review your offer.
               </p>
@@ -7242,6 +7349,73 @@ export default function ResultsPage() {
                   <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Confirming...
+                </>
+              ) : (
+                'Yes, confirm'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Driver Confirmation Dialog */}
+      <Dialog open={showDriverConfirmDialog} onOpenChange={setShowDriverConfirmDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Confirm trip</DialogTitle>
+            <DialogDescription>
+              You're about to confirm this trip
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6">
+            <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#e77500]/10 flex items-center justify-center">
+                <svg
+                  className="w-5 h-5 text-[#e77500]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  This will notify the trip owner that you've accepted this trip.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The trip status will change from Pending to Confirmed.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowDriverConfirmDialog(false)}
+              disabled={confirmingTrip}
+            >
+              Dismiss
+            </Button>
+            <Button
+              onClick={handleDriverConfirmTrip}
+              disabled={confirmingTrip}
+              className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
+            >
+              {confirmingTrip ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   Confirming...
                 </>

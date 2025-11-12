@@ -120,134 +120,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Quote ${isUpdate ? 'updated' : 'submitted'} successfully: ${quote.id}`);
     
-    // Check if the quote is from the assigned driver
-    const isAssignedDriver = trip.driver && trip.driver.toLowerCase() === normalizedEmail;
-    
-    console.log(`📊 Quote submission check:
-      - Submitted by: ${normalizedEmail}
-      - Assigned driver: ${trip.driver}
-      - Current status: ${trip.status}
-      - Is assigned driver: ${isAssignedDriver}
-      - Will auto-confirm: ${isAssignedDriver && trip.status === 'pending'}`);
-    
-    if (isAssignedDriver && trip.status === 'pending') {
-      console.log('🎯 Quote submitted by assigned driver - auto-confirming trip');
-      
-      // Update trip status to confirmed in DATABASE
-      const { data: updatedTrip, error: statusError } = await supabase
-        .from('trips')
-        .update({ status: 'confirmed' })
-        .eq('id', tripId)
-        .select('status')
-        .single();
-      
-      if (statusError) {
-        console.error('❌ Failed to auto-confirm trip:', statusError);
-      } else {
-        console.log('✅ Trip auto-confirmed in DATABASE after driver quote submission');
-        console.log(`📊 Database now shows status: ${updatedTrip.status}`);
-        
-        // Send confirmation email to driver
-        try {
-          const Resend = require('resend').Resend;
-          const resendApiKey = process.env.RESEND_API_KEY;
-          
-          if (resendApiKey) {
-            const resend = new Resend(resendApiKey);
-            const tripDate = new Date(trip.trip_date).toLocaleDateString('en-GB', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            });
-            
-            const host = request.headers.get('host') || 'localhost:3000';
-            const protocol = host.includes('localhost') ? 'http' : 'https';
-            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
-            const tripLink = `${baseUrl}/results/${tripId}`;
-            
-            await resend.emails.send({
-              from: 'DriverBrief <info@trips.driverbrief.com>',
-              to: [normalizedEmail],
-              subject: `Trip Confirmed - ${tripDate}`,
-              html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                </head>
-                <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #ffffff;">
-                  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
-                    <tr>
-                      <td align="center" style="padding: 40px 20px;">
-                        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff;">
-                          <tr>
-                            <td style="background-color: #05060A; padding: 24px; border-radius: 8px 8px 0 0;">
-                              <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">Service Confirmed</h1>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td style="background-color: #f5f5f5; padding: 32px 24px; border-radius: 0 0 8px 8px;">
-                              <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
-                                Hello,
-                              </p>
-                              
-                              <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: #333333;">
-                                Thank you for submitting your quote! The service for <strong style="color: #05060A;">${tripDate}</strong> is now confirmed.
-                              </p>
-                              
-                              <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin: 24px 0; border-left: 4px solid #3ea34b;">
-                                <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #666666; text-transform: uppercase; letter-spacing: 0.5px;">
-                                  Status
-                                </p>
-                                <p style="margin: 0; font-size: 24px; font-weight: 700; color: #3ea34b;">
-                                  Confirmed
-                                </p>
-                              </div>
-                              
-                              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
-                                <tr>
-                                  <td align="center">
-                                    <a href="${tripLink}" style="display: inline-block; background-color: #05060A; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">View Trip Details</a>
-                                  </td>
-                                </tr>
-                              </table>
-                              
-                              <p style="margin: 24px 0 0 0; padding-top: 20px; border-top: 1px solid #d9d9d9; font-size: 13px; line-height: 1.5; color: #666666;">
-                                Click the button above to view the complete trip information and any updates.
-                              </p>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td align="center" style="padding: 20px 0;">
-                              <p style="margin: 0; font-size: 12px; color: #999999;">This is an automated notification from DriverBrief</p>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
-                </body>
-                </html>
-              `,
-            });
-            
-            console.log('✅ Confirmation email sent to driver after quote submission');
-          }
-        } catch (emailError) {
-          console.error('❌ Failed to send confirmation email:', emailError);
-          // Don't fail the request if email fails
-        }
-      }
-    }
+    // NOTE: Removed auto-confirmation logic. Drivers must manually confirm trips via the confirmation button.
     
     return NextResponse.json({ 
       success: true, 
       message: isUpdate ? 'Quote updated successfully' : 'Quote submitted successfully',
       quoteId: quote.id,
-      isUpdate: isUpdate,
-      autoConfirmed: isAssignedDriver && trip.status === 'pending'
+      isUpdate: isUpdate
     });
   } catch (error) {
     console.error('❌ Error in submit-quote API:', error);
