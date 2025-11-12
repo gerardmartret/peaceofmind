@@ -135,7 +135,7 @@ function SortableEditLocationItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: `${location.location}-${index}` });
+  } = useSortable({ id: location.placeId || `fallback-${index}` });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -148,29 +148,6 @@ function SortableEditLocationItem({
     if (index === totalLocations - 1) return 'Dropoff time';
     return 'Resume at';
   };
-
-  // Click outside handler to close editing field
-  const editingRef = React.useRef<HTMLDivElement>(null);
-  
-  React.useEffect(() => {
-    if (editingIndex === index && editingField === 'location') {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (editingRef.current && !editingRef.current.contains(event.target as Node)) {
-          onEditEnd();
-        }
-      };
-      
-      // Add listener with a small delay to prevent immediate closure
-      const timeoutId = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside);
-      }, 100);
-      
-      return () => {
-        clearTimeout(timeoutId);
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [editingIndex, index, editingField, onEditEnd]);
 
   return (
     <div
@@ -209,7 +186,7 @@ function SortableEditLocationItem({
           <div className="min-w-0">
             <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
             {editingIndex === index && editingField === 'location' ? (
-              <div className="editing-location" data-editing="true" ref={editingRef}>
+              <div className="editing-location" data-editing="true">
                 <GoogleLocationSearch
                   currentLocation={`${location.location} - ${location.formattedAddress || location.location}`}
                   tripDestination={tripDestination}
@@ -1021,8 +998,8 @@ export default function ResultsPage() {
     
     if (over && active.id !== over.id) {
       setEditingLocations((items) => {
-        const oldIndex = items.findIndex((item, idx) => `${item.location}-${idx}` === active.id);
-        const newIndex = items.findIndex((item, idx) => `${item.location}-${idx}` === over.id);
+        const oldIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === active.id);
+        const newIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === over.id);
         
         const reorderedItems = arrayMove(items, oldIndex, newIndex);
         console.log(`🔄 Edit route: Location reordered ${oldIndex + 1} → ${newIndex + 1}`);
@@ -1032,22 +1009,28 @@ export default function ResultsPage() {
   };
 
   const handleEditLocationSelect = (index: number, location: any) => {
-    setEditingLocations(prev => prev.map((loc, idx) => 
-      idx === index ? {
-        ...loc,
-        location: location.name,
-        formattedAddress: location.name,
-        lat: location.lat,
-        lng: location.lng,
-        verified: true,
-      } : loc
-    ));
+    const updatedLocations = [...editingLocations];
+    updatedLocations[index] = {
+      ...updatedLocations[index],
+      location: location.name,
+      formattedAddress: location.name,
+      lat: location.lat,
+      lng: location.lng,
+      verified: true,
+      // Keep purpose unchanged
+    };
+    setEditingLocations(updatedLocations);
+    console.log(`✅ Location updated at index ${index}:`, location.name);
+    console.log(`   Purpose preserved: ${updatedLocations[index].purpose}`);
   };
 
   const handleEditTimeChange = (index: number, time: string) => {
-    setEditingLocations(prev => prev.map((loc, idx) => 
-      idx === index ? { ...loc, time } : loc
-    ));
+    const updatedLocations = [...editingLocations];
+    updatedLocations[index] = {
+      ...updatedLocations[index],
+      time: time,
+    };
+    setEditingLocations(updatedLocations);
   };
 
   const handleEditLocationRemove = (index: number) => {
@@ -1057,16 +1040,17 @@ export default function ResultsPage() {
   };
 
   const handleAddEditLocation = () => {
+    const newIndex = editingLocations.length;
     const newLocation = {
       location: '',
       formattedAddress: '',
       lat: 0,
       lng: 0,
       time: '12:00',
-      purpose: '',
+      purpose: `Location ${newIndex + 1}`, // Default purpose for new locations
       confidence: 'low',
       verified: false,
-      placeId: null,
+      placeId: `new-location-${Date.now()}-${Math.random()}`,
     };
     setEditingLocations(prev => [...prev, newLocation]);
   };
@@ -1085,10 +1069,10 @@ export default function ResultsPage() {
         return;
       }
       
-      // Convert to database format
+      // Convert to database format - preserve original name (purpose)
       const locationsForDb = validLocations.map((loc, idx) => ({
         id: `location-${idx + 1}`,
-        name: loc.location,
+        name: loc.purpose || loc.location, // Preserve original name (purpose), fallback to location
         fullAddress: loc.formattedAddress || loc.location,
         lat: loc.lat,
         lng: loc.lng,
@@ -1218,11 +1202,13 @@ export default function ResultsPage() {
       // Get traffic predictions
       const trafficData = await getTrafficPredictions(
         locationsForDb.map(loc => ({
+          id: loc.id,
           name: loc.name,
           lat: loc.lat,
           lng: loc.lng,
           time: loc.time,
-        }))
+        })),
+        tripDateStr
       );
       
       setRegenerationProgress(90);
@@ -1532,7 +1518,17 @@ export default function ResultsPage() {
         // Transform database data to match expected TripData format
         // Ensure traffic_predictions has correct structure with success flag
         let trafficPredictionsFormatted: any = null;
-        const rawTrafficPredictions = data.traffic_predictions as any;
+        let rawTrafficPredictions = data.traffic_predictions as any;
+        
+        // Parse if stored as JSON string
+        if (typeof rawTrafficPredictions === 'string') {
+          try {
+            rawTrafficPredictions = JSON.parse(rawTrafficPredictions);
+          } catch (e) {
+            console.error('❌ Failed to parse traffic_predictions JSON:', e);
+            rawTrafficPredictions = null;
+          }
+        }
         
         if (rawTrafficPredictions) {
           // Check if it already has the correct structure
@@ -1563,7 +1559,25 @@ export default function ResultsPage() {
 
         // FIX: Validate and fix location IDs when loading from database
         const usedIds = new Set<string>();
-        const locationsWithValidIds = (data.locations as any[]).map((loc: any, idx: number) => {
+        
+        // Parse locations if they're stored as JSON string
+        let locationsArray = data.locations;
+        if (typeof locationsArray === 'string') {
+          try {
+            locationsArray = JSON.parse(locationsArray);
+          } catch (e) {
+            console.error('❌ Failed to parse locations JSON:', e);
+            locationsArray = [];
+          }
+        }
+        
+        // Ensure locationsArray is actually an array
+        if (!Array.isArray(locationsArray)) {
+          console.error('❌ Locations is not an array after parsing:', typeof locationsArray, locationsArray);
+          locationsArray = [];
+        }
+        
+        const locationsWithValidIds = locationsArray.map((loc: any, idx: number) => {
           // Check if ID is invalid (literal string from AI bug)
           if (!loc.id || loc.id === 'currentLocation.id' || loc.id === 'extractedLocation.id' || loc.id.includes('Location.id')) {
             console.warn(`⚠️ [FIX] Invalid location ID detected in database: "${loc.id}", generating unique ID for location ${idx}`);
@@ -1590,13 +1604,34 @@ export default function ResultsPage() {
           return loc;
         });
 
+        // Parse JSON fields if they're stored as strings
+        let tripResultsParsed = data.trip_results;
+        if (typeof tripResultsParsed === 'string') {
+          try {
+            tripResultsParsed = JSON.parse(tripResultsParsed);
+          } catch (e) {
+            console.error('❌ Failed to parse trip_results JSON:', e);
+            tripResultsParsed = [];
+          }
+        }
+        
+        let executiveReportParsed = data.executive_report;
+        if (typeof executiveReportParsed === 'string') {
+          try {
+            executiveReportParsed = JSON.parse(executiveReportParsed);
+          } catch (e) {
+            console.error('❌ Failed to parse executive_report JSON:', e);
+            executiveReportParsed = null;
+          }
+        }
+
         const tripData: TripData = {
           tripDate: data.trip_date,
           userEmail: data.user_email,
           locations: locationsWithValidIds,
-          tripResults: data.trip_results as any,
+          tripResults: tripResultsParsed as any,
           trafficPredictions: trafficPredictionsFormatted,
-          executiveReport: data.executive_report as any,
+          executiveReport: executiveReportParsed as any,
           passengerCount: data.passenger_count || 1,
           tripDestination: data.trip_destination || '',
           passengerNames: [], // passenger_names column doesn't exist in DB
@@ -2453,6 +2488,72 @@ export default function ResultsPage() {
     };
   };
 
+  // Helper: Strip email metadata to prevent false positives
+  const stripEmailMetadata = (text: string): string => {
+    console.log('🧹 [PRE-PROCESSING] Stripping email headers...');
+    
+    // Remove standalone email headers ONLY (headers on their own line or with just email/date after colon)
+    // Match patterns like "From: email@domain.com\n" or "Subject: Some Subject\n"
+    // But DON'T match "Date: 12 nov 2025 hey there..." (has content after date)
+    let cleaned = text
+      // Remove "From: email@domain.com"
+      .replace(/^From:\s*[^\n]+@[^\n]+$/gim, '')
+      // Remove "To: email@domain.com"  
+      .replace(/^To:\s*[^\n]+@[^\n]+$/gim, '')
+      // Remove "Subject: ..." on its own line
+      .replace(/^Subject:\s*[^\n]+$/gim, '')
+      // Remove "Date: DD MMM YYYY HH:MM" ONLY if it's at start and followed by newline or just whitespace
+      .replace(/^Date:\s*\d{1,2}\s+[a-z]{3}\s+\d{4}\s+\d{2}:\d{2}\s*$/gim, '')
+      .replace(/^Cc:\s*[^\n]+$/gim, '')
+      .replace(/^Bcc:\s*[^\n]+$/gim, '')
+      .replace(/^\s*[\r\n]+/gm, '') // Remove empty lines
+      .trim();
+    
+    // If Date: is inline with content, just remove the date portion
+    // "Date: 12 nov 2025 08:11  hey again..." → "  hey again..."
+    cleaned = cleaned.replace(/^Date:\s*\d{1,2}\s+[a-z]{3}\s+\d{4}\s+\d{2}:\d{2}\s+/gim, '');
+    
+    // Remove command markers (EXTRAER VIAJE, EXTRACT TRIP, etc.)
+    cleaned = cleaned.replace(/\s+EXTRAER\s+VIAJE\s*$/i, '');
+    cleaned = cleaned.replace(/\s+EXTRACT\s+TRIP\s*$/i, '');
+    
+    const removedChars = text.length - cleaned.length;
+    if (removedChars > 0) {
+      console.log(`✅ [PRE-PROCESSING] Removed ${removedChars} characters of email metadata`);
+    }
+    
+    return cleaned.trim();
+  };
+
+  // Helper: Detect unchanged fields from "same" language
+  const detectUnchangedFields = (updateText: string): Set<string> => {
+    const text = updateText.toLowerCase();
+    const unchangedFields = new Set<string>();
+    
+    // Detect "same" language indicating most fields unchanged
+    const hasSameLanguage = text.includes('rest same') || text.includes('same same') || 
+                           text.includes('everything else same') || text.includes('rest unchanged');
+    
+    if (hasSameLanguage) {
+      console.log('🔍 [POST-PROCESSING] Detected "same" language - will validate extracted fields');
+      
+      // If update doesn't explicitly mention these fields, they should be unchanged
+      if (!text.includes('vehicle') && !text.includes('car') && !text.includes('mercedes') && 
+          !text.includes('bmw') && !text.includes('audi')) {
+        unchangedFields.add('vehicle');
+      }
+      if (!text.includes('passenger') && !text.match(/mr\.|ms\.|mrs\.|dr\./)) {
+        unchangedFields.add('passengers');
+      }
+      if (!text.match(/\d{1,2}\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i) && 
+          !text.match(/(january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{1,2}/i)) {
+        unchangedFields.add('date');
+      }
+    }
+    
+    return unchangedFields;
+  };
+
   // Extract updates handler
   const handleExtractUpdates = async () => {
     // Security check: Only owners can extract updates
@@ -2469,6 +2570,9 @@ export default function ResultsPage() {
     setUpdateProgress({ step: '', error: null, canRetry: false });
 
     try {
+      // PRE-PROCESSING: Strip email headers to prevent false positives
+      const cleanedText = stripEmailMetadata(updateText);
+      
       // Step 1: Extract updates from text
       setUpdateProgress({ step: 'Extracting trip data', error: null, canRetry: false });
       console.log('🔄 Step 1: Extracting updates from text...');
@@ -2477,7 +2581,7 @@ export default function ResultsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          text: updateText,
+          text: cleanedText,  // Use cleaned text without email headers
           tripDestination: tripDestination || undefined // Pass current trip destination for proper geocoding
         }),
       });
@@ -2494,6 +2598,66 @@ export default function ResultsPage() {
           canRetry: true,
         });
         return;
+      }
+
+      // POST-PROCESSING: Log removal operations if detected
+      if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
+        console.log(`🗑️ [REMOVAL] Detected ${extractedData.removedLocations.length} location(s) to remove:`, extractedData.removedLocations);
+      }
+      
+      // POST-PROCESSING: Log insertion operations if detected
+      if (extractedData.locations && extractedData.locations.length > 0) {
+        extractedData.locations.forEach((loc: any, idx: number) => {
+          if (loc.insertAfter) {
+            console.log(`📌 [INSERT] Location "${loc.location}" should be inserted AFTER "${loc.insertAfter}"`);
+          } else if (loc.insertBefore) {
+            console.log(`📌 [INSERT] Location "${loc.location}" should be inserted BEFORE "${loc.insertBefore}"`);
+          }
+        });
+      }
+      
+      // POST-PROCESSING: Validate and override fields based on "same" language
+      const unchangedFields = detectUnchangedFields(updateText);
+      
+      if (unchangedFields.size > 0) {
+        console.log(`🔧 [POST-PROCESSING] Found ${unchangedFields.size} field(s) that should be unchanged:`, Array.from(unchangedFields));
+        
+        if (unchangedFields.has('vehicle') && extractedData.vehicleInfo) {
+          console.log(`   → Ignoring extracted vehicle: "${extractedData.vehicleInfo}"`);
+          extractedData.vehicleInfo = null;
+        }
+        if (unchangedFields.has('passengers') && extractedData.leadPassengerName) {
+          console.log(`   → Ignoring extracted passenger: "${extractedData.leadPassengerName}"`);
+          extractedData.leadPassengerName = null;
+          extractedData.passengerNames = [];
+        }
+        if (unchangedFields.has('date') && extractedData.date) {
+          console.log(`   → Ignoring extracted date: "${extractedData.date}"`);
+          extractedData.date = null;
+        }
+      }
+      
+      // POST-PROCESSING: Validate date makes sense (not email send date)
+      if (extractedData.date && tripData) {
+        const extractedDate = new Date(extractedData.date);
+        const currentTripDate = new Date(tripData.tripDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // If extracted date is before current trip date, likely email metadata
+        if (extractedDate < currentTripDate) {
+          console.warn(`⚠️ [VALIDATION] Extracted date ${extractedData.date} is BEFORE trip date ${tripData.tripDate}`);
+          console.warn(`   This is likely email send date (metadata), not a trip date change. Ignoring.`);
+          extractedData.date = null;
+        }
+        
+        // If extracted date matches today, might be email send date
+        const extractedDateOnly = extractedData.date;
+        const todayStr = today.toISOString().split('T')[0];
+        if (extractedDateOnly === todayStr && !updateText.toLowerCase().includes('today')) {
+          console.warn(`⚠️ [VALIDATION] Extracted date matches today but update doesn't say "today". Likely email metadata. Ignoring.`);
+          extractedData.date = null;
+        }
       }
 
       console.log('✅ Step 1 complete: Extracted data successfully');
@@ -2521,7 +2685,9 @@ export default function ResultsPage() {
               locations: tripData.locations.map((loc: any, idx: number) => ({
                 id: loc.id,
                 name: loc.name,
-                address: loc.name, // Use name as address for comparison
+                address: loc.fullAddress || loc.name, // FIX: Send actual address, fallback to name
+                fullAddress: loc.fullAddress || loc.name, // FIX: Include fullAddress field
+                formattedAddress: loc.formattedAddress || loc.fullAddress || loc.name, // FIX: Include formattedAddress
                 time: loc.time,
                 purpose: loc.name, // Purpose is stored in name field
                 lat: loc.lat,
@@ -2631,14 +2797,19 @@ export default function ResultsPage() {
             oldPurpose: locChange.currentLocation?.purpose || locChange.currentLocation?.name || '',
           });
         } else if (locChange.action === 'added') {
+          // Check if this is an insertion (has insertPosition) or append
+          const isInsertion = !!(locChange as any).insertPosition;
+          const insertPos = (locChange as any).insertPosition;
+          
           diff.locations.push({
             type: 'added',
-            index: locChange.extractedIndex,
+            index: isInsertion ? insertPos?.referenceIndex : locChange.extractedIndex,
             newAddress: locChange.extractedLocation?.formattedAddress || locChange.extractedLocation?.location || '',
             newTime: locChange.extractedLocation?.time || '',
             newPurpose: locChange.extractedLocation?.purpose || '',
           });
-          // Add to final locations
+          
+          // Handle insertion vs append
           if (locChange.finalLocation) {
             const finalLoc = locChange.finalLocation;
             
@@ -2699,7 +2870,35 @@ export default function ResultsPage() {
               finalLoc.name = finalLoc.purpose || finalLoc.name || finalLoc.fullAddress || finalLoc.address;
             }
             
-            finalLocationsMap[locChange.extractedIndex] = finalLoc;
+            // Handle insertion logic
+            if (isInsertion && insertPos) {
+              console.log(`📌 [INSERT] Adding location ${insertPos.type} reference index ${insertPos.referenceIndex} (${insertPos.referenceName})`);
+              
+              const insertAtIndex = insertPos.type === 'after' ? insertPos.referenceIndex + 1 : insertPos.referenceIndex;
+              
+              // Shift all locations at insertAtIndex and beyond up by 1
+              const shiftedMap: { [key: number]: any } = {};
+              Object.keys(finalLocationsMap).forEach(key => {
+                const idx = parseInt(key);
+                if (idx >= insertAtIndex) {
+                  shiftedMap[idx + 1] = finalLocationsMap[idx];
+                } else {
+                  shiftedMap[idx] = finalLocationsMap[idx];
+                }
+              });
+              
+              // Insert new location at the calculated position
+              shiftedMap[insertAtIndex] = finalLoc;
+              
+              // Replace finalLocationsMap with shifted version
+              Object.keys(finalLocationsMap).forEach(key => delete finalLocationsMap[key]);
+              Object.assign(finalLocationsMap, shiftedMap);
+              
+              console.log(`✅ [INSERT] Location inserted at index ${insertAtIndex}`);
+            } else {
+              // Regular append at extracted index
+              finalLocationsMap[locChange.extractedIndex] = finalLoc;
+            }
           }
         } else if (locChange.action === 'modified') {
           diff.locations.push({
@@ -2886,10 +3085,27 @@ export default function ResultsPage() {
       });
     }
 
+    // Track removed location indices BEFORE preservation
+    const removedIndices = new Set<number>();
+    if (comparison.locations && Array.isArray(comparison.locations)) {
+      comparison.locations.forEach((loc: any) => {
+        if (loc.action === 'removed') {
+          removedIndices.add(loc.currentIndex);
+          console.log(`🗑️ [REMOVAL] Marking location ${loc.currentIndex} for removal: ${loc.currentLocation?.name || 'Unknown'}`);
+        }
+      });
+    }
+
     // CRITICAL FIX: Ensure ALL current locations are preserved if not explicitly removed
     // This handles cases where the AI comparison might miss some unchanged locations
     if (tripData?.locations && tripData.locations.length > 0) {
       tripData.locations.forEach((currentLoc: any, idx: number) => {
+        // Skip if explicitly removed
+        if (removedIndices.has(idx)) {
+          console.log(`⛔ [REMOVAL] Skipping removed location ${idx}: ${currentLoc.name}`);
+          return;
+        }
+        
         // If this location index doesn't exist in finalLocationsMap yet, add it
         if (finalLocationsMap[idx] === undefined) {
           console.log(`🔄 Preserving missing location at index ${idx}: ${currentLoc.name}`);
@@ -3375,6 +3591,92 @@ export default function ResultsPage() {
         return;
       }
 
+      // VALIDATION: Check for coordinate/address mismatches BEFORE geocoding decision
+      console.log('🔍 [VALIDATION] Checking coordinate/address consistency...');
+      const inconsistentLocations: Array<{loc: any, index: number, reason: string}> = [];
+      
+      validLocations.forEach((loc: any, i: number) => {
+        if (loc.lat && loc.lng && loc.lat !== 0 && loc.lng !== 0 && loc.fullAddress) {
+          const addressLower = loc.fullAddress.toLowerCase();
+          
+          // Check 1: Airport address but central London coordinates
+          const isAirportAddress = addressLower.includes('airport') || 
+                                  addressLower.includes('gatwick') || 
+                                  addressLower.includes('heathrow') ||
+                                  addressLower.includes('stansted') ||
+                                  addressLower.includes('luton');
+          
+          // Central London bounds: ~51.49-51.53 lat, -0.14 to -0.07 lng
+          const inCentralLondon = (loc.lat > 51.49 && loc.lat < 51.53) && 
+                                 (loc.lng > -0.14 && loc.lng < -0.07);
+          
+          if (isAirportAddress && inCentralLondon) {
+            console.error(`❌ [VALIDATION] Location ${i} has AIRPORT address but CENTRAL LONDON coords!`);
+            console.error(`   Address: ${loc.fullAddress}`);
+            console.error(`   Coords: ${loc.lat}, ${loc.lng}`);
+            inconsistentLocations.push({ loc, index: i, reason: 'airport-central-mismatch' });
+          }
+          
+          // Check 2: Gatwick address but coords far from Gatwick
+          if (addressLower.includes('gatwick')) {
+            // Gatwick coords: ~51.1537, -0.1821
+            const distanceFromGatwick = Math.sqrt(
+              Math.pow((loc.lat - 51.1537) * 111, 2) + // rough km conversion
+              Math.pow((loc.lng - (-0.1821)) * 111 * Math.cos(loc.lat * Math.PI / 180), 2)
+            );
+            
+            if (distanceFromGatwick > 5) {
+              console.error(`❌ [VALIDATION] Gatwick address but coords are ${distanceFromGatwick.toFixed(1)}km away!`);
+              console.error(`   Address: ${loc.fullAddress}`);
+              console.error(`   Coords: ${loc.lat}, ${loc.lng}`);
+              inconsistentLocations.push({ loc, index: i, reason: 'gatwick-distance-mismatch' });
+            }
+          }
+          
+          // Check 3: Generic "London, UK" address (likely geocoding fallback)
+          if (loc.fullAddress === 'London, UK' || loc.fullAddress.length < 15) {
+            console.warn(`⚠️ [VALIDATION] Location ${i} has generic address: "${loc.fullAddress}"`);
+            inconsistentLocations.push({ loc, index: i, reason: 'generic-address' });
+          }
+        }
+      });
+      
+      // Re-geocode inconsistent locations
+      if (inconsistentLocations.length > 0) {
+        console.log(`🔧 [FIX] Re-geocoding ${inconsistentLocations.length} inconsistent locations...`);
+        
+        for (const inconsistent of inconsistentLocations) {
+          try {
+            const geocoder = new google.maps.Geocoder();
+            const query = inconsistent.loc.fullAddress;
+            
+            const result = await new Promise<any>((resolve) => {
+              geocoder.geocode(
+                { address: query, region: getCityConfig(tripDestination).geocodingRegion },
+                (results, status) => {
+                  if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
+                    resolve(results[0]);
+                  } else {
+                    resolve(null);
+                  }
+                }
+              );
+            });
+            
+            if (result) {
+              validLocations[inconsistent.index].lat = result.geometry.location.lat();
+              validLocations[inconsistent.index].lng = result.geometry.location.lng();
+              validLocations[inconsistent.index].fullAddress = result.formatted_address;
+              console.log(`✅ [FIX] Corrected location ${inconsistent.index}: ${result.formatted_address} (${result.geometry.location.lat()}, ${result.geometry.location.lng()})`);
+            }
+          } catch (err) {
+            console.error(`❌ Failed to re-geocode location ${inconsistent.index}:`, err);
+          }
+        }
+      } else {
+        console.log('✅ [VALIDATION] All locations passed consistency checks');
+      }
+
       // OPTIMIZATION: Separate locations that need geocoding from those that don't
       // Check for: 1) Invalid coordinates OR 2) Incomplete/missing fullAddress
       const needsGeocoding = (loc: any): boolean => {
@@ -3738,18 +4040,17 @@ export default function ResultsPage() {
                   variant="outline"
                   className="flex items-center gap-2 h-[51px]"
                   onClick={() => {
-                    // Pre-fill modal with current trip data - use locations array instead of tripResults
-                    // locations array has clean data without purpose mixed in
-                    setEditingLocations(locations.map(loc => ({
+                    // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
+                    setEditingLocations(locations.map((loc, idx) => ({
                       location: loc.fullAddress || loc.name,
                       formattedAddress: loc.fullAddress || loc.name,
                       lat: loc.lat,
                       lng: loc.lng,
                       time: loc.time,
-                      purpose: '',
+                      purpose: loc.name || '', // Store original name (purpose) to preserve it
                       confidence: 'high',
                       verified: true,
-                      placeId: null,
+                      placeId: `stable-id-${idx}-${Date.now()}`,
                     })));
                     setShowEditRouteModal(true);
                   }}
@@ -6533,13 +6834,13 @@ export default function ResultsPage() {
               onDragEnd={handleEditRouteDragEnd}
             >
               <SortableContext
-                items={editingLocations.map((loc, index) => `${loc.location}-${index}`)}
+                items={editingLocations.map((loc) => loc.placeId || `fallback-${editingLocations.indexOf(loc)}`)}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-4">
                   {editingLocations.map((loc, index) => (
                     <SortableEditLocationItem
-                      key={`${loc.location}-${index}`}
+                      key={loc.placeId || `fallback-${index}`}
                       location={loc}
                       index={index}
                       totalLocations={editingLocations.length}
@@ -6587,7 +6888,7 @@ export default function ResultsPage() {
             </Button>
             <Button 
               onClick={handleSaveRouteEdits}
-              disabled={isRegenerating || editingLocations.filter(loc => loc.lat !== 0 && loc.lng !== 0).length === 0}
+              disabled={isRegenerating || editingLocations.length === 0}
               className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
             >
               {isRegenerating ? (

@@ -106,28 +106,28 @@ export async function generateExecutiveReport(
         stop: idx + 1,
         location: loc.locationName,
         time: loc.time,
-        weatherSummary: `${loc.weather.summary.avgMinTemp}°C-${loc.weather.summary.avgMaxTemp}°C, ${loc.weather.summary.rainyDays} rainy days`,
-        eventsCount: loc.events.summary.total,
-        events: loc.events.events.map((e: any) => `${e.title} (${e.severity})`),
-        premiumCafes: loc.cafes.cafes.length,
-        topCafes: loc.cafes.cafes.slice(0, 3).map((c: any) => `${c.name} (${c.rating}⭐, ${'$'.repeat(c.priceLevel)}, ${Math.round(c.distance)}m)`),
-        cafesAverageRating: loc.cafes.summary.averageRating,
+        weatherSummary: loc.weather?.summary ? `${loc.weather.summary.avgMinTemp}°C-${loc.weather.summary.avgMaxTemp}°C, ${loc.weather.summary.rainyDays} rainy days` : 'Weather data unavailable',
+        eventsCount: loc.events?.summary?.total || 0,
+        events: loc.events?.events?.map((e: any) => `${e.title} (${e.severity})`) || [],
+        premiumCafes: loc.cafes?.cafes?.length || 0,
+        topCafes: loc.cafes?.cafes?.slice(0, 3).map((c: any) => `${c.name} (${c.rating}⭐, ${'$'.repeat(c.priceLevel)}, ${Math.round(c.distance)}m)`) || [],
+        cafesAverageRating: loc.cafes?.summary?.averageRating || 0,
       };
 
       // Add London-specific fields only for London
       if (cityConfig.isLondon) {
         return {
           ...base,
-          safetyScore: loc.crime.safetyScore,
-          totalCrimes: loc.crime.summary.totalCrimes,
-          topCrimes: loc.crime.summary.topCategories.slice(0, 3).map((c: any) => `${c.category} (${c.count})`),
-          trafficDisruptions: loc.disruptions.analysis.total,
-          moderateDisruptions: loc.disruptions.analysis.bySeverity['Moderate'] || 0,
-          topDisruptions: loc.disruptions.disruptions.slice(0, 2).map((d: any) => d.location),
-          parkingRiskScore: loc.parking.parkingRiskScore,
-          nearbyCarParks: loc.parking.summary.totalNearby,
-          nearestParkingDistance: loc.parking.carParks[0]?.distance || 'None within 1km',
-          cpzRestrictions: loc.parking.cpzInfo.inCPZ
+          safetyScore: loc.crime?.safetyScore || 0,
+          totalCrimes: loc.crime?.summary?.totalCrimes || 0,
+          topCrimes: loc.crime?.summary?.topCategories?.slice(0, 3).map((c: any) => `${c.category} (${c.count})`) || [],
+          trafficDisruptions: loc.disruptions?.analysis?.total || 0,
+          moderateDisruptions: loc.disruptions?.analysis?.bySeverity?.['Moderate'] || 0,
+          topDisruptions: loc.disruptions?.disruptions?.slice(0, 2).map((d: any) => d.location) || [],
+          parkingRiskScore: loc.parking?.parkingRiskScore || 0,
+          nearbyCarParks: loc.parking?.summary?.totalNearby || 0,
+          nearestParkingDistance: loc.parking?.carParks?.[0]?.distance || 'None within 1km',
+          cpzRestrictions: loc.parking?.cpzInfo?.inCPZ
             ? `${loc.parking.cpzInfo.zoneName} - ${loc.parking.cpzInfo.operatingHours} (${loc.parking.cpzInfo.chargeInfo})`
             : 'No CPZ restrictions',
         };

@@ -149,12 +149,15 @@ Return a JSON object with this exact structure:
   "vehicleInfo": "ONLY vehicle brand and model (e.g., 'Mercedes S-Class', 'BMW 7 Series', 'Audi A8'). Do NOT include color, features, amenities, or requirements. Put those details in driverNotes instead. Null if not mentioned.",
   "passengerNames": ["Name1", "Name2", "Name3"],
   "driverNotes": "ONLY contextual information NOT captured elsewhere. ABSOLUTELY EXCLUDE: ALL location names (airports, hotels, restaurants, venues, addresses), ALL times (pickup, dropoff, stops), ALL dates, ALL passenger names, vehicle brand/model, trip destination. ONLY INCLUDE: flight numbers, contact info, special instructions, vehicle features (color/amenities), dress codes, allergies, security requirements, operational codes, waiting procedures, preferences. Zero redundancy with locations array or other fields. Format as bullet points.",
+  "removedLocations": ["OPTIONAL: Array of location keywords/names to REMOVE. Extract from phrases like 'skip X', 'remove X', 'cancel X', 'no need for X'. Example: 'skip the rosewood stop' → ['rosewood']. If no removals mentioned, return empty array []"],
   "locations": [
     {
       "location": "Full location name",
       "time": "HH:MM in 24-hour format (ALWAYS use HH:MM format like '09:30', '15:00', NEVER put confidence level here)",
       "confidence": "high/medium/low (this is separate from time - indicates how certain you are about the time estimate)",
-      "purpose": "Comprehensive short name that summarizes the purpose with specific details (e.g., 'Pick up at JFK Airport', 'Investment Meeting at UBS Bank with Mr John', 'Dinner at Nobu with Mr. Smith', 'Hotel check-in at The Langham')"
+      "purpose": "Comprehensive short name that summarizes the purpose with specific details (e.g., 'Pick up at JFK Airport', 'Investment Meeting at UBS Bank with Mr John', 'Dinner at Nobu with Mr. Smith', 'Hotel check-in at The Langham')",
+      "insertAfter": "OPTIONAL: keyword/name of location to insert after (ONLY if text says 'add after X' or 'quick stop after X')",
+      "insertBefore": "OPTIONAL: keyword/name of location to insert before (ONLY if text says 'add before X')"
     }
   ]
 }
@@ -170,6 +173,54 @@ Rules for extraction:
 - Sort locations chronologically by time (if locations exist)
 - Convert all times to 24-hour format (e.g., "3pm" -> "15:00", "9am" -> "09:00")
 - If time is relative (e.g., "2 hours later"), calculate based on previous time
+- CRITICAL: When text mentions "from [location A] to [location B]", extract ONLY location B as the destination. Location A is context (previous/current location), NOT a new stop to add
+- Example: "from blackrock 1 new change to GATWICK" → Extract ONLY "Gatwick Airport" (not "1 New Change")
+- Example: "go straight from office to airport" → Extract ONLY the airport (not "office")
+
+REMOVAL OPERATIONS (CRITICAL):
+- If text contains removal keywords: "skip", "remove", "cancel", "delete", "no need for", "drop", "eliminate"
+- Extract the location keyword being removed
+- Add to "removedLocations" array (separate from locations array)
+- Examples:
+  * "skip the rosewood stop" → removedLocations: ["rosewood"]
+  * "remove stop 3" → removedLocations: ["stop 3"]
+  * "cancel the ritz hotel visit" → removedLocations: ["ritz hotel"]
+  * "no need shower" in context "skip rosewood (no need shower)" → removedLocations: ["rosewood"]
+  * "skip meeting at Goldman Sachs" → removedLocations: ["goldman sachs"]
+- Extract KEYWORDS that identify the location (venue names, purpose words, building names)
+- Do NOT extract removal phrases as regular locations
+- If location is being removed, it should ONLY appear in removedLocations, NOT in locations array
+
+POSITIONAL OPERATIONS (ADD/INSERT):
+- If text contains "ADD [location] AFTER [reference]", "add [location] after [reference]", "quick stop after [reference]", or similar:
+  * Extract the new location details normally
+  * Add special field "insertAfter": "[reference location keyword]"
+  * Reference keywords: extract key identifying words (e.g., "after sexy fish" → insertAfter: "sexy fish")
+  * Example: "ADD 30 St Mary Axe after Sexy Fish" →
+    {
+      location: "30 St Mary Axe",
+      time: "13:00",
+      purpose: "Drop files",
+      insertAfter: "sexy fish",
+      confidence: "low"
+    }
+
+- If text contains "ADD [location] BEFORE [reference]", "add [location] before [reference]":
+  * Add special field "insertBefore": "[reference keyword]"
+  * Example: "add stop before dropoff" → insertBefore: "dropoff"
+
+- If text contains "ADD [location]" without position keywords:
+  * No insertion metadata (will append at end)
+
+- Common reference patterns to detect:
+  * "after lunch" → insertAfter: "lunch"
+  * "after meeting" → insertAfter: "meeting"
+  * "before dropoff" → insertBefore: "dropoff"
+  * "after [venue name]" → insertAfter: "[venue name]"
+  
+CRITICAL: Distinguish between ADD and normal location mentions:
+- "ADD stop at X after Y" → locations: [{location: X, insertAfter: Y}]
+- "go to X then Y" → locations: [{location: X}, {location: Y}] (normal extraction, no position metadata)
 - CRITICAL: If no specific time mentioned, ESTIMATE a reasonable time in HH:MM format
   * Example: Pickup at 13:45, then estimate: 14:45 (breakfast), 16:00 (meeting), 18:00 (lunch), 19:30 (pitch), 20:30 (shower), 21:30 (dropoff)
   * Set "confidence": "low" for estimates, but "time" must ALWAYS be "HH:MM" format like "14:45", NEVER "low"
@@ -231,6 +282,19 @@ Rules for vehicle information extraction:
 - All vehicle details OTHER than brand/model must go in driverNotes (color, features, requirements, amenities, etc.)
 - If vehicle brand/model is not explicitly mentioned, return null
 - Generic terms like "luxury vehicle" or "executive sedan" without brand/model should return null and go in driverNotes
+
+- RECOGNIZE AND EXPAND COMMON ABBREVIATIONS:
+  * "s class" / "s-class" / "sclass" → "Mercedes S-Class"
+  * "e class" / "e-class" / "eclass" → "Mercedes E-Class"
+  * "c class" / "c-class" / "cclass" → "Mercedes C-Class"
+  * "7 series" / "7-series" → "BMW 7 Series"
+  * "5 series" / "5-series" → "BMW 5 Series"
+  * "3 series" / "3-series" → "BMW 3 Series"
+  * "a8" → "Audi A8"
+  * "a6" → "Audi A6"
+  * "a4" → "Audi A4"
+- If abbreviation is ambiguous (just "s class" without brand name), default to most common: "Mercedes S-Class"
+- Include model context: "black s class" → vehicleInfo: "Mercedes S-Class", driverNotes: "- Vehicle: black"
 
 Rules for trip destination (CRITICAL - AUTO-DETECT):
 - Extract ONLY the city name (e.g., "London", "New York", "Paris", "Tokyo")
@@ -333,15 +397,27 @@ Rules for driver notes:
       console.log('⚠️ [API] Special remarks generated:', parsed.specialRemarks.substring(0, 100) + '...');
     }
 
+    // Normalize driverNotes if AI returned it as array instead of string
+    if (Array.isArray(parsed.driverNotes)) {
+      console.warn('⚠️ [API] driverNotes returned as array, converting to string');
+      parsed.driverNotes = parsed.driverNotes.length > 0 ? parsed.driverNotes.join('\n') : null;
+    }
+    
     // Validate the response - allow success if there's ANY extractable information
-    // (locations, notes, passenger info, etc.) - not just locations
+    // (locations, notes, passenger info, removedLocations, etc.) - not just locations
     const hasLocations = parsed.locations && parsed.locations.length > 0;
-    const hasNotes = parsed.driverNotes && parsed.driverNotes.trim().length > 0;
+    const hasNotes = parsed.driverNotes && typeof parsed.driverNotes === 'string' && parsed.driverNotes.trim().length > 0;
+    const hasRemovals = parsed.removedLocations && parsed.removedLocations.length > 0;
     const hasPassengerInfo = parsed.leadPassengerName || (parsed.passengerNames && parsed.passengerNames.length > 0);
-    const hasVehicleInfo = parsed.vehicleInfo && parsed.vehicleInfo.trim().length > 0;
+    const hasVehicleInfo = parsed.vehicleInfo && typeof parsed.vehicleInfo === 'string' && parsed.vehicleInfo.trim().length > 0;
     const hasOtherInfo = parsed.date || parsed.tripDestination || parsed.passengerCount;
 
-    const hasAnyExtractableInfo = hasLocations || hasNotes || hasPassengerInfo || hasVehicleInfo || hasOtherInfo;
+    const hasAnyExtractableInfo = hasLocations || hasNotes || hasRemovals || hasPassengerInfo || hasVehicleInfo || hasOtherInfo;
+    
+    // Log what was extracted
+    if (hasRemovals) {
+      console.log(`🗑️ [API] Detected ${parsed.removedLocations.length} location(s) to remove:`, parsed.removedLocations);
+    }
 
     if (!parsed.success || !hasAnyExtractableInfo) {
       console.log('❌ [API] No extractable information found');
@@ -362,6 +438,69 @@ Rules for driver notes:
         parsed.locations.map(async (loc: any, index: number) => {
           console.log(`🔍 [API] Verifying location ${index + 1}/${parsed.locations.length}: "${loc.location}"`);
           const googleData = await verifyLocationWithGoogle(loc.location, parsed.tripDestination || tripDestination);
+          
+          // VALIDATION: Check for geocoding mismatches (Issue #3 fix)
+          const queryLower = (loc.location || '').toLowerCase();
+          const addressLower = (googleData.formattedAddress || '').toLowerCase();
+          
+          // Detect if query is for an airport
+          const isAirportQuery = queryLower.includes('airport') || 
+                                queryLower.includes('lgw') || queryLower.includes('lhr') || 
+                                queryLower.includes('lcy') || queryLower.includes('stn') || 
+                                queryLower.includes('ltn') || queryLower.includes('jfk') || 
+                                queryLower.includes('lga') || queryLower.includes('ewr') ||
+                                queryLower.includes('gatwick') || queryLower.includes('heathrow') ||
+                                queryLower.includes('stansted') || queryLower.includes('luton');
+          
+          const isAirportResult = addressLower.includes('airport') || 
+                                 addressLower.includes('lgw') || addressLower.includes('lhr');
+          
+          // If query is for airport but result isn't, there's a mismatch
+          if (isAirportQuery && !isAirportResult) {
+            console.error(`❌ [VALIDATION] Geocoding mismatch detected at location ${index + 1}!`);
+            console.error(`   Query: "${loc.location}" (appears to be airport)`);
+            console.error(`   Result: "${googleData.formattedAddress}" (NOT an airport)`);
+            console.error(`   → Re-geocoding with explicit airport query...`);
+            
+            // Determine which airport and re-geocode with explicit query
+            let retryQuery = loc.location;
+            if (queryLower.includes('gatwick') || queryLower.includes('lgw')) {
+              retryQuery = 'Gatwick Airport, Horley, UK';
+            } else if (queryLower.includes('heathrow') || queryLower.includes('lhr')) {
+              retryQuery = 'Heathrow Airport, Longford, UK';
+            } else if (queryLower.includes('stansted') || queryLower.includes('stn')) {
+              retryQuery = 'Stansted Airport, Bishop\'s Stortford, UK';
+            } else if (queryLower.includes('luton') || queryLower.includes('ltn')) {
+              retryQuery = 'Luton Airport, Luton, UK';
+            } else if (queryLower.includes('city airport') || queryLower.includes('lcy')) {
+              retryQuery = 'London City Airport, London, UK';
+            } else {
+              retryQuery = loc.location + ' Airport, UK';
+            }
+            
+            const fixedData = await verifyLocationWithGoogle(retryQuery, parsed.tripDestination || tripDestination);
+            
+            const verifiedLoc = {
+              location: loc.location,
+              time: loc.time,
+              confidence: loc.confidence,
+              purpose: loc.purpose || 'Visit',
+              verified: fixedData.verified,
+              formattedAddress: fixedData.formattedAddress,
+              lat: fixedData.lat,
+              lng: fixedData.lng,
+              placeId: fixedData.placeId,
+            };
+            console.log(`✅ [FIX] Corrected location ${index + 1}:`, {
+              original: loc.location,
+              verified: verifiedLoc.verified,
+              formatted: verifiedLoc.formattedAddress,
+              coords: `${verifiedLoc.lat}, ${verifiedLoc.lng}`,
+            });
+            return verifiedLoc;
+          }
+          
+          // Normal case: no mismatch detected
           const verifiedLoc = {
             location: loc.location, // Original extracted text
             time: loc.time,
@@ -438,6 +577,7 @@ Rules for driver notes:
       vehicleInfo: parsed.vehicleInfo || null,
       passengerNames: parsed.passengerNames || [],
       driverNotes: parsed.driverNotes || null,
+      removedLocations: parsed.removedLocations || [], // Keywords for locations to remove
       locations: enrichedLocations, // Now includes flightNumber and flightDirection for airports
     };
     console.log('📤 [API] Final response:', JSON.stringify(response, null, 2));

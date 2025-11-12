@@ -72,6 +72,16 @@ async function calculateLegTiming(
   // Convert departure time to Date object
   const departureDate = new Date(departureTime);
   
+  // Check if the date is valid
+  if (isNaN(departureDate.getTime())) {
+    console.error(`❌ Invalid departure time: "${departureTime}"`);
+    // Use current time + 1 hour as fallback
+    const fallbackDate = new Date();
+    fallbackDate.setHours(fallbackDate.getHours() + 1);
+    console.log(`   Using fallback time: ${fallbackDate.toISOString()}`);
+    return calculateLegTiming(origin, destination, fallbackDate.toISOString(), legLabel);
+  }
+  
   console.log(`🚗 Calculating ${legLabel}: ${origin.name} → ${destination.name}`);
   console.log(`   Departure: ${departureDate.toLocaleString('en-GB', { timeZone: 'Europe/London' })}`);
   
