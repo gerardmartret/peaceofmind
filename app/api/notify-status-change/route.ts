@@ -4,7 +4,7 @@ import { Resend } from 'resend';
 
 export async function POST(request: NextRequest) {
   try {
-    const { tripId, newStatus } = await request.json();
+    const { tripId, newStatus, requestAcceptance, message, driverEmail: requestDriverEmail } = await request.json();
 
     if (!tripId || !newStatus) {
       return NextResponse.json(
@@ -58,13 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if driver is set
-    if (!trip.driver) {
+    // Get driver email from request or trip data
+    const driverEmail = requestDriverEmail || trip.driver;
+    
+    if (!driverEmail) {
       return NextResponse.json(
-        { success: false, error: 'No driver assigned to this trip' },
+        { success: false, error: 'No driver email provided' },
         { status: 400 }
       );
     }
+    
+    console.log(`📧 Sending notification to driver: ${driverEmail}`);
 
     // Initialize Resend
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -92,15 +96,97 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
     const tripLink = `${baseUrl}/results/${tripId}`;
 
-    // Format status for display
-    const statusDisplay = newStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed';
-    const statusColor = newStatus === 'confirmed' ? '#3ea34b' : '#999999';
+    // Determine email content based on context
+    let emailSubject: string;
+    let emailTitle: string;
+    let emailBody: string;
+    let statusDisplay: string;
+    let statusColor: string;
+    
+    if (message === 'Trip cancelled') {
+      // Cancellation email
+      emailSubject = `Trip Cancelled - ${tripDate}`;
+      emailTitle = 'Trip Cancelled';
+      statusDisplay = 'Cancelled';
+      statusColor = '#999999';
+      emailBody = `
+        <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          Hello,
+        </p>
+        
+        <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          The trip scheduled on <strong style="color: #05060A;">${tripDate}</strong> has been cancelled.
+        </p>
+        
+        <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          No further action is required.
+        </p>
+      `;
+    } else if (requestAcceptance && newStatus === 'pending') {
+      // Flow B: Acceptance request email
+      emailSubject = `Trip Assignment - Please Accept - ${tripDate}`;
+      emailTitle = 'Service Confirmed - Please Accept Trip';
+      statusDisplay = 'Awaiting Your Response';
+      statusColor = '#e77500';
+      emailBody = `
+        <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          Hello,
+        </p>
+        
+        <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          You have been assigned to a trip scheduled on <strong style="color: #05060A;">${tripDate}</strong>. The service has been confirmed by the client, and we need your acceptance to proceed.
+        </p>
+        
+        <div style="background-color: #fff7ed; padding: 20px; border-radius: 6px; margin: 24px 0; border-left: 4px solid ${statusColor};">
+          <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #666666; text-transform: uppercase; letter-spacing: 0.5px;">
+            Action Required
+          </p>
+          <p style="margin: 0; font-size: 16px; font-weight: 600; color: #05060A;">
+            Please accept or reject this trip
+          </p>
+        </div>
+      `;
+    } else if (newStatus === 'confirmed') {
+      // Flow A: Confirmation email (from quotes)
+      emailSubject = `Trip Confirmed - ${tripDate}`;
+      emailTitle = 'Service Confirmed';
+      statusDisplay = 'Confirmed';
+      statusColor = '#3ea34b';
+      emailBody = `
+        <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          Hello,
+        </p>
+        
+        <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          Great news! Your quote has been accepted and the service for <strong style="color: #05060A;">${tripDate}</strong> is now confirmed.
+        </p>
+        
+        <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          Please review the trip details and contact the client if you have any questions.
+        </p>
+      `;
+    } else {
+      // Default: Generic status change
+      statusDisplay = newStatus === 'confirmed' ? 'Confirmed' : 'Not Confirmed';
+      statusColor = newStatus === 'confirmed' ? '#3ea34b' : '#999999';
+      emailSubject = `Trip Status Changed - ${tripDate}`;
+      emailTitle = 'Trip Status Changed';
+      emailBody = `
+        <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          Hello,
+        </p>
+        
+        <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: #333333;">
+          The status for your trip scheduled on <strong style="color: #05060A;">${tripDate}</strong> has been changed.
+        </p>
+      `;
+    }
 
     // Send email
     const { data, error } = await resend.emails.send({
       from: 'DriverBrief <info@trips.driverbrief.com>',
-      to: [trip.driver],
-      subject: `Trip Status Changed - ${tripDate}`,
+      to: [driverEmail],
+      subject: emailSubject,
       html: `
         <!DOCTYPE html>
         <html>
@@ -116,20 +202,14 @@ export async function POST(request: NextRequest) {
                   <!-- Header -->
                   <tr>
                     <td style="background-color: #05060A; padding: 24px; border-radius: 8px 8px 0 0;">
-                      <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">Trip Status Changed</h1>
+                      <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">${emailTitle}</h1>
                     </td>
                   </tr>
                   
                   <!-- Body -->
                   <tr>
                     <td style="background-color: #f5f5f5; padding: 32px 24px; border-radius: 0 0 8px 8px;">
-                      <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #333333;">
-                        Hello,
-                      </p>
-                      
-                      <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.5; color: #333333;">
-                        The status for your trip scheduled on <strong style="color: #05060A;">${tripDate}</strong> has been changed.
-                      </p>
+                      ${emailBody}
                       
                       <!-- Status Box -->
                       <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin: 24px 0; border-left: 4px solid ${statusColor};">
@@ -183,11 +263,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ Status change notification sent to ${trip.driver} for trip ${tripId}`);
+    console.log(`✅ Status change notification sent to ${driverEmail} for trip ${tripId}`);
     
     return NextResponse.json({ 
       success: true, 
-      message: `Status change notification sent to ${trip.driver}`,
+      message: `Status change notification sent to ${driverEmail}`,
       emailId: data?.id
     });
   } catch (error) {

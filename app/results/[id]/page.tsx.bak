@@ -533,17 +533,6 @@ export default function ResultsPage() {
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [sendingStatusNotification, setSendingStatusNotification] = useState<boolean>(false);
-  const [statusModalSuccess, setStatusModalSuccess] = useState<string | null>(null);
-  const [resendingConfirmation, setResendingConfirmation] = useState<boolean>(false);
-  const [cancellingTrip, setCancellingTrip] = useState<boolean>(false);
-  
-  // Flow A (quote selection) confirmation modal
-  const [showFlowAModal, setShowFlowAModal] = useState<boolean>(false);
-  const [selectedQuoteDriver, setSelectedQuoteDriver] = useState<string | null>(null);
-  
-  // Flow B (direct assign) confirmation modal  
-  const [showFlowBModal, setShowFlowBModal] = useState<boolean>(false);
-  const [directAssignDriver, setDirectAssignDriver] = useState<string | null>(null);
   
   // Trip update notification state
   const [showUpdateNotificationModal, setShowUpdateNotificationModal] = useState<boolean>(false);
@@ -1801,29 +1790,8 @@ export default function ResultsPage() {
     router.push('/');
   };
 
-  // State transition validation
-  const isValidTransition = (from: string, to: string): boolean => {
-    const VALID_TRANSITIONS: Record<string, string[]> = {
-      'not confirmed': ['pending', 'confirmed'],
-      'pending': ['confirmed', 'rejected', 'not confirmed'], // Can cancel back to not confirmed
-      'confirmed': ['not confirmed'], // Can cancel back to not confirmed
-      'rejected': ['pending', 'not confirmed'], // Can retry after rejection
-    };
-    
-    return VALID_TRANSITIONS[from]?.includes(to) ?? false;
-  };
-
   const handleStatusToggle = () => {
     if (!tripId || !isOwner || updatingStatus) return;
-    
-    // If trip is rejected, allow user to request quotes or assign driver again
-    // Rejected behaves like "not confirmed" - service is not secured
-    if (tripStatus === 'rejected') {
-      console.log('🔄 Trip was rejected, opening driver modal for new assignment');
-      setAssignOnlyMode(true);
-      setShowDriverModal(true);
-      return;
-    }
     
     const newStatus = tripStatus === 'confirmed' ? 'not confirmed' : 'confirmed';
     
@@ -1837,9 +1805,6 @@ export default function ResultsPage() {
     
     // Otherwise, show confirmation modal
     setPendingStatus(newStatus);
-    setStatusModalSuccess(null);
-    setResendingConfirmation(false);
-    setCancellingTrip(false);
     setShowStatusModal(true);
   };
 
@@ -1981,89 +1946,6 @@ export default function ResultsPage() {
       fetchQuotes();
     }
   }, [isOwner, tripId, loading, fetchQuotes]);
-
-  // Subscribe to quote updates (for real-time updates when driver submits quote)
-  useEffect(() => {
-    if (!tripId || !isOwner) return;
-
-    console.log('🔄 Setting up realtime subscription for quote updates');
-
-    const quotesChannel = supabase
-      .channel(`quotes-${tripId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'quotes',
-          filter: `trip_id=eq.${tripId}`,
-        },
-        (payload) => {
-          console.log('🔄 Realtime quote update received:', payload);
-          // Refresh quotes when any change occurs
-          fetchQuotes();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('🔄 Cleaning up quotes subscription');
-      supabase.removeChannel(quotesChannel);
-    };
-  }, [tripId, isOwner, fetchQuotes]);
-
-  // Subscribe to trip status changes (for real-time updates)
-  useEffect(() => {
-    if (!tripId || !isOwner) return;
-
-    console.log('🔄 Setting up realtime subscription for trip status updates');
-
-    const channel = supabase
-      .channel(`trip-status-${tripId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'trips',
-          filter: `id=eq.${tripId}`,
-        },
-        (payload) => {
-          console.log('🔄 Realtime trip update received:', payload);
-          console.log('📊 Current UI state - Status:', tripStatus, 'Driver:', driverEmail);
-          
-          if (payload.new) {
-            const newStatus = payload.new.status;
-            const newDriver = payload.new.driver;
-            
-            console.log('📊 Database update - New status:', newStatus, 'New driver:', newDriver);
-            
-            // Update status if changed
-            if (newStatus && newStatus !== tripStatus) {
-              console.log(`✅ Trip status updated via realtime: ${tripStatus} → ${newStatus}`);
-              setTripStatus(newStatus);
-              
-              // Special case: Auto-confirmation from driver quote submission
-              if (tripStatus === 'pending' && newStatus === 'confirmed') {
-                console.log('🎯 Detected Pending → Confirmed transition (likely from driver quote submission)');
-              }
-            }
-            
-            // Update driver if changed
-            if (newDriver !== undefined && newDriver !== driverEmail) {
-              console.log(`✅ Driver updated via realtime: ${driverEmail} → ${newDriver}`);
-              setDriverEmail(newDriver);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('🔄 Cleaning up realtime subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [tripId, isOwner]);
 
   // Fetch driver suggestions when page loads (for owners only)
   useEffect(() => {
@@ -3033,7 +2915,7 @@ export default function ResultsPage() {
               console.log(`✅ [INSERT] Location inserted at index ${insertAtIndex}`);
             } else {
               // Regular append at extracted index
-            finalLocationsMap[locChange.extractedIndex] = finalLoc;
+              finalLocationsMap[locChange.extractedIndex] = finalLoc;
             }
           }
         } else if (locChange.action === 'modified') {
@@ -4651,7 +4533,6 @@ export default function ResultsPage() {
                       <div className="flex-shrink-0">
                         <FlowHoverButton
                           variant={
-                            tripStatus === 'rejected' ? 'rejected' :
                             tripStatus === 'confirmed' ? 'confirmed' : 
                             driverEmail ? 'pending' : 
                             'not-confirmed'
@@ -4659,11 +4540,7 @@ export default function ResultsPage() {
                           onClick={handleStatusToggle}
                           disabled={updatingStatus}
                           icon={
-                            tripStatus === 'rejected' ? (
-                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                            ) : tripStatus === 'confirmed' ? (
+                            tripStatus === 'confirmed' ? (
                               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
@@ -4674,7 +4551,7 @@ export default function ResultsPage() {
                             ) : undefined
                           }
                         >
-                          {tripStatus === 'rejected' ? 'Rejected' : tripStatus === 'confirmed' ? 'Confirmed' : driverEmail ? 'Pending' : 'Not confirmed'}
+                          {tripStatus === 'confirmed' ? 'Confirmed' : driverEmail ? 'Pending' : 'Not confirmed'}
                         </FlowHoverButton>
                       </div>
                     </div>
@@ -4732,8 +4609,13 @@ export default function ResultsPage() {
                                   className="w-4 h-4"
                                 />
                               )}
-                              {driverEmail ? 'Driver assigned' : quotes.length > 0 ? `Quoted (${quotes.length})` : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
+                              {driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Unquoted' : 'Assign driver'}
                             </Button>
+                            {!driverEmail && quotes.length > 0 && (
+                              <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-destructive text-white text-xs font-bold rounded-full border-2 border-background">
+                                {quotes.length}
+                              </span>
+                            )}
                           </div>
                         )}
                         
@@ -4748,16 +4630,16 @@ export default function ResultsPage() {
                           
                           {/* Vehicle Info on the right */}
                           <div className="flex flex-col flex-1 min-w-0 pb-2">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                                  <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
-                                </div>
-                                <p className="text-3xl font-semibold text-card-foreground break-words">
-                                  {(() => {
-                                    const carInfo = vehicleInfo || extractCarInfo(driverNotes);
-                                    return carInfo || 'N/A';
-                                  })()}
-                                </p>
+                            <div className="flex items-center gap-3 mb-2">
+                              <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
+                            </div>
+                            <p className="text-3xl font-semibold text-card-foreground break-words">
+                              {(() => {
+                                const carInfo = vehicleInfo || extractCarInfo(driverNotes);
+                                return carInfo || 'N/A';
+                              })()}
+                            </p>
                           </div>
                         </div>
                       </CardContent>
@@ -6522,7 +6404,7 @@ export default function ResultsPage() {
                 {!assignOnlyMode && (
                   <>
                     <h3 className="text-xl font-semibold mb-4">Driver management</h3>
-                <p className="text-muted-foreground mb-6">
+                    <p className="text-muted-foreground mb-6">
                       Request quotes from drivers. After receiving a quote, you can assign that driver to your trip. Personal emails (Gmail, Yahoo, etc.) are accepted.
                     </p>
                   </>
@@ -6609,49 +6491,44 @@ export default function ResultsPage() {
                       <div className="flex gap-2">
                         {/* Request Quote - Hide in assign-only mode */}
                         {!assignOnlyMode && (
-                        <Button
-                          onClick={() => handleSendQuoteRequest(manualDriverEmail)}
-                          disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver}
+                          <Button
+                            onClick={() => handleSendQuoteRequest(manualDriverEmail)}
+                            disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver}
                             className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                        >
-                          {sendingQuoteRequest ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Sending...
-                            </>
-                          ) : (
+                          >
+                            {sendingQuoteRequest ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Sending...
+                              </>
+                            ) : (
                               'Request quote'
-                          )}
-                        </Button>
+                            )}
+                          </Button>
                         )}
                         
-                        {/* Assign Driver - Only show in assign-only mode (Flow B) */}
+                        {/* Assign Driver - Only show in assign-only mode */}
                         {assignOnlyMode && (
-                        <Button
-                            onClick={() => {
-                              // Flow B: Show confirmation modal before assigning
-                              if (!manualDriverEmail.trim()) return;
-                              setDirectAssignDriver(manualDriverEmail);
-                              setShowFlowBModal(true);
-                            }}
-                          disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest}
-                          className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                        >
-                          {settingDriver ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Assigning...
-                            </>
-                          ) : (
-                              'Assign driver & request acceptance'
-                          )}
-                        </Button>
+                          <Button
+                            onClick={() => handleSetDriver(manualDriverEmail)}
+                            disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest}
+                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                          >
+                            {settingDriver ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Assigning...
+                              </>
+                            ) : (
+                              'Assign driver'
+                            )}
+                          </Button>
                         )}
                       </div>
                   </div>
@@ -6752,12 +6629,8 @@ export default function ResultsPage() {
                                 <Button
                                   size="sm"
                                   variant={isDriver ? "outline" : "default"}
-                                  onClick={() => {
-                                    // Flow A: Show confirmation modal before assigning from quote
-                                    setSelectedQuoteDriver(quote.email);
-                                    setShowFlowAModal(true);
-                                  }}
-                                  disabled={settingDriver || isDriver}
+                                  onClick={() => handleSetDriver(quote.email)}
+                                  disabled={settingDriver}
                                   className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
                                 >
                                   {settingDriver ? (
@@ -6797,14 +6670,7 @@ export default function ResultsPage() {
                 : 'Driver not allocated'}
             </DialogTitle>
             <DialogDescription>
-              {statusModalSuccess ? (
-                <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{statusModalSuccess}</span>
-                </span>
-              ) : driverEmail ? (
+              {driverEmail ? (
                 <>
                   Choose an action for this trip:
                 </>
@@ -6818,193 +6684,125 @@ export default function ResultsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            {/* Show success close button */}
-            {statusModalSuccess ? (
-                    <Button
-                      onClick={() => {
-                        setShowStatusModal(false);
-                        setPendingStatus(null);
-                  setStatusModalSuccess(null);
-                  setResendingConfirmation(false);
-                  setCancellingTrip(false);
-                      }}
-                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                    >
-                Close
-                    </Button>
-            ) : driverEmail ? (
+            {/* Show resend/cancel actions when driver is assigned */}
+            {driverEmail ? (
               <>
-                    <Button
+                <Button
                   variant="outline"
                   onClick={async () => {
-                    // Keep modal open, show loading and then success
-                    setResendingConfirmation(true);
+                    // Close modal immediately to prevent re-render issues
+                    setShowStatusModal(false);
+                    setPendingStatus(null);
+                    
+                    // Send confirmation to driver and update status
+                    setUpdatingStatus(true);
+                    setSendingStatusNotification(true);
                     
                     try {
                       const { data: { session } } = await supabase.auth.getSession();
                       if (!session) return;
                       
-                      // If status is "not confirmed", upgrade to "confirmed"
-                      if (tripStatus === 'not confirmed') {
-                        const statusResponse = await fetch('/api/update-trip-status', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            tripId: tripId,
-                            status: 'confirmed',
-                          }),
-                        });
-                        
-                        const statusResult = await statusResponse.json();
-                        if (statusResult.success) {
-                          setTripStatus('confirmed');
-                          console.log('✅ Trip confirmed');
-                        }
-                      }
-                      
-                      // Send notification to driver with trip details
-                      const notifyResponse = await fetch('/api/notify-status-change', {
-                        method: 'POST',
-                        headers: { 
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${session.access_token}`,
-                        },
-                        body: JSON.stringify({
-                          tripId: tripId,
-                          newStatus: 'confirmed',
-                          driverEmail: driverEmail,
-                          tripDate: tripDate,
-                          leadPassengerName: leadPassengerName,
-                        }),
-                      });
-                      
-                      const notifyResult = await notifyResponse.json();
-                      console.log('✅ Confirmation notification response:', notifyResult);
-                      
-                      // Show success message
-                      setStatusModalSuccess('Confirmation sent to driver successfully!');
-                    } catch (err) {
-                      console.error('❌ Error sending confirmation:', err);
-                      setStatusModalSuccess('Failed to send confirmation. Please try again.');
-                    } finally {
-                      setResendingConfirmation(false);
-                    }
-                  }}
-                  disabled={resendingConfirmation || cancellingTrip}
-                  className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
-                >
-                  {resendingConfirmation ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                      Sending...
-                        </>
-                      ) : (
-                    'Resend confirmation to the driver'
-                      )}
-                    </Button>
-                    <Button
-                  onClick={async () => {
-                    // Cancel trip and notify driver
-                    setCancellingTrip(true);
-                    
-                    try {
-                      const { data: { session } } = await supabase.auth.getSession();
-                      if (!session) return;
-                      
-                      // Capture driver email BEFORE any operations
-                      const driverToNotify = driverEmail;
-                      console.log('📧 Driver to notify before cancellation:', driverToNotify);
-                      
-                      // STEP 1: Send cancellation notification to driver FIRST (before DB changes)
-                      if (driverToNotify) {
-                        console.log(`📧 Sending cancellation email to driver: ${driverToNotify}`);
-                        const notifyResponse = await fetch('/api/notify-status-change', {
-                          method: 'POST',
-                          headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session.access_token}`,
-                          },
-                        body: JSON.stringify({
-                          tripId: tripId,
-                          newStatus: 'not confirmed',
-                          driverEmail: driverToNotify, // Use captured email, not the cleared one
-                          message: 'Trip cancelled',
-                          tripDate: tripDate,
-                          leadPassengerName: leadPassengerName,
-                        }),
-                        });
-                        
-                        const notifyResult = await notifyResponse.json();
-                        console.log('✅ Cancellation notification response:', notifyResult);
-                      }
-                      
-                      // STEP 2: Now update trip status to not confirmed (clears driver in DB)
+                      // Update trip status to confirmed
                       const statusResponse = await fetch('/api/update-trip-status', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           tripId: tripId,
-                          status: 'not confirmed',
+                          status: 'confirmed',
                         }),
                       });
                       
                       const statusResult = await statusResponse.json();
-                      console.log('📊 Status update response:', statusResult);
-                      
                       if (statusResult.success) {
-                        setTripStatus('not confirmed');
-                        setDriverEmail(null); // Clear driver assignment in UI
-                        console.log('✅ Trip cancelled - status reset to not confirmed, driver cleared');
+                        setTripStatus('confirmed');
+                        console.log('✅ Trip confirmed');
                         
-                        // Show success message
-                        if (driverToNotify) {
-                          setStatusModalSuccess('Service cancelled successfully. Driver has been notified. Status reset to not confirmed.');
-                        } else {
-                          setStatusModalSuccess('Service cancelled successfully. Status reset to not confirmed.');
-                        }
-                      } else {
-                        console.error('❌ Failed to update trip status:', statusResult.error);
-                        setStatusModalSuccess(`Failed to cancel trip: ${statusResult.error || 'Unknown error'}`);
-                        setCancellingTrip(false);
-                        return;
+                        // Send notification to driver
+                        await fetch('/api/notify-status-change', {
+                          method: 'POST',
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                          },
+                          body: JSON.stringify({
+                            tripId: tripId,
+                            newStatus: 'confirmed',
+                          }),
+                        });
+                        console.log('✅ Confirmation sent to driver');
                       }
                     } catch (err) {
-                      console.error('Error cancelling trip:', err);
-                      setStatusModalSuccess('Failed to cancel trip. Please try again.');
+                      console.error('❌ Error confirming trip:', err);
                     } finally {
-                      setCancellingTrip(false);
+                      setUpdatingStatus(false);
+                      setSendingStatusNotification(false);
                     }
                   }}
-                  disabled={resendingConfirmation || cancellingTrip}
+                  disabled={updatingStatus || sendingStatusNotification}
+                  className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
+                >
+                  {updatingStatus || sendingStatusNotification ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Sending...
+                    </>
+                  ) : (
+                    'Resend confirmation to the driver'
+                  )}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    // Cancel trip and notify driver
+                    setSendingStatusNotification(true);
+                    try {
+                      // Send cancellation notification
+                      await fetch('/api/notify-status-change', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          tripId: tripId,
+                          driverEmail: driverEmail,
+                          message: 'Trip cancelled',
+                          tripDate: tripDate,
+                          leadPassengerName: leadPassengerName,
+                        }),
+                      });
+                      
+                      setShowStatusModal(false);
+                      setPendingStatus(null);
+                    } catch (err) {
+                      console.error('Error sending cancellation:', err);
+                    } finally {
+                      setSendingStatusNotification(false);
+                    }
+                  }}
+                  disabled={updatingStatus || sendingStatusNotification}
                   variant="destructive"
                 >
-                  {cancellingTrip ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
+                  {sendingStatusNotification ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
                       Cancelling...
-                        </>
-                      ) : (
+                    </>
+                  ) : (
                     'Cancel this trip'
-                      )}
-                    </Button>
+                  )}
+                </Button>
               </>
             ) : (
-                    <Button
+              <Button
                 onClick={() => {
                   setShowStatusModal(false);
                   setPendingStatus(null);
-                  setStatusModalSuccess(null);
-                  setResendingConfirmation(false);
-                  setCancellingTrip(false);
                 }}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                    >
+                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+              >
                 OK
               </Button>
             )}
@@ -7012,243 +6810,74 @@ export default function ResultsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Flow A Confirmation Modal - Selecting driver from quotes */}
-      <Dialog open={showFlowAModal} onOpenChange={setShowFlowAModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm service</DialogTitle>
-            <DialogDescription>
-              Selecting a driver will confirm the service and will send a confirmation to the driver.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowFlowAModal(false);
-                setSelectedQuoteDriver(null);
-              }}
-              disabled={settingDriver}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!selectedQuoteDriver) return;
-                
-                setSettingDriver(true);
-                
-                try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  if (!session) {
-                    setManualDriverError('Please log in to set driver');
-                    return;
-                  }
-
-                  // Assign driver
-                  const response = await fetch('/api/set-driver', {
-                    method: 'POST',
-                    headers: { 
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({
-                      tripId: tripId,
-                      driverEmail: selectedQuoteDriver,
-                    }),
-                  });
-
-                  const result = await response.json();
-
-                  if (result.success) {
-                    setDriverEmail(selectedQuoteDriver.toLowerCase());
-                    console.log(`✅ [FLOW A] Driver selected from quotes: ${selectedQuoteDriver}`);
-                    
-                    // Update status to confirmed (skip Pending)
-                    const statusResponse = await fetch('/api/update-trip-status', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        status: 'confirmed',
-                      }),
-                    });
-                    
-                    const statusResult = await statusResponse.json();
-                    if (statusResult.success) {
-                      setTripStatus('confirmed');
-                      console.log('✅ [FLOW A] Trip status set to confirmed');
-                    }
-                    
-                    // Send confirmation email to driver
-                    const notifyResponse = await fetch('/api/notify-status-change', {
-                      method: 'POST',
-                      headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                      },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        newStatus: 'confirmed',
-                        driverEmail: selectedQuoteDriver,
-                        tripDate: tripDate,
-                        leadPassengerName: leadPassengerName,
-                      }),
-                    });
-                    
-                    console.log('✅ [FLOW A] Confirmation email sent to driver');
-                    
-                    // Close both modals
-                    setShowFlowAModal(false);
-                    setShowDriverModal(false);
-                    setSelectedQuoteDriver(null);
-                  } else {
-                    setManualDriverError(result.error || 'Failed to set driver');
-                  }
-                } catch (err) {
-                  console.error('❌ Error in Flow A:', err);
-                  setManualDriverError('An error occurred');
-                } finally {
-                  setSettingDriver(false);
-                }
-              }}
-              disabled={settingDriver}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-            >
-              {settingDriver ? (
+      {/* Route View Map Modal */}
+      {showMapModal && (
+                      disabled={updatingStatus || sendingStatusNotification}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    >
+                      {updatingStatus || sendingStatusNotification ? (
                         <>
                           <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                  Confirming...
+                          {sendingStatusNotification ? 'Sending...' : 'Updating...'}
                         </>
                       ) : (
-                'Confirm trip'
+                        'Yes, Notify Driver'
                       )}
                     </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Flow B Confirmation Modal - Direct driver assignment */}
-      <Dialog open={showFlowBModal} onOpenChange={setShowFlowBModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm service</DialogTitle>
-            <DialogDescription>
-              Assigning a driver will confirm the service.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleConfirmStatusChange(false)}
+                      disabled={updatingStatus || sendingStatusNotification}
+                    >
+                      {updatingStatus && !sendingStatusNotification ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Updating...
+                        </>
+                      ) : (
+                        'No, Just Update Status'
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleConfirmStatusChange(true)}
+                      disabled={updatingStatus || sendingStatusNotification}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    >
+                      {updatingStatus || sendingStatusNotification ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          {sendingStatusNotification ? 'Sending...' : 'Updating...'}
+                        </>
+                      ) : (
+                        'Yes, Notify Driver'
+                      )}
+                    </Button>
+                  </>
+                )}
+              </>
+            ) : (
               <Button
-              variant="outline"
                 onClick={() => {
-                setShowFlowBModal(false);
-                setDirectAssignDriver(null);
+                  setShowStatusModal(false);
+                  setPendingStatus(null);
                 }}
-              disabled={settingDriver}
+                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
               >
-              Dismiss
+                OK
               </Button>
-            <Button
-              onClick={async () => {
-                if (!directAssignDriver) return;
-                
-                setSettingDriver(true);
-                
-                try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  if (!session) {
-                    setManualDriverError('Please log in to set driver');
-                    return;
-                  }
-
-                  // Assign driver
-                  const response = await fetch('/api/set-driver', {
-                    method: 'POST',
-                    headers: { 
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({
-                      tripId: tripId,
-                      driverEmail: directAssignDriver,
-                    }),
-                  });
-
-                  const result = await response.json();
-
-                  if (result.success) {
-                    setDriverEmail(directAssignDriver.toLowerCase());
-                    console.log(`✅ [FLOW B] Driver assigned: ${directAssignDriver}`);
-                    
-                    // Update status to pending (waiting for driver acceptance)
-                    const statusResponse = await fetch('/api/update-trip-status', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        status: 'pending',
-                      }),
-                    });
-                    
-                    const statusResult = await statusResponse.json();
-                    if (statusResult.success) {
-                      setTripStatus('pending');
-                      console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
-                    }
-                    
-                    // Send "Service confirmed, please accept" email to driver
-                    const notifyResponse = await fetch('/api/notify-status-change', {
-                      method: 'POST',
-                      headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                      },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        newStatus: 'pending',
-                        driverEmail: directAssignDriver,
-                        tripDate: tripDate,
-                        leadPassengerName: leadPassengerName,
-                        requestAcceptance: true, // Flag to indicate this is an acceptance request
-                      }),
-                    });
-                    
-                    console.log('✅ [FLOW B] Acceptance request email sent to driver');
-                    
-                    // Close both modals
-                    setShowFlowBModal(false);
-                    setShowDriverModal(false);
-                    setAssignOnlyMode(false);
-                    setDirectAssignDriver(null);
-                    setManualDriverEmail('');
-                  } else {
-                    setManualDriverError(result.error || 'Failed to set driver');
-                  }
-                } catch (err) {
-                  console.error('❌ Error in Flow B:', err);
-                  setManualDriverError('An error occurred');
-                } finally {
-                  setSettingDriver(false);
-                }
-              }}
-              disabled={settingDriver}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-            >
-              {settingDriver ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Confirming...
-                </>
-              ) : (
-                'Yes, confirm'
-              )}
-            </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

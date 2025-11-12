@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate status value
-    if (status !== 'confirmed' && status !== 'not confirmed') {
+    const validStatuses = ['confirmed', 'not confirmed', 'pending', 'rejected', 'cancelled'];
+    if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, error: 'Invalid status value' },
         { status: 400 }
@@ -38,13 +39,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate state transitions
+    const VALID_TRANSITIONS: Record<string, string[]> = {
+      'not confirmed': ['pending', 'confirmed'],
+      'pending': ['confirmed', 'rejected', 'not confirmed'], // Can cancel back to not confirmed
+      'confirmed': ['not confirmed'], // Can cancel back to not confirmed
+      'rejected': ['pending', 'not confirmed'],
+      'cancelled': [], // Kept for backward compatibility but not used
+    };
+
+    const currentStatus = currentTrip.status || 'not confirmed';
+    const validNextStates = VALID_TRANSITIONS[currentStatus] || [];
+    
+    if (!validNextStates.includes(status)) {
+      console.error(`❌ Invalid state transition: ${currentStatus} -> ${status}`);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Cannot transition from "${currentStatus}" to "${status}". Valid transitions: ${validNextStates.join(', ')}` 
+        },
+        { status: 400 }
+      );
+    }
+
     // Prepare update data
     const updateData: { status: string; driver?: null } = { status };
 
-    // If changing from confirmed to not confirmed, clear the driver
-    if (currentTrip.status === 'confirmed' && status === 'not confirmed') {
+    // Clear driver when cancelling (going back to not confirmed from confirmed or pending)
+    if ((currentTrip.status === 'confirmed' || currentTrip.status === 'pending') && status === 'not confirmed') {
       updateData.driver = null;
-      console.log(`🔄 Clearing driver assignment (was: ${currentTrip.driver})`);
+      console.log(`🔄 Cancelling trip - clearing driver assignment (was: ${currentTrip.driver})`);
     }
 
     // Update the trip status (and driver if needed) in the database

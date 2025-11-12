@@ -3317,7 +3317,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-center">
-                        <h3 className="text-xl font-semibold mb-1">Creating Driver Brief</h3>
+                        <h3 className="text-xl font-semibold mb-1">Creating trip brief</h3>
                       <p className="text-sm text-muted-foreground">
                         {loadingSteps.filter(s => s.status === 'completed').length} of {loadingSteps.length} steps completed
                       </p>
