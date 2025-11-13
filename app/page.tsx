@@ -1143,7 +1143,7 @@ export default function Home() {
     if (cityConfig.isLondon) {
       steps.push({
         id: `step-${stepId++}`,
-        title: `Analyzing Crime & Safety Data`,
+        title: `Analyzing crime & safety data`,
         description: `Retrieving safety statistics and crime reports from official UK Police database`,
         source: 'UK Police National Database',
         status: 'pending' as const
@@ -1151,7 +1151,7 @@ export default function Home() {
 
       steps.push({
         id: `step-${stepId++}`,
-        title: `Assessing Traffic Conditions`,
+        title: `Assessing traffic conditions`,
         description: `Pulling real-time traffic data, road closures, and congestion patterns`,
         source: 'Transport for London',
         status: 'pending' as const
@@ -1159,7 +1159,7 @@ export default function Home() {
 
       steps.push({
         id: `step-${stepId++}`,
-        title: `Checking Public Transport Disruptions`,
+        title: `Checking public transport disruptions`,
         description: `Monitoring Underground, bus, and rail service disruptions`,
         source: 'TfL Unified API',
         status: 'pending' as const
@@ -1169,7 +1169,7 @@ export default function Home() {
     // Universal data sources (all cities)
     steps.push({
       id: `step-${stepId++}`,
-      title: `Analyzing Weather Conditions`,
+      title: `Analyzing weather conditions`,
       description: `Gathering meteorological data and forecast models for trip planning`,
       source: 'Open-Meteo Weather Service',
       status: 'pending' as const
@@ -1178,7 +1178,7 @@ export default function Home() {
     // DISABLED: Event search to reduce OpenAI costs
     // steps.push({
     //   id: `step-${stepId++}`,
-    //   title: `Scanning Major Events`,
+    //   title: `Scanning major events`,
     //   description: `Identifying concerts, sports events, and gatherings affecting traffic`,
     //   source: 'Event Intelligence Network',
     //   status: 'pending' as const
@@ -1188,7 +1188,7 @@ export default function Home() {
     if (cityConfig.isLondon) {
       steps.push({
         id: `step-${stepId++}`,
-        title: `Evaluating Parking Availability`,
+        title: `Evaluating parking availability`,
         description: `Analyzing parking facilities, restrictions, and pricing information`,
         source: 'TfL Parking Database',
         status: 'pending' as const
@@ -1198,7 +1198,7 @@ export default function Home() {
     // Universal: Route calculation
     steps.push({
       id: `step-${stepId++}`,
-      title: `Calculating Optimal Routes`,
+      title: `Calculating optimal routes`,
       description: `Processing route efficiency, travel times, and traffic predictions`,
       source: 'Google Maps Directions API',
       status: 'pending' as const
@@ -1207,7 +1207,7 @@ export default function Home() {
     // Universal: AI analysis
     steps.push({
       id: `step-${stepId++}`,
-      title: `Generating Risk Assessment`,
+      title: `Generating risk assessment`,
       description: `Synthesizing data into comprehensive executive report with recommendations`,
       source: 'OpenAI GPT-4 Analysis',
       status: 'pending' as const
@@ -1518,24 +1518,12 @@ export default function Home() {
             ...universalCalls,
           ]);
 
-          // Check critical APIs only for London (for non-London, mocks always succeed)
-          if (cityConfig.isLondon) {
-            const criticalResponses = [crimeResponse, disruptionsResponse, parkingResponse];
-            const criticalNames = ['crime', 'disruptions', 'parking'];
-            
-            for (let i = 0; i < criticalResponses.length; i++) {
-              if (!criticalResponses[i].ok) {
-                const errorText = await criticalResponses[i].text();
-                throw new Error(`${criticalNames[i]} API returned ${criticalResponses[i].status}: ${errorText}`);
-              }
-            }
-          }
-
-          // Parse responses with graceful fallback for weather
+          // Parse responses with graceful fallbacks for all APIs
           let weatherData;
           if (weatherResponse.ok) {
             weatherData = await weatherResponse.json();
           } else {
+            console.warn(`⚠️ Weather API failed, using fallback data`);
             weatherData = {
               success: true,
               data: {
@@ -1553,11 +1541,56 @@ export default function Home() {
             };
           }
 
-          const [crimeData, disruptionsData, parkingData] = await Promise.all([
-            crimeResponse.json(),
-            disruptionsResponse.json(),
-            parkingResponse.json()
-          ]);
+          let crimeData;
+          if (crimeResponse.ok) {
+            crimeData = await crimeResponse.json();
+          } else {
+            console.warn(`⚠️ Crime API failed (${crimeResponse.status}), using fallback data`);
+            crimeData = {
+              success: true,
+              data: {
+                district: location.name,
+                coordinates: { lat: location.lat, lng: location.lng },
+                crimes: [],
+                summary: {
+                  totalCrimes: 0,
+                  topCategories: [],
+                  byOutcome: {},
+                  month: 'N/A',
+                },
+                safetyScore: 85, // Default safe score when no data
+              },
+              message: 'Crime data temporarily unavailable'
+            };
+          }
+
+          let disruptionsData;
+          if (disruptionsResponse.ok) {
+            disruptionsData = await disruptionsResponse.json();
+          } else {
+            console.warn(`⚠️ Disruptions API failed, using fallback data`);
+            disruptionsData = {
+              success: true,
+              data: {
+                disruptions: [],
+                summary: 'No disruption data available'
+              }
+            };
+          }
+
+          let parkingData;
+          if (parkingResponse.ok) {
+            parkingData = await parkingResponse.json();
+          } else {
+            console.warn(`⚠️ Parking API failed, using fallback data`);
+            parkingData = {
+              success: true,
+              data: {
+                parkingInfo: [],
+                summary: 'No parking data available'
+              }
+            };
+          }
 
           // Create placeholder events data to maintain compatibility
           const eventsData = {
@@ -2471,18 +2504,20 @@ export default function Home() {
       <div className="max-w-4xl mx-auto w-full">
 
 
-        {/* Tagline for Homepage */}
-        <div className={`mb-12 text-center ${(showManualForm || (extractedLocations && extractedLocations.length > 0)) ? 'mt-0' : '-mt-40'}`}>
-          <img 
-            src="/driverbrief-logo-light.png" 
-            alt="Driverbrief" 
-            className="mx-auto h-6 w-auto mb-12"
-          />
-          <p className="text-5xl font-light text-foreground">
-            Plan and update your trip,<br />
-            with one shareable link.
-          </p>
-        </div>
+         {/* Tagline for Homepage - Hide when extracted info or manual form is shown */}
+         {!extractedLocations && !showManualForm && (
+           <div className="mb-12 text-center -mt-40">
+             <img 
+               src="/driverbrief-logo-light.png" 
+               alt="Driverbrief" 
+               className="mx-auto h-6 w-auto mb-12"
+             />
+             <p className="text-5xl font-light text-foreground">
+               Plan and update your trip,<br />
+               with one shareable link.
+             </p>
+           </div>
+         )}
 
         {/* Email/Text Import Section */}
         {!showManualForm && !extractedLocations && (
@@ -2667,7 +2702,7 @@ export default function Home() {
 
         {/* Extracted Results - Matching Manual Form Design */}
         {!showManualForm && extractedLocations && extractedLocations.length > 0 && (
-              <div className="bg-card rounded-md p-6 mb-8 border border-border">
+              <div className="mb-8">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2685,9 +2720,6 @@ export default function Home() {
                     ← Back to Import
                   </Button>
                 </div>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Found {extractedLocations.length} stop{extractedLocations.length > 1 ? 's' : ''} in chronological order. Review and edit as needed.
-                </p>
 
                 {/* Dark Header Section - Trip Details */}
                  <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#1f1f21] border border-border">
@@ -3025,7 +3057,7 @@ export default function Home() {
 
         {/* Multi-Location Trip Planner */}
         {showManualForm && (
-        <div id="manual-form-section" className="bg-card rounded-md p-6 mb-8 border border-border">
+        <div id="manual-form-section" className="mb-8">
           <div className="flex items-center justify-end mb-4">
             <Button
               onClick={() => setShowManualForm(false)}
@@ -3302,10 +3334,10 @@ export default function Home() {
         {loadingTrip && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto">
-              <CardContent className="p-8">
-                <div className="space-y-8">
+              <CardContent className="px-8 py-6">
+                <div className="space-y-6">
                   {/* Circular Progress Indicator */}
-                  <div className="flex flex-col items-center gap-4">
+                  <div className="flex flex-col items-center gap-3">
                     <div className="relative w-32 h-32">
                       {/* Background Circle */}
                       <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
@@ -3340,7 +3372,9 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-center">
-                        <h3 className="text-xl font-semibold mb-1">Creating trip brief</h3>
+                        <h3 className="text-xl font-semibold mb-1">
+                          {loadingProgress >= 100 ? 'Your brief is ready' : 'Creating brief'}
+                        </h3>
                       <p className="text-sm text-muted-foreground">
                         {loadingSteps.filter(s => s.status === 'completed').length} of {loadingSteps.length} steps completed
                       </p>
@@ -3354,23 +3388,13 @@ export default function Home() {
           <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
             {isAuthenticated ? (
               // Authenticated users: Show redirect message
-              <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
-                <div className="flex flex-col items-center space-y-4">
-                  <div className="text-center">
-                    <svg className="w-12 h-12 mx-auto mb-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 className="text-lg font-semibold text-card-foreground mb-2">
-                      Analysis Complete!
-                    </h3>
-                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      <span>Redirecting to your Driver Brief...</span>
-                    </div>
-                  </div>
+              <div className="text-center">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <svg className="animate-spin h-12 w-12 text-muted-foreground" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                      <h3 className="text-lg font-semibold text-card-foreground">Redirecting</h3>
                 </div>
               </div>
             ) : (

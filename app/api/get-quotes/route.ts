@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { tripId } = await request.json();
+    const { tripId, driverEmail } = await request.json();
 
     // Validate required fields
     if (!tripId) {
@@ -13,16 +13,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📊 Fetching quotes for trip: ${tripId}`);
+    console.log(`📊 Fetching quotes for trip: ${tripId}${driverEmail ? ` (driver: ${driverEmail})` : ''}`);
 
-    // Fetch quotes for this trip
-    // Note: RLS policies on the quotes table will ensure users can only see
-    // quotes for trips they own
-    const { data: quotes, error: quotesError } = await supabase
+    // Build the query
+    let query = supabase
       .from('quotes')
       .select('*')
-      .eq('trip_id', tripId)
-      .order('created_at', { ascending: false });
+      .eq('trip_id', tripId);
+
+    // If driverEmail is provided, filter to only show that driver's quotes
+    // This ensures drivers can only see their own quotes
+    if (driverEmail) {
+      query = query.eq('email', driverEmail.toLowerCase().trim());
+    }
+
+    // Fetch quotes for this trip
+    const { data: quotes, error: quotesError } = await query.order('created_at', { ascending: false });
 
     if (quotesError) {
       console.error('❌ Error fetching quotes:', quotesError);

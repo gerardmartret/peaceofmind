@@ -596,6 +596,16 @@ export default function ResultsPage() {
   const [quoteSuccess, setQuoteSuccess] = useState<boolean>(false);
   const [quoteSuccessMessage, setQuoteSuccessMessage] = useState<string>('Quote submitted successfully!');
   
+  // Driver's own quotes (only their submissions)
+  const [myQuotes, setMyQuotes] = useState<Array<{
+    id: string;
+    email: string;
+    price: number;
+    currency: string;
+    created_at: string;
+  }>>([]);
+  const [loadingMyQuotes, setLoadingMyQuotes] = useState<boolean>(false);
+  
   // Driver state
   const [driverEmail, setDriverEmail] = useState<string | null>(null);
   const [manualDriverEmail, setManualDriverEmail] = useState<string>('');
@@ -2075,6 +2085,49 @@ export default function ResultsPage() {
     }
   }, [isOwner, tripId, loading, fetchQuotes]);
 
+  // Fetch driver's own quotes (for non-owners)
+  const fetchMyQuotes = useCallback(async (email: string) => {
+    if (!tripId || !email) return;
+    
+    setLoadingMyQuotes(true);
+    try {
+      const response = await fetch('/api/get-quotes', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tripId: tripId,
+          driverEmail: email.trim(), // Filter by driver's email only
+        }),
+      });
+
+      const result = await safeJsonParse(response);
+
+      if (result.success) {
+        setMyQuotes(result.quotes || []);
+        console.log(`✅ Fetched ${result.quotes?.length || 0} of my quotes`);
+      } else {
+        console.error('❌ Failed to fetch my quotes:', result.error);
+      }
+    } catch (err) {
+      console.error('❌ Error fetching my quotes:', err);
+    } finally {
+      setLoadingMyQuotes(false);
+    }
+  }, [tripId]);
+
+  // Fetch driver's quotes when page loads (for non-owners with email)
+  useEffect(() => {
+    if (!isOwner && tripId && !loading) {
+      // Use validatedDriverEmail (from magic link) or quoteEmail (from form)
+      const emailToFetch = validatedDriverEmail || quoteEmail;
+      if (emailToFetch) {
+        fetchMyQuotes(emailToFetch);
+      }
+    }
+  }, [isOwner, tripId, loading, quoteEmail, validatedDriverEmail, fetchMyQuotes]);
+
   // Subscribe to quote updates (for real-time updates when driver submits quote)
   useEffect(() => {
     if (!tripId || !isOwner) return;
@@ -2411,16 +2464,21 @@ export default function ResultsPage() {
       if (result.success) {
         const action = result.isUpdate ? 'updated' : 'submitted';
         console.log(`✅ Quote ${action} successfully`);
+        const submittedEmail = quoteEmail.trim();
         setQuoteSuccessMessage(
           result.isUpdate 
             ? 'Quote updated successfully! The trip owner will see your updated offer.'
             : 'Quote submitted successfully! The trip owner will review your offer.'
         );
         setQuoteSuccess(true);
-        // Clear form
-        setQuoteEmail('');
+        
+        // Fetch the driver's quotes to show their submission
+        fetchMyQuotes(submittedEmail);
+        
+        // Clear form fields but keep email for future quotes
         setQuotePrice('');
         setQuoteCurrency('USD');
+        
         // Hide success message after 5 seconds
         setTimeout(() => setQuoteSuccess(false), 5000);
       } else {
@@ -4163,17 +4221,152 @@ export default function ResultsPage() {
   // Show loading state until ownership is checked
   if (loading || !ownershipChecked) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-foreground mb-2">
-            Loading Your Trip Analysis...
-          </h2>
-          <div className="flex items-center justify-center gap-2">
-            <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            <span className="text-muted-foreground">Please wait...</span>
+      <div className="min-h-screen bg-background">
+        {/* Show sticky quote form even during loading if ownership is checked and user is not owner */}
+        {ownershipChecked && !isOwner && (
+          <div 
+            className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
+              scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
+            }`}
+          >
+            <div className="container mx-auto px-4 pt-8 pb-3">
+              <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
+                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Submit quote</label>
+                
+                {quoteSuccess && (
+                  <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
+                    <p className="text-sm text-[#3ea34b]">
+                      ✅ {quoteSuccessMessage}
+                    </p>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <Input
+                      id="quote-email-loading"
+                      type="email"
+                      value={quoteEmail}
+                      onChange={(e) => setQuoteEmail(e.target.value)}
+                      placeholder="your.email@company.com"
+                      disabled={submittingQuote}
+                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''}`}
+                    />
+                    {quoteEmailError && (
+                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                    )}
+                  </div>
+
+                  <div className="w-[140px]">
+                    <Input
+                      id="quote-price-loading"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={quotePrice}
+                      onChange={(e) => setQuotePrice(e.target.value)}
+                      placeholder="100.00"
+                      disabled={submittingQuote}
+                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                    />
+                    {quotePriceError && (
+                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                    )}
+                  </div>
+
+                  <div className="w-[100px]">
+                    <select
+                      id="quote-currency-loading"
+                      value={quoteCurrency}
+                      onChange={(e) => setQuoteCurrency(e.target.value)}
+                      disabled={submittingQuote}
+                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="JPY">JPY</option>
+                      <option value="CAD">CAD</option>
+                      <option value="AUD">AUD</option>
+                      <option value="CHF">CHF</option>
+                    </select>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={submittingQuote || !quoteEmail || !quotePrice}
+                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                  >
+                    {submittingQuote ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit quote'
+                    )}
+                  </Button>
+                </form>
+
+                {/* Display driver's submitted quotes */}
+                {myQuotes.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Your submitted quote:</p>
+                    {myQuotes.map((quote) => {
+                      const timeAgo = (() => {
+                        const now = new Date();
+                        const created = new Date(quote.created_at);
+                        const diffMs = now.getTime() - created.getTime();
+                        const diffMins = Math.floor(diffMs / 60000);
+                        const diffHours = Math.floor(diffMins / 60);
+                        const diffDays = Math.floor(diffHours / 24);
+                        
+                        if (diffDays > 0) return `${diffDays}d ago`;
+                        if (diffHours > 0) return `${diffHours}h ago`;
+                        if (diffMins > 0) return `${diffMins}m ago`;
+                        return 'just now';
+                      })();
+
+                      return (
+                        <div 
+                          key={quote.id} 
+                          className="flex items-center justify-between px-3 py-2 rounded-md bg-background/50 dark:bg-input/20 border border-border/50"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-foreground truncate">{quote.email}</p>
+                            <p className="text-xs text-muted-foreground">{timeAgo}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-foreground">
+                              {quote.currency} {quote.price.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading spinner */}
+        <div className={`flex items-center justify-center ${ownershipChecked && !isOwner ? 'pt-32' : ''} min-h-screen`}>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
+              Loading Your Trip Analysis...
+            </h2>
+            <div className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span className="text-muted-foreground">Please wait...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -4315,6 +4508,141 @@ export default function ResultsPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Quote Form Section - Sticky Bar - Shows for:
+          1. Guests invited to submit quotes
+          2. Assigned drivers (with or without magic link)
+          3. Any non-owner viewer */}
+      {!isOwner && (
+        <div 
+          className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
+            scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
+          }`}
+        >
+          <div className="container mx-auto px-4 pt-8 pb-3">
+            <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Submit quote</label>
+              
+              {quoteSuccess && (
+                <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
+                  <p className="text-sm text-[#3ea34b]">
+                    ✅ {quoteSuccessMessage}
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                <div className="flex-1">
+                  <Input
+                    id="quote-email"
+                    type="email"
+                    value={quoteEmail}
+                    onChange={(e) => setQuoteEmail(e.target.value)}
+                    placeholder="your.email@company.com"
+                    disabled={submittingQuote}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''}`}
+                  />
+                  {quoteEmailError && (
+                    <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                  )}
+                </div>
+
+                <div className="w-[140px]">
+                  <Input
+                    id="quote-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={quotePrice}
+                    onChange={(e) => setQuotePrice(e.target.value)}
+                    placeholder="100.00"
+                    disabled={submittingQuote}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                  />
+                  {quotePriceError && (
+                    <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                  )}
+                </div>
+
+                <div className="w-[100px]">
+                  <select
+                    id="quote-currency"
+                    value={quoteCurrency}
+                    onChange={(e) => setQuoteCurrency(e.target.value)}
+                    disabled={submittingQuote}
+                    className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="JPY">JPY</option>
+                    <option value="CAD">CAD</option>
+                    <option value="AUD">AUD</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={submittingQuote || !quoteEmail || !quotePrice}
+                  className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                >
+                  {submittingQuote ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit quote'
+                  )}
+                </Button>
+              </form>
+
+              {/* Display driver's submitted quotes */}
+              {myQuotes.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Your submitted quote:</p>
+                  {myQuotes.map((quote) => {
+                    const timeAgo = (() => {
+                      const now = new Date();
+                      const created = new Date(quote.created_at);
+                      const diffMs = now.getTime() - created.getTime();
+                      const diffMins = Math.floor(diffMs / 60000);
+                      const diffHours = Math.floor(diffMins / 60);
+                      const diffDays = Math.floor(diffHours / 24);
+                      
+                      if (diffDays > 0) return `${diffDays}d ago`;
+                      if (diffHours > 0) return `${diffHours}h ago`;
+                      if (diffMins > 0) return `${diffMins}m ago`;
+                      return 'just now';
+                    })();
+
+                    return (
+                      <div 
+                        key={quote.id} 
+                        className="flex items-center justify-between px-3 py-2 rounded-md bg-background/50 dark:bg-input/20 border border-border/50"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">{quote.email}</p>
+                          <p className="text-xs text-muted-foreground">{timeAgo}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-foreground">
+                            {quote.currency} {quote.price.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Update Trip Section - Sticky Bar - Only show for owners */}
         {isOwner && !isLiveMode && (
         <div 
@@ -4467,7 +4795,7 @@ export default function ResultsPage() {
         )}
 
       {/* Main Content */}
-      <div className={`container mx-auto px-4 ${isOwner && !isLiveMode ? 'pt-32 pb-8' : 'py-8'}`}>
+      <div className={`container mx-auto px-4 ${(isOwner && !isLiveMode) || !isOwner ? 'pt-32 pb-8' : 'py-8'}`}>
 
         {/* Loading State Modal - Full Screen Overlay (Same as Homepage) */}
         {isRegenerating && (
@@ -6277,21 +6605,19 @@ export default function ResultsPage() {
                 {/* List of sent invitations */}
                 {sentDriverEmails.length > 0 && (
                   <div className="mt-6 pt-6 border-t">
-                    <h3 className="text-sm font-semibold mb-3">Quote Requests Sent ({sentDriverEmails.length})</h3>
+                    <h3 className="text-sm font-semibold mb-3">Sent ({sentDriverEmails.length})</h3>
                     <div className="space-y-2">
                       {sentDriverEmails.map((sent, index) => {
                         const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
                         return (
                           <div 
                             key={index} 
-                            className={`flex items-center justify-between p-3 rounded-md ${
-                              hasQuote 
-                                ? 'bg-[#3ea34b]/10 border border-[#3ea34b]/30' 
-                                : 'bg-secondary/50'
-                            }`}
+                            className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
                           >
                             <div className="flex-1">
                               <p className="text-sm font-medium">{sent.email}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-4">
                               <p className="text-xs text-muted-foreground">
                                 Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
                               </p>
@@ -6700,113 +7026,7 @@ export default function ResultsPage() {
           </Card>
         )}
 
-        {/* Quote Submission Form - Only for Guests (all reports) */}
-        {!isOwner && (
-          <Card ref={quoteFormRef} className={`mb-8 ${searchParams.get('quote') === 'true' ? 'border-2 border-[#3ea34b] shadow-lg' : ''}`}>
-            <CardContent className="p-6">
-              {searchParams.get('quote') === 'true' && (
-                <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-                  <AlertDescription className="text-[#3ea34b] font-medium">
-                    👋 You've been invited to submit a quote for this trip. Please fill out the form below.
-                  </AlertDescription>
-                </Alert>
-              )}
-              <h2 className="text-xl font-semibold mb-4">Add your quote</h2>
-              <p className="text-muted-foreground mb-6">
-                Submit your pricing quote for this trip. The trip owner will be able to review your offer.
-              </p>
-              
-              {quoteSuccess && (
-                <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-                  <AlertDescription className="text-[#3ea34b]">
-                    ✅ {quoteSuccessMessage}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <form onSubmit={handleSubmitQuote} className="space-y-4">
-                <div>
-                  <label htmlFor="quote-email" className="block text-sm font-medium mb-2">
-                    Email Address
-                  </label>
-                  <Input
-                    id="quote-email"
-                    type="email"
-                    value={quoteEmail}
-                    onChange={(e) => setQuoteEmail(e.target.value)}
-                    placeholder="your.email@company.com"
-                    disabled={submittingQuote}
-                    className={quoteEmailError ? 'border-destructive' : ''}
-                  />
-                  {quoteEmailError && (
-                    <p className="text-sm text-destructive mt-1">{quoteEmailError}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="quote-price" className="block text-sm font-medium mb-2">
-                      Price
-                    </label>
-                    <Input
-                      id="quote-price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quotePrice}
-                      onChange={(e) => setQuotePrice(e.target.value)}
-                      placeholder="100.00"
-                      disabled={submittingQuote}
-                      className={quotePriceError ? 'border-destructive' : ''}
-                    />
-                    {quotePriceError && (
-                      <p className="text-sm text-destructive mt-1">{quotePriceError}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="quote-currency" className="block text-sm font-medium mb-2">
-                      Currency
-                    </label>
-                    <select
-                      id="quote-currency"
-                      value={quoteCurrency}
-                      onChange={(e) => setQuoteCurrency(e.target.value)}
-                      disabled={submittingQuote}
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
-                      <option value="CAD">CAD</option>
-                      <option value="AUD">AUD</option>
-                      <option value="CHF">CHF</option>
-                    </select>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={submittingQuote || !quoteEmail || !quotePrice}
-                  className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                >
-                  {submittingQuote ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit Quote'
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        )}
+        {/* Quote Submission Form - REMOVED - Now sticky at top for non-owners */}
 
         {/* Guest Signup CTA - Only for guests who created this report */}
         {isGuestCreator && !guestSignupSuccess && (
@@ -6963,7 +7183,7 @@ export default function ResultsPage() {
             <div className="p-6 pb-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-semibold text-card-foreground">
-                  {assignOnlyMode ? 'Assign driver' : 'Driver & quotes management'}
+                  {assignOnlyMode ? 'Assign driver' : 'Get driver quotes'}
                 </h2>
                 <button
                   onClick={() => {
@@ -7000,23 +7220,15 @@ export default function ResultsPage() {
               {/* Driver Management Section - Unified */}
               <div className="mb-8">
                 {!assignOnlyMode && (
-                  <>
-                    <h3 className="text-xl font-semibold mb-4">Driver management</h3>
-                <p className="text-muted-foreground mb-6">
-                      Request quotes from drivers. After receiving a quote, you can assign that driver to your trip. Personal emails (Gmail, Yahoo, etc.) are accepted.
-                    </p>
-                  </>
+                  <p className="text-muted-foreground mb-6">
+                    Request quotes from drivers. After receiving a quote, you can assign that driver to your trip.
+                  </p>
                 )}
                 
                 {assignOnlyMode && (
-                  <Alert className="mb-6 bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/30 dark:border-amber-500/30">
-                    <AlertDescription className="text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      <span>Assign a driver to confirm this trip</span>
-                    </AlertDescription>
-                  </Alert>
+                  <p className="text-muted-foreground mb-6">
+                    Assign a driver to confirm this trip
+                  </p>
                 )}
                 
                 {/* Success Messages */}
@@ -7037,10 +7249,6 @@ export default function ResultsPage() {
                 
                 {/* Unified Email Input with Two Buttons */}
                 <div className="space-y-4">
-                  <label htmlFor="driver-email-unified" className="block text-sm font-medium mb-2">
-                    {assignOnlyMode ? 'Driver email address' : 'Enter driver email to request quote'}
-                  </label>
-                  
                   <div className="flex gap-3 items-center">
                     <div className="relative flex-1">
                       <Input
@@ -7050,7 +7258,7 @@ export default function ResultsPage() {
                         onChange={(e) => handleManualDriverInputChange(e.target.value)}
                         onFocus={handleManualDriverInputFocus}
                         onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
-                        placeholder="driver@gmail.com or driver@company.com"
+                        placeholder="Enter driver email"
                         disabled={settingDriver || sendingQuoteRequest}
                         className={(manualDriverError || allocateDriverEmailError) ? 'border-destructive' : ''}
                       />
@@ -7148,21 +7356,19 @@ export default function ResultsPage() {
                   {/* List of sent invitations - Hide in assign-only mode */}
                   {!assignOnlyMode && sentDriverEmails.length > 0 && (
                     <div className="mt-6 pt-6 border-t">
-                      <h3 className="text-sm font-semibold mb-3">Quote requests sent ({sentDriverEmails.length})</h3>
+                      <h3 className="text-sm font-semibold mb-3">Sent ({sentDriverEmails.length})</h3>
                       <div className="space-y-2">
                         {sentDriverEmails.map((sent, index) => {
                           const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
                           return (
                             <div 
                               key={index} 
-                              className={`flex items-center justify-between p-3 rounded-md ${
-                                hasQuote 
-                                  ? 'bg-[#3ea34b]/10 border border-[#3ea34b]/30' 
-                                  : 'bg-secondary/50'
-                              }`}
+                              className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
                             >
                               <div className="flex-1">
                                 <p className="text-sm font-medium">{sent.email}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0 ml-4">
                                 <p className="text-xs text-muted-foreground">
                                   Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
                                 </p>
@@ -7184,7 +7390,7 @@ export default function ResultsPage() {
               {/* Received Quotes Section - Hide in assign-only mode */}
               {!assignOnlyMode && (
               <div className="mb-8">
-                <h3 className="text-xl font-semibold mb-4">Received quotes</h3>
+                <h3 className="text-xl font-semibold mb-4">Received</h3>
                 {loadingQuotes ? (
                   <div className="flex items-center justify-center py-8">
                     <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
