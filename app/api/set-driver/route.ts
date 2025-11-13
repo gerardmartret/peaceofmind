@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = driverEmail.trim().toLowerCase();
-    console.log(`🚗 Setting driver for trip ${tripId} to ${normalizedEmail}`);
+    console.log(`🚗 Setting driver for trip ${tripId}`);
 
     // Get authorization header
     const authHeader = request.headers.get('authorization');
@@ -84,6 +84,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if trip is cancelled (terminal status)
+    if (trip.status === 'cancelled') {
+      console.log(`⚠️ Cannot assign driver to cancelled trip ${tripId}`);
+      return NextResponse.json(
+        { success: false, error: 'This trip has been cancelled. Please create a new trip instead.' },
+        { status: 400 }
+      );
+    }
+
     // Check if trip is confirmed and has a driver
     if (trip.status === 'confirmed' && trip.driver) {
       console.log(`⚠️ Cannot change driver for confirmed trip ${tripId}`);
@@ -91,6 +100,31 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Change status to not confirmed first' },
         { status: 400 }
       );
+    }
+
+    // IMPORTANT: Invalidate old driver tokens if driver is being changed
+    const currentDriver = trip.driver;
+    if (currentDriver && currentDriver !== normalizedEmail) {
+      console.log(`🔄 Driver being changed for trip ${tripId}`);
+      console.log(`🗑️ Invalidating tokens for previous driver`);
+      
+      const { error: invalidateError } = await supabase
+        .from('driver_tokens')
+        .update({
+          invalidated_at: new Date().toISOString(),
+          invalidation_reason: 'driver_changed'
+        })
+        .eq('trip_id', tripId)
+        .eq('driver_email', currentDriver)
+        .eq('used', false)
+        .is('invalidated_at', null);
+      
+      if (invalidateError) {
+        console.error('⚠️ Failed to invalidate old driver tokens:', invalidateError);
+        // Don't fail the request, just log the error
+      } else {
+        console.log(`✅ Previous driver tokens invalidated`);
+      }
     }
 
     // Update the driver field

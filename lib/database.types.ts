@@ -14,43 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      quotes: {
-        Row: {
-          id: string
-          trip_id: string
-          email: string
-          price: number
-          currency: string
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          trip_id: string
-          email: string
-          price: number
-          currency: string
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          trip_id?: string
-          email?: string
-          price?: number
-          currency?: string
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quotes_trip_id_fkey"
-            columns: ["trip_id"]
-            referencedRelation: "trips"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       cpz_zones: {
         Row: {
           borough: string
@@ -99,12 +62,98 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_tokens: {
+        Row: {
+          created_at: string | null
+          driver_email: string
+          expires_at: string
+          id: string
+          invalidated_at: string | null
+          invalidation_reason: string | null
+          token: string
+          trip_id: string
+          used: boolean | null
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_email: string
+          expires_at: string
+          id?: string
+          invalidated_at?: string | null
+          invalidation_reason?: string | null
+          token: string
+          trip_id: string
+          used?: boolean | null
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_email?: string
+          expires_at?: string
+          id?: string
+          invalidated_at?: string | null
+          invalidation_reason?: string | null
+          token?: string
+          trip_id?: string
+          used?: boolean | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_tokens_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          created_at: string | null
+          currency: string
+          email: string
+          id: string
+          price: number
+          trip_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency: string
+          email: string
+          id?: string
+          price: number
+          trip_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          email?: string
+          id?: string
+          price?: number
+          trip_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips: {
         Row: {
           created_at: string | null
           driver: string | null
           executive_report: Json | null
           id: string
+          latest_changes: Json | null
           lead_passenger_name: string | null
           locations: Json
           passenger_count: number | null
@@ -126,6 +175,7 @@ export type Database = {
           driver?: string | null
           executive_report?: Json | null
           id?: string
+          latest_changes?: Json | null
           lead_passenger_name?: string | null
           locations: Json
           passenger_count?: number | null
@@ -147,6 +197,7 @@ export type Database = {
           driver?: string | null
           executive_report?: Json | null
           id?: string
+          latest_changes?: Json | null
           lead_passenger_name?: string | null
           locations?: Json
           passenger_count?: number | null

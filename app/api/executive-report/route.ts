@@ -15,11 +15,11 @@ export async function POST(request: Request) {
     if (trafficPredictions) {
       console.log(`🚦 Including ${trafficPredictions.length} traffic prediction leg(s)`);
     }
-    console.log(`👤 Lead Passenger Name: ${leadPassengerName}`);
-    console.log(`🚗 Vehicle Info: ${vehicleInfo}`);
+    console.log(`👤 Has Lead Passenger Name: ${!!leadPassengerName}`);
+    console.log(`🚗 Has Vehicle Info: ${!!vehicleInfo}`);
     console.log(`👥 Passenger Count: ${passengerCount}`);
-    console.log(`👤 Passenger Names: ${passengerNames}`);
-    console.log(`📝 Driver Notes: ${driverNotes}`);
+    console.log(`👤 Has Passenger Names: ${!!passengerNames}`);
+    console.log(`📝 Has Driver Notes: ${!!driverNotes}`);
 
     const report = await generateExecutiveReport(
       tripData,

@@ -1701,7 +1701,7 @@ export default function Home() {
       
       // Debug: Log what we're saving to database
       console.log('💾 [FRONTEND] Database save values:');
-      console.log('   lead_passenger_name:', passengerNameForDb);
+      console.log('   lead_passenger_name:', passengerNameForDb ? '[SET]' : '[NOT SET]');
       console.log('   vehicle:', vehicleInfo || null);
       console.log('   passenger_count:', passengerCount || 1);
       console.log('   trip_destination:', tripDestination || null);

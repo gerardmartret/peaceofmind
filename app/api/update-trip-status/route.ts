@@ -42,10 +42,10 @@ export async function POST(request: NextRequest) {
     // Validate state transitions
     const VALID_TRANSITIONS: Record<string, string[]> = {
       'not confirmed': ['pending', 'confirmed'],
-      'pending': ['confirmed', 'rejected', 'not confirmed'], // Can cancel back to not confirmed
-      'confirmed': ['not confirmed'], // Can cancel back to not confirmed
-      'rejected': ['pending', 'not confirmed'],
-      'cancelled': [], // Kept for backward compatibility but not used
+      'pending': ['confirmed', 'rejected', 'cancelled'], // Can cancel to cancelled
+      'confirmed': ['cancelled'], // Can cancel to cancelled
+      'rejected': ['pending', 'not confirmed'], // Can retry after rejection
+      'cancelled': [], // TERMINAL STATUS - no transitions allowed, must create new trip
     };
 
     const currentStatus = currentTrip.status || 'not confirmed';
@@ -65,10 +65,37 @@ export async function POST(request: NextRequest) {
     // Prepare update data
     const updateData: { status: string; driver?: null } = { status };
 
-    // Clear driver when cancelling (going back to not confirmed from confirmed or pending)
+    // Clear driver when cancelling (setting status to cancelled)
+    if (status === 'cancelled') {
+      updateData.driver = null;
+      console.log(`🔄 Cancelling trip - clearing driver assignment`);
+      
+      // Invalidate driver tokens if driver was assigned
+      if (currentTrip.driver) {
+        console.log(`🗑️ Invalidating driver tokens`);
+        const { error: invalidateError } = await supabase
+          .from('driver_tokens')
+          .update({
+            invalidated_at: new Date().toISOString(),
+            invalidation_reason: 'trip_cancelled'
+          })
+          .eq('trip_id', tripId)
+          .eq('driver_email', currentTrip.driver)
+          .eq('used', false)
+          .is('invalidated_at', null);
+        
+        if (invalidateError) {
+          console.error('⚠️ Failed to invalidate driver tokens:', invalidateError);
+        } else {
+          console.log(`✅ Driver tokens invalidated successfully`);
+        }
+      }
+    }
+
+    // Also clear driver when going back to not confirmed (legacy behavior)
     if ((currentTrip.status === 'confirmed' || currentTrip.status === 'pending') && status === 'not confirmed') {
       updateData.driver = null;
-      console.log(`🔄 Cancelling trip - clearing driver assignment (was: ${currentTrip.driver})`);
+      console.log(`🔄 Resetting trip - clearing driver assignment`);
     }
 
     // Update the trip status (and driver if needed) in the database

@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📧 Sending quote request for trip: ${tripId} to ${driverEmail}`);
+    console.log(`📧 Sending quote request for trip: ${tripId}`);
 
     // Fetch trip details
     const { data: trip, error: tripError } = await supabase
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ Quote request sent to ${driverEmail} for trip ${tripId}`);
+    console.log(`✅ Quote request sent successfully for trip ${tripId}`);
     
     return NextResponse.json({ 
       success: true, 
