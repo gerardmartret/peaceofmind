@@ -147,6 +147,30 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`✅ Driver set successfully for trip ${tripId}`);
+    
+    // Send notification email to driver (non-blocking - don't wait)
+    fetch(`${request.url.split('/api')[0]}/api/notify-driver-assignment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tripId: tripId,
+        driverEmail: normalizedEmail,
+        tripDate: updatedTrip.trip_date,
+        leadPassengerName: updatedTrip.lead_passenger_name,
+        tripDestination: updatedTrip.trip_destination,
+      })
+    }).then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          console.log('✅ Driver assignment notification sent');
+        } else {
+          console.log('⚠️ Failed to send driver notification:', result.error);
+        }
+      })
+      .catch(err => {
+        console.log('⚠️ Driver notification will be sent in background:', err.message);
+      });
+    
     return NextResponse.json({ 
       success: true, 
       message: 'Driver set successfully',

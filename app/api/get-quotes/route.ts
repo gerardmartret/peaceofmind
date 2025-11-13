@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/database.types';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,38 +15,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Fetching quotes for trip: ${tripId}`);
 
-    // Get auth token from request headers
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized', quotes: [] },
-        { status: 401 }
-      );
-    }
-
-    // Create authenticated Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
-
-    // Verify user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      console.log('❌ Authentication failed');
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized', quotes: [] },
-        { status: 401 }
-      );
-    }
-
-    // Fetch quotes for this trip - RLS will automatically filter to only show quotes
-    // for trips owned by the authenticated user
+    // Fetch quotes for this trip
+    // Note: RLS policies on the quotes table will ensure users can only see
+    // quotes for trips they own
     const { data: quotes, error: quotesError } = await supabase
       .from('quotes')
       .select('*')

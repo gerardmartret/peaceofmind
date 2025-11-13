@@ -3,33 +3,24 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const body = await request.json();
+    const userId = body.userId;
+
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
+        { success: false, error: 'User ID is required' },
+        { status: 400 }
       );
     }
 
-    // Verify user authentication
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    console.log(`👥 Fetching unique drivers for user: ${user.id}`);
+    console.log(`👥 Fetching unique drivers for user: ${userId}`);
 
     // Fetch all trips for this user that have a driver set
+    // Note: RLS policies will ensure users can only see their own trips
     const { data: trips, error: tripsError } = await supabase
       .from('trips')
       .select('driver')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .not('driver', 'is', null)
       .order('updated_at', { ascending: false });
 

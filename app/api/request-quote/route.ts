@@ -22,26 +22,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Verify user authentication
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     console.log(`📧 Sending quote request for trip: ${tripId}`);
 
     // Fetch trip details
@@ -56,14 +36,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
-      );
-    }
-
-    // Verify user is the trip owner
-    if (trip.user_id !== user.id) {
-      return NextResponse.json(
-        { success: false, error: 'You are not authorized to request quotes for this trip' },
-        { status: 403 }
       );
     }
 

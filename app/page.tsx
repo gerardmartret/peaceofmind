@@ -661,6 +661,20 @@ export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const { setResetToImport } = useHomepageContext();
   const [loading, setLoading] = useState(false);
+  
+  // Helper function to safely parse JSON responses
+  const safeJsonParse = async (response: Response) => {
+    if (!response.ok) {
+      console.error(`❌ API error: ${response.status} ${response.statusText}`);
+      return { success: false, error: response.statusText };
+    }
+    try {
+      return await response.json();
+    } catch (err) {
+      console.error('❌ Failed to parse JSON response:', err);
+      return { success: false, error: 'Invalid response format' };
+    }
+  };
   const [results, setResults] = useState<Array<{ district: string; data: CombinedData }>>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>(['westminster']);
   const [startDate, setStartDate] = useState('');
@@ -910,8 +924,8 @@ export default function Home() {
       setLoadingDestinations(true);
       try {
         const response = await fetch('/api/trip-destinations');
-        if (response.ok) {
-          const data = await response.json();
+        const data = await safeJsonParse(response);
+        if (data.success !== false && data.destinations) {
           setAvailableDestinations(data.destinations || []);
           console.log('✅ Loaded trip destinations:', data.destinations);
         } else {
@@ -2015,7 +2029,7 @@ export default function Home() {
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await safeJsonParse(response);
 
       if (data.success && data.text) {
         setExtractionText(prev => prev + (prev ? '\n\n' : '') + data.text);
@@ -2122,7 +2136,7 @@ export default function Home() {
         }),
       });
 
-      const data = await response.json();
+      const data = await safeJsonParse(response);
 
       if (!data.success) {
         console.log('❌ [EXTRACT] Failed:', data.error);

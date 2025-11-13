@@ -448,6 +448,20 @@ export default function ResultsPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [tripData, setTripData] = useState<TripData | null>(null);
+  
+  // Helper function to safely parse JSON responses
+  const safeJsonParse = async (response: Response) => {
+    if (!response.ok) {
+      console.error(`❌ API error: ${response.status} ${response.statusText}`);
+      return { success: false, error: response.statusText };
+    }
+    try {
+      return await response.json();
+    } catch (err) {
+      console.error('❌ Failed to parse JSON response:', err);
+      return { success: false, error: 'Invalid response format' };
+    }
+  };
   const quoteFormRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -693,7 +707,7 @@ export default function ResultsPage() {
           }),
         });
 
-        const result = await response.json();
+        const result = await safeJsonParse(response);
 
         if (result.success) {
           console.log('✅ Driver token validated successfully');
@@ -1948,7 +1962,7 @@ export default function ResultsPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = await safeJsonParse(response);
 
       if (result.success) {
         const oldStatus = tripStatus;
@@ -2004,7 +2018,7 @@ export default function ResultsPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = await safeJsonParse(response);
 
       if (result.success) {
         console.log(`✅ Status change notification sent to driver`);
@@ -2023,25 +2037,21 @@ export default function ResultsPage() {
     
     setLoadingQuotes(true);
     try {
-      // Get the current session to send auth token
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        console.error('❌ No session found');
-        setLoadingQuotes(false);
-        return;
-      }
-
       const response = await fetch('/api/get-quotes', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           tripId: tripId,
         }),
       });
+
+      // Handle non-JSON responses
+      if (!response.ok) {
+        console.error('❌ Failed to fetch quotes:', response.statusText);
+        return;
+      }
 
       const result = await response.json();
 
@@ -2151,23 +2161,24 @@ export default function ResultsPage() {
   // Fetch driver suggestions when page loads (for owners only)
   useEffect(() => {
     async function fetchDriverSuggestions() {
-      if (!isOwner) return;
+      if (!isOwner || !user?.id) return;
       
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          console.error('❌ No session found');
-          return;
-        }
-
         const response = await fetch('/api/get-user-drivers', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
           },
+          body: JSON.stringify({
+            userId: user.id,
+          }),
         });
+
+        // Handle non-JSON responses
+        if (!response.ok) {
+          console.error('❌ Failed to fetch driver suggestions:', response.statusText);
+          return;
+        }
 
         const result = await response.json();
 
@@ -2183,10 +2194,10 @@ export default function ResultsPage() {
       }
     }
 
-    if (isOwner && !loading) {
+    if (isOwner && !loading && user?.id) {
       fetchDriverSuggestions();
     }
-  }, [isOwner, loading]);
+  }, [isOwner, loading, user?.id]);
 
   const handleSetDriver = async (email: string) => {
     if (!tripId || !isOwner || settingDriver) return;
@@ -2216,7 +2227,7 @@ export default function ResultsPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = await safeJsonParse(response);
 
       if (result.success) {
         setDriverEmail(email.toLowerCase());
@@ -2297,7 +2308,7 @@ export default function ResultsPage() {
         }),
       });
 
-      const result = await response.json();
+      const result = await safeJsonParse(response);
 
       if (result.success) {
         setNotificationSuccess(true);
@@ -2540,10 +2551,11 @@ export default function ResultsPage() {
       if (result.success) {
         console.log('✅ Trip confirmed by driver');
         setShowDriverConfirmDialog(false);
+        // Update local state immediately
+        setTripStatus('confirmed');
         // Show success message
         setQuoteSuccess(true);
         setQuoteSuccessMessage('✅ Trip confirmed! The trip owner has been notified.');
-        // The realtime subscription will update the UI automatically
       } else {
         console.error('❌ Failed to confirm trip:', result.error);
         alert(result.error || 'Failed to confirm trip');
@@ -2585,11 +2597,13 @@ export default function ResultsPage() {
       if (result.success) {
         console.log('✅ Trip rejected by driver');
         setShowDriverRejectDialog(false); // Close dialog
+        // Update local state immediately
+        setTripStatus('rejected');
+        setDriverEmail(null); // Clear driver assignment
         // Show success message
         setQuoteSuccess(true);
         setQuoteSuccessMessage('Trip declined. The trip owner has been notified.');
         setIsDriverView(false); // Hide driver actions
-        // The realtime subscription will update the UI automatically
       } else {
         console.error('❌ Failed to reject trip:', result.error);
         alert(result.error || 'Failed to reject trip');
@@ -4350,10 +4364,37 @@ export default function ResultsPage() {
                 </div>
                 
                 <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Update Trip Button */}
+                <Button
+                  variant="default"
+                  className="flex items-center gap-2 h-[51px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                  onClick={handleExtractUpdates}
+                  disabled={!updateText.trim() || isExtracting || isRegenerating}
+                >
+                  {isExtracting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <img 
+                        src="/update-dark.png"
+                        alt="Update" 
+                        className="w-4 h-4 dark:invert"
+                      />
+                      Update trip
+                    </>
+                  )}
+                </Button>
+                
                 {/* Edit Route Button */}
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2 h-[51px]"
+                  className="flex items-center gap-2 h-[51px] bg-input/30 border-input hover:bg-[#323236] text-white dark:bg-background dark:border-border dark:hover:bg-accent dark:text-foreground"
                   onClick={() => {
                     // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
                     setEditingLocations(locations.map((loc, idx) => ({
@@ -4851,10 +4892,6 @@ export default function ResultsPage() {
                               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                            ) : driverEmail ? (
-                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
                             ) : undefined
                           }
                         >
@@ -4898,35 +4935,42 @@ export default function ResultsPage() {
                         {/* Assign Driver button - Top Right */}
                         {isOwner && (
                           <div className="absolute top-5 right-5">
-                            <Button
-                              variant="outline"
-                              className={`flex items-center gap-2 h-10 ${
-                                tripStatus === 'cancelled' 
-                                  ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                                  : tripStatus === 'confirmed' && driverEmail 
-                                  ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10' 
-                                  : driverEmail 
-                                  ? 'border !border-[#e77500] hover:bg-[#e77500]/10' 
-                                  : ''
-                              }`}
-                              onClick={() => {
-                                if (tripStatus === 'cancelled') {
-                                  alert('This trip has been cancelled. Please create a new trip instead.');
-                                  return;
-                                }
-                                setShowDriverModal(true);
-                              }}
-                              disabled={tripStatus === 'cancelled'}
-                            >
-                              {mounted && (
-                                <img 
-                                  src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                  alt="Driver" 
-                                  className="w-4 h-4"
-                                />
+                            <div className="relative inline-block">
+                              <Button
+                                variant="outline"
+                                className={`flex items-center gap-2 h-10 ${
+                                  tripStatus === 'cancelled' 
+                                    ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                                    : tripStatus === 'confirmed' && driverEmail 
+                                    ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10' 
+                                    : driverEmail 
+                                    ? 'border !border-[#e77500] hover:bg-[#e77500]/10' 
+                                    : ''
+                                }`}
+                                onClick={() => {
+                                  if (tripStatus === 'cancelled') {
+                                    alert('This trip has been cancelled. Please create a new trip instead.');
+                                    return;
+                                  }
+                                  setShowDriverModal(true);
+                                }}
+                                disabled={tripStatus === 'cancelled'}
+                              >
+                                {mounted && driverEmail && (
+                                  <img 
+                                    src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                    alt="Driver" 
+                                    className="w-4 h-4"
+                                  />
+                                )}
+                                {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
+                              </Button>
+                              {quotes.length > 0 && !driverEmail && (
+                                <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                                  {quotes.length}
+                                </span>
                               )}
-                              {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? `Quoted (${quotes.length})` : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
-                            </Button>
+                            </div>
                           </div>
                         )}
                         
