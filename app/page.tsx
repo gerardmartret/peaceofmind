@@ -3333,9 +3333,9 @@ export default function Home() {
         {/* Professional Loading State - Overlay Modal */}
         {loadingTrip && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto">
-              <CardContent className="px-8 py-6">
-                <div className="space-y-6">
+            <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto flex items-center justify-center">
+              <CardContent className="px-8 py-12 w-full">
+                <div className="space-y-8">
                   {/* Circular Progress Indicator */}
                   <div className="flex flex-col items-center gap-3">
                     <div className="relative w-32 h-32">

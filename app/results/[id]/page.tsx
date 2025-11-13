@@ -5262,7 +5262,7 @@ export default function ResultsPage() {
                       <CardContent className="p-5 relative">
                         {/* Assign Driver button - Top Right */}
                         {isOwner && (
-                          <div className="absolute top-5 right-5">
+                          <div className="absolute top-3 right-5">
                             <div className="relative inline-block">
                               <Button
                                 variant="outline"
@@ -5303,7 +5303,7 @@ export default function ResultsPage() {
                         )}
                         
                         {/* Vehicle Image and Info - Bottom */}
-                        <div className="flex gap-6 items-end mt-8">
+                        <div className="flex gap-6 items-end mt-8 -mb-2">
                           {/* Vehicle Image on the left */}
                           <img 
                             src="/sedan-driverbrief.svg" 
@@ -5312,7 +5312,7 @@ export default function ResultsPage() {
                           />
                           
                           {/* Vehicle Info on the right */}
-                          <div className="flex flex-col flex-1 min-w-0 pb-2">
+                          <div className="flex flex-col flex-1 min-w-0 pb-0">
                                 <div className="flex items-center gap-3 mb-2">
                                   <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                                   <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
@@ -5430,8 +5430,8 @@ export default function ResultsPage() {
           {/* Trip Locations */}
           {!isLiveMode && (
             <Card className="mb-6 shadow-none">
-              <CardContent className="p-6">
-                <div className="mb-6 flex items-center justify-between gap-4">
+              <CardContent className="px-6 pt-3 pb-6">
+                <div className="mb-3 flex items-center justify-between gap-4">
                   <h3 className="text-xl font-semibold text-card-foreground">Trip Locations</h3>
                   
                   {/* Action Buttons - Right Side */}
