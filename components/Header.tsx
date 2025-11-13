@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/lib/auth-context';
 import { useHomepageContext } from '@/lib/homepage-context';
+import { getAdminEmail } from '@/lib/admin-helpers';
 import { Button } from '@/components/ui/button';
 import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -91,6 +92,13 @@ export default function Header() {
                     My trips
                   </Button>
                 </Link>
+                {user?.email === getAdminEmail() && (
+                  <Link href="/admin">
+                    <Button variant="outline" size="sm">
+                      Analytics
+                    </Button>
+                  </Link>
+                )}
                 <Button
                   onClick={handleSignOut}
                   variant="outline"
