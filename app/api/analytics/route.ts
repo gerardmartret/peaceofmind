@@ -105,7 +105,7 @@ export async function GET(request: Request) {
 
     // Get all users and trips for comprehensive metrics
     const { data: allUsers } = await supabase.from('users').select('email, created_at');
-    const { data: allTrips } = await supabase.from('trips').select('user_email, locations, version, created_at');
+    const { data: allTrips } = await supabase.from('trips').select('user_email, locations, version, created_at, generation_quality_score, generation_quality_breakdown, quality_evaluated_at');
     const { data: allQuotes } = await supabase.from('quotes').select('trip_id');
 
     // Calculate metrics
@@ -161,6 +161,52 @@ export async function GET(request: Request) {
       ? (usedTokens / driverTokens.length) * 100
       : 0;
 
+    // Quality metrics
+    const tripsWithQuality = (allTrips || []).filter(t => t.generation_quality_score !== null);
+    const totalEvaluatedTrips = tripsWithQuality.length;
+    const avgQualityScore = tripsWithQuality.length > 0
+      ? tripsWithQuality.reduce((sum, trip) => sum + (trip.generation_quality_score || 0), 0) / tripsWithQuality.length
+      : 0;
+    
+    // Quality breakdown by dimension
+    const qualityBreakdown = tripsWithQuality.length > 0
+      ? {
+          critical_identification: tripsWithQuality.reduce((sum, trip) => {
+            const breakdown = trip.generation_quality_breakdown as any;
+            return sum + (breakdown?.critical_identification?.score || 0);
+          }, 0) / tripsWithQuality.length,
+          exceptional_circumstances: tripsWithQuality.reduce((sum, trip) => {
+            const breakdown = trip.generation_quality_breakdown as any;
+            return sum + (breakdown?.exceptional_circumstances?.score || 0);
+          }, 0) / tripsWithQuality.length,
+          actionability: tripsWithQuality.reduce((sum, trip) => {
+            const breakdown = trip.generation_quality_breakdown as any;
+            return sum + (breakdown?.actionability?.score || 0);
+          }, 0) / tripsWithQuality.length,
+          communication_clarity: tripsWithQuality.reduce((sum, trip) => {
+            const breakdown = trip.generation_quality_breakdown as any;
+            return sum + (breakdown?.communication_clarity?.score || 0);
+          }, 0) / tripsWithQuality.length,
+        }
+      : null;
+
+    // Quality over time
+    const qualityTimeSeries = tripsWithQuality
+      .filter(t => t.created_at !== null && t.generation_quality_score !== null)
+      .sort((a, b) => new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime())
+      .reduce((acc: Array<{ date: string; avgScore: number; count: number }>, trip) => {
+        const dateStr = trip.created_at!.split('T')[0];
+        const existing = acc.find(item => item.date === dateStr);
+        if (existing) {
+          const newCount = existing.count + 1;
+          existing.avgScore = (existing.avgScore * existing.count + (trip.generation_quality_score || 0)) / newCount;
+          existing.count = newCount;
+        } else {
+          acc.push({ date: dateStr, avgScore: trip.generation_quality_score || 0, count: 1 });
+        }
+        return acc;
+      }, []);
+
     // Trips by status
     const tripsByStatus = (tripsByStatusResult.data || []).reduce((acc: Record<string, number>, trip) => {
       const status = trip.status || 'unknown';
@@ -209,11 +255,23 @@ export async function GET(request: Request) {
             used: usedTokens,
             usageRate: Math.round(driverTokenUsageRate * 10) / 10,
           },
+          quality: {
+            totalEvaluated: totalEvaluatedTrips,
+            avgScore: Math.round(avgQualityScore * 10) / 10,
+            breakdown: qualityBreakdown ? {
+              critical_identification: Math.round(qualityBreakdown.critical_identification * 10) / 10,
+              exceptional_circumstances: Math.round(qualityBreakdown.exceptional_circumstances * 10) / 10,
+              actionability: Math.round(qualityBreakdown.actionability * 10) / 10,
+              communication_clarity: Math.round(qualityBreakdown.communication_clarity * 10) / 10,
+            } : null,
+            evaluationRate: totalTrips > 0 ? Math.round((totalEvaluatedTrips / totalTrips) * 1000) / 10 : 0,
+          },
         },
         charts: {
           userTimeSeries,
           tripTimeSeries,
           reportsPerUserTimeSeries,
+          qualityTimeSeries,
           tripsByStatus: Object.entries(tripsByStatus).map(([status, count]) => ({
             status,
             count,
