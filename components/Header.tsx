@@ -57,9 +57,9 @@ export default function Header() {
           {/* Logo */}
           <button onClick={handleLogoClick} className="flex items-center cursor-pointer">
             <img 
-              src={mounted && theme === 'dark' ? "/driverbrief-logo-dark.png" : "/driverbrief-logo.png"}
+              src={mounted && theme === 'dark' ? "/chauffs-logo-neg.png" : "/chauffs-logo-pos.png"}
               alt="Driverbrief" 
-              className="h-6 w-auto"
+              className="h-7 w-auto"
             />
           </button>
           

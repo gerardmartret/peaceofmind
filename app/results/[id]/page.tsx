@@ -4708,14 +4708,7 @@ export default function ResultsPage() {
                       Updating...
                     </>
                   ) : (
-                    <>
-                      <img 
-                        src="/update-dark.png"
-                        alt="Update" 
-                        className="w-4 h-4 dark:invert"
-                      />
-                      Update trip
-                    </>
+                    'Update trip'
                   )}
                 </Button>
                 
@@ -4739,9 +4732,6 @@ export default function ResultsPage() {
                     setShowEditRouteModal(true);
                   }}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
                   Edit route
                 </Button>
                 </div>
@@ -5589,6 +5579,9 @@ export default function ResultsPage() {
                                 <div>
                                   <div className="text-lg font-semibold text-card-foreground">
                                     {displayBusinessName}
+                                    {location.purpose && (
+                                      <span> - {location.purpose}</span>
+                                    )}
                                   </div>
                                   {restOfAddress && (
                                     <div className="text-sm text-muted-foreground mt-0.5">
@@ -5612,12 +5605,7 @@ export default function ResultsPage() {
 
           {/* Exceptional Information */}
           {!isLiveMode && executiveReport?.exceptionalInformation && (
-            <div 
-              className={`sticky z-[59] transition-all duration-300 ${
-                scrollY > 0 ? 'top-[146px]' : 'top-[203px]'
-              }`}
-            >
-              <Card className="mb-6 shadow-none bg-[#9e2622] dark:bg-[#9e2622] border-[#9e2622] dark:border-[#9e2622]">
+            <Card className="mb-6 shadow-none bg-[#9e2622] dark:bg-[#9e2622] border-[#9e2622] dark:border-[#9e2622]">
                 <CardContent className="px-3 py-1 pl-6">
                   <div className="mb-3">
                     <h3 className="text-xl font-semibold text-white flex items-center gap-2">
@@ -5637,7 +5625,6 @@ export default function ResultsPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
           )}
 
               {/* Important Information */}
@@ -7715,7 +7702,7 @@ export default function ResultsPage() {
               Assigning this driver will set the trip to pending status and send them an acceptance request email.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="justify-start">
             <Button
               variant="outline"
               onClick={() => {
@@ -7838,7 +7825,7 @@ export default function ResultsPage() {
               Assigning this driver will set the trip to pending status and send them an acceptance request email.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="justify-start">
               <Button
               variant="outline"
                 onClick={() => {
@@ -7846,9 +7833,9 @@ export default function ResultsPage() {
                 setDirectAssignDriver(null);
                 }}
               disabled={settingDriver}
-              >
+            >
               Dismiss
-              </Button>
+            </Button>
             <Button
               onClick={async () => {
                 if (!directAssignDriver) return;

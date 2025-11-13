@@ -2506,15 +2506,14 @@ export default function Home() {
 
          {/* Tagline for Homepage - Hide when extracted info or manual form is shown */}
          {!extractedLocations && !showManualForm && (
-           <div className="mb-12 text-center -mt-40">
+           <div className="mb-24 text-center -mt-40">
              <img 
-               src="/driverbrief-logo-light.png" 
-               alt="Driverbrief" 
-               className="mx-auto h-6 w-auto mb-12"
+               src="/chauffs-logo-neutral.png" 
+               alt="Chauffs" 
+               className="mx-auto h-7 w-auto mb-12"
              />
-             <p className="text-5xl font-light text-foreground">
-               Plan and update your trip,<br />
-               with one shareable link.
+             <p className="text-5xl font-light text-[#05060A] dark:text-[#F4F2EE]">
+               Your private driver is here.
              </p>
            </div>
          )}

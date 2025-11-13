@@ -107,7 +107,7 @@ export default function SignUpPage() {
     <div className="min-h-screen flex items-start justify-center bg-background pt-12 md:pt-20 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
         <img 
-          src="/driverbrief-logo-light.png" 
+          src="/chauffs-logo-neutral.png" 
           alt="Driverbrief" 
           className="mx-auto h-6 w-auto mb-8"
         />
