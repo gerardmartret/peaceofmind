@@ -1392,7 +1392,7 @@ export default function ResultsPage() {
           passengerCount,
           tripDestination,
           passengerNames,
-          driverNotes, // Preserve existing notes
+          driverNotes: editedDriverNotes || driverNotes, // Use edited notes if available
         }),
       });
       
@@ -1410,9 +1410,9 @@ export default function ResultsPage() {
           trip_results: JSON.stringify(results),
           traffic_predictions: JSON.stringify(trafficData),
           executive_report: JSON.stringify(reportData.data),
+          trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
           updated_at: new Date().toISOString(),
           version: (currentVersion || 0) + 1,
-          // CRITICAL: trip_notes NOT updated (preserved)
         })
         .eq('id', tripId);
       
@@ -3915,7 +3915,7 @@ export default function ResultsPage() {
             passengerCount: passengerCount || 1,
             tripDestination: tripDestination || null,
             passengerNames: passengerNames || [],
-            driverNotes: driverNotes || null,
+            driverNotes: editedDriverNotes || driverNotes || null,
           }),
         });
 
@@ -3984,7 +3984,7 @@ export default function ResultsPage() {
         trip_results: results as any,
         traffic_predictions: trafficPredictionsForDb as any,
         executive_report: executiveReportData as any,
-        trip_notes: driverNotes || null,
+        trip_notes: editedDriverNotes || driverNotes || null,
         lead_passenger_name: passengerNameForDb,
         vehicle: vehicleInfo || null,
         passenger_count: passengerCount || 1,

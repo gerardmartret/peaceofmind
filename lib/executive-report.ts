@@ -80,49 +80,6 @@ export async function generateExecutiveReport(
 ): Promise<ExecutiveReport> {
   // Get city configuration for conditional analysis
   const cityConfig = getCityConfig(tripDestination);
-  
-  // Extract bullet points ending with * for exceptional information
-  let processedDriverNotes = driverNotes || '';
-  let exceptionalFromNotes = '';
-  
-  if (driverNotes) {
-    const lines = driverNotes.split('\n');
-    const exceptionalLines: string[] = [];
-    const regularLines: string[] = [];
-    
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      // Check if line ends with * (with optional whitespace)
-      if (trimmed.endsWith('*')) {
-        // Remove the * and add to exceptional
-        const withoutAsterisk = trimmed.slice(0, -1).trim();
-        if (withoutAsterisk) {
-          exceptionalLines.push(withoutAsterisk);
-        }
-        // Also add to regular notes without the *
-        regularLines.push(withoutAsterisk);
-      } else {
-        regularLines.push(trimmed);
-      }
-    });
-    
-    // Build exceptional information string
-    if (exceptionalLines.length > 0) {
-      exceptionalFromNotes = exceptionalLines.map(line => {
-        // Ensure it starts with - if it doesn't already
-        const formatted = line.startsWith('-') ? line : `- ${line}`;
-        return formatted;
-      }).join('\n');
-    }
-    
-    // Rebuild driverNotes without the *
-    processedDriverNotes = regularLines.filter(line => line).join('\n');
-    
-    if (exceptionalFromNotes) {
-      console.log('⭐ [EXCEPTIONAL] Extracted from trip notes:', exceptionalFromNotes);
-    }
-  }
-  
   try {
     console.log('\n' + '='.repeat(80));
     console.log('🤖 GENERATING EXECUTIVE PEACE OF MIND REPORT WITH GPT-4O-MINI...');
@@ -134,10 +91,7 @@ export async function generateExecutiveReport(
     console.log(`🏙️ Trip Destination: ${cityConfig.cityName}`);
     console.log(`🌍 City Mode: ${cityConfig.isLondon ? 'London (Full APIs)' : `${cityConfig.cityName} (Limited APIs)`}`);
     console.log(`👤 Passenger Names: ${passengerNames}`);
-    console.log(`📝 Driver Notes: ${processedDriverNotes}`);
-    if (exceptionalFromNotes) {
-      console.log(`⭐ Exceptional items extracted: ${exceptionalFromNotes.split('\n').length} items`);
-    }
+    console.log(`📝 Driver Notes: ${driverNotes}`);
     console.log(`📍 Locations: ${tripData.length}`);
     if (routeDistance) console.log(`🚗 Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} min`);
     if (trafficPredictions) {
@@ -208,8 +162,8 @@ ${(() => {
     passengerInfo += `Vehicle: ${vehicleInfo}\n`;
   }
   
-  if (processedDriverNotes) {
-    passengerInfo += `Trip Notes: ${processedDriverNotes}\n`;
+  if (driverNotes) {
+    passengerInfo += `Trip Notes: ${driverNotes}\n`;
   }
   
   return passengerInfo || 'Passenger information not available';
@@ -458,6 +412,21 @@ Recommendations (data-driven ONLY, not from trip notes):
 
     const report: ExecutiveReport = JSON.parse(jsonString);
 
+    // Extract bullet points ending with * from driverNotes and add to exceptional information
+    if (driverNotes) {
+      const exceptionalFromAsterisk = extractExceptionalFromAsterisk(driverNotes);
+      if (exceptionalFromAsterisk) {
+        console.log('⭐ Found bullet points ending with *:', exceptionalFromAsterisk);
+        // Merge with existing exceptional information
+        if (report.exceptionalInformation && report.exceptionalInformation.trim()) {
+          report.exceptionalInformation = `${report.exceptionalInformation}\n${exceptionalFromAsterisk}`;
+        } else {
+          report.exceptionalInformation = exceptionalFromAsterisk;
+        }
+        console.log('✅ Added asterisk-marked items to exceptional information');
+      }
+    }
+
     // VALIDATION: Check if importantInformation is an object instead of string
     if (report.importantInformation && typeof report.importantInformation === 'object') {
       console.error('❌ ERROR: importantInformation is an object, expected string!');
@@ -484,29 +453,43 @@ Recommendations (data-driven ONLY, not from trip notes):
     console.log(`💡 Recommendations: ${report.recommendations.length}`);
     console.log('='.repeat(80) + '\n');
 
-    // Merge exceptional information from notes (lines ending with *) with AI-generated exceptional information
-    if (exceptionalFromNotes) {
-      const aiExceptional = report.exceptionalInformation || '';
-      if (aiExceptional) {
-        // Combine both, ensuring no duplicates
-        const aiLines = aiExceptional.split('\n').filter(line => line.trim());
-        const noteLines = exceptionalFromNotes.split('\n').filter(line => line.trim());
-        // Merge and deduplicate
-        const allLines = [...new Set([...noteLines, ...aiLines])];
-        report.exceptionalInformation = allLines.join('\n');
-        console.log('✅ Merged exceptional information from notes with AI-generated content');
-      } else {
-        // If AI didn't generate any, use only the extracted notes
-        report.exceptionalInformation = exceptionalFromNotes;
-        console.log('✅ Using exceptional information extracted from trip notes');
-      }
-    }
-
     return report;
   } catch (error) {
     console.error('❌ Error generating executive report:', error);
     throw error;
   }
+}
+
+// Helper function to extract bullet points ending with * from trip notes
+function extractExceptionalFromAsterisk(notes: string): string | null {
+  if (!notes || !notes.trim()) return null;
+  
+  // Split by newlines and filter for lines ending with *
+  const lines = notes.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  const exceptionalItems: string[] = [];
+  
+  lines.forEach(line => {
+    // Check if line ends with * (with optional whitespace)
+    if (line.endsWith('*')) {
+      // Remove the * and any trailing whitespace
+      const content = line.slice(0, -1).trim();
+      if (content) {
+        // Format as actionable statement
+        exceptionalItems.push(`- ${content}`);
+      }
+    }
+    // Also check for bullet points like "- item*" or "• item*"
+    else if (line.match(/^[-•*]\s+.+\*$/)) {
+      const content = line.replace(/^[-•*]\s+/, '').slice(0, -1).trim();
+      if (content) {
+        exceptionalItems.push(`- ${content}`);
+      }
+    }
+  });
+  
+  if (exceptionalItems.length === 0) return null;
+  
+  return exceptionalItems.join('\n');
 }
 
 // Note: All helper functions removed as the report is now 100% AI-generated using GPT-4o
