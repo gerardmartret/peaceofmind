@@ -2952,9 +2952,24 @@ export default function ResultsPage() {
 
     if (!updateText.trim()) return;
 
-    setIsExtracting(true);
+    // Initialize unified loading state and steps
+    setIsRegenerating(true);
+    setIsExtracting(false); // Keep for compatibility but use isRegenerating as primary
     setError(null);
     setUpdateProgress({ step: '', error: null, canRetry: false });
+    setRegenerationProgress(0);
+    
+    // Unified steps array covering extraction → comparison → regeneration
+    const unifiedSteps = [
+      { id: '1', title: 'Extracting Trip Data', description: 'Analyzing update text', source: 'OpenAI', status: 'loading' as const },
+      { id: '2', title: 'Comparing Changes', description: 'Matching updates with current trip', source: 'OpenAI', status: 'pending' as const },
+      { id: '3', title: 'Preparing Locations', description: 'Validating and geocoding locations', source: 'Google Maps', status: 'pending' as const },
+      { id: '4', title: 'Fetching Location Data', description: 'Gathering crime, weather, disruptions', source: 'Multiple APIs', status: 'pending' as const },
+      { id: '5', title: 'Traffic Analysis', description: 'Calculating real-time predictions', source: 'Google Maps', status: 'pending' as const },
+      { id: '6', title: 'Executive Report', description: 'Generating AI-powered analysis', source: 'OpenAI', status: 'pending' as const },
+      { id: '7', title: 'Saving Report', description: 'Updating database', source: 'Supabase', status: 'pending' as const },
+    ];
+    setRegenerationSteps(unifiedSteps);
 
     try {
       // PRE-PROCESSING: Strip email headers to prevent false positives
@@ -2962,6 +2977,7 @@ export default function ResultsPage() {
       
       // Step 1: Extract updates from text
       setUpdateProgress({ step: 'Extracting trip data', error: null, canRetry: false });
+      setRegenerationProgress(5);
       console.log('🔄 Step 1: Extracting updates from text...');
       
       const extractResponse = await fetch('/api/extract-trip', {
@@ -2978,14 +2994,23 @@ export default function ResultsPage() {
       if (!extractedData.success) {
         const errorMsg = extractedData.error || 'Could not understand the update text';
         console.error('❌ Extraction failed:', errorMsg);
-        setError(errorMsg); // Keep old error state as fallback
+        setError(errorMsg);
         setUpdateProgress({
           step: 'Extraction',
           error: 'Could not understand the update. Try rephrasing or breaking it into smaller pieces. For example: "Change pickup time to 3pm" or "Add stop at The Ritz Hotel"',
           canRetry: true,
         });
+        setIsRegenerating(false);
+        setRegenerationSteps(prev => prev.map(s => s.id === '1' ? { ...s, status: 'error' as const } : s));
         return;
       }
+
+      // Step 1 complete
+      setRegenerationProgress(15);
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '1' ? { ...s, status: 'completed' as const } :
+        s.id === '2' ? { ...s, status: 'loading' as const } : s
+      ));
 
       // POST-PROCESSING: Log removal operations if detected
       if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
@@ -3053,6 +3078,7 @@ export default function ResultsPage() {
       // Step 2: Intelligently compare with current state using AI
       if (tripData) {
         setUpdateProgress({ step: 'Comparing with current trip', error: null, canRetry: false });
+        setRegenerationProgress(20);
         console.log('🔄 [UPDATE] Step 2: Comparing updates...');
         console.log('📍 [UPDATE] Current:', tripData.locations.length, 'locations');
         console.log('📍 [UPDATE] Extracted:', extractedData.locations?.length || 0, 'locations');
@@ -3090,12 +3116,14 @@ export default function ResultsPage() {
         if (!compareResult.success) {
           const errorMsg = compareResult.error || 'Failed to compare updates';
           console.error('❌ [UPDATE] Comparison failed:', errorMsg);
-          setError(errorMsg); // Keep old error state as fallback
+          setError(errorMsg);
           setUpdateProgress({
             step: 'Comparison',
             error: 'Could not match updates with current trip. This usually happens when location names are ambiguous. Try being more specific (e.g., "Change pickup at Gatwick to 3pm" instead of "Change time to 3pm")',
             canRetry: true,
           });
+          setIsRegenerating(false);
+          setRegenerationSteps(prev => prev.map(s => s.id === '2' ? { ...s, status: 'error' as const } : s));
           return;
         }
 
@@ -3103,27 +3131,32 @@ export default function ResultsPage() {
         console.log('📊 [UPDATE] Changes detected:', compareResult.comparison?.locations?.filter((l: any) => l.action !== 'unchanged').length || 0);
         
         // Transform AI comparison result to our diff format
-        setUpdateProgress({ step: 'Preparing preview', error: null, canRetry: false });
-        console.log('🔄 Step 3: Transforming comparison to preview format...');
+        setUpdateProgress({ step: 'Preparing for regeneration', error: null, canRetry: false });
+        setRegenerationProgress(30);
+        console.log('🔄 Step 3: Transforming comparison to regeneration format...');
         
         const diff = transformComparisonToDiff(compareResult.comparison, extractedData);
         setComparisonDiff(diff);
-        setShowPreview(true);
         
-        console.log('✅ All steps complete: Preview ready');
-        setUpdateProgress({ step: '', error: null, canRetry: false }); // Clear progress on success
+        // Step 2 complete, continue directly to regeneration
+        setRegenerationSteps(prev => prev.map(s => 
+          s.id === '2' ? { ...s, status: 'completed' as const } :
+          s.id === '3' ? { ...s, status: 'loading' as const } : s
+        ));
+        
+        // Continue directly to regeneration (skip preview)
+        await handleRegenerateDirectly(diff, extractedData);
       }
     } catch (err) {
       console.error('❌ Unexpected error during update extraction:', err);
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setError(errorMessage); // Keep old error state as fallback
+      setError(errorMessage);
       setUpdateProgress({
         step: updateProgress.step || 'Processing update',
         error: `Something went wrong during ${updateProgress.step || 'the update process'}. ${errorMessage}`,
         canRetry: true,
       });
-    } finally {
-      setIsExtracting(false);
+      setIsRegenerating(false);
     }
   };
 
@@ -3595,7 +3628,8 @@ export default function ResultsPage() {
       console.log(`🌍 [RESULTS] City configuration: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
 
       // Fetch data for all locations in parallel
-      setRegenerationProgress(40);
+      // Step 4 is already set to loading from handleRegenerateDirectly
+      setRegenerationProgress(55);
       setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
       const results = await Promise.all(
         validLocations.map(async (location) => {
@@ -3714,11 +3748,11 @@ export default function ResultsPage() {
       );
 
       // Get traffic predictions
-      setRegenerationProgress(60);
+      setRegenerationProgress(70);
       setRegenerationStep('Calculating traffic predictions...');
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '2' ? { ...s, status: 'completed' as const } :
-        s.id === '3' ? { ...s, status: 'loading' as const } : s
+        s.id === '4' ? { ...s, status: 'completed' as const } :
+        s.id === '5' ? { ...s, status: 'loading' as const } : s
       ));
       console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
@@ -3733,11 +3767,11 @@ export default function ResultsPage() {
       }
 
       // Generate executive report
-      setRegenerationProgress(75);
+      setRegenerationProgress(80);
       setRegenerationStep('Generating executive report...');
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '3' ? { ...s, status: 'completed' as const } :
-        s.id === '4' ? { ...s, status: 'loading' as const } : s
+        s.id === '5' ? { ...s, status: 'completed' as const } :
+        s.id === '6' ? { ...s, status: 'loading' as const } : s
       ));
       console.log('🤖 Generating Executive Peace of Mind Report...');
       let executiveReportData = null;
@@ -3852,8 +3886,8 @@ export default function ResultsPage() {
       setRegenerationProgress(90);
       setRegenerationStep('Saving updated report...');
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '4' ? { ...s, status: 'completed' as const } :
-        s.id === '5' ? { ...s, status: 'loading' as const } : s
+        s.id === '6' ? { ...s, status: 'completed' as const } :
+        s.id === '7' ? { ...s, status: 'loading' as const } : s
       ));
       console.log(`💾 Updating trip ${tripId} with version ${updateData.version}...`);
       const { data: updatedTrip, error: updateError} = await supabase
@@ -3874,12 +3908,17 @@ export default function ResultsPage() {
 
       setRegenerationProgress(100);
       setRegenerationStep('Update complete!');
-      setRegenerationSteps(prev => prev.map(s => s.id === '5' ? { ...s, status: 'completed' as const } : s));
+      setRegenerationSteps(prev => prev.map(s => s.id === '7' ? { ...s, status: 'completed' as const } : s));
+
+      // Cleanup: Clear update text and states
+      setUpdateText('');
+      setComparisonDiff(null);
+      setExtractedUpdates(null);
+      setUpdateProgress({ step: '', error: null, canRetry: false });
 
       // Small delay to show completion, then handle next steps
       setTimeout(() => {
         setIsRegenerating(false);
-        setShowPreview(false); // Close preview modal
         
         // Show notification modal if driver is set
         if (driverEmail) {
@@ -3901,31 +3940,17 @@ export default function ResultsPage() {
     }
   };
 
-  // Regenerate report handler
-  const handleRegenerateReport = async () => {
-    // Security check: Only owners can regenerate reports
-    if (!isOwner) {
-      console.error('❌ Unauthorized: Only trip owners can regenerate reports');
-      setError('Only trip owners can regenerate reports');
+  // Direct regeneration handler (called from handleExtractUpdates, skipping preview)
+  const handleRegenerateDirectly = async (comparisonDiff: any, extractedUpdates: any) => {
+    if (!comparisonDiff || !extractedUpdates || !tripData) {
+      console.error('❌ Missing required data for regeneration');
+      setError('Missing required data for regeneration');
+      setIsRegenerating(false);
       return;
     }
 
-    if (!comparisonDiff || !extractedUpdates || !tripData) return;
-
-    setIsRegenerating(true);
     setError(null);
-    setRegenerationProgress(0);
     setRegenerationStep('Preparing updated locations...');
-    
-    // Initialize loading steps
-    const steps = [
-      { id: '1', title: 'Preparing Locations', description: 'Validating and geocoding updated locations', source: 'Google Maps', status: 'loading' as const },
-      { id: '2', title: 'Fetching Location Data', description: 'Gathering crime, weather, disruptions, parking data', source: 'Multiple APIs', status: 'pending' as const },
-      { id: '3', title: 'Traffic Analysis', description: 'Calculating real-time traffic predictions', source: 'Google Maps', status: 'pending' as const },
-      { id: '4', title: 'Executive Report', description: 'Generating AI-powered risk analysis', source: 'OpenAI', status: 'pending' as const },
-      { id: '5', title: 'Saving Report', description: 'Updating database with new information', source: 'Supabase', status: 'pending' as const },
-    ];
-    setRegenerationSteps(steps);
 
     try {
       // Use finalLocations from AI comparison (already merged intelligently)
@@ -4085,9 +4110,9 @@ export default function ResultsPage() {
       const locationsWithValidData = validLocations.filter((loc: any) => !needsGeocoding(loc));
       
       console.log(`🗺️ [OPTIMIZATION] Geocoding: ${locationsNeedingGeocoding.length} locations need geocoding, ${locationsWithValidData.length} already have valid data`);
-      setRegenerationProgress(10);
+      setRegenerationProgress(35);
       setRegenerationStep(`Geocoding ${locationsNeedingGeocoding.length} location(s)...`);
-      setRegenerationSteps(prev => prev.map(s => s.id === '1' ? { ...s, status: 'loading' as const } : s));
+      // Step 3 is already set to loading from handleExtractUpdates
       
       // Only geocode locations that actually need it
       let geocodedLocations: any[] = [];
@@ -4155,11 +4180,11 @@ export default function ResultsPage() {
       finalValidLocations.forEach((loc: any, idx: number) => {
         console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
       });
-      setRegenerationProgress(20);
+      setRegenerationProgress(45);
       setRegenerationStep('Fetching updated data for all locations...');
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '1' ? { ...s, status: 'completed' as const } :
-        s.id === '2' ? { ...s, status: 'loading' as const } : s
+        s.id === '3' ? { ...s, status: 'completed' as const } :
+        s.id === '4' ? { ...s, status: 'loading' as const } : s
       ));
 
       // Get updated trip date (from AI comparison or use current)
@@ -4198,7 +4223,7 @@ export default function ResultsPage() {
       const updatedPassengerNames = extractedUpdates.passengerNames || [];
 
       // Call the regeneration function
-      setRegenerationProgress(30);
+      setRegenerationProgress(50);
       setRegenerationStep('Analyzing trip data...');
       await performTripAnalysisUpdate(
         finalValidLocations,
@@ -4944,192 +4969,36 @@ export default function ResultsPage() {
                     })}
                   </div>
                 </div>
+
+                {/* Error Display */}
+                {error && (
+                  <Alert variant="destructive" className="mt-4">
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-semibold">❌ Error during update</p>
+                        <p className="text-sm">{error}</p>
+                        <Button
+                          onClick={() => {
+                            setError(null);
+                            setIsRegenerating(false);
+                            // User can retry by clicking Update again
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                        >
+                          Close
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Preview Modal */}
-        {showPreview && comparisonDiff && isOwner && !isLiveMode && (
-          <Dialog open={showPreview} onOpenChange={(open) => {
-            if (!open && !isRegenerating) {
-              setShowPreview(false);
-              setComparisonDiff(null);
-              setExtractedUpdates(null);
-              setUpdateText('');
-            }
-          }}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <>
-                <DialogHeader>
-                  <DialogTitle className="text-2xl">Preview Changes</DialogTitle>
-                  <DialogDescription>
-                    Review the changes before updating the report
-                  </DialogDescription>
-                </DialogHeader>
-              <div className="space-y-4">
-                {/* Trip Date Changes */}
-                {comparisonDiff.tripDateChanged && (
-                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <div className="font-medium mb-1">Trip Date Updated:</div>
-                    <div className="text-sm">
-                      <span className="line-through text-muted-foreground">
-                        {new Date(tripDate).toLocaleDateString()}
-                      </span>
-                      {' → '}
-                      <span className="font-semibold">
-                        {new Date(extractedUpdates.date || tripDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Location Changes */}
-                {comparisonDiff.locations.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="font-medium mb-2">Location Changes:</div>
-                    {comparisonDiff.locations.map((locChange: any, idx: number) => {
-                      // Determine the location name to display
-                      const locationName = locChange.type === 'added' 
-                        ? locChange.newAddress 
-                        : (locChange.type === 'removed' ? locChange.oldAddress : (locChange.newAddress || locChange.oldAddress));
-                      
-                      return (
-                        <div
-                          key={idx}
-                          className={`p-3 rounded-lg border-l-4 ${
-                            locChange.type === 'added'
-                              ? 'bg-[#3ea34b]/10 border-[#3ea34b]'
-                              : locChange.type === 'removed'
-                              ? 'bg-red-50 dark:bg-red-900/20 border-red-500'
-                              : 'bg-yellow-50 dark:bg-yellow-900/20 border-orange-500'
-                          }`}
-                        >
-                          <div className="font-semibold mb-2 text-base">
-                            {locationName || `Location ${idx + 1}`}
-                          </div>
-                          <div className={`text-xs font-medium mb-2 ${
-                            locChange.type === 'added' 
-                              ? 'text-[#3ea34b]' 
-                              : locChange.type === 'removed' 
-                              ? 'text-red-600' 
-                              : 'text-orange-600'
-                          }`}>
-                            {locChange.type === 'added' ? '✓ Added' : locChange.type === 'removed' ? '✗ Removed' : '⟳ Modified'}
-                          </div>
-                          
-                          {locChange.type === 'modified' && (
-                            <div className="text-sm space-y-2">
-                              {locChange.addressChanged && (
-                                <div className="space-y-1">
-                                  <div className="font-medium text-xs text-muted-foreground">Address:</div>
-                                  <div className="pl-2">
-                                    <div className="line-through text-muted-foreground text-xs">{locChange.oldAddress}</div>
-                                    <div className="text-orange-600">→</div>
-                                    <div className="font-semibold">{locChange.newAddress}</div>
-                                  </div>
-                                </div>
-                              )}
-                              {locChange.timeChanged && (
-                                <div className="space-y-1">
-                                  <div className="font-medium text-xs text-muted-foreground">Time:</div>
-                                  <div className="pl-2">
-                                    <span className="line-through text-muted-foreground">{locChange.oldTime}</span>
-                                    <span className="text-orange-600 mx-2">→</span>
-                                    <span className="font-semibold">{locChange.newTime}</span>
-                                  </div>
-                                </div>
-                              )}
-                              {locChange.purposeChanged && (
-                                <div className="space-y-1">
-                                  <div className="font-medium text-xs text-muted-foreground">Purpose:</div>
-                                  <div className="pl-2">
-                                    <div className="line-through text-muted-foreground text-xs">{locChange.oldPurpose}</div>
-                                    <div className="text-orange-600">→</div>
-                                    <div className="font-semibold">{locChange.newPurpose}</div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {locChange.type === 'added' && (
-                            <div className="text-sm space-y-1">
-                              <div><span className="font-medium text-xs text-muted-foreground">Time:</span> <span className="font-semibold">{locChange.newTime}</span></div>
-                              {locChange.newPurpose && <div><span className="font-medium text-xs text-muted-foreground">Purpose:</span> <span>{locChange.newPurpose}</span></div>}
-                            </div>
-                          )}
-                          {locChange.type === 'removed' && (
-                            <div className="text-sm space-y-1 opacity-75">
-                              <div><span className="font-medium text-xs text-muted-foreground">Time:</span> {locChange.oldTime}</div>
-                              {locChange.oldPurpose && <div><span className="font-medium text-xs text-muted-foreground">Purpose:</span> {locChange.oldPurpose}</div>}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Passenger Info Changes */}
-                {(comparisonDiff.passengerInfoChanged || comparisonDiff.vehicleInfoChanged) && (
-                  <div className="space-y-2">
-                    {comparisonDiff.passengerInfoChanged && (
-                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                        <div className="font-medium mb-1">Passenger Info Updated:</div>
-                        <div className="text-sm">
-                          <span className="line-through text-muted-foreground">{leadPassengerName || 'None'}</span>
-                          {' → '}
-                          <span className="font-semibold">{extractedUpdates.leadPassengerName || extractedUpdates.passengerNames?.join(', ') || 'None'}</span>
-                        </div>
-                      </div>
-                    )}
-                    {comparisonDiff.vehicleInfoChanged && (
-                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                        <div className="font-medium mb-1">Vehicle Updated:</div>
-                        <div className="text-sm">
-                          <span className="line-through text-muted-foreground">{vehicleInfo || 'None'}</span>
-                          {' → '}
-                          <span className="font-semibold">{extractedUpdates.vehicleInfo || 'None'}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Notes Preview - Show only NEW notes */}
-                {comparisonDiff.notesChanged && extractedUpdates?.driverNotes && (
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="font-medium mb-2">New Notes Added:</div>
-                    <div className="text-sm whitespace-pre-wrap">{extractedUpdates.driverNotes}</div>
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter className="gap-2 sm:gap-0 mt-6">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowPreview(false);
-                        setComparisonDiff(null);
-                        setExtractedUpdates(null);
-                        setUpdateText('');
-                      }}
-                      disabled={isRegenerating}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleRegenerateReport}
-                      disabled={isRegenerating}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                    >
-                      Confirm & Update
-                    </Button>
-                  </DialogFooter>
-                </>
-            </DialogContent>
-          </Dialog>
-        )}
+        {/* Preview Modal - REMOVED: Flow now goes directly from comparison to regeneration */}
 
         {/* Results Section */}
         <div className="mb-8">

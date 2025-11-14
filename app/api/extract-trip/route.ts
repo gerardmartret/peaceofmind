@@ -236,8 +236,12 @@ CRITICAL: Distinguish between ADD and normal location mentions:
   * Still set success: true if there's any extractable information (notes, passenger info, vehicle info, etc.)
   * Examples of valid non-location updates:
     - "make sure driver is dressed like a clown" → locations: [], driverNotes: "- Make sure driver is dressed like a clown"
-    - "pickup time is now 3pm" → locations: [], driverNotes: "- Pickup time is now 3pm"
     - "bring a watermelon" → locations: [], driverNotes: "- Bring a watermelon"
+- CRITICAL EXCEPTION: Location UPDATE instructions (change/update pickup/dropoff/stop location) MUST be extracted to locations array, NOT driverNotes:
+  * "change pickup location to Gatwick" → locations: [{location: "Gatwick Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
+  * "update pick up to Heathrow" → locations: [{location: "Heathrow Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
+  * "change dropoff location to London City Airport" → locations: [{location: "London City Airport", time: "17:00", purpose: "Drop off", confidence: "high"}]
+  * These are location updates, NOT just notes - they must go in locations array
 - If no extractable information at all (no locations, no notes, no passenger info, etc.), then return success: false
 - CRITICAL DATE RULE: Return date as null if NO date is mentioned in text. Do NOT invent, assume, or default to any date. ONLY if date IS mentioned: convert to YYYY-MM-DD format. If year is NOT mentioned but date is, use current year (${new Date().getFullYear()}). Examples: "March 15" → "${new Date().getFullYear()}-03-15", "Dec 25" → "${new Date().getFullYear()}-12-25", but if text has NO date → null
 - Pay attention to context around each location: who is involved, what type of activity, company names, venue names
@@ -268,6 +272,37 @@ Rules for lead passenger name extraction:
 - Look for patterns like "Mr. Smith", "John Doe", "Client: Name", "VIP: Name"
 - If multiple passengers mentioned, choose the one who appears to be the primary client
 - Return null if no clear lead passenger name is found
+
+UPDATE/MODIFICATION OPERATIONS (CRITICAL):
+- If text contains update keywords: "change", "update", "set", "modify", "edit" followed by a field name and "to" or "is"
+- Extract the NEW value and put it in the appropriate structured field (NOT driverNotes)
+- Examples:
+  * "change passenger first name to Kendrik" → leadPassengerName: "Kendrik"
+  * "update passenger name to Mr. Smith" → leadPassengerName: "Mr. Smith"
+  * "set vehicle to Mercedes S-Class" → vehicleInfo: "Mercedes S-Class"
+  * "modify date to March 15" → date: "${new Date().getFullYear()}-03-15"
+  * "change pickup time to 3pm" → locations: [{location: "Pickup", time: "15:00", purpose: "Pick up", confidence: "high"}] (extract location entry with updated time - location name can be generic like "Pickup" or "Dropoff" if only time is being updated)
+  * "update passenger count to 4" → passengerCount: 4
+  * "change pickup location to Gatwick airport" → locations: [{location: "Gatwick Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
+  * "change pick up location to Heathrow" → locations: [{location: "Heathrow Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
+  * "update dropoff to London City Airport" → locations: [{location: "London City Airport", time: "17:00", purpose: "Drop off", confidence: "high"}]
+  * "change stop 2 to The Ritz Hotel" → Extract location with appropriate time and purpose
+- Field recognition patterns:
+  * "passenger" + ("name"|"first name"|"firstname") → leadPassengerName
+  * "vehicle"|"car"|"auto" → vehicleInfo
+  * "date"|"trip date"|"day" → date
+  * "time"|"pickup time"|"dropoff time" → time (for locations)
+  * "passenger count"|"number of passengers"|"passengers" → passengerCount
+  * "pickup"|"pick up"|"pick-up" + ("location"|"address"|"place") → Extract as first location (pickup)
+  * "dropoff"|"drop off"|"drop-off" + ("location"|"address"|"place") → Extract as last location (dropoff)
+  * "stop" + number + "to" → Extract as location at that position
+- CRITICAL: When location update pattern is detected (pickup/dropoff/stop), extract the NEW location to the locations array with:
+  * Full location name (expand airport codes: LGW → Gatwick Airport, LHR → Heathrow Airport)
+  * Appropriate time (use existing time if mentioned, otherwise estimate based on context)
+  * Purpose indicating it's a pickup/dropoff/stop update
+  * confidence: "high" (since it's an explicit update instruction)
+- CRITICAL: When update pattern is detected, extract the NEW value to the structured field, NOT driverNotes
+- If update pattern is ambiguous or unclear, still attempt extraction but set confidence appropriately
 
 Rules for passenger extraction:
 - Extract all passenger names mentioned in the email into passengerNames array
