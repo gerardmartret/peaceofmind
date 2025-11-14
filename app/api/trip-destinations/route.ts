@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { ALLOWED_TRIP_DESTINATIONS } from '@/lib/city-helpers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,17 +21,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Extract unique destinations (remove duplicates)
+    // Extract unique destinations and filter by whitelist
     const uniqueDestinations = [...new Set(
       data
         .map(row => row.trip_destination)
         .filter(dest => dest && dest.trim() !== '') // Filter out empty strings
+        .filter(dest => ALLOWED_TRIP_DESTINATIONS.includes(dest as any)) // Only whitelisted destinations
     )].sort();
 
-    console.log(`✅ Found ${uniqueDestinations.length} unique trip destinations`);
-    console.log('📋 Destinations:', uniqueDestinations);
+    // Always include all allowed destinations even if not in database yet
+    const allDestinations = [...new Set([
+      ...ALLOWED_TRIP_DESTINATIONS,
+      ...uniqueDestinations
+    ])].sort();
 
-    return NextResponse.json({ destinations: uniqueDestinations });
+    console.log(`✅ Found ${uniqueDestinations.length} unique whitelisted trip destinations`);
+    console.log(`📋 Returning ${allDestinations.length} total destinations (including defaults)`);
+    console.log('📋 Destinations:', allDestinations);
+
+    return NextResponse.json({ destinations: allDestinations });
 
   } catch (error: any) {
     console.error('❌ Unexpected error:', error);

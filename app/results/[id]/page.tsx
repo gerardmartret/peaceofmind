@@ -12,14 +12,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Car } from 'lucide-react';
+import { Car, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PassengerPicker } from '@/components/ui/passenger-picker';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { FlowHoverButton } from '@/components/ui/flow-hover-button';
 import { getTrafficPredictions } from '@/lib/google-traffic-predictions';
 import { searchNearbyCafes } from '@/lib/google-cafes';
 import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { validateBusinessEmail } from '@/lib/email-validation';
-import { getCityConfig, createMockResponse, MOCK_DATA } from '@/lib/city-helpers';
+import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination } from '@/lib/city-helpers';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Label } from '@/components/ui/label';
@@ -115,6 +121,47 @@ interface SortableEditLocationItemProps {
   tripDestination?: string;
 }
 
+// Helper function to convert time to HH:MM format for TimePicker
+const formatTimeForPicker = (time: string | number | undefined): string => {
+  if (!time && time !== 0) {
+    console.log('⚠️ [TimePicker] No time value provided, using default 09:00');
+    return '09:00';
+  }
+  
+  // If it's already a string in HH:MM format, normalize it
+  if (typeof time === 'string' && time.includes(':')) {
+    const [hours, minutes] = time.split(':');
+    const h = parseInt(hours) || 0;
+    const m = parseInt(minutes) || 0;
+    // Ensure valid range
+    const validH = Math.max(0, Math.min(23, h));
+    const validM = Math.max(0, Math.min(59, m));
+    const result = `${validH.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
+    console.log('✅ [TimePicker] Formatted time from string:', time, '→', result);
+    return result;
+  }
+  
+  // If it's a decimal number (e.g., 14.5 for 14:30) or string number
+  if (typeof time === 'number' || (typeof time === 'string' && !time.includes(':'))) {
+    const numTime = typeof time === 'number' ? time : parseFloat(String(time));
+    if (isNaN(numTime)) {
+      console.log('⚠️ [TimePicker] Invalid number format:', time, 'using default 09:00');
+      return '09:00';
+    }
+    const hours = Math.floor(Math.abs(numTime));
+    const minutes = Math.round((Math.abs(numTime) % 1) * 60);
+    // Ensure valid range
+    const validH = Math.max(0, Math.min(23, hours));
+    const validM = Math.max(0, Math.min(59, minutes));
+    const result = `${validH.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
+    console.log('✅ [TimePicker] Formatted time from number:', time, '→', result);
+    return result;
+  }
+  
+  console.log('⚠️ [TimePicker] Unknown time format:', time, 'using default 09:00');
+  return '09:00';
+};
+
 function SortableEditLocationItem({
   location,
   index,
@@ -178,8 +225,11 @@ function SortableEditLocationItem({
               {getTimeLabel()}
             </Label>
             <TimePicker
-              value={location.time}
-              onChange={(value) => onTimeChange(index, value)}
+              value={formatTimeForPicker(location.time)}
+              onChange={(value) => {
+                console.log('✅ [TimePicker] onChange triggered:', value, 'for index:', index);
+                onTimeChange(index, value);
+              }}
               className="h-9"
             />
           </div>
@@ -527,6 +577,9 @@ export default function ResultsPage() {
   
   // Edit route modal state
   const [showEditRouteModal, setShowEditRouteModal] = useState<boolean>(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [availableDestinations, setAvailableDestinations] = useState<string[]>([]);
+  const [loadingDestinations, setLoadingDestinations] = useState(false);
   const [editingLocations, setEditingLocations] = useState<any[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
@@ -668,6 +721,10 @@ export default function ResultsPage() {
     if (isLiveMode) {
       const timeInterval = setInterval(() => {
         setCurrentTime(new Date());
+        // Auto-stop live mode if trip is completed
+        if (isTripCompleted()) {
+          stopLiveTrip();
+        }
       }, 1000); // Update every second
 
       return () => clearInterval(timeInterval);
@@ -1444,6 +1501,46 @@ export default function ResultsPage() {
     return now >= oneHourBefore;
   };
 
+  // Check if 15 minutes have passed since drop-off time
+  const isTripCompleted = (): boolean => {
+    if (!tripData?.tripDate || !tripData?.locations || tripData.locations.length === 0) {
+      return false;
+    }
+
+    const now = new Date();
+    const tripDateTime = new Date(tripData.tripDate);
+    
+    // Get drop-off time (last location)
+    const lastLocation = tripData.locations[tripData.locations.length - 1];
+    const timeValue = lastLocation.time;
+    
+    // Parse time - can be string "HH:MM" or decimal number (e.g., 14.5 for 14:30)
+    let hours = 0;
+    let minutes = 0;
+    
+    if (typeof timeValue === 'string') {
+      const timeParts = timeValue.split(':');
+      hours = parseInt(timeParts[0]) || 0;
+      minutes = parseInt(timeParts[1]) || 0;
+    } else if (typeof timeValue === 'number') {
+      hours = Math.floor(timeValue);
+      minutes = Math.round((timeValue % 1) * 60);
+    } else {
+      const parsed = parseFloat(String(timeValue)) || 0;
+      hours = Math.floor(parsed);
+      minutes = Math.round((parsed % 1) * 60);
+    }
+    
+    // Calculate drop-off datetime
+    const dropoffDate = new Date(tripDateTime);
+    dropoffDate.setHours(hours, minutes, 0, 0);
+    
+    // Check if 15 minutes have passed since drop-off
+    const fifteenMinutesAfter = new Date(dropoffDate.getTime() + 15 * 60 * 1000);
+    
+    return now >= fifteenMinutesAfter;
+  };
+
 
   const startLiveTrip = () => {
     if (!tripData?.locations) return;
@@ -2059,7 +2156,15 @@ export default function ResultsPage() {
 
       // Handle non-JSON responses
       if (!response.ok) {
-        console.error('❌ Failed to fetch quotes:', response.statusText);
+        const errorText = await response.text();
+        console.error('❌ Failed to fetch quotes:', response.status, response.statusText);
+        console.error('   Response body:', errorText);
+        try {
+          const errorJson = JSON.parse(errorText);
+          console.error('   Error details:', errorJson);
+        } catch {
+          // Not JSON, just log the text
+        }
         return;
       }
 
@@ -2070,9 +2175,16 @@ export default function ResultsPage() {
         console.log(`✅ Fetched ${result.quotes?.length || 0} quotes`);
       } else {
         console.error('❌ Failed to fetch quotes:', result.error);
+        if (result.details) {
+          console.error('   Error details:', result.details);
+        }
       }
     } catch (err) {
       console.error('❌ Error fetching quotes:', err);
+      if (err instanceof Error) {
+        console.error('   Error message:', err.message);
+        console.error('   Error stack:', err.stack);
+      }
     } finally {
       setLoadingQuotes(false);
     }
@@ -4383,7 +4495,7 @@ export default function ResultsPage() {
         <div className={`flex items-center justify-center ${ownershipChecked && !isOwner ? 'pt-32' : ''} min-h-screen`}>
           <div className="text-center">
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              Loading Your Trip Analysis...
+              Loading your trip brief...
             </h2>
             <div className="flex items-center justify-center gap-2">
               <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
@@ -4678,7 +4790,7 @@ export default function ResultsPage() {
           <div className="container mx-auto px-4 pt-8 pb-3">
             
             <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
-              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Trip Update</label>
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Trip update</label>
               <div className="flex gap-4 items-start">
                 <div className="flex-1 relative">
                   <textarea
@@ -4686,41 +4798,17 @@ export default function ResultsPage() {
                     id="update-text"
                   value={updateText}
                   onChange={(e) => setUpdateText(e.target.value)}
-                  placeholder={isExtracting && updateProgress.step && !updateProgress.error ? `${updateProgress.step}...` : "Paste any updated trip information here..."}
-                  className="w-full min-h-[51px] h-[51px] px-3 py-2 pr-12 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
+                  placeholder={isExtracting && updateProgress.step && !updateProgress.error ? `${updateProgress.step}...` : "Any changes to this trip?"}
+                  className="w-full min-h-[51px] h-[51px] px-3 py-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
                   disabled={isExtracting || isRegenerating}
                   />
-                  <button
-                    onClick={handleExtractUpdates}
-                    disabled={!updateText.trim() || isExtracting || isRegenerating}
-                    className={`absolute right-3 top-[13px] p-1 rounded-md transition-all ${
-                      updateText.trim() && !isExtracting
-                        ? 'hover:bg-muted/50 opacity-100' 
-                        : 'opacity-30 cursor-not-allowed'
-                    }`}
-                    aria-label="Update trip"
-                    type="button"
-                  >
-                    {isExtracting ? (
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                    ) : (
-                      <img 
-                        src="/update-dark.png"
-                        alt="Update" 
-                        className="w-4 h-4 dark:invert"
-                      />
-                    )}
-                  </button>
                 </div>
                 
                 <div className="flex items-center gap-3 flex-shrink-0">
                 {/* Update Trip Button */}
                 <Button
                   variant="default"
-                  className="flex items-center gap-2 h-[51px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                  className="flex items-center gap-2 h-[51px] bg-[#E5E7EF] text-[#05060A] hover:bg-[#E5E7EF]/90"
                   onClick={handleExtractUpdates}
                   disabled={!updateText.trim() || isExtracting || isRegenerating}
                 >
@@ -4733,14 +4821,14 @@ export default function ResultsPage() {
                       Updating...
                     </>
                   ) : (
-                    'Update trip'
+                    'Update'
                   )}
                 </Button>
                 
                 {/* Edit Route Button */}
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2 h-[51px] bg-input/30 border-input hover:bg-[#323236] text-white dark:bg-background dark:border-border dark:hover:bg-accent dark:text-foreground"
+                  className="flex items-center gap-2 h-[51px] bg-[#161820] border-[#E5E7EF]/20 hover:bg-[#E5E7EF]/10 text-[#F4F2EE]"
                   onClick={() => {
                     // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
                     setEditingLocations(locations.map((loc, idx) => ({
@@ -4757,7 +4845,7 @@ export default function ResultsPage() {
                     setShowEditRouteModal(true);
                   }}
                 >
-                  Edit route
+                  Go to manual
                 </Button>
                 </div>
                 
@@ -5162,7 +5250,7 @@ export default function ResultsPage() {
                         )}
                         
                         {/* Vehicle Image and Info - Bottom */}
-                        <div className="flex gap-6 items-end mt-8 -mb-2">
+                        <div className="flex gap-6 items-center mt-8 -mb-2">
                           {/* Vehicle Image on the left */}
                           <img 
                             src="/sedan-driverbrief.svg" 
@@ -5301,17 +5389,22 @@ export default function ResultsPage() {
                       const tripDateTime = new Date(tripDate);
                       const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
                       const isLiveTripActive = now >= oneHourBefore;
+                      const tripCompleted = isTripCompleted();
                       
                       return (
                         <Button
-                          variant={isLiveTripActive ? "default" : "outline"}
+                          variant={tripCompleted ? "outline" : (isLiveTripActive ? "default" : "outline")}
                           size="sm"
+                          disabled={tripCompleted}
                           className={`flex items-center gap-2 ${
-                            isLiveTripActive 
-                              ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]' 
-                              : ''
+                            tripCompleted
+                              ? 'opacity-50 cursor-not-allowed'
+                              : isLiveTripActive 
+                                ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]' 
+                                : ''
                           }`}
                           onClick={() => {
+                            if (tripCompleted) return;
                             if (isLiveMode) {
                               stopLiveTrip();
                             } else {
@@ -5319,7 +5412,11 @@ export default function ResultsPage() {
                             }
                           }}
                         >
-                          {isLiveTripActive ? (
+                          {tripCompleted ? (
+                            <>
+                              <span>Completed</span>
+                            </>
+                          ) : isLiveTripActive ? (
                             <>
                               <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
                               <span>
@@ -5377,7 +5474,7 @@ export default function ResultsPage() {
                 {locations.map((location: any, index: number) => (
                   <div key={location.id || index} id={`location-${index}`} className="flex items-start gap-3 relative z-10">
                     <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
-                      (isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)
+                      !isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index))
                         ? 'animate-live-pulse text-white' 
                         : 'bg-primary text-primary-foreground'
                     }`}>
@@ -5390,7 +5487,7 @@ export default function ResultsPage() {
                             {index === 0 ? 'Pickup' : 
                              index === locations.length - 1 ? 'Drop-off' : 
                              'Resume at'}
-                            {((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
+                            {!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
                               <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
                                 LIVE
                               </span>
@@ -5472,31 +5569,7 @@ export default function ResultsPage() {
             </Card>
           )}
 
-          {/* Exceptional Information */}
-          {!isLiveMode && executiveReport?.exceptionalInformation && (
-            <Card className="mb-6 shadow-none bg-[#9e2622] dark:bg-[#9e2622] border-[#9e2622] dark:border-[#9e2622]">
-                <CardContent className="px-3 py-1 pl-6">
-                  <div className="mb-3">
-                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="#f60000">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      Protocol alerts
-                    </h3>
-                  </div>
-                  <div className="text-lg leading-snug text-white/95">
-                    {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
-                      <div key={index} className="flex items-start gap-2 mb-0.5">
-                        <span className="text-white mt-0.5">-</span>
-                        <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-          )}
-
-              {/* Important Information */}
+          {/* Important Information */}
           {!isLiveMode && executiveReport?.importantInformation && (
             <Card className="mb-6 shadow-none">
               <CardContent className="px-3 py-1 pl-6">
@@ -5518,6 +5591,30 @@ export default function ResultsPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Exceptional Information */}
+          {!isLiveMode && executiveReport?.exceptionalInformation && (
+            <Card className="mb-6 shadow-none bg-[#9e2622] dark:bg-[#9e2622] border-[#9e2622] dark:border-[#9e2622]">
+                <CardContent className="px-3 py-1 pl-6">
+                  <div className="mb-3">
+                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="#f60000">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Important remarks
+                    </h3>
+                  </div>
+                  <div className="text-lg leading-snug text-white/95">
+                    {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
+                      <div key={index} className="flex items-start gap-2 mb-0.5">
+                        <span className="text-white mt-0.5">-</span>
+                        <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
           )}
 
           {/* Risk Score and Recommendations */}
@@ -5568,8 +5665,8 @@ export default function ResultsPage() {
                         </CardContent>
                       </Card>
                       
-                      {/* Top Disruptor - 66% width */}
-                      <Card className="bg-primary dark:bg-[#1f1f21] w-2/3 flex-shrink-0">
+                      {/* Top Disruptor - fills remaining space */}
+                      <Card className="bg-primary dark:bg-[#1f1f21] flex-1">
                         <CardContent className="px-3 py-1 pl-6">
                           <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-3">
                             Top Disruptor
@@ -8029,13 +8126,147 @@ export default function ResultsPage() {
       <Dialog open={showEditRouteModal} onOpenChange={setShowEditRouteModal}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Route</DialogTitle>
-            <DialogDescription>
-              Update locations and times. Trip notes and other details will be preserved.
-            </DialogDescription>
+            <div className="flex items-center justify-between mb-4">
+              <DialogTitle>Manual Form</DialogTitle>
+              <Button
+                onClick={() => setShowEditRouteModal(false)}
+                variant="outline"
+                size="sm"
+              >
+                ← Back
+              </Button>
+            </div>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+            {/* Trip Date and Trip Destination */}
+            <div className="hidden rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
+              {/* Unified Grid for All Trip Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+                {/* Trip Date - spans 2 columns */}
+                <div className="sm:col-span-2">
+                  <label htmlFor="tripDate" className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
+                    Trip date
+                  </label>
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        id="tripDate"
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-background",
+                          !tripData?.tripDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {tripData?.tripDate ? format(new Date(tripData.tripDate), "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={tripData?.tripDate ? new Date(tripData.tripDate) : undefined}
+                        onSelect={(date) => {
+                          if (tripData && date) {
+                            setTripData({ ...tripData, tripDate: date.toISOString().split('T')[0] });
+                            setDatePickerOpen(false);
+                          }
+                        }}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
+                        defaultMonth={new Date()}
+                        showOutsideDays={false}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Trip Destination - spans 2 columns */}
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
+                    Trip destination
+                  </label>
+                  <Select
+                    value={tripDestination || ''}
+                    onValueChange={(value) => {
+                      if (isValidTripDestination(value)) {
+                        setTripDestination(value);
+                      } else {
+                        console.error(`Invalid trip destination: "${value}"`);
+                        // Silently reject invalid destinations
+                      }
+                    }}
+                    disabled={loadingDestinations}
+                  >
+                    <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
+                      <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select destination"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Default city options */}
+                      <SelectItem key="London" value="London">
+                        London
+                      </SelectItem>
+                      <SelectItem key="New York" value="New York">
+                        New York
+                      </SelectItem>
+                      
+                      {/* Database destinations (exclude default cities, filter by whitelist) */}
+                      {availableDestinations
+                        .filter(dest => !['London', 'New York'].includes(dest))
+                        .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
+                        .map((destination) => (
+                          <SelectItem key={destination} value={destination}>
+                            {destination}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Lead Passenger Name - spans 2 columns */}
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
+                    Lead passenger name
+                  </label>
+                  <Input
+                    value={leadPassengerName}
+                    onChange={(e) => setLeadPassengerName(e.target.value)}
+                    placeholder="e.g., Mr. Smith"
+                    className="bg-background border-border rounded-md h-9 text-foreground"
+                  />
+                </div>
+
+                {/* Number of Passengers - spans 1 column */}
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
+                    Number of Passengers
+                  </label>
+                  <PassengerPicker
+                    value={passengerCount}
+                    onChange={(count) => setPassengerCount(count)}
+                    className="h-9"
+                  />
+                </div>
+
+                {/* Vehicle - spans 1 column */}
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
+                    Vehicle
+                  </label>
+                  <Input
+                    value={vehicleInfo}
+                    onChange={(e) => setVehicleInfo(e.target.value)}
+                    placeholder="e.g., Mercedes S-Class"
+                    className="bg-background border-border rounded-md h-9 text-foreground"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Sortable Location Cards */}
             <DndContext
               sensors={editRouteSensors}
@@ -8075,16 +8306,31 @@ export default function ResultsPage() {
             </DndContext>
             
             {/* Add Location Button */}
-            <Button
-              onClick={handleAddEditLocation}
-              variant="outline"
-              className="w-full"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add location
-            </Button>
+            <div className="mt-4">
+              <Button
+                onClick={handleAddEditLocation}
+                variant="outline"
+                size="lg"
+                className="border-dashed"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Location
+              </Button>
+            </div>
+
+            {/* Trip Notes Field */}
+            <div className="mt-8 mb-4 rounded-md p-4 bg-primary dark:bg-[#1f1f21] border border-border">
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">Trip Notes</label>
+              <textarea
+                value={editedDriverNotes || ''}
+                onChange={(e) => setEditedDriverNotes(e.target.value)}
+                placeholder="Additional notes, contact info, special instructions, etc."
+                rows={6}
+                className="w-full bg-background dark:bg-input/30 border-border rounded-md p-2 text-sm text-foreground dark:hover:bg-[#323236] transition-colors border resize-y focus:outline-none focus-visible:border-ring dark:focus-visible:border-[#323236]"
+              />
+            </div>
           </div>
           
           <DialogFooter>

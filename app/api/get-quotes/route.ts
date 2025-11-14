@@ -3,10 +3,12 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { tripId, driverEmail } = await request.json();
+    const body = await request.json();
+    const { tripId, driverEmail } = body;
 
     // Validate required fields
     if (!tripId) {
+      console.error('❌ Missing tripId in request body');
       return NextResponse.json(
         { success: false, error: 'Trip ID is required' },
         { status: 400 }
@@ -31,9 +33,15 @@ export async function POST(request: NextRequest) {
     const { data: quotes, error: quotesError } = await query.order('created_at', { ascending: false });
 
     if (quotesError) {
-      console.error('❌ Error fetching quotes:', quotesError);
+      console.error('❌ Error fetching quotes from Supabase:', quotesError);
+      console.error('   Error details:', JSON.stringify(quotesError, null, 2));
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch quotes', quotes: [] },
+        { 
+          success: false, 
+          error: quotesError.message || 'Failed to fetch quotes',
+          details: quotesError.details || null,
+          quotes: [] 
+        },
         { status: 500 }
       );
     }
@@ -45,8 +53,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('❌ Error in get-quotes API:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('   Error stack:', errorStack);
     return NextResponse.json(
-      { success: false, error: 'Internal server error', quotes: [] },
+      { 
+        success: false, 
+        error: errorMessage || 'Internal server error',
+        quotes: [] 
+      },
       { status: 500 }
     );
   }

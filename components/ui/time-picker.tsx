@@ -64,18 +64,25 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(newOpen) => {
+      console.log('🔄 [TimePicker] Popover state change:', newOpen, 'value:', value);
+      setOpen(newOpen);
+    }}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           id={id}
-          className={cn("w-full justify-start text-left font-normal bg-white", className)}
+          className={cn("w-full justify-start text-left font-normal bg-background", className)}
+          onClick={(e) => {
+            console.log('🖱️ [TimePicker] Button clicked, current open state:', open, 'value:', value);
+            // Don't prevent default, let PopoverTrigger handle it
+          }}
         >
           <Clock className="mr-2 h-4 w-4" />
           {value ? getDisplayValue() : <span>Select time</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="start">
+      <PopoverContent className="w-auto p-4 z-[100]" align="start">
         <div className="flex flex-col gap-4">
           <div className="flex gap-3">
             {/* Hour Selector */}
@@ -85,7 +92,7 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
                 <SelectTrigger className="w-20">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
+                <SelectContent className="max-h-[200px] z-[110]">
                   {hours.map((h) => (
                     <SelectItem key={h.value} value={h.value}>
                       {h.label}
@@ -102,7 +109,7 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
                 <SelectTrigger className="w-20">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
+                <SelectContent className="max-h-[200px] z-[110]">
                   {minutes.map((m) => (
                     <SelectItem key={m.value} value={m.value}>
                       {m.label}
@@ -112,15 +119,6 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
               </Select>
             </div>
           </div>
-          
-          {/* Confirm Button */}
-          <Button 
-            onClick={() => setOpen(false)}
-            className="w-full"
-            size="sm"
-          >
-            Confirm
-          </Button>
         </div>
       </PopoverContent>
     </Popover>

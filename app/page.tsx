@@ -27,7 +27,7 @@ import { supabase } from '@/lib/supabase';
 import { validateBusinessEmail } from '@/lib/email-validation';
 import { useAuth } from '@/lib/auth-context';
 import { useHomepageContext } from '@/lib/homepage-context';
-import { getCityConfig, createMockResponse, MOCK_DATA } from '@/lib/city-helpers';
+import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination } from '@/lib/city-helpers';
 import {
   DndContext,
   closestCenter,
@@ -454,6 +454,33 @@ function SortableExtractedLocationItem({
     return 'Resume at';
   };
 
+  // Check if location is non-specific (just city name or matches tripDestination)
+  // Google Maps always provides coordinates, even for vague locations (returns city center coordinates)
+  // So we check if the location text matches only the city name pattern
+  const isNonSpecificLocation = () => {
+    if (!tripDestination) return false;
+    
+    const locationText = (location.formattedAddress || location.location || '').toLowerCase().trim();
+    const destinationText = tripDestination.toLowerCase().trim();
+    
+    // Check if location matches trip destination exactly (city name only)
+    if (locationText === destinationText) return true;
+    
+    // Check if location is just the city name with optional country suffix
+    // Handles formats like: "London UK", "London, UK", "london uk", "London, United Kingdom", etc.
+    // Pattern: city name + optional space/comma + optional country code/name
+    // When location is vague, Google Maps returns city center coordinates, so we detect by text pattern
+    const cityOnlyPattern = new RegExp(`^${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*,\\s*|\\s+)?(uk|usa|us|united\\s+kingdom|united\\s+states)?$`, 'i');
+    
+    if (cityOnlyPattern.test(locationText)) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  const hasNonSpecificLocation = isNonSpecificLocation();
+
   return (
     <div
       ref={setNodeRef}
@@ -510,7 +537,11 @@ function SortableExtractedLocationItem({
                 </div>
               ) : (
                 <div 
-                  className="relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
+                  className={`relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border bg-background transition-colors ${
+                    hasNonSpecificLocation 
+                      ? 'border-destructive border-2' 
+                      : 'border-input'
+                  }`}
                   onClick={() => onEditStart(index, 'location')}
                 >
                   <div className="flex items-start gap-3">
@@ -518,28 +549,41 @@ function SortableExtractedLocationItem({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <div className="flex-1 min-w-0 flex items-center gap-2">
-                      {(() => {
-                        const fullAddr = location.formattedAddress || location.location;
-                        const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
-                        
-                        return (
-                          <>
-                            <div className="text-sm font-semibold text-card-foreground truncate flex-shrink-0">
-                              {businessName || location.location}
-                            </div>
-                            {restOfAddress && (
-                              <div className="text-xs text-muted-foreground truncate">
-                                {restOfAddress}
+                      {hasNonSpecificLocation ? (
+                        <div className="text-sm text-card-foreground">
+                          Not specified
+                        </div>
+                      ) : (
+                        (() => {
+                          const fullAddr = location.formattedAddress || location.location;
+                          const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                          
+                          return (
+                            <>
+                              <div className="text-sm font-semibold text-card-foreground truncate flex-shrink-0">
+                                {businessName || location.location}
                               </div>
-                            )}
-                          </>
-                        );
-                      })()}
+                              {restOfAddress && (
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {restOfAddress}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()
+                      )}
                     </div>
-                    {location.verified && (
-                      <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    {hasNonSpecificLocation ? (
+                      <svg className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 9l-6 6M9 9l6 6" />
                       </svg>
+                    ) : (
+                      location.verified && (
+                        <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )
                     )}
                   </div>
                 </div>
@@ -926,8 +970,15 @@ export default function Home() {
         const response = await fetch('/api/trip-destinations');
         const data = await safeJsonParse(response);
         if (data.success !== false && data.destinations) {
-          setAvailableDestinations(data.destinations || []);
-          console.log('✅ Loaded trip destinations:', data.destinations);
+          // Double-check: filter by whitelist on client side too (defense in depth)
+          const filteredDestinations = (data.destinations || []).filter((dest: string) => 
+            isValidTripDestination(dest)
+          );
+          setAvailableDestinations(filteredDestinations);
+          console.log('✅ Loaded trip destinations:', filteredDestinations);
+          if (data.destinations.length !== filteredDestinations.length) {
+            console.warn('⚠️ Filtered out invalid destinations from API response');
+          }
         } else {
           console.error('❌ Failed to fetch trip destinations');
         }
@@ -1253,10 +1304,21 @@ export default function Home() {
         return;
       }
 
-      // Update pending trip data with the actual email
+      // Validate and normalize trip destination before saving
+      if (pendingTripData?.trip_destination && !isValidTripDestination(pendingTripData.trip_destination)) {
+        console.error('❌ Invalid trip destination in pending trip:', pendingTripData.trip_destination);
+        setError(`Invalid trip destination: "${pendingTripData.trip_destination}". Please select from the allowed destinations.`);
+        return;
+      }
+
+      // Normalize destination
+      const normalizedDestination = normalizeTripDestination(pendingTripData?.trip_destination);
+
+      // Update pending trip data with the actual email and normalized destination
       const tripDataWithEmail = {
         ...pendingTripData,
         user_email: userEmail.trim(),
+        trip_destination: normalizedDestination,
       };
 
       // Save user to database
@@ -1730,6 +1792,17 @@ export default function Home() {
         passengerNameForDb = leadPassengerName;
       }
 
+      // Validate and normalize trip destination before saving
+      if (tripDestination && !isValidTripDestination(tripDestination)) {
+        console.error('❌ Invalid trip destination:', tripDestination);
+        setError(`Invalid trip destination: "${tripDestination}". Please select from the allowed destinations.`);
+        setLoadingTrip(false);
+        return;
+      }
+
+      // Normalize destination (ensures only whitelisted values are saved)
+      const normalizedDestination = normalizeTripDestination(tripDestination);
+
       // Prepare trip data
       const tripInsertData: any = {
         user_email: emailToUse,
@@ -1742,7 +1815,7 @@ export default function Home() {
         lead_passenger_name: passengerNameForDb,
         vehicle: vehicleInfo || null,
         passenger_count: passengerCount || 1,
-        trip_destination: tripDestination || null,
+        trip_destination: normalizedDestination,
         password: shouldProtectWithPassword ? generatePassword() : null
       };
       
@@ -2512,7 +2585,7 @@ export default function Home() {
                alt="Chauffs" 
                className="mx-auto h-7 w-auto mb-12"
              />
-             <p className="text-5xl font-light text-[#05060A] dark:text-[#F4F2EE]">
+             <p className="text-5xl font-light text-[#05060A] dark:text-white">
                Your private driver is here.
              </p>
            </div>
@@ -2708,7 +2781,7 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <h2 className="text-xl font-medium text-card-foreground">
-                      Route Proposal
+                      Route review
                     </h2>
                   </div>
                   <Button
@@ -2753,26 +2826,30 @@ export default function Home() {
                       <Select
                         value={tripDestination || ''}
                         onValueChange={(value) => {
-                          setTripDestination(value);
-                          if (typeof window !== 'undefined' && extractedLocations) {
-                            sessionStorage.setItem('extractedTripData', JSON.stringify({
-                              text: extractionText,
-                              locations: extractedLocations,
-                              date: extractedDate,
-                              driverSummary: extractedDriverSummary,
-                              leadPassengerName: leadPassengerName,
-                              vehicleInfo: vehicleInfo,
-                              passengerCount: passengerCount,
-                              tripDestination: value,
-                              passengerNames: passengerNames,
-                              timestamp: new Date().toISOString(),
-                            }));
+                          if (isValidTripDestination(value)) {
+                            setTripDestination(value);
+                            if (typeof window !== 'undefined' && extractedLocations) {
+                              sessionStorage.setItem('extractedTripData', JSON.stringify({
+                                text: extractionText,
+                                locations: extractedLocations,
+                                date: extractedDate,
+                                driverSummary: extractedDriverSummary,
+                                leadPassengerName: leadPassengerName,
+                                vehicleInfo: vehicleInfo,
+                                passengerCount: passengerCount,
+                                tripDestination: value,
+                                passengerNames: passengerNames,
+                                timestamp: new Date().toISOString(),
+                              }));
+                            }
+                          } else {
+                            setExtractionError(`"${value}" is not an allowed destination. Please select from the list.`);
                           }
                         }}
                         disabled={loadingDestinations}
                       >
                         <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
-                          <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select or enter destination"} />
+                          <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select destination"} />
                         </SelectTrigger>
                         <SelectContent>
                           {/* Default city options */}
@@ -2783,9 +2860,10 @@ export default function Home() {
                             New York
                           </SelectItem>
                           
-                          {/* Database destinations (exclude default cities) */}
+                          {/* Database destinations (exclude default cities, filter by whitelist) */}
                           {availableDestinations
                             .filter(dest => !['London', 'New York'].includes(dest))
+                            .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
                             .map((destination) => (
                               <SelectItem key={destination} value={destination}>
                                 {destination}
@@ -2996,7 +3074,7 @@ export default function Home() {
                   />
                 </div>
 
-                {/* Create Brief Button */}
+                {/* Create brief Button */}
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Button
                     onClick={handleExtractedTripSubmit}
@@ -3013,12 +3091,7 @@ export default function Home() {
                         <span>Analyzing...</span>
                       </>
                     ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                        Create brief
-                      </>
+                      <>Create brief</>
                     )}
                   </Button>
 
@@ -3118,7 +3191,13 @@ export default function Home() {
                 </label>
                 <Select
                   value={tripDestination || ''}
-                  onValueChange={(value) => setTripDestination(value)}
+                  onValueChange={(value) => {
+                    if (isValidTripDestination(value)) {
+                      setTripDestination(value);
+                    } else {
+                      setError(`"${value}" is not an allowed destination. Please select from the list.`);
+                    }
+                  }}
                   disabled={loadingDestinations}
                 >
                   <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
@@ -3133,9 +3212,10 @@ export default function Home() {
                       New York
                     </SelectItem>
                     
-                    {/* Database destinations (exclude default cities) */}
+                    {/* Database destinations (exclude default cities, filter by whitelist) */}
                     {availableDestinations
                       .filter(dest => !['London', 'New York'].includes(dest))
+                      .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
                       .map((destination) => (
                         <SelectItem key={destination} value={destination}>
                           {destination}
@@ -3270,7 +3350,7 @@ export default function Home() {
             />
           </div>
 
-           {/* Create Brief & View Map Buttons */}
+           {/* Create brief & View Map Buttons */}
            <div className="flex flex-wrap items-center gap-3">
              <Button
                onClick={handleTripSubmit}
@@ -3288,12 +3368,7 @@ export default function Home() {
                   <span>Analyzing...</span>
                 </>
               ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                  </svg>
-                  Create Brief
-                </>
+                <>Create brief</>
               )}
             </Button>
 
@@ -3381,20 +3456,18 @@ export default function Home() {
                   </div>
 
                   {/* Steps List - Carousel View or Completion View */}
-                  <div className="relative h-[200px] overflow-hidden">
+                  <div className="relative h-[200px] overflow-hidden flex items-center justify-center">
         {loadingProgress >= 100 ? (
           // Completion View - For guests: show email field and button. For authenticated: show message
-          <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
+          <div className="w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
             {isAuthenticated ? (
-              // Authenticated users: Show redirect message
-              <div className="text-center">
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <svg className="animate-spin h-12 w-12 text-muted-foreground" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                      <h3 className="text-lg font-semibold text-card-foreground">Redirecting</h3>
-                </div>
+              // Authenticated users: Show redirect message - positioned a bit lower in the container
+              <div className="flex flex-col items-center justify-center gap-3 mt-8">
+                <svg className="animate-spin h-12 w-12 text-muted-foreground" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <h3 className="text-lg font-semibold text-card-foreground">Redirecting to brief</h3>
               </div>
             ) : (
               // Guest users: Show email field and View Report button

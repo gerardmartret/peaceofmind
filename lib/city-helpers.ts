@@ -4,6 +4,38 @@
 export const LONDON_IDENTIFIER = 'London';
 
 /**
+ * Whitelist of allowed trip destinations
+ * Only destinations in this list can be saved to the database
+ */
+export const ALLOWED_TRIP_DESTINATIONS = [
+  'London',
+  'New York',
+  // Add more approved destinations here as needed
+] as const;
+
+export type AllowedDestination = typeof ALLOWED_TRIP_DESTINATIONS[number];
+
+/**
+ * Validates if a trip destination is in the allowed whitelist
+ * @param destination - The trip destination to validate
+ * @returns true if destination is allowed, false otherwise
+ */
+export function isValidTripDestination(destination: string | null | undefined): boolean {
+  if (!destination) return true; // null/undefined is allowed (defaults to London)
+  return ALLOWED_TRIP_DESTINATIONS.includes(destination as AllowedDestination);
+}
+
+/**
+ * Gets the normalized destination (validates and returns allowed value or null)
+ * @param destination - The trip destination to normalize
+ * @returns Valid destination or null if invalid
+ */
+export function normalizeTripDestination(destination: string | null | undefined): string | null {
+  if (!destination) return null;
+  return isValidTripDestination(destination) ? destination : null;
+}
+
+/**
  * Determines if the trip is for London
  * @param tripDestination - The trip destination city
  * @returns true if London or undefined/null (default to London for backward compatibility)
