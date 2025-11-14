@@ -121,6 +121,15 @@ interface SortableEditLocationItemProps {
   tripDestination?: string;
 }
 
+// Helper function to capitalize first letter of each word
+const capitalizeWords = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 // Helper function to convert time to HH:MM format for TimePicker
 const formatTimeForPicker = (time: string | number | undefined): string => {
   if (!time && time !== 0) {
@@ -239,7 +248,18 @@ function SortableEditLocationItem({
             {editingIndex === index && editingField === 'location' ? (
               <div className="editing-location" data-editing="true">
                 <GoogleLocationSearch
-                  currentLocation={`${location.location} - ${location.formattedAddress || location.location}`}
+                  currentLocation={(() => {
+                    const loc = location.location?.trim() || '';
+                    const addr = location.formattedAddress?.trim() || '';
+                    if (loc && addr && loc !== addr) {
+                      return `${loc} - ${addr}`;
+                    } else if (loc) {
+                      return loc;
+                    } else if (addr) {
+                      return addr;
+                    }
+                    return '';
+                  })()}
                   tripDestination={tripDestination}
                   onLocationSelect={(loc) => {
                     onLocationSelect(index, loc);
@@ -544,6 +564,136 @@ export default function ResultsPage() {
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const updateTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [regenerationProgress, setRegenerationProgress] = useState<number>(0);
+  const regenerationProgressRef = useRef<number>(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const continuousAnimationRef = useRef<{ startTime: number; totalDuration: number } | null>(null);
+  
+  // Continuous progress animation that runs for a fixed duration (50 seconds for updates)
+  // Uses variable speed with faster and slower moments
+  const startContinuousProgress = useCallback((totalDuration: number = 50000) => {
+    // Cancel any existing animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    // Reset progress
+    regenerationProgressRef.current = 0;
+    setRegenerationProgress(0);
+    
+    // Start continuous animation
+    const startTime = Date.now();
+    continuousAnimationRef.current = { startTime, totalDuration };
+    
+    // Custom easing function that creates variable speed (faster and slower moments)
+    // Starts fast, then alternates between faster and slower moments
+    const variableSpeedEase = (t: number): number => {
+      // Clamp t between 0 and 1
+      t = Math.max(0, Math.min(1, t));
+      
+      // Create variable speed pattern:
+      // 0-20%: Fast start (quick acceleration)
+      // 20-40%: Slow down (slower moment)
+      // 40-60%: Speed up (faster moment)
+      // 60-75%: Slow down (slower moment)
+      // 75-90%: Speed up (faster moment)
+      // 90-100%: Slow finish (ease-out)
+      
+      if (t < 0.20) {
+        // Fast start - quick acceleration
+        const localT = t / 0.20;
+        return 0.25 * (1 - Math.pow(1 - localT, 2));
+      } else if (t < 0.40) {
+        // Slow down - slower moment
+        const localT = (t - 0.20) / 0.20;
+        return 0.25 + 0.15 * localT;
+      } else if (t < 0.60) {
+        // Speed up - faster moment
+        const localT = (t - 0.40) / 0.20;
+        return 0.40 + 0.20 * (localT * localT * (3 - 2 * localT));
+      } else if (t < 0.75) {
+        // Slow down - slower moment
+        const localT = (t - 0.60) / 0.15;
+        return 0.60 + 0.10 * localT;
+      } else if (t < 0.90) {
+        // Speed up - faster moment
+        const localT = (t - 0.75) / 0.15;
+        return 0.70 + 0.15 * (localT * localT * (3 - 2 * localT));
+      } else {
+        // Slow finish - ease-out
+        const localT = (t - 0.90) / 0.10;
+        return 0.85 + 0.15 * (1 - Math.pow(1 - localT, 2));
+      }
+    };
+    
+    const animate = () => {
+      if (!continuousAnimationRef.current) {
+        return;
+      }
+      
+      const elapsed = Date.now() - continuousAnimationRef.current.startTime;
+      const rawProgress = Math.min(elapsed / continuousAnimationRef.current.totalDuration, 1);
+      
+      // Apply variable speed easing
+      const easedProgress = variableSpeedEase(rawProgress);
+      const currentProgress = easedProgress * 100;
+      
+      regenerationProgressRef.current = currentProgress;
+      setRegenerationProgress(currentProgress);
+      
+      if (rawProgress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        // Ensure we end at exactly 100%
+        regenerationProgressRef.current = 100;
+        setRegenerationProgress(100);
+        // Animation complete
+        continuousAnimationRef.current = null;
+      }
+    };
+    
+    animate();
+  }, []);
+  
+  // Stop continuous animation
+  const stopContinuousProgress = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    continuousAnimationRef.current = null;
+  }, []);
+  
+  // Smooth progress animation helper (matching home page) - kept for compatibility but not used in update flow
+  const animateProgress = useCallback((targetProgress: number, duration: number = 800) => {
+    const startProgress = regenerationProgressRef.current;
+    const startTime = Date.now();
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Ease in-out curve for smooth animation (matching home page)
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      
+      const currentProgress = startProgress + (targetProgress - startProgress) * eased;
+      regenerationProgressRef.current = currentProgress;
+      setRegenerationProgress(currentProgress);
+      
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+    
+    // Cancel any existing animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    animate();
+  }, []);
+  
   const [regenerationStep, setRegenerationStep] = useState<string>('');
   const [regenerationSteps, setRegenerationSteps] = useState<Array<{
     id: string;
@@ -1243,8 +1393,21 @@ export default function ResultsPage() {
       
       setShowEditRouteModal(false);
       setIsRegenerating(true);
-      setRegenerationProgress(0);
-      setRegenerationStep('Preparing to regenerate route...');
+      setError(null);
+      setUpdateProgress({ step: '', error: null, canRetry: false });
+      
+      // Start continuous 50-second progress animation
+      startContinuousProgress(50000);
+      
+      // Unified steps array for manual form regeneration
+      const unifiedSteps = [
+        { id: '1', title: 'Preparing Locations', description: 'Validating and geocoding locations', source: 'Google Maps', status: 'loading' as const },
+        { id: '2', title: 'Fetching Location Data', description: 'Gathering crime, weather, disruptions', source: 'Multiple APIs', status: 'pending' as const },
+        { id: '3', title: 'Traffic Analysis', description: 'Calculating real-time predictions', source: 'Google Maps', status: 'pending' as const },
+        { id: '4', title: 'Executive Report', description: 'Generating AI-powered analysis', source: 'OpenAI', status: 'pending' as const },
+        { id: '5', title: 'Saving Report', description: 'Updating database', source: 'Supabase', status: 'pending' as const },
+      ];
+      setRegenerationSteps(unifiedSteps);
       
       // Call the existing regeneration logic (reuse from lines ~2660)
       const tripDateStr = tripDate;
@@ -1256,7 +1419,17 @@ export default function ResultsPage() {
       const cityConfig = getCityConfig(tripDestination);
       console.log(`🌍 [EDIT-ROUTE] City: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
       
-      setRegenerationProgress(40);
+      // Step 1 complete - show green circle for a bit before moving to next step
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '1' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '2' ? { ...s, status: 'loading' as const } : s
+      ));
       setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
       
       // Fetch data for all locations (same as existing regeneration logic)
@@ -1358,7 +1531,17 @@ export default function ResultsPage() {
         })
       );
       
-      setRegenerationProgress(70);
+      // Step 2 complete - show green circle for a bit before moving to next step
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '2' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '3' ? { ...s, status: 'loading' as const } : s
+      ));
       setRegenerationStep('Calculating traffic predictions...');
       
       // Get traffic predictions
@@ -1373,7 +1556,17 @@ export default function ResultsPage() {
         tripDateStr
       );
       
-      setRegenerationProgress(90);
+      // Step 3 complete - show green circle for a bit before moving to next step
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '3' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '4' ? { ...s, status: 'loading' as const } : s
+      ));
       setRegenerationStep('Generating executive report...');
       
       // Generate executive report
@@ -1402,6 +1595,19 @@ export default function ResultsPage() {
         throw new Error('Failed to generate executive report');
       }
       
+      // Step 4 complete - show green circle for a bit before moving to next step
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '4' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
+        s.id === '5' ? { ...s, status: 'loading' as const } : s
+      ));
+      setRegenerationStep('Saving updated report...');
+      
       // Update database with new locations (preserve notes and other fields)
       const { error: updateError } = await supabase
         .from('trips')
@@ -1422,12 +1628,59 @@ export default function ResultsPage() {
       
       console.log('✅ [EDIT-ROUTE] Route updated successfully!');
       
-      // Reload page to show updated data
-      window.location.reload();
+      // Wait for animation to complete (50 seconds total) before showing completion
+      const waitForAnimation = () => {
+        if (continuousAnimationRef.current) {
+          const elapsed = Date.now() - continuousAnimationRef.current.startTime;
+          const remaining = continuousAnimationRef.current.totalDuration - elapsed;
+          
+          if (remaining > 0) {
+            // Animation still running, wait for it to complete
+            setTimeout(() => {
+              regenerationProgressRef.current = 100;
+              setRegenerationProgress(100);
+              stopContinuousProgress();
+              setRegenerationStep('Update complete!');
+              setRegenerationSteps(prev => prev.map(s => s.id === '5' ? { ...s, status: 'completed' as const } : s));
+              
+              // Small delay to show completion, then reload
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            }, remaining);
+          } else {
+            // Animation already complete
+            regenerationProgressRef.current = 100;
+            setRegenerationProgress(100);
+            stopContinuousProgress();
+            setRegenerationStep('Update complete!');
+            setRegenerationSteps(prev => prev.map(s => s.id === '5' ? { ...s, status: 'completed' as const } : s));
+            
+            // Small delay to show completion, then reload
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          }
+        } else {
+          // Animation stopped (shouldn't happen), just show completion and reload
+          regenerationProgressRef.current = 100;
+          setRegenerationProgress(100);
+          setRegenerationStep('Update complete!');
+          setRegenerationSteps(prev => prev.map(s => s.id === '5' ? { ...s, status: 'completed' as const } : s));
+          
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        }
+      };
+      
+      waitForAnimation();
       
     } catch (error) {
       console.error('❌ [EDIT-ROUTE] Error saving route edits:', error);
+      stopContinuousProgress();
       setIsRegenerating(false);
+      setError(error instanceof Error ? error.message : 'Failed to update route. Please try again.');
       alert('Failed to update route. Please try again.');
     }
   };
@@ -3069,7 +3322,9 @@ export default function ResultsPage() {
     setIsExtracting(false); // Keep for compatibility but use isRegenerating as primary
     setError(null);
     setUpdateProgress({ step: '', error: null, canRetry: false });
-    setRegenerationProgress(0);
+    
+    // Start continuous 50-second progress animation
+    startContinuousProgress(50000);
     
     // Unified steps array covering extraction → comparison → regeneration
     const unifiedSteps = [
@@ -3089,7 +3344,6 @@ export default function ResultsPage() {
       
       // Step 1: Extract updates from text
       setUpdateProgress({ step: 'Extracting trip data', error: null, canRetry: false });
-      setRegenerationProgress(5);
       console.log('🔄 Step 1: Extracting updates from text...');
       
       const extractResponse = await fetch('/api/extract-trip', {
@@ -3112,15 +3366,21 @@ export default function ResultsPage() {
           error: 'Could not understand the update. Try rephrasing or breaking it into smaller pieces. For example: "Change pickup time to 3pm" or "Add stop at The Ritz Hotel"',
           canRetry: true,
         });
+        stopContinuousProgress();
         setIsRegenerating(false);
         setRegenerationSteps(prev => prev.map(s => s.id === '1' ? { ...s, status: 'error' as const } : s));
         return;
       }
 
-      // Step 1 complete
-      setRegenerationProgress(15);
+      // Step 1 complete - show green circle for a bit before moving to next step
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '1' ? { ...s, status: 'completed' as const } :
+        s.id === '1' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
         s.id === '2' ? { ...s, status: 'loading' as const } : s
       ));
 
@@ -3190,7 +3450,6 @@ export default function ResultsPage() {
       // Step 2: Intelligently compare with current state using AI
       if (tripData) {
         setUpdateProgress({ step: 'Comparing with current trip', error: null, canRetry: false });
-        setRegenerationProgress(20);
         console.log('🔄 [UPDATE] Step 2: Comparing updates...');
         console.log('📍 [UPDATE] Current:', tripData.locations.length, 'locations');
         console.log('📍 [UPDATE] Extracted:', extractedData.locations?.length || 0, 'locations');
@@ -3234,6 +3493,7 @@ export default function ResultsPage() {
             error: 'Could not match updates with current trip. This usually happens when location names are ambiguous. Try being more specific (e.g., "Change pickup at Gatwick to 3pm" instead of "Change time to 3pm")',
             canRetry: true,
           });
+          stopContinuousProgress();
           setIsRegenerating(false);
           setRegenerationSteps(prev => prev.map(s => s.id === '2' ? { ...s, status: 'error' as const } : s));
           return;
@@ -3244,15 +3504,20 @@ export default function ResultsPage() {
         
         // Transform AI comparison result to our diff format
         setUpdateProgress({ step: 'Preparing for regeneration', error: null, canRetry: false });
-        setRegenerationProgress(30);
         console.log('🔄 Step 3: Transforming comparison to regeneration format...');
         
         const diff = transformComparisonToDiff(compareResult.comparison, extractedData);
         setComparisonDiff(diff);
         
-        // Step 2 complete, continue directly to regeneration
+        // Step 2 complete - show green circle for a bit before moving to next step
         setRegenerationSteps(prev => prev.map(s => 
-          s.id === '2' ? { ...s, status: 'completed' as const } :
+          s.id === '2' ? { ...s, status: 'completed' as const } : s
+        ));
+        
+        // Wait 1 second before moving to next step
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setRegenerationSteps(prev => prev.map(s => 
           s.id === '3' ? { ...s, status: 'loading' as const } : s
         ));
         
@@ -3268,6 +3533,7 @@ export default function ResultsPage() {
         error: `Something went wrong during ${updateProgress.step || 'the update process'}. ${errorMessage}`,
         canRetry: true,
       });
+      stopContinuousProgress();
       setIsRegenerating(false);
     }
   };
@@ -3741,7 +4007,6 @@ export default function ResultsPage() {
 
       // Fetch data for all locations in parallel
       // Step 4 is already set to loading from handleRegenerateDirectly
-      setRegenerationProgress(55);
       setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
       const results = await Promise.all(
         validLocations.map(async (location) => {
@@ -3860,10 +4125,16 @@ export default function ResultsPage() {
       );
 
       // Get traffic predictions
-      setRegenerationProgress(70);
       setRegenerationStep('Calculating traffic predictions...');
+      // Step 4 complete - show green circle for a bit before moving to next step
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '4' ? { ...s, status: 'completed' as const } :
+        s.id === '4' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
         s.id === '5' ? { ...s, status: 'loading' as const } : s
       ));
       console.log('🚦 Fetching traffic predictions...');
@@ -3879,10 +4150,16 @@ export default function ResultsPage() {
       }
 
       // Generate executive report
-      setRegenerationProgress(80);
       setRegenerationStep('Generating executive report...');
+      // Step 5 complete - show green circle for a bit before moving to next step
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '5' ? { ...s, status: 'completed' as const } :
+        s.id === '5' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
         s.id === '6' ? { ...s, status: 'loading' as const } : s
       ));
       console.log('🤖 Generating Executive Peace of Mind Report...');
@@ -3995,10 +4272,16 @@ export default function ResultsPage() {
       };
 
       // Update trip in database
-      setRegenerationProgress(90);
       setRegenerationStep('Saving updated report...');
+      // Step 6 complete - show green circle for a bit before moving to next step
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '6' ? { ...s, status: 'completed' as const } :
+        s.id === '6' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
         s.id === '7' ? { ...s, status: 'loading' as const } : s
       ));
       console.log(`💾 Updating trip ${tripId} with version ${updateData.version}...`);
@@ -4018,9 +4301,40 @@ export default function ResultsPage() {
       console.log(`🔗 Trip ID: ${tripId}`);
       console.log(`📌 Version: ${updateData.version}`);
 
-      setRegenerationProgress(100);
-      setRegenerationStep('Update complete!');
-      setRegenerationSteps(prev => prev.map(s => s.id === '7' ? { ...s, status: 'completed' as const } : s));
+      // Wait for animation to complete (50 seconds total) before showing completion
+      // The continuous animation will naturally reach 100% at 50 seconds
+      const waitForAnimation = () => {
+        if (continuousAnimationRef.current) {
+          const elapsed = Date.now() - continuousAnimationRef.current.startTime;
+          const remaining = continuousAnimationRef.current.totalDuration - elapsed;
+          
+          if (remaining > 0) {
+            // Animation still running, wait for it to complete
+            setTimeout(() => {
+              regenerationProgressRef.current = 100;
+              setRegenerationProgress(100);
+              stopContinuousProgress();
+              setRegenerationStep('Update complete!');
+              setRegenerationSteps(prev => prev.map(s => s.id === '7' ? { ...s, status: 'completed' as const } : s));
+            }, remaining);
+          } else {
+            // Animation already complete
+            regenerationProgressRef.current = 100;
+            setRegenerationProgress(100);
+            stopContinuousProgress();
+            setRegenerationStep('Update complete!');
+            setRegenerationSteps(prev => prev.map(s => s.id === '7' ? { ...s, status: 'completed' as const } : s));
+          }
+        } else {
+          // Animation stopped (shouldn't happen), just show completion
+          regenerationProgressRef.current = 100;
+          setRegenerationProgress(100);
+          setRegenerationStep('Update complete!');
+          setRegenerationSteps(prev => prev.map(s => s.id === '7' ? { ...s, status: 'completed' as const } : s));
+        }
+      };
+      
+      waitForAnimation();
 
       // Cleanup: Clear update text and states
       setUpdateText('');
@@ -4048,6 +4362,7 @@ export default function ResultsPage() {
     } catch (err) {
       console.error('❌ Error regenerating report:', err);
       setError(err instanceof Error ? err.message : 'Failed to regenerate report');
+      stopContinuousProgress();
       setIsRegenerating(false);
     }
   };
@@ -4111,6 +4426,7 @@ export default function ResultsPage() {
         console.error(`   Current valid locations: ${validLocations.length}`);
         console.error(`   Total final locations: ${finalLocations.length}`);
         setError('Need at least 2 locations with valid coordinates to calculate routes. Please ensure all locations have valid addresses.');
+        stopContinuousProgress();
         setIsRegenerating(false);
         return;
       }
@@ -4222,7 +4538,6 @@ export default function ResultsPage() {
       const locationsWithValidData = validLocations.filter((loc: any) => !needsGeocoding(loc));
       
       console.log(`🗺️ [OPTIMIZATION] Geocoding: ${locationsNeedingGeocoding.length} locations need geocoding, ${locationsWithValidData.length} already have valid data`);
-      setRegenerationProgress(35);
       setRegenerationStep(`Geocoding ${locationsNeedingGeocoding.length} location(s)...`);
       // Step 3 is already set to loading from handleExtractUpdates
       
@@ -4292,10 +4607,16 @@ export default function ResultsPage() {
       finalValidLocations.forEach((loc: any, idx: number) => {
         console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
       });
-      setRegenerationProgress(45);
       setRegenerationStep('Fetching updated data for all locations...');
+      // Step 3 complete - show green circle for a bit before moving to next step
       setRegenerationSteps(prev => prev.map(s => 
-        s.id === '3' ? { ...s, status: 'completed' as const } :
+        s.id === '3' ? { ...s, status: 'completed' as const } : s
+      ));
+      
+      // Wait 1 second before moving to next step
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRegenerationSteps(prev => prev.map(s => 
         s.id === '4' ? { ...s, status: 'loading' as const } : s
       ));
 
@@ -4335,7 +4656,6 @@ export default function ResultsPage() {
       const updatedPassengerNames = extractedUpdates.passengerNames || [];
 
       // Call the regeneration function
-      setRegenerationProgress(50);
       setRegenerationStep('Analyzing trip data...');
       await performTripAnalysisUpdate(
         finalValidLocations,
@@ -4351,6 +4671,7 @@ export default function ResultsPage() {
     } catch (err) {
       console.error('Error regenerating report:', err);
       setError(err instanceof Error ? err.message : 'Failed to regenerate report');
+      stopContinuousProgress();
       setIsRegenerating(false);
     }
   };
@@ -4828,7 +5149,7 @@ export default function ResultsPage() {
                 {/* Edit Route Button */}
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2 h-[51px] bg-[#161820] border-[#E5E7EF]/20 hover:bg-[#E5E7EF]/10 text-[#F4F2EE]"
+                  className="flex items-center gap-2 h-[51px] bg-[#161820] border-[#E5E7EF]/20 hover:bg-[#E5E7EF]/10 text-[#F4F2EE] hover:text-[#F4F2EE]"
                   onClick={() => {
                     // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
                     setEditingLocations(locations.map((loc, idx) => ({
@@ -4929,7 +5250,7 @@ export default function ResultsPage() {
                           strokeWidth="8"
                           fill="none"
                           strokeDasharray="339.292"
-                          strokeDashoffset={339.292 * (1 - regenerationProgress / 100)}
+                          strokeDashoffset={Math.max(0, 339.292 * (1 - Math.min(100, regenerationProgress) / 100))}
                           className={regenerationProgress >= 100 ? "text-green-500" : "text-[#05060A] dark:text-[#E5E7EF]"}
                           strokeLinecap="round"
                         />
@@ -4942,25 +5263,42 @@ export default function ResultsPage() {
                       </div>
                     </div>
                     <div className="text-center">
-                      <h3 className="text-xl font-semibold mb-1">Updating Report</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {regenerationSteps.filter(s => s.status === 'completed').length} of {regenerationSteps.length} steps completed
-                      </p>
+                      <h3 className="text-xl font-semibold mb-1">
+                        {regenerationProgress >= 100 ? 'Changes applied' : 'Updating Report'}
+                      </h3>
+                      {regenerationProgress < 100 && (
+                        <p className="text-sm text-muted-foreground">
+                          {regenerationSteps.filter(s => s.status === 'completed').length} of {regenerationSteps.length} steps completed
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Steps Carousel - Exact Homepage Animation */}
-                  <div className="relative h-[200px] overflow-hidden">
-                    {regenerationSteps.map((step, index) => {
+                  {/* Steps Carousel - Exact Homepage Animation or Completion View */}
+                  <div className="relative h-[200px] overflow-hidden flex items-center justify-center">
+                    {regenerationProgress >= 100 ? (
+                      // Completion View - Show "Applying changes to brief" message
+                      <div className="w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
+                        <div className="flex flex-col items-center justify-center gap-3 mt-8">
+                          <svg className="animate-spin h-12 w-12 text-muted-foreground" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <h3 className="text-lg font-semibold text-card-foreground">Redirecting to brief</h3>
+                        </div>
+                      </div>
+                    ) : (
+                      regenerationSteps.map((step, index) => {
                       const isActive = step.status === 'loading';
                       const isCompleted = step.status === 'completed';
                       const isPending = step.status === 'pending';
                       
                       // Calculate position relative to active step
                       const activeIndex = regenerationSteps.findIndex(s => s.status === 'loading');
-                      const position = index - activeIndex;
+                      const position = activeIndex !== -1 ? index - activeIndex : index - regenerationSteps.length;
                       
-                      // Determine visibility and styling
+                      // Determine visibility and styling - always rotate upward
+                      // Steps appear from bottom (fade in) and exit to top (fade out)
                       let transform = '';
                       let opacity = 0;
                       let scale = 0.85;
@@ -4968,32 +5306,20 @@ export default function ResultsPage() {
                       let blur = 'blur(4px)';
                       
                       if (position === 0) {
-                        // Active step - center
+                        // Active step - center (fully visible)
                         transform = 'translateY(0)';
                         opacity = 1;
                         scale = 1;
                         zIndex = 30;
                         blur = 'blur(0)';
-                      } else if (position === -1) {
-                        // Previous step - hide completely
-                        transform = 'translateY(-120px)';
-                        opacity = 0;
-                        scale = 0.85;
-                        zIndex = 10;
-                      } else if (position === 1) {
-                        // Next step - hide completely
-                        transform = 'translateY(120px)';
-                        opacity = 0;
-                        scale = 0.85;
-                        zIndex = 10;
-                      } else if (position < -1) {
-                        // Steps further above
+                      } else if (position < 0) {
+                        // Completed steps - moving up and fading out (dissolve to top)
                         transform = 'translateY(-120px)';
                         opacity = 0;
                         scale = 0.85;
                         zIndex = 10;
                       } else {
-                        // Steps further below
+                        // Pending/upcoming steps - coming from bottom and fading in (dissolve from bottom)
                         transform = 'translateY(120px)';
                         opacity = 0;
                         scale = 0.85;
@@ -5003,12 +5329,14 @@ export default function ResultsPage() {
                       return (
                         <div
                           key={step.id}
-                          className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out"
+                          className="absolute inset-x-0 top-1/2 -translate-y-1/2"
                           style={{
                             transform: `${transform} scale(${scale})`,
                             opacity: opacity,
                             zIndex: zIndex,
-                            filter: blur
+                            filter: blur,
+                            willChange: 'transform, opacity',
+                            transition: 'transform 700ms ease-in-out, opacity 700ms ease-in-out, filter 700ms ease-in-out'
                           }}
                         >
                           <div
@@ -5026,7 +5354,12 @@ export default function ResultsPage() {
                                 <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
                               )}
                               {isActive && (
-                                <div className="w-6 h-6 rounded-full border-2 border-[#05060A] dark:border-[#E5E7EF] border-t-transparent animate-spin"></div>
+                                <div 
+                                  className="w-6 h-6 rounded-full border-2 border-[#05060A] dark:border-[#E5E7EF] border-t-transparent"
+                                  style={{ 
+                                    animation: 'spin 1s linear infinite'
+                                  }}
+                                ></div>
                               )}
                               {isCompleted && (
                                 <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
@@ -5054,7 +5387,8 @@ export default function ResultsPage() {
                           </div>
                         </div>
                       );
-                    })}
+                    })
+                    )}
                   </div>
                 </div>
 
@@ -5176,9 +5510,10 @@ export default function ResultsPage() {
                     </div>
                 </div>
 
-                {/* Vehicle Image - Show for sedan services */}
+                {/* Vehicle Image - Show for sedan, SUV, van, or minibus services */}
                 {(() => {
                   const numberOfPassengers = passengerCount || 1;
+                  
                   const extractCarInfo = (text: string | null): string | null => {
                     if (!text) return null;
                     const carPatterns = [
@@ -5200,11 +5535,52 @@ export default function ResultsPage() {
                     return null;
                   };
                   
-                  const isSedan = numberOfPassengers <= 3 || 
-                                  extractCarInfo(vehicleInfo || '') || 
-                                  extractCarInfo(driverNotes || '');
+                  const extractSUVInfo = (text: string | null): string | null => {
+                    if (!text) return null;
+                    const suvPatterns = [
+                      /BMW\s*(?:X5|X3|X1|X7)/i,
+                      /Audi\s*(?:Q5|Q7|Q8)/i,
+                      /(?:Mercedes|Merc)\s*(?:GLS|GLE|GLC|G-Class|G\s*Class)/i,
+                      /Lexus\s*(?:RX|GX|LX)/i,
+                      /Range\s*Rover/i,
+                      /Cadillac\s*Escalade/i,
+                      /Tesla\s*Model\s*X/i,
+                      /Porsche\s*(?:Cayenne|Macan)/i,
+                      /Lincoln\s*Navigator/i,
+                      /Volvo\s*(?:XC90|XC60)/i,
+                      /\bSUV\b/i,
+                      /\bSport\s*Utility\s*Vehicle\b/i,
+                    ];
+                    
+                    for (const pattern of suvPatterns) {
+                      if (pattern.test(text)) {
+                        return text.match(pattern)?.[0] || null;
+                      }
+                    }
+                    return null;
+                  };
                   
-                  return isSedan ? (
+                  const isSedan = numberOfPassengers <= 2 || 
+                                  (extractCarInfo(vehicleInfo || '') && !extractSUVInfo(vehicleInfo || '')) || 
+                                  (extractCarInfo(driverNotes || '') && !extractSUVInfo(driverNotes || ''));
+                  
+                  const isSUV = (numberOfPassengers >= 3 && numberOfPassengers <= 6) ||
+                                extractSUVInfo(vehicleInfo || '') ||
+                                extractSUVInfo(driverNotes || '');
+                  
+                  // Determine which image to show
+                  let vehicleImage = null;
+                  let vehicleAlt = '';
+                  
+                  if (isSedan && !isSUV) {
+                    vehicleImage = '/sedan-driverbrief.webp';
+                    vehicleAlt = 'Sedan Vehicle';
+                  } else if (isSUV) {
+                    vehicleImage = '/suv-driverbrief.webp';
+                    vehicleAlt = 'SUV Vehicle';
+                  }
+                  
+                  return vehicleImage ? (
                     <Card className="mb-6 shadow-none">
                       <CardContent className="p-5 relative">
                         {/* Assign Driver button - Top Right */}
@@ -5253,9 +5629,9 @@ export default function ResultsPage() {
                         <div className="flex gap-6 items-center mt-8 -mb-2">
                           {/* Vehicle Image on the left */}
                           <img 
-                            src="/sedan-driverbrief.svg" 
-                            alt="Sedan Vehicle" 
-                            className="h-32 w-auto flex-shrink-0"
+                            src={vehicleImage} 
+                            alt={vehicleAlt} 
+                            className={`w-auto flex-shrink-0 ${isSUV ? 'h-[154px]' : 'h-32'}`}
                           />
                           
                           {/* Vehicle Info on the right */}
@@ -5266,8 +5642,8 @@ export default function ResultsPage() {
                                 </div>
                                 <p className="text-3xl font-semibold text-card-foreground break-words">
                                   {(() => {
-                                    const carInfo = vehicleInfo || extractCarInfo(driverNotes);
-                                    return carInfo || 'N/A';
+                                    const carInfo = vehicleInfo || extractCarInfo(driverNotes) || extractSUVInfo(driverNotes);
+                                    return carInfo ? capitalizeWords(carInfo) : 'N/A';
                                   })()}
                                 </p>
                           </div>
@@ -5546,7 +5922,7 @@ export default function ResultsPage() {
                                   <div className="text-lg font-semibold text-card-foreground">
                                     {displayBusinessName}
                                     {location.purpose && (
-                                      <span> - {location.purpose}</span>
+                                      <span className="font-normal"> - {location.purpose}</span>
                                     )}
                                   </div>
                                   {restOfAddress && (

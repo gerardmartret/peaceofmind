@@ -2114,6 +2114,48 @@ export default function Home() {
     }
   };
 
+  // Handle PDF file (.pdf)
+  const handlePdfFile = async (file: File) => {
+    try {
+      setIsProcessingFile(true);
+      setFileError(null);
+      
+      // Dynamically import pdfjs-dist only on client side
+      const pdfjsLib = await import('pdfjs-dist');
+      
+      // Configure PDF.js worker (use local file from public folder)
+      if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      }
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      let extractedText = '';
+      
+      // Extract text from all pages
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        extractedText += (extractedText ? '\n\n' : '') + pageText;
+      }
+      
+      if (extractedText.trim()) {
+        setExtractionText(prev => prev + (prev ? '\n\n' : '') + extractedText);
+      } else {
+        setFileError('No text found in PDF document');
+      }
+    } catch (error) {
+      console.error('Error processing PDF file:', error);
+      setFileError('Failed to read PDF document');
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
   // Handle Audio file (.opus, .m4a, .mp3, etc.)
   const handleAudioFile = async (file: File) => {
     try {
@@ -2165,13 +2207,17 @@ export default function Home() {
                fileType === 'application/vnd.ms-excel') {
       await handleExcelFile(file);
     } 
+    // Check for PDF files
+    else if (fileName.endsWith('.pdf') || fileType === 'application/pdf') {
+      await handlePdfFile(file);
+    }
     // Check for Audio files
     else if (fileType.startsWith('audio/') || 
              fileName.match(/\.(opus|m4a|mp3|ogg|wav|aac|flac|webm)$/)) {
       await handleAudioFile(file);
     } 
     else {
-      setFileError('Unsupported file type. Please upload Word (.docx), Excel (.xlsx), or Audio files.');
+      setFileError('Unsupported file type. Please upload Word (.docx), Excel (.xlsx), PDF (.pdf), or Audio files.');
     }
   };
 
@@ -2626,7 +2672,7 @@ export default function Home() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                       <p className="text-sm font-medium text-blue-500">Drop file to upload</p>
-                      <p className="text-xs text-muted-foreground">Word, Excel, or Audio files</p>
+                      <p className="text-xs text-muted-foreground">Word, Excel, PDF, or Audio files</p>
                     </div>
                   </div>
                 )}
@@ -2638,11 +2684,11 @@ export default function Home() {
                       ? 'text-blue-500 opacity-100' 
                       : 'text-muted-foreground opacity-60 hover:opacity-100'
                   }`}
-                  title="Upload Word, Excel, or Audio file"
+                  title="Upload Word, Excel, PDF, or Audio file"
                 >
                   <input
                     type="file"
-                    accept=".docx,.doc,.xlsx,.xls,.opus,.m4a,.mp3,.ogg,.wav,.aac,.flac,.webm,audio/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                    accept=".docx,.doc,.xlsx,.xls,.pdf,.opus,.m4a,.mp3,.ogg,.wav,.aac,.flac,.webm,audio/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/pdf"
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -2733,7 +2779,7 @@ export default function Home() {
             </div>
 
             {/* Extract Button */}
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <Button
                 onClick={() => setShowManualForm(true)}
                 variant="outline"

@@ -237,6 +237,8 @@ CRITICAL: Distinguish between ADD and normal location mentions:
   * Examples of valid non-location updates:
     - "make sure driver is dressed like a clown" → locations: [], driverNotes: "- Make sure driver is dressed like a clown"
     - "bring a watermelon" → locations: [], driverNotes: "- Bring a watermelon"
+    - "ok" or "sounds good" → locations: [], driverNotes: "- Acknowledged", success: true
+    - Any text that doesn't contain locations should still be captured in driverNotes if it's meaningful
 - CRITICAL EXCEPTION: Location UPDATE instructions (change/update pickup/dropoff/stop location) MUST be extracted to locations array, NOT driverNotes:
   * "change pickup location to Gatwick" → locations: [{location: "Gatwick Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
   * "update pick up to Heathrow" → locations: [{location: "Heathrow Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
@@ -454,12 +456,28 @@ Rules for driver notes:
       console.log(`🗑️ [API] Detected ${parsed.removedLocations.length} location(s) to remove:`, parsed.removedLocations);
     }
 
-    if (!parsed.success || !hasAnyExtractableInfo) {
+    // If AI marked success=false but we have extractable info, override it
+    if (!hasAnyExtractableInfo) {
       console.log('❌ [API] No extractable information found');
+      console.log('📊 [API] Extraction details:', {
+        hasLocations,
+        hasNotes,
+        hasRemovals,
+        hasPassengerInfo,
+        hasVehicleInfo,
+        hasOtherInfo,
+        parsedSuccess: parsed.success
+      });
       return NextResponse.json({
         success: false,
         error: parsed.error || 'No extractable information found in the text. Please try again with more specific details.',
       });
+    }
+
+    // Override AI's success flag if we have extractable info
+    if (!parsed.success && hasAnyExtractableInfo) {
+      console.log('⚠️ [API] AI marked success=false but extractable info found, overriding to success=true');
+      parsed.success = true;
     }
 
     // OPTIMIZATION: Skip Google Maps verification for note-only updates (massive performance gain)

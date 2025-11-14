@@ -474,15 +474,16 @@ function extractExceptionalFromAsterisk(notes: string): string | null {
       // Remove the * and any trailing whitespace
       const content = line.slice(0, -1).trim();
       if (content) {
-        // Format as actionable statement
-        exceptionalItems.push(`- ${content}`);
+        // Don't add "- " prefix - display as-is
+        exceptionalItems.push(content);
       }
     }
     // Also check for bullet points like "- item*" or "• item*"
     else if (line.match(/^[-•*]\s+.+\*$/)) {
       const content = line.replace(/^[-•*]\s+/, '').slice(0, -1).trim();
       if (content) {
-        exceptionalItems.push(`- ${content}`);
+        // Don't add "- " prefix - display as-is
+        exceptionalItems.push(content);
       }
     }
   });
