@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     const uniqueDestinations = [...new Set(
       data
         .map(row => row.trip_destination)
-        .filter(dest => dest && dest.trim() !== '')
+        .filter((dest): dest is string => dest !== null && dest.trim() !== '')
     )];
 
     const invalidDestinations = uniqueDestinations.filter(
