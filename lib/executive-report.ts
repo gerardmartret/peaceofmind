@@ -374,6 +374,25 @@ Recommendations (data-driven ONLY, not from trip notes):
       console.warn('   This may result in incomplete JSON. Consider increasing max_tokens.');
     }
 
+    /**
+     * Clean JSON string to fix common issues from GPT responses
+     */
+    function cleanJsonString(json: string): string {
+      // Remove trailing commas before closing braces/brackets
+      // Match: ,\s*} or ,\s*]
+      json = json.replace(/,(\s*[}\]])/g, '$1');
+      
+      // Remove trailing commas in arrays/objects (more aggressive)
+      // This handles cases like: "key": "value",} or "key": "value",]
+      json = json.replace(/,(\s*[}\]])/g, '$1');
+      
+      // Remove comments (single line and multi-line)
+      json = json.replace(/\/\/.*$/gm, '');
+      json = json.replace(/\/\*[\s\S]*?\*\//g, '');
+      
+      return json.trim();
+    }
+
     // Extract JSON from response - GPT-4o-mini may wrap in markdown
     let jsonText = responseText;
     
@@ -406,11 +425,22 @@ Recommendations (data-driven ONLY, not from trip notes):
       }
     }
     
-    const jsonString = jsonText.substring(startIndex, endIndex);
+    let jsonString = jsonText.substring(startIndex, endIndex);
     console.log('✅ JSON extracted successfully');
     console.log(`📏 JSON length: ${jsonString.length} characters`);
 
-    const report: ExecutiveReport = JSON.parse(jsonString);
+    // Clean up common JSON issues from GPT responses
+    jsonString = cleanJsonString(jsonString);
+
+    let report: ExecutiveReport;
+    try {
+      report = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error('❌ JSON parse error:', parseError);
+      console.error('❌ JSON string (first 500 chars):', jsonString.substring(0, 500));
+      console.error('❌ JSON string (last 500 chars):', jsonString.substring(Math.max(0, jsonString.length - 500)));
+      throw new Error(`Failed to parse JSON from GPT response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+    }
 
     // Extract bullet points ending with * from driverNotes and add to exceptional information
     if (driverNotes) {

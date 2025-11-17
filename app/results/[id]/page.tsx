@@ -682,6 +682,13 @@ export default function ResultsPage() {
     sentAt: string;
   }>>([]);
   
+  // Drivania quote state
+  const [loadingDrivaniaQuote, setLoadingDrivaniaQuote] = useState<boolean>(false);
+  const [drivaniaQuotes, setDrivaniaQuotes] = useState<any>(null);
+  const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
+  const [drivaniaServiceType, setDrivaniaServiceType] = useState<'one-way' | 'hourly' | null>(null);
+  const [complexRouteDetails, setComplexRouteDetails] = useState<any>(null);
+  
   // Guest signup state
   const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
   const [guestSignupPassword, setGuestSignupPassword] = useState<string>('');
@@ -1899,6 +1906,31 @@ export default function ResultsPage() {
     window.scrollTo(0, 0);
   }, []);
 
+  // Track previous locations to detect changes
+  const prevLocationsRef = useRef<string>('');
+  
+  // Clear Drivania quotes when trip locations actually change
+  useEffect(() => {
+    if (tripData?.locations) {
+      const locationsKey = JSON.stringify(tripData.locations.map((loc: any) => ({
+        name: loc.name,
+        lat: loc.lat,
+        lng: loc.lng,
+        time: loc.time,
+      })));
+      
+      // Only clear if locations have actually changed
+      if (prevLocationsRef.current && prevLocationsRef.current !== locationsKey) {
+        console.log('🔄 Trip locations changed - clearing old Drivania quotes');
+        setDrivaniaQuotes(null);
+        setDrivaniaError(null);
+        setDrivaniaServiceType(null);
+      }
+      
+      prevLocationsRef.current = locationsKey;
+    }
+  }, [tripData?.locations, tripData?.tripDate]);
+
   // Cleanup live trip interval on unmount
   useEffect(() => {
     return () => {
@@ -2678,6 +2710,225 @@ export default function ResultsPage() {
       setQuoteRequestError('Failed to send quote request. Please try again.');
     } finally {
       setSendingQuoteRequest(false);
+    }
+  };
+
+  const handleDrivaniaQuote = async () => {
+    if (!tripId || loadingDrivaniaQuote) {
+      setDrivaniaError('Trip ID is required');
+      return;
+    }
+
+    // Reset errors and state
+    setDrivaniaError(null);
+    setDrivaniaQuotes(null);
+    setComplexRouteDetails(null);
+    setLoadingDrivaniaQuote(true);
+
+    try {
+      // Fetch the latest trip data from the database to ensure we use the most recent data
+      console.log('🔄 Fetching latest trip data for Drivania quote...');
+      const { data: latestTripData, error: fetchError } = await supabase
+        .from('trips')
+        .select('locations, trip_date, passenger_count')
+        .eq('id', tripId)
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Error fetching latest trip data:', fetchError);
+        setDrivaniaError('Failed to load trip data. Please try again.');
+        return;
+      }
+
+      if (!latestTripData) {
+        setDrivaniaError('Trip not found');
+        return;
+      }
+
+      // Parse locations if stored as JSON string
+      let latestLocations = latestTripData.locations;
+      if (typeof latestLocations === 'string') {
+        try {
+          latestLocations = JSON.parse(latestLocations);
+        } catch (e) {
+          console.error('❌ Failed to parse locations JSON:', e);
+          setDrivaniaError('Invalid trip data format');
+          return;
+        }
+      }
+
+      if (!latestLocations || !Array.isArray(latestLocations) || latestLocations.length < 2) {
+        setDrivaniaError('Trip must have at least 2 locations (pickup and dropoff)');
+        return;
+      }
+
+      // Type assertion and ensure all locations have required fields
+      const typedLocations = latestLocations.map((loc: any, idx: number) => ({
+        id: loc.id || `location-${idx + 1}`, // Ensure id is always present
+        name: loc.name || '',
+        lat: loc.lat || 0,
+        lng: loc.lng || 0,
+        time: loc.time || '12:00',
+        displayName: loc.displayName,
+        flightNumber: loc.flightNumber,
+        flightDirection: loc.flightDirection,
+      })) as Array<{
+        id: string;
+        name: string;
+        displayName?: string;
+        lat: number;
+        lng: number;
+        time: string;
+        flightNumber?: string;
+        flightDirection?: 'arrival' | 'departure';
+      }>;
+
+      // Log detailed location data for debugging
+      console.log('📍 Latest locations from database:', {
+        count: typedLocations.length,
+        locations: typedLocations.map((loc, idx: number) => ({
+          index: idx,
+          name: loc.name,
+          lat: loc.lat,
+          lng: loc.lng,
+          time: loc.time,
+        })),
+        pickup: {
+          name: typedLocations[0]?.name,
+          lat: typedLocations[0]?.lat,
+          lng: typedLocations[0]?.lng,
+          time: typedLocations[0]?.time,
+        },
+        dropoff: {
+          name: typedLocations[typedLocations.length - 1]?.name,
+          lat: typedLocations[typedLocations.length - 1]?.lat,
+          lng: typedLocations[typedLocations.length - 1]?.lng,
+          time: typedLocations[typedLocations.length - 1]?.time,
+        },
+      });
+
+      // Compare with previous tripData if available
+      if (tripData?.locations) {
+        const oldPickup = tripData.locations[0];
+        const oldDropoff = tripData.locations[tripData.locations.length - 1];
+        const newPickup = typedLocations[0];
+        const newDropoff = typedLocations[typedLocations.length - 1];
+        
+        const pickupChanged = oldPickup?.lat !== newPickup?.lat || 
+                              oldPickup?.lng !== newPickup?.lng ||
+                              oldPickup?.time !== newPickup?.time ||
+                              oldPickup?.name !== newPickup?.name;
+        
+        const dropoffChanged = oldDropoff?.lat !== newDropoff?.lat || 
+                               oldDropoff?.lng !== newDropoff?.lng ||
+                               oldDropoff?.time !== newDropoff?.time ||
+                               oldDropoff?.name !== newDropoff?.name;
+        
+        console.log('🔄 Location comparison:', {
+          pickupChanged,
+          dropoffChanged,
+          oldPickup: oldPickup ? { lat: oldPickup.lat, lng: oldPickup.lng, time: oldPickup.time, name: oldPickup.name } : null,
+          newPickup: newPickup ? { lat: newPickup.lat, lng: newPickup.lng, time: newPickup.time, name: newPickup.name } : null,
+          oldDropoff: oldDropoff ? { lat: oldDropoff.lat, lng: oldDropoff.lng, time: oldDropoff.time, name: oldDropoff.name } : null,
+          newDropoff: newDropoff ? { lat: newDropoff.lat, lng: newDropoff.lng, time: newDropoff.time, name: newDropoff.name } : null,
+        });
+        
+        if (!pickupChanged && !dropoffChanged) {
+          console.log('⚠️ WARNING: Pickup and dropoff coordinates/times unchanged. Drivania will return the same quote even if intermediate stops changed.');
+          console.log('💡 Note: Drivania API only uses pickup and dropoff for quote calculation. Intermediate stops are not included.');
+        }
+      }
+
+      // Update local tripData state with latest data
+      if (tripData) {
+        setTripData({
+          ...tripData,
+          locations: typedLocations,
+          tripDate: latestTripData.trip_date || tripData.tripDate,
+          passengerCount: latestTripData.passenger_count || tripData.passengerCount,
+        });
+      }
+
+      // Determine service type based on number of locations
+      const serviceType: 'one-way' | 'hourly' = typedLocations.length > 2 ? 'hourly' : 'one-way';
+      setDrivaniaServiceType(serviceType);
+
+      // Get passenger count from latest data or state or default to 1
+      const passengerCountValue = latestTripData.passenger_count || passengerCount || 1;
+
+      // Get trip date from latest data or fallback
+      const tripDateValue = latestTripData.trip_date || tripData?.tripDate || new Date().toISOString().split('T')[0];
+
+      // Prepare the exact payload that will be sent
+      const quotePayload = {
+        locations: typedLocations.map((loc) => ({
+          name: loc.name,
+          lat: loc.lat,
+          lng: loc.lng,
+          time: loc.time,
+        })),
+        tripDate: tripDateValue,
+        passengerCount: passengerCountValue,
+        serviceType: serviceType,
+      };
+
+      console.log('📤 Sending Drivania quote request with latest trip data:', {
+        locationsCount: typedLocations.length,
+        serviceType,
+        passengerCount: passengerCountValue,
+        tripDate: tripDateValue,
+        payload: quotePayload,
+      });
+
+      const response = await fetch('/api/drivania/quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(quotePayload),
+      });
+
+      const result = await response.json();
+
+      console.log('📥 Drivania quote response:', {
+        success: result.success,
+        serviceId: result.data?.service_id,
+        vehicleCount: result.data?.quotes?.vehicles?.length || 0,
+        distance: result.data?.distance,
+        driveTime: result.data?.drive_time,
+        currency: result.data?.currency_code,
+        error: result.error,
+      });
+
+      if (result.success) {
+        // Log the received quote data for comparison
+        if (drivaniaQuotes?.service_id && result.data?.service_id) {
+          const sameServiceId = drivaniaQuotes.service_id === result.data.service_id;
+          console.log('🔄 Service ID comparison:', {
+            previous: drivaniaQuotes.service_id,
+            current: result.data.service_id,
+            same: sameServiceId,
+            warning: sameServiceId ? '⚠️ Same service_id - Drivania may have returned cached quote' : '✅ New service_id - fresh quote',
+          });
+        }
+
+        setDrivaniaQuotes(result.data);
+        setDrivaniaServiceType(result.serviceType);
+      } else {
+        // Check if it's a complex route validation error
+        if (result.error === 'COMPLEX_ROUTE' && result.details) {
+          setComplexRouteDetails(result.details);
+          setDrivaniaError(null); // Don't show as error, show as special message
+        } else {
+          setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
+          setComplexRouteDetails(null);
+        }
+      }
+    } catch (err) {
+      console.error('❌ Error requesting Drivania quote:', err);
+      setDrivaniaError('Failed to request quote from Drivania. Please try again.');
+    } finally {
+      setLoadingDrivaniaQuote(false);
     }
   };
 
@@ -7269,6 +7520,27 @@ export default function ResultsPage() {
                         </Button>
                         )}
                         
+                        {/* Quote with Drivania - Show for owners */}
+                        {isOwner && !assignOnlyMode && (
+                        <Button
+                          onClick={handleDrivaniaQuote}
+                          disabled={loadingDrivaniaQuote || !tripData?.locations || tripData.locations.length < 2 || tripStatus === 'cancelled'}
+                          className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                        >
+                          {loadingDrivaniaQuote ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              Loading...
+                            </>
+                          ) : (
+                            'Quote with drivania'
+                          )}
+                        </Button>
+                        )}
+                        
                         {/* Assign Driver - Only show in assign-only mode (Flow B) */}
                         {assignOnlyMode && (
                         <Button
@@ -7426,6 +7698,180 @@ export default function ResultsPage() {
                     </table>
                   </div>
                 )}
+              </div>
+              )}
+
+              {/* Drivania Quotes Section */}
+              {isOwner && !assignOnlyMode && (
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold mb-4">Drivania quotes</h3>
+                
+                {drivaniaError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertDescription>{drivaniaError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {complexRouteDetails && (
+                  <Alert className="mb-4 border-orange-500/50 bg-orange-500/10">
+                    <AlertDescription>
+                      <div className="space-y-3">
+                        <div className="font-semibold text-orange-600 dark:text-orange-400">
+                          Complex route detected - manual quote required
+            </div>
+                        <div className="text-sm text-muted-foreground">
+                          {complexRouteDetails.reason}
+          </div>
+                        <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-orange-500/20">
+                          <div>Total route distance: {complexRouteDetails.totalRouteDistanceMiles} miles ({complexRouteDetails.totalRouteDistanceKm} km)</div>
+                          <div>Trip duration: {complexRouteDetails.durationHours} hours</div>
+                          <div>Average miles per hour: {complexRouteDetails.averageMilesPerHour}</div>
+                        </div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {loadingDrivaniaQuote ? (
+                  <div className="flex items-center justify-center py-8">
+                    <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span className="ml-2 text-muted-foreground">Loading Drivania quotes...</span>
+                  </div>
+                ) : drivaniaQuotes && drivaniaQuotes.quotes?.vehicles ? (
+                  <div className="space-y-4">
+                    {drivaniaServiceType && (
+                      <div className="mb-4">
+                        <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">
+                          Service type: {drivaniaServiceType === 'one-way' ? 'One-way (mileage-based)' : 'Hourly (time-based)'}
+                        </span>
+                        {drivaniaQuotes.distance && (
+                          <span className="ml-3 text-sm text-muted-foreground">
+                            Distance: {drivaniaQuotes.distance.quantity} {drivaniaQuotes.distance.uom}
+                          </span>
+                        )}
+                        {drivaniaQuotes.drive_time && (
+                          <span className="ml-3 text-sm text-muted-foreground">
+                            Drive time: {drivaniaQuotes.drive_time}
+                          </span>
+                        )}
+                        {drivaniaQuotes.currency_code && (
+                          <span className="ml-3 text-sm text-muted-foreground">
+                            Currency: {drivaniaQuotes.currency_code}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {drivaniaQuotes.quotes.vehicles.map((vehicle: any, index: number) => (
+                        <Card key={vehicle.vehicle_id || index} className="shadow-none">
+                          <CardContent className="p-5">
+                            {vehicle.vehicle_image && (
+                              <div className="mb-4">
+                                <img 
+                                  src={vehicle.vehicle_image} 
+                                  alt={vehicle.vehicle_type}
+                                  className="w-full h-32 object-cover rounded-md"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            )}
+                            
+                            <div className="space-y-3">
+                              <div>
+                                <h4 className="text-lg font-semibold text-card-foreground">
+                                  {vehicle.vehicle_type}
+                                </h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {vehicle.level_of_service}
+                                </p>
+                              </div>
+
+                              <div className="pt-2 border-t">
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-3xl font-bold text-card-foreground">
+                                    {vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
+                                  </span>
+                                  {drivaniaQuotes.currency_code && (
+                                    <span className="text-sm text-muted-foreground">
+                                      {drivaniaQuotes.currency_code}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">Examples: </span>
+                                  <span className="text-card-foreground">{vehicle.vehicle_examples}</span>
+                                </div>
+                                
+                                <div className="flex gap-4">
+                                  <div>
+                                    <span className="text-muted-foreground">Seating: </span>
+                                    <span className="text-card-foreground font-medium">{vehicle.max_seating_capacity}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Cargo: </span>
+                                    <span className="text-card-foreground font-medium">{vehicle.max_cargo_capacity}</span>
+                                  </div>
+                                </div>
+
+                                {vehicle.extra_hour && (
+                                  <div>
+                                    <span className="text-muted-foreground">Extra hour: </span>
+                                    <span className="text-card-foreground font-medium">
+                                      {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {vehicle.pickup_instructions && (
+                                  <div className="pt-2 border-t">
+                                    <p className="text-xs text-muted-foreground whitespace-pre-line">
+                                      {vehicle.pickup_instructions}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {vehicle.cancellation_policy && (
+                                  <div className="pt-2 border-t">
+                                    <p className="text-xs text-muted-foreground whitespace-pre-line">
+                                      <span className="font-medium">Cancellation: </span>
+                                      {vehicle.cancellation_policy.replace(/\\n/g, '\n')}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {drivaniaQuotes.service_id && (
+                      <div className="mt-4 text-xs text-muted-foreground">
+                        Service ID: {drivaniaQuotes.service_id}
+                        {drivaniaQuotes.expiration && (
+                          <span className="ml-4">
+                            Expires: {new Date(drivaniaQuotes.expiration).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : drivaniaQuotes && drivaniaQuotes.quotes?.unavailable_reason ? (
+                  <Alert className="mb-4">
+                    <AlertDescription>
+                      Quote unavailable: {drivaniaQuotes.quotes.unavailable_reason}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
               </div>
               )}
             </div>
