@@ -5437,7 +5437,7 @@ export default function ResultsPage() {
                     </div>
                 </div>
 
-                {/* Vehicle Image - Show for sedan services */}
+                {/* Vehicle Image - Show for sedan or SUV services */}
                 {(() => {
                   const numberOfPassengers = passengerCount || 1;
                   const extractCarInfo = (text: string | null): string | null => {
@@ -5461,11 +5461,49 @@ export default function ResultsPage() {
                     return null;
                   };
                   
-                  const isSedan = numberOfPassengers <= 3 || 
-                                  extractCarInfo(vehicleInfo || '') || 
-                                  extractCarInfo(driverNotes || '');
+                  const extractSUVInfo = (text: string | null): boolean => {
+                    if (!text) return false;
+                    const suvPatterns = [
+                      /\bSUV\b/i,
+                      /\b(?:sport\s*utility|sport\s*ute)\b/i,
+                      /(?:Mercedes|Merc)\s*(?:GLS|GLE|GL|GLC)/i,
+                      /BMW\s*(?:X[1-9]|XM)/i,
+                      /Audi\s*(?:Q[3-9]|Q8)/i,
+                      /Range\s*Rover/i,
+                      /Cadillac\s*(?:Escalade|XT[4-6])/i,
+                      /Lincoln\s*(?:Navigator|Aviator)/i,
+                      /Lexus\s*(?:LX|GX|RX|NX)/i,
+                      /Porsche\s*(?:Cayenne|Macan)/i,
+                      /Volvo\s*(?:XC[4-9][0-9]?)/i,
+                    ];
+                    
+                    return suvPatterns.some(pattern => pattern.test(text));
+                  };
                   
-                  return isSedan ? (
+                  // Check for SUV first (priority) - check text patterns regardless of passenger count
+                  const hasSUVPattern = extractSUVInfo(vehicleInfo || '') || extractSUVInfo(driverNotes || '');
+                  
+                  // Check for sedan patterns
+                  const hasSedanPattern = extractCarInfo(vehicleInfo || '') || extractCarInfo(driverNotes || '');
+                  
+                  // Determine vehicle type: SUV takes priority if patterns match
+                  // Otherwise use passenger count as fallback
+                  let vehicleType: 'suv' | 'sedan' | null = null;
+                  
+                  if (hasSUVPattern) {
+                    vehicleType = 'suv';
+                  } else if (hasSedanPattern) {
+                    vehicleType = 'sedan';
+                  } else {
+                    // Fallback to passenger count
+                    if (numberOfPassengers > 3 && numberOfPassengers <= 7) {
+                      vehicleType = 'suv';
+                    } else if (numberOfPassengers <= 3) {
+                      vehicleType = 'sedan';
+                    }
+                  }
+                  
+                  return vehicleType ? (
                     <Card className="mb-6 shadow-none">
                       <CardContent className="p-5 relative">
                         {/* Assign Driver button - Top Right */}
@@ -5514,8 +5552,8 @@ export default function ResultsPage() {
                         <div className="flex gap-6 items-center mt-8 -mb-2">
                           {/* Vehicle Image on the left */}
                           <img 
-                            src="/sedan-driverbrief.svg" 
-                            alt="Sedan Vehicle" 
+                            src={vehicleType === 'suv' ? "/suv-driverbrief.webp" : "/sedan-driverbrief.webp"} 
+                            alt={vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"} 
                             className="h-32 w-auto flex-shrink-0"
                           />
                           
