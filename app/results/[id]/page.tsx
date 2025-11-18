@@ -691,6 +691,7 @@ export default function ResultsPage() {
   
   // Guest signup state
   const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
+  const [isGuestCreatedTrip, setIsGuestCreatedTrip] = useState<boolean>(false);
   const [guestSignupPassword, setGuestSignupPassword] = useState<string>('');
   const [guestSignupError, setGuestSignupError] = useState<string | null>(null);
   const [guestSignupLoading, setGuestSignupLoading] = useState<boolean>(false);
@@ -752,14 +753,15 @@ export default function ResultsPage() {
   }, [updateText]);
 
   // Scroll to quote form if coming from quote request email
+  const quoteParam = searchParams.get('quote');
   useEffect(() => {
-    if (searchParams.get('quote') === 'true' && !isOwner && !loading && quoteFormRef.current) {
+    if (quoteParam === 'true' && !isOwner && !isGuestCreator && !isGuestCreatedTrip && !loading && quoteFormRef.current) {
       // Wait a bit for page to fully render, then scroll
       setTimeout(() => {
         quoteFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 500);
     }
-  }, [searchParams, isOwner, loading]);
+  }, [quoteParam, isOwner, isGuestCreator, isGuestCreatedTrip, loading]);
 
   // Validate driver token if present in URL (magic link authentication)
   useEffect(() => {
@@ -1713,6 +1715,14 @@ export default function ResultsPage() {
         } else {
           setIsOwner(false);
           console.log('👁️ User is NOT the owner - read-only mode');
+        }
+        
+        // Check if trip was created by a guest (user_id is null)
+        if (!tripUserId) {
+          setIsGuestCreatedTrip(true);
+          console.log('👤 Trip was created by a guest user');
+        } else {
+          setIsGuestCreatedTrip(false);
         }
         
         // Check if user is guest creator (for signup CTA)
@@ -4610,8 +4620,8 @@ export default function ResultsPage() {
   if (loading || !ownershipChecked) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Show sticky quote form even during loading if ownership is checked and user is not owner */}
-        {ownershipChecked && !isOwner && (
+        {/* Show sticky quote form even during loading if ownership is checked and user is not owner (but not for guest creators or guest-created trips) */}
+        {ownershipChecked && !isOwner && !isGuestCreator && !isGuestCreatedTrip && (
           <div 
             className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
               scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
@@ -4899,8 +4909,8 @@ export default function ResultsPage() {
       {/* Quote Form Section - Sticky Bar - Shows for:
           1. Guests invited to submit quotes
           2. Assigned drivers (with or without magic link)
-          3. Any non-owner viewer */}
-      {!isOwner && (
+          3. Any non-owner viewer (but not guest creators or guest-created trips) */}
+      {!isOwner && !isGuestCreator && !isGuestCreatedTrip && (
         <div 
           className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
             scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
