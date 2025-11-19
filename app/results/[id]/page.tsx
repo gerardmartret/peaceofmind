@@ -1309,10 +1309,28 @@ export default function ResultsPage() {
           : loc
       );
 
-      // Save to database
+      // Save to database - preserve trip_notes if they've been edited
+      const updateData: any = { locations: updatedLocations };
+      // Preserve current edited trip notes if they exist (user may have edited but not saved yet)
+      // Always preserve editedDriverNotes if it's different from the original driverNotes
+      // This handles cases where user edits notes but hasn't clicked "Save" on the notes field yet
+      if (editedDriverNotes !== undefined && editedDriverNotes !== driverNotes) {
+        updateData.trip_notes = editedDriverNotes || null; // Allow empty string to be saved
+        console.log('💾 [SAVE-LOCATION] Preserving unsaved trip notes:', editedDriverNotes);
+      } else if (driverNotes !== undefined) {
+        // If no edits, preserve the current driverNotes to prevent accidental loss
+        updateData.trip_notes = driverNotes || null;
+        console.log('💾 [SAVE-LOCATION] Preserving current trip notes:', driverNotes);
+      }
+      
+      console.log('💾 [SAVE-LOCATION] Updating trip with:', { 
+        locations: updatedLocations.length, 
+        trip_notes: updateData.trip_notes ? 'preserved' : 'unchanged' 
+      });
+      
       const { error: updateError } = await supabase
         .from('trips')
-        .update({ locations: updatedLocations })
+        .update(updateData)
         .eq('id', tripId);
 
       if (updateError) {
