@@ -833,6 +833,106 @@ export default function ResultsPage() {
     return `${formattedHours}:${formattedMinutes}`;
   };
 
+  // Calculate timeline realism by comparing user input times with Google Maps calculated travel times
+  const calculateTimelineRealism = (
+    locations: Array<{ time: string }>,
+    trafficPredictions: any,
+    tripDate: string
+  ): Array<{
+    legIndex: number;
+    userExpectedMinutes: number;
+    googleCalculatedMinutes: number;
+    differenceMinutes: number;
+    realismLevel: 'realistic' | 'tight' | 'unrealistic';
+    message: string;
+  }> => {
+    const results: Array<{
+      legIndex: number;
+      userExpectedMinutes: number;
+      googleCalculatedMinutes: number;
+      differenceMinutes: number;
+      realismLevel: 'realistic' | 'tight' | 'unrealistic';
+      message: string;
+    }> = [];
+
+    if (!trafficPredictions?.success || !trafficPredictions.data || locations.length < 2) {
+      return results;
+    }
+
+    for (let i = 0; i < locations.length - 1; i++) {
+      const origin = locations[i];
+      const destination = locations[i + 1];
+      const trafficLeg = trafficPredictions.data[i];
+
+      if (!origin.time || !destination.time || !trafficLeg) {
+        continue;
+      }
+
+      // Parse user input times
+      const originTimeParts = origin.time.split(':');
+      const destTimeParts = destination.time.split(':');
+      const originHours = parseInt(originTimeParts[0]) || 0;
+      const originMinutes = parseInt(originTimeParts[1]) || 0;
+      const destHours = parseInt(destTimeParts[0]) || 0;
+      const destMinutes = parseInt(destTimeParts[1]) || 0;
+
+      // Create date objects for the trip date with the times
+      const tripDateObj = new Date(tripDate);
+      const originDateTime = new Date(tripDateObj);
+      originDateTime.setHours(originHours, originMinutes, 0, 0);
+      
+      const destDateTime = new Date(tripDateObj);
+      destDateTime.setHours(destHours, destMinutes, 0, 0);
+
+      // Handle next-day transitions (e.g., 23:00 -> 01:00)
+      if (destDateTime <= originDateTime) {
+        destDateTime.setDate(destDateTime.getDate() + 1);
+      }
+
+      // Calculate user expected time in minutes
+      const userExpectedMs = destDateTime.getTime() - originDateTime.getTime();
+      const userExpectedMinutes = Math.round(userExpectedMs / (1000 * 60));
+
+      // Get Google calculated travel time
+      const googleCalculatedMinutes = trafficLeg.minutes || 0;
+
+      // Calculate difference (positive = user has more time, negative = user has less time)
+      const differenceMinutes = userExpectedMinutes - googleCalculatedMinutes;
+
+      // Determine realism level
+      // Realistic: User time >= Google time (or within 10% buffer)
+      // Tight: User time is 10-30% less than Google time
+      // Unrealistic: User time is >30% less than Google time
+      let realismLevel: 'realistic' | 'tight' | 'unrealistic';
+      let message: string;
+
+      if (differenceMinutes >= -googleCalculatedMinutes * 0.1) {
+        // User has at least 90% of the required time (realistic)
+        realismLevel = 'realistic';
+        message = 'Your timeline looks good';
+      } else if (differenceMinutes >= -googleCalculatedMinutes * 0.3) {
+        // User has 70-90% of the required time (tight)
+        realismLevel = 'tight';
+        message = 'Your timeline is tight - consider adding buffer time';
+      } else {
+        // User has less than 70% of the required time (unrealistic)
+        realismLevel = 'unrealistic';
+        message = 'Your timeline may be unrealistic - travel time is longer than expected';
+      }
+
+      results.push({
+        legIndex: i,
+        userExpectedMinutes,
+        googleCalculatedMinutes,
+        differenceMinutes,
+        realismLevel,
+        message,
+      });
+    }
+
+    return results;
+  };
+
 
   // Function to extract flight numbers from driver notes
   const extractFlightNumbers = (notes: string): {[locationName: string]: string[]} => {
@@ -5770,98 +5870,131 @@ export default function ResultsPage() {
               ></div>
               
               <div className="space-y-3">
-                {locations.map((location: any, index: number) => (
-                  <div key={location.id || index} id={`location-${index}`} className="flex items-start gap-3 relative z-10">
-                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
-                      !isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index))
-                        ? 'animate-live-pulse text-white' 
-                        : 'bg-primary text-primary-foreground'
-                    }`}>
-                      {String.fromCharCode(65 + index)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start">
-                        <div className="w-32 flex-shrink-0">
-                          <div className="text-sm font-medium text-muted-foreground mb-1">
-                            {index === 0 ? 'Pickup' : 
-                             index === locations.length - 1 ? 'Drop-off' : 
-                             'Resume at'}
-                            {!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
-                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                LIVE
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {getLondonLocalTime(location.time)}
-                          </div>
+                {(() => {
+                  // Calculate timeline realism once for all legs
+                  const timelineRealism = calculateTimelineRealism(locations, trafficPredictions, tripDate);
+                  
+                  return locations.map((location: any, index: number) => {
+                    // Find realism data for this leg
+                    const legRealism = timelineRealism.find(r => r.legIndex === index);
+                  
+                  return (
+                    <div key={location.id || index}>
+                      <div id={`location-${index}`} className="flex items-start gap-3 relative z-10">
+                        <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
+                          !isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index))
+                            ? 'animate-live-pulse text-white' 
+                            : 'bg-primary text-primary-foreground'
+                        }`}>
+                          {String.fromCharCode(65 + index)}
                         </div>
-                        <div className="flex-1 ml-12">
-                          <button 
-                            onClick={() => {
-                              const address = location.formattedAddress || location.fullAddress || location.address || location.name;
-                              const encodedAddress = encodeURIComponent(address);
-                              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-                              
-                              // Calculate center position for popup
-                              const width = 800;
-                              const height = 600;
-                              const left = (screen.width - width) / 2;
-                              const top = (screen.height - height) / 2;
-                              
-                              window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
-                            }}
-                            className="text-left hover:text-primary transition-colors cursor-pointer block w-full"
-                            title={location.formattedAddress || location.fullAddress || location.address || location.name}
-                          >
-                            {(() => {
-                              const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
-                              const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
-                              const flightMap = extractFlightNumbers(driverNotes);
-                              
-                              // Check if this location is an airport and has flight numbers
-                              const isAirport = businessName.toLowerCase().includes('airport') || 
-                                              businessName.toLowerCase().includes('heathrow') ||
-                                              businessName.toLowerCase().includes('gatwick') ||
-                                              businessName.toLowerCase().includes('stansted') ||
-                                              businessName.toLowerCase().includes('luton');
-                              
-                              let displayBusinessName = businessName;
-                              
-                              if (isAirport && Object.keys(flightMap).length > 0) {
-                                // Find matching airport in flight map
-                                const matchingAirport = Object.keys(flightMap).find(airport => 
-                                  businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
-                                );
-                                
-                                if (matchingAirport && flightMap[matchingAirport].length > 0) {
-                                  const flights = flightMap[matchingAirport].join(', ');
-                                  displayBusinessName = `${businessName} for flight ${flights}`;
-                                }
-                              }
-                              
-                              return (
-                                <div>
-                                  <div className="text-lg font-semibold text-card-foreground">
-                                    {displayBusinessName}
-                                    {location.purpose && (
-                                      <span> - {location.purpose}</span>
-                                    )}
-                                  </div>
-                                  {restOfAddress && (
-                                    <div className="text-sm text-muted-foreground mt-0.5">
-                                      {restOfAddress}
+                        <div className="flex-1">
+                          <div className="flex items-start">
+                            <div className="w-32 flex-shrink-0">
+                              <div className="text-sm font-medium text-muted-foreground mb-1">
+                                {index === 0 ? 'Pickup' : 
+                                 index === locations.length - 1 ? 'Drop-off' : 
+                                 'Resume at'}
+                                {!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
+                                  <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                    LIVE
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {getLondonLocalTime(location.time)}
+                              </div>
+                            </div>
+                            <div className="flex-1 ml-12">
+                              <button 
+                                onClick={() => {
+                                  const address = location.formattedAddress || location.fullAddress || location.address || location.name;
+                                  const encodedAddress = encodeURIComponent(address);
+                                  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+                                  
+                                  // Calculate center position for popup
+                                  const width = 800;
+                                  const height = 600;
+                                  const left = (screen.width - width) / 2;
+                                  const top = (screen.height - height) / 2;
+                                  
+                                  window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+                                }}
+                                className="text-left hover:text-primary transition-colors cursor-pointer block w-full"
+                                title={location.formattedAddress || location.fullAddress || location.address || location.name}
+                              >
+                                {(() => {
+                                  const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
+                                  const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                                  const flightMap = extractFlightNumbers(driverNotes);
+                                  
+                                  // Check if this location is an airport and has flight numbers
+                                  const isAirport = businessName.toLowerCase().includes('airport') || 
+                                                  businessName.toLowerCase().includes('heathrow') ||
+                                                  businessName.toLowerCase().includes('gatwick') ||
+                                                  businessName.toLowerCase().includes('stansted') ||
+                                                  businessName.toLowerCase().includes('luton');
+                                  
+                                  let displayBusinessName = businessName;
+                                  
+                                  if (isAirport && Object.keys(flightMap).length > 0) {
+                                    // Find matching airport in flight map
+                                    const matchingAirport = Object.keys(flightMap).find(airport => 
+                                      businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                                    );
+                                    
+                                    if (matchingAirport && flightMap[matchingAirport].length > 0) {
+                                      const flights = flightMap[matchingAirport].join(', ');
+                                      displayBusinessName = `${businessName} for flight ${flights}`;
+                                    }
+                                  }
+                                  
+                                  return (
+                                    <div>
+                                      <div className="text-lg font-semibold text-card-foreground">
+                                        {displayBusinessName}
+                                        {location.purpose && (
+                                          <span> - {location.purpose}</span>
+                                        )}
+                                      </div>
+                                      {restOfAddress && (
+                                        <div className="text-sm text-muted-foreground mt-0.5">
+                                          {restOfAddress}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </button>
+                                  );
+                                })()}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Timeline Realism Comparison - Show between locations (only for tight/unrealistic) */}
+                      {index < locations.length - 1 && legRealism && legRealism.realismLevel !== 'realistic' && (
+                        <div className="ml-9 mt-2 mb-1">
+                          <div 
+                            className={`rounded-md p-3 border-l-4 ${
+                              legRealism.realismLevel === 'tight'
+                                ? 'bg-[#db7304]/10 border-[#db7304]'
+                                : 'bg-[#9e201b]/10 border-[#9e201b]'
+                            }`}
+                          >
+                            <div className={`text-sm font-medium ${
+                              legRealism.realismLevel === 'tight'
+                                ? 'text-[#db7304]'
+                                : 'text-[#9e201b]'
+                            }`}>
+                              {legRealism.message}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                });
+                })()}
               </div>
             </div>
               </CardContent>
