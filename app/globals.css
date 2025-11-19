@@ -225,3 +225,18 @@
 .animate-live-pulse {
   animation: livePulse 2s ease-in-out infinite;
 }
+
+@keyframes subtleGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+    border-color: var(--border);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.15);
+    border-color: rgba(251, 191, 36, 0.5);
+  }
+}
+
+.animate-subtle-glow {
+  animation: subtleGlow 2s ease-in-out infinite;
+}

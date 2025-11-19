@@ -201,6 +201,7 @@ interface SortableLocationItemProps {
   onEditStart: (id: string, field: 'location' | 'time' | 'purpose') => void;
   onEditEnd: () => void;
   tripDestination?: string; // Add trip destination for city-aware location search
+  isDisabled?: boolean; // Disable location input when date/destination is missing
 }
 
 function SortableLocationItem({
@@ -217,6 +218,7 @@ function SortableLocationItem({
   onEditStart,
   onEditEnd,
   tripDestination,
+  isDisabled = false,
 }: SortableLocationItemProps) {
   const {
     attributes,
@@ -296,8 +298,17 @@ function SortableLocationItem({
                 </div>
               ) : (
                 <div 
-                  className="relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
-                  onClick={() => onEditStart(location.id, 'location')}
+                  className={cn(
+                    "relative px-3 py-2 rounded-md border border-input bg-background transition-colors",
+                    isDisabled 
+                      ? "cursor-not-allowed opacity-60" 
+                      : "cursor-pointer hover:bg-muted dark:hover:bg-[#181a23]"
+                  )}
+                  onClick={() => {
+                    if (!isDisabled) {
+                      onEditStart(location.id, 'location');
+                    }
+                  }}
                 >
                   {location.name ? (
                     <div className="flex items-start gap-3">
@@ -3322,7 +3333,10 @@ export default function Home() {
                 items={locations.map(loc => loc.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="space-y-4 mb-4">
+                <div className={cn(
+                  "space-y-4 mb-4",
+                  (!tripDate || !tripDestination) && "opacity-60 pointer-events-none"
+                )}>
                   {locations.map((location, index) => (
                     <SortableLocationItem
                       key={location.id}
@@ -3337,7 +3351,11 @@ export default function Home() {
                       editingIndex={editingManualIndex}
                       editingField={editingManualField}
                       tripDestination={tripDestination}
+                      isDisabled={!tripDate || !tripDestination}
                       onEditStart={(id, field) => {
+                        if (!tripDate || !tripDestination) {
+                          return;
+                        }
                         const locationIndex = locations.findIndex(loc => loc.id === id);
                         setEditingManualIndex(locationIndex);
                         setEditingManualField(field);
@@ -3376,6 +3394,7 @@ export default function Home() {
               variant="outline"
               size="lg"
               className="border-dashed"
+              disabled={!tripDate || !tripDestination}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
