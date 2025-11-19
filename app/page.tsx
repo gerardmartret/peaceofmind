@@ -273,11 +273,17 @@ function SortableLocationItem({
             <Label className="text-xs font-medium text-secondary-foreground mb-1">
               {getTimeLabel()}
             </Label>
-            <TimePicker
-              value={location.time}
-              onChange={(value) => onTimeChange(location.id, value)}
-              className="h-9"
-            />
+            <div className={!location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === '' ? 'rounded-md border border-[#e77500] dark:border-[#e77500]' : ''}>
+              <TimePicker
+                value={location.time}
+                onChange={(value) => onTimeChange(location.id, value)}
+                className={`h-9 ${
+                  !location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === ''
+                    ? '!bg-white dark:!bg-[#e77500]/10 border-0'
+                    : ''
+                }`}
+              />
+            </div>
           </div>
 
           {/* Location and Purpose Stacked */}
@@ -523,11 +529,17 @@ function SortableExtractedLocationItem({
             <Label className="text-xs font-medium text-secondary-foreground mb-1">
               {getTimeLabel()}
             </Label>
-            <TimePicker
-              value={location.time}
-              onChange={(value) => onTimeChange(index, value)}
-              className="h-9"
-            />
+            <div className={!location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === '' ? 'rounded-md border border-[#e77500] dark:border-[#e77500]' : ''}>
+              <TimePicker
+                value={location.time}
+                onChange={(value) => onTimeChange(index, value)}
+                className={`h-9 ${
+                  !location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === ''
+                    ? '!bg-white dark:!bg-[#e77500]/10 border-0'
+                    : ''
+                }`}
+              />
+            </div>
           </div>
 
           {/* Location and Purpose Stacked */}
@@ -548,10 +560,10 @@ function SortableExtractedLocationItem({
                 </div>
               ) : (
                 <div 
-                  className={`relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border bg-background transition-colors ${
+                  className={`relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border transition-colors ${
                     hasNonSpecificLocation 
-                      ? 'border-destructive border-2' 
-                      : 'border-input'
+                      ? 'bg-white dark:bg-[#e77500]/10 border-[#e77500] dark:border-[#e77500]' 
+                      : 'bg-background border-input'
                   }`}
                   onClick={() => onEditStart(index, 'location')}
                 >
@@ -585,7 +597,7 @@ function SortableExtractedLocationItem({
                       )}
                     </div>
                     {hasNonSpecificLocation ? (
-                      <svg className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="w-4 h-4 text-[#e77500] dark:text-[#e77500] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 9l-6 6M9 9l6 6" />
                       </svg>
@@ -2858,20 +2870,24 @@ export default function Home() {
                     <div className="sm:col-span-2">
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip date</Label>
                       <div className="relative">
-                        <Input
-                          type="date"
-                          value={extractedDate || ''}
-                          onChange={(e) => handleDateEdit(e.target.value)}
-                          className={`bg-background border-border rounded-md h-9 pl-10 text-foreground ${
-                            !extractedDate ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700' : ''
-                          }`}
-                        />
-                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div className={!extractedDate ? 'rounded-md border border-[#e77500] dark:border-[#e77500]' : ''}>
+                          <Input
+                            type="date"
+                            value={extractedDate || ''}
+                            onChange={(e) => handleDateEdit(e.target.value)}
+                            className={`rounded-md h-9 pl-10 ${
+                              !extractedDate 
+                                ? '!bg-white dark:!bg-[#e77500]/10 !text-[#05060A] dark:!text-foreground border-0 placeholder:!text-muted-foreground' 
+                                : 'bg-background border-border text-foreground'
+                            }`}
+                          />
+                        </div>
+                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
                       {!extractedDate && (
-                        <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                        <p className="text-xs text-[#e77500] dark:text-[#e77500] mt-1">
                           Please select a trip date to continue
                         </p>
                       )}

@@ -39,6 +39,7 @@
     "recharts": "^2.15.4",
     "resend": "^6.4.0",
     "tailwind-merge": "^3.3.1",
+    "three": "^0.181.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

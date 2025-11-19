@@ -1626,13 +1626,13 @@ export default function ResultsPage() {
       
       // Update database with new locations and all other fields
       const updateData: any = {
-        locations: JSON.stringify(locationsForDb),
-        trip_results: JSON.stringify(results),
-        traffic_predictions: JSON.stringify(trafficData),
-        executive_report: JSON.stringify(reportData.data),
-        trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
-        updated_at: new Date().toISOString(),
-        version: (currentVersion || 0) + 1,
+          locations: JSON.stringify(locationsForDb),
+          trip_results: JSON.stringify(results),
+          traffic_predictions: JSON.stringify(trafficData),
+          executive_report: JSON.stringify(reportData.data),
+          trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
+          updated_at: new Date().toISOString(),
+          version: (currentVersion || 0) + 1,
       };
       
       // Update non-location fields if they have values (preserve existing if not changed)
@@ -4152,7 +4152,7 @@ export default function ResultsPage() {
           setPreviewChanges(changes);
           setPreviewDriverNotes(newDriverNotes);
           setPreviewNonLocationFields(nonLocationChanges);
-          
+        
           // Update other fields if changed (for immediate state update)
           if (extractedData.leadPassengerName) {
             setLeadPassengerName(extractedData.leadPassengerName);
@@ -4168,11 +4168,11 @@ export default function ResultsPage() {
           }
           
           // Mark step as complete
-          setRegenerationSteps(prev => prev.map(s => 
+        setRegenerationSteps(prev => prev.map(s => 
             s.id === '1' ? { ...s, status: 'completed' as const } :
             s.id === '2' ? { ...s, status: 'completed' as const } : s
-          ));
-          
+        ));
+        
           // Show preview modal
           setIsRegenerating(false);
           setShowPreviewModal(true);
