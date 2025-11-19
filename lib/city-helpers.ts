@@ -45,6 +45,19 @@ export function isLondonTrip(tripDestination?: string | null): boolean {
 }
 
 /**
+ * Gets the timezone for a trip destination
+ * @param tripDestination - The trip destination city
+ * @returns IANA timezone string (e.g., 'Europe/London', 'America/New_York')
+ */
+export function getDestinationTimezone(tripDestination?: string | null): string {
+  if (tripDestination === 'New York') {
+    return 'America/New_York';
+  }
+  // Default to London timezone (also handles null/undefined for backward compatibility)
+  return 'Europe/London';
+}
+
+/**
  * Gets city-specific configuration for API calls, geocoding, and analysis
  * @param tripDestination - The trip destination city
  * @returns Configuration object with city-specific settings
@@ -72,6 +85,7 @@ export function getCityConfig(tripDestination?: string | null) {
     enableCrimeAPI: isLondon,
     enableTflAPI: isLondon,
     enableParkingAPI: isLondon,
+    timezone: getDestinationTimezone(tripDestination),
   };
 }
 

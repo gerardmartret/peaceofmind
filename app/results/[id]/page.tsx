@@ -25,7 +25,7 @@ import { searchNearbyCafes } from '@/lib/google-cafes';
 import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { validateBusinessEmail } from '@/lib/email-validation';
-import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination } from '@/lib/city-helpers';
+import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination, getDestinationTimezone } from '@/lib/city-helpers';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Label } from '@/components/ui/label';
@@ -728,7 +728,8 @@ export default function ResultsPage() {
   useEffect(() => {
     if (isLiveMode) {
       const timeInterval = setInterval(() => {
-        setCurrentTime(new Date());
+        // Update current time in trip destination timezone
+        setCurrentTime(getCurrentTripTime());
         // Auto-stop live mode if trip is completed
         if (isTripCompleted()) {
           stopLiveTrip();
@@ -737,7 +738,7 @@ export default function ResultsPage() {
 
       return () => clearInterval(timeInterval);
     }
-  }, [isLiveMode]);
+  }, [isLiveMode, tripDestination]);
 
   // Auto-resize textarea as content changes (up to 3 lines)
   useEffect(() => {
@@ -816,11 +817,11 @@ export default function ResultsPage() {
     validateToken();
   }, [searchParams, tripId, loading]);
 
-  // Function to format stored time - returns time as-is without any timezone conversion
-  const getLondonLocalTime = (timeString: string): string => {
+  // Function to format stored time - times are already stored in trip destination timezone
+  // This function just formats the time string (HH:MM) for display
+  const getDestinationLocalTime = (timeString: string): string => {
     if (!timeString) return 'N/A';
     
-    // Simply return the time string as formatted HH:MM
     // Parse the time string (e.g., "18:35" or "18")
     const timeParts = timeString.split(':');
     const hours = parseInt(timeParts[0]) || 0;
@@ -831,6 +832,84 @@ export default function ResultsPage() {
     const formattedMinutes = minutes.toString().padStart(2, '0');
     
     return `${formattedHours}:${formattedMinutes}`;
+  };
+  
+  // Keep getLondonLocalTime for backward compatibility
+  const getLondonLocalTime = (timeString: string): string => {
+    return getDestinationLocalTime(timeString);
+  };
+
+  // Calculate combined schedule risk (timeline realism + traffic delay)
+  const calculateCombinedScheduleRisk = (
+    trafficDelay: number,
+    timelineRealism: 'realistic' | 'tight' | 'unrealistic' | null,
+    userExpectedMinutes: number,
+    googleCalculatedMinutes: number
+  ): {
+    level: 'low' | 'moderate' | 'high';
+    label: string;
+    color: string;
+    reason: string;
+  } => {
+    // If timeline is unrealistic, always high risk regardless of traffic
+    if (timelineRealism === 'unrealistic') {
+      return {
+        level: 'high',
+        label: 'Schedule risk: High',
+        color: '#9e201b',
+        reason: `Timeline unrealistic - travel time is ${googleCalculatedMinutes} min but you allocated ${userExpectedMinutes} min`,
+      };
+    }
+
+    // If timeline is tight, elevate risk
+    if (timelineRealism === 'tight') {
+      if (trafficDelay >= 10) {
+        return {
+          level: 'high',
+          label: 'Schedule risk: High',
+          color: '#9e201b',
+          reason: 'Tight timeline + high traffic delay',
+        };
+      } else if (trafficDelay >= 5) {
+        return {
+          level: 'moderate',
+          label: 'Schedule risk: Moderate',
+          color: '#db7304',
+          reason: 'Tight timeline + moderate traffic delay',
+        };
+      } else {
+        return {
+          level: 'moderate',
+          label: 'Schedule risk: Moderate',
+          color: '#db7304',
+          reason: 'Tight timeline - consider adding buffer time',
+        };
+      }
+    }
+
+    // If timeline is realistic, use traffic delay thresholds as-is
+    if (trafficDelay < 5) {
+      return {
+        level: 'low',
+        label: 'Delay risk: Low',
+        color: '#3ea34b',
+        reason: 'Low traffic delay',
+      };
+    } else if (trafficDelay < 10) {
+      return {
+        level: 'moderate',
+        label: 'Delay risk: Moderate',
+        color: '#db7304',
+        reason: 'Moderate traffic delay',
+      };
+    } else {
+      return {
+        level: 'high',
+        label: 'Delay risk: High',
+        color: '#9e201b',
+        reason: 'High traffic delay',
+      };
+    }
   };
 
   // Calculate timeline realism by comparing user input times with Google Maps calculated travel times
@@ -1564,10 +1643,25 @@ export default function ResultsPage() {
     }));
   };
 
-  // Live Trip helper functions - returns current local time without timezone conversion
+  // Live Trip helper functions - returns current time in trip destination timezone
   const getCurrentTripTime = (): Date => {
-    // Simply return the current local time
-    return new Date();
+    // Get current time in trip destination timezone
+    const timezone = getDestinationTimezone(tripDestination);
+    const now = new Date();
+    
+    // Format current time in destination timezone and parse it back
+    const timeString = now.toLocaleTimeString('en-GB', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const localTime = new Date();
+    localTime.setHours(hours, minutes, 0, 0);
+    
+    return localTime;
   };
 
   const findClosestLocation = (): number => {
@@ -5881,105 +5975,118 @@ export default function ResultsPage() {
                   return (
                     <div key={location.id || index}>
                       <div id={`location-${index}`} className="flex items-start gap-3 relative z-10">
-                        <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
-                          !isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index))
-                            ? 'animate-live-pulse text-white' 
-                            : 'bg-primary text-primary-foreground'
-                        }`}>
-                          {String.fromCharCode(65 + index)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-start">
-                            <div className="w-32 flex-shrink-0">
-                              <div className="text-sm font-medium text-muted-foreground mb-1">
-                                {index === 0 ? 'Pickup' : 
-                                 index === locations.length - 1 ? 'Drop-off' : 
-                                 'Resume at'}
-                                {!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
-                                  <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                    LIVE
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {getLondonLocalTime(location.time)}
-                              </div>
-                            </div>
-                            <div className="flex-1 ml-12">
-                              <button 
-                                onClick={() => {
-                                  const address = location.formattedAddress || location.fullAddress || location.address || location.name;
-                                  const encodedAddress = encodeURIComponent(address);
-                                  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-                                  
-                                  // Calculate center position for popup
-                                  const width = 800;
-                                  const height = 600;
-                                  const left = (screen.width - width) / 2;
-                                  const top = (screen.height - height) / 2;
-                                  
-                                  window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
-                                }}
-                                className="text-left hover:text-primary transition-colors cursor-pointer block w-full"
-                                title={location.formattedAddress || location.fullAddress || location.address || location.name}
-                              >
-                                {(() => {
-                                  const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
-                                  const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
-                                  const flightMap = extractFlightNumbers(driverNotes);
-                                  
-                                  // Check if this location is an airport and has flight numbers
-                                  const isAirport = businessName.toLowerCase().includes('airport') || 
-                                                  businessName.toLowerCase().includes('heathrow') ||
-                                                  businessName.toLowerCase().includes('gatwick') ||
-                                                  businessName.toLowerCase().includes('stansted') ||
-                                                  businessName.toLowerCase().includes('luton');
-                                  
-                                  let displayBusinessName = businessName;
-                                  
-                                  if (isAirport && Object.keys(flightMap).length > 0) {
-                                    // Find matching airport in flight map
-                                    const matchingAirport = Object.keys(flightMap).find(airport => 
-                                      businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
-                                    );
-                                    
-                                    if (matchingAirport && flightMap[matchingAirport].length > 0) {
-                                      const flights = flightMap[matchingAirport].join(', ');
-                                      displayBusinessName = `${businessName} for flight ${flights}`;
-                                    }
-                                  }
-                                  
-                                  return (
-                                    <div>
-                                      <div className="text-lg font-semibold text-card-foreground">
-                                        {displayBusinessName}
-                                        {location.purpose && (
-                                          <span> - {location.purpose}</span>
-                                        )}
-                                      </div>
-                                      {restOfAddress && (
-                                        <div className="text-sm text-muted-foreground mt-0.5">
-                                          {restOfAddress}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-                              </button>
-                            </div>
+                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
+                      !isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index))
+                        ? 'animate-live-pulse text-white' 
+                        : 'bg-primary text-primary-foreground'
+                    }`}>
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start">
+                        <div className="w-32 flex-shrink-0">
+                          <div className="text-sm font-medium text-muted-foreground mb-1">
+                            {index === 0 ? 'Pickup' : 
+                             index === locations.length - 1 ? 'Drop-off' : 
+                             'Resume at'}
+                            {!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
+                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                LIVE
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {getLondonLocalTime(location.time)}
                           </div>
                         </div>
+                        <div className="flex-1 ml-12">
+                          <button 
+                            onClick={() => {
+                              const address = location.formattedAddress || location.fullAddress || location.address || location.name;
+                              const encodedAddress = encodeURIComponent(address);
+                              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+                              
+                              // Calculate center position for popup
+                              const width = 800;
+                              const height = 600;
+                              const left = (screen.width - width) / 2;
+                              const top = (screen.height - height) / 2;
+                              
+                              window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+                            }}
+                            className="text-left hover:text-primary transition-colors cursor-pointer block w-full"
+                            title={location.formattedAddress || location.fullAddress || location.address || location.name}
+                          >
+                            {(() => {
+                              const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
+                              const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                              const flightMap = extractFlightNumbers(driverNotes);
+                              
+                              // Check if this location is an airport and has flight numbers
+                              const isAirport = businessName.toLowerCase().includes('airport') || 
+                                              businessName.toLowerCase().includes('heathrow') ||
+                                              businessName.toLowerCase().includes('gatwick') ||
+                                              businessName.toLowerCase().includes('stansted') ||
+                                              businessName.toLowerCase().includes('luton');
+                              
+                              let displayBusinessName = businessName;
+                              
+                              if (isAirport && Object.keys(flightMap).length > 0) {
+                                // Find matching airport in flight map
+                                const matchingAirport = Object.keys(flightMap).find(airport => 
+                                  businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                                );
+                                
+                                if (matchingAirport && flightMap[matchingAirport].length > 0) {
+                                  const flights = flightMap[matchingAirport].join(', ');
+                                  displayBusinessName = `${businessName} for flight ${flights}`;
+                                }
+                              }
+                              
+                              return (
+                                <div>
+                                  <div className="text-lg font-semibold text-card-foreground">
+                                    {displayBusinessName}
+                                    {location.purpose && (
+                                      <span> - {location.purpose}</span>
+                                    )}
+                                  </div>
+                                  {restOfAddress && (
+                                    <div className="text-sm text-muted-foreground mt-0.5">
+                                      {restOfAddress}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </button>
+                        </div>
                       </div>
+                    </div>
+                  </div>
                       
                       {/* Timeline Realism Comparison - Show between locations (only for tight/unrealistic) */}
                       {index < locations.length - 1 && legRealism && legRealism.realismLevel !== 'realistic' && (
                         <div className="ml-9 mt-2 mb-1">
                           <div 
-                            className={`rounded-md p-3 border-l-4 ${
+                            className={`rounded-md p-3 border-l-4 cursor-pointer hover:opacity-80 transition-opacity ${
                               legRealism.realismLevel === 'tight'
                                 ? 'bg-[#db7304]/10 border-[#db7304]'
                                 : 'bg-[#9e201b]/10 border-[#9e201b]'
                             }`}
+                            onClick={() => {
+                              if (!isTripCompleted()) {
+                                startLiveTrip();
+                                // Scroll to trip breakdown section after a short delay to allow state update
+                                setTimeout(() => {
+                                  const breakdownElement = document.getElementById('trip-breakdown-0');
+                                  if (breakdownElement) {
+                                    breakdownElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }
+                                }, 100);
+                              }
+                            }}
+                            title="Click to view trip breakdown"
                           >
                             <div className={`text-sm font-medium ${
                               legRealism.realismLevel === 'tight'
@@ -6649,7 +6756,28 @@ export default function ResultsPage() {
               </div>
 
               {/* Route Card (after each location except the last) */}
-              {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data[index] && (
+              {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data[index] && (() => {
+                // Calculate timeline realism for this route leg
+                const legLocations = [
+                  { time: tripResults[index].time },
+                  { time: tripResults[index + 1].time }
+                ];
+                const timelineRealism = calculateTimelineRealism(legLocations, trafficPredictions, tripDate);
+                const legRealism = timelineRealism.find(r => r.legIndex === index);
+                
+                // Calculate traffic delay
+                const leg = trafficPredictions.data[index];
+                const trafficDelay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
+                
+                // Calculate combined schedule risk
+                const combinedRisk = calculateCombinedScheduleRisk(
+                  trafficDelay,
+                  legRealism?.realismLevel || null,
+                  legRealism?.userExpectedMinutes || 0,
+                  leg.minutes || 0
+                );
+                
+                return (
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-32 text-right relative">
                     {/* Timeline Dot for Route */}
@@ -6684,25 +6812,12 @@ export default function ResultsPage() {
                       <div 
                         className="px-4 py-2 rounded-lg font-semibold"
                         style={{
-                          backgroundColor: (() => {
-                            const leg = trafficPredictions?.data?.[index];
-                            if (!leg) return '#808080'; // Default gray if no data
-                            const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
-                            if (delay < 10) return '#db7304'; // Warning orange
-                            return '#9e201b'; // Error red (white text)
-                          })(),
+                          backgroundColor: combinedRisk.color,
                           color: '#FFFFFF'
                         }}
+                        title={combinedRisk.reason}
                       >
-                        {(() => {
-                          const leg = trafficPredictions?.data?.[index];
-                          if (!leg) return 'Delay Risk: Unknown';
-                          const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                          if (delay < 5) return 'Delay Risk: Low';
-                          if (delay < 10) return 'Delay Risk: Moderate';
-                          return 'Delay Risk: High';
-                        })()}
+                        {combinedRisk.label}
                       </div>
                       
                       {/* Expand/Collapse Button */}
@@ -6805,6 +6920,23 @@ export default function ResultsPage() {
                           <span className="text-card-foreground">{tripResults[index + 1].locationName}</span>
                         </div>
                       </div>
+                      {legRealism && legRealism.realismLevel !== 'realistic' && (
+                        <div className={`mt-3 pt-3 border-t border-border/30 ${
+                          legRealism.realismLevel === 'unrealistic' 
+                            ? 'text-[#9e201b]' 
+                            : 'text-[#db7304]'
+                        }`}>
+                          <div className="text-sm font-medium mb-1">
+                            {legRealism.message}
+                          </div>
+                          <div className="text-xs opacity-80">
+                            Your timeline: {legRealism.userExpectedMinutes} min • Estimated travel: {legRealism.googleCalculatedMinutes} min
+                            {legRealism.differenceMinutes < 0 && (
+                              <span> • Gap: {Math.abs(legRealism.differenceMinutes)} min short</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       {trafficPredictions?.data?.[index]?.busyMinutes && (
                         <div className="text-sm text-destructive mt-3 pt-3 border-t border-border/30">
                           Busy traffic expected: -{Math.max(0, (trafficPredictions.data[index].busyMinutes || 0) - (trafficPredictions.data[index].minutesNoTraffic || 0))} min additional delay
@@ -6910,7 +7042,8 @@ export default function ResultsPage() {
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
               </React.Fragment>
             ))}
           </div>
