@@ -259,20 +259,23 @@ Return JSON:
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
   "recommendations": ["Data-driven only: traffic timing, parking strategies, crime precautions, weather prep"],
   "highlights": [{"type": "danger|warning|info|success", "message": "str"}],
-  "exceptionalInformation": "Trip notes ONLY. Safety-critical and urgent items as actionable statements. If NO exceptional items found, return empty string ''. Examples: '- Ensure vehicle is completely nut-free (passenger has severe allergy)', '- Confirm driver wears dark suit as specified', '- Maintain driver silence throughout journey'",
-  "importantInformation": "Trip notes ONLY. Contextual and operational items as actionable statements. If NO important items found, return empty string ''. Examples: '- Keep Emily (+44 7911 223344) informed of any delays', '- Confirm fast WiFi and charging ports operational', '- Stock vehicle with still and sparkling water'"
+  "exceptionalInformation": "Safety-critical and urgent items from trip notes ONLY. Extract ONLY what is explicitly stated in trip notes. If NO exceptional items found in trip notes, return empty string ''",
+  "importantInformation": "Contextual and operational items from trip notes ONLY. Extract ONLY what is explicitly stated in trip notes. If NO important items found in trip notes, return empty string ''"
 }
 
 TRIP NOTES → EXCEPTIONAL & IMPORTANT (actionable statements):
 
-BEFORE STARTING: Count how many lines are in trip notes. This number = total items you must extract to Exceptional + Important.
+⚠️ CRITICAL: DO NOT INVENT INFORMATION. Extract ONLY what is explicitly stated in trip notes. If trip notes are empty or contain no relevant items, return empty string '' for both exceptionalInformation and importantInformation.
+
+BEFORE STARTING: Count how many lines are in trip notes. This number = total items you must extract to Exceptional + Important. If trip notes are empty or null, both fields must be empty strings ''.
 
 STEP 1 - EXTRACT (100% coverage, no invention):
-- COUNT trip note lines FIRST: If 10 lines → must extract exactly 10 items
+- COUNT trip note lines FIRST: If 10 lines → must extract exactly 10 items. If 0 lines → return empty strings ''
 - Process trip notes LINE BY LINE - extract EVERY line without exception
-- Extract ONLY what's LITERALLY stated
+- Extract ONLY what's LITERALLY stated - NEVER invent or add items from examples
 - If line contains multiple items with "and" (e.g., "WiFi and chargers"), extract as ONE item mentioning BOTH parts
 - NEVER SKIP: ANY food restrictions (no X, avoid Y, etc), signs to hold, dress codes (suits, uniforms), bags/luggage help, vehicle features (WiFi, chargers, glass, temperature), water/drinks, newspapers, quiet driver, contact info, quotes, waiting time
+- NEVER ADD: Do not add items that are not explicitly mentioned in trip notes, even if they seem logical or appear in examples below
 
 STEP 2 - CATEGORIZE (zero overlap):
 EXCEPTIONAL: 
@@ -321,8 +324,12 @@ CRITICAL VALIDATION (ENFORCE STRICTLY):
 4. All three sections use same actionable verb style
 5. Compound items (X and Y) preserve both X AND Y
 6. COMMON FAILURES: Missing food restrictions ("no X", allergies), missing signs to hold, missing dress codes, missing newspapers, missing privacy glass, missing quiet driver - these are UNACCEPTABLE
+7. NEVER INVENT: If trip notes say "bring pineapple", do NOT add nut-free requirements, suit requirements, or any other items not mentioned
 
-EXAMPLES:
+⚠️ EXAMPLES BELOW ARE FOR REFERENCE ONLY - DO NOT COPY THEM ⚠️
+These examples show the FORMAT and STYLE, but you must ONLY extract what is actually in the trip notes provided above.
+
+EXAMPLES (REFERENCE ONLY - DO NOT COPY):
 
 Example 1 (10 lines):
 Trip notes: "Contact Emily +44 7911 223344" / "Driver: dark suit" / "Help with bags" / "Wi-Fi and chargers" / "Water and sparkling" / "No nuts" / "FT newspaper" / "Privacy glass up" / "Quiet driver" / "Quote ASAP"
@@ -343,7 +350,9 @@ Recommendations (data-driven ONLY, not from trip notes):
    "Exercise caution in high crime area (78 crimes reported); keep doors locked when stationary"
    "Rain expected at 15:00; ensure umbrella available and pre-warm vehicle 10 minutes before departure"
    "CPZ Zone active until 18:30; use nearby NCP car park at £4.50/hr to avoid penalties"
-   "Limited parking availability at destination; arrive 10 minutes early to secure spot"`;
+   "Limited parking availability at destination; arrive 10 minutes early to secure spot"
+
+⚠️ FINAL REMINDER: The examples above are ONLY to show format and style. You MUST extract ONLY what is explicitly stated in the trip notes provided in PASSENGER INFORMATION section. If trip notes are empty or contain no relevant items, return empty string '' for both exceptionalInformation and importantInformation. DO NOT copy items from examples.`;
 
     // Use GPT-4o-mini for comprehensive executive analysis (proven working, 90% cost reduction)
     console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
