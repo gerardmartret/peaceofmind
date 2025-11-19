@@ -584,6 +584,22 @@ export default function ResultsPage() {
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
   
+  // Preview modal state for AI-assisted updates
+  const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
+  const [previewLocations, setPreviewLocations] = useState<any[]>([]);
+  const [previewChanges, setPreviewChanges] = useState<{
+    removed: Array<{ index: number; location: any }>;
+    modified: number[];
+    added: number[];
+  }>({ removed: [], modified: [], added: [] });
+  const [previewDriverNotes, setPreviewDriverNotes] = useState<string>('');
+  const [previewNonLocationFields, setPreviewNonLocationFields] = useState<{
+    leadPassengerName?: string;
+    vehicleInfo?: string;
+    passengerCount?: number;
+    tripDestination?: string;
+  }>({});
+  
   // Enhanced error tracking with step information
   const [updateProgress, setUpdateProgress] = useState<{
     step: string;
@@ -1608,18 +1624,34 @@ export default function ResultsPage() {
         throw new Error('Failed to generate executive report');
       }
       
-      // Update database with new locations (preserve notes and other fields)
+      // Update database with new locations and all other fields
+      const updateData: any = {
+        locations: JSON.stringify(locationsForDb),
+        trip_results: JSON.stringify(results),
+        traffic_predictions: JSON.stringify(trafficData),
+        executive_report: JSON.stringify(reportData.data),
+        trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
+        updated_at: new Date().toISOString(),
+        version: (currentVersion || 0) + 1,
+      };
+      
+      // Update non-location fields if they have values (preserve existing if not changed)
+      if (leadPassengerName) {
+        updateData.lead_passenger_name = leadPassengerName;
+      }
+      if (vehicleInfo) {
+        updateData.vehicle = vehicleInfo;
+      }
+      if (passengerCount && passengerCount > 0) {
+        updateData.passenger_count = passengerCount;
+      }
+      if (tripDestination) {
+        updateData.trip_destination = tripDestination;
+      }
+      
       const { error: updateError } = await supabase
         .from('trips')
-        .update({
-          locations: JSON.stringify(locationsForDb),
-          trip_results: JSON.stringify(results),
-          traffic_predictions: JSON.stringify(trafficData),
-          executive_report: JSON.stringify(reportData.data),
-          trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
-          updated_at: new Date().toISOString(),
-          version: (currentVersion || 0) + 1,
-        })
+        .update(updateData)
         .eq('id', tripId);
       
       if (updateError) {
@@ -3527,6 +3559,419 @@ export default function ResultsPage() {
   };
 
   // Extract updates handler
+  // Map AI-extracted data to manual form format (editingLocations)
+  const mapExtractedToManualForm = (
+    currentLocations: any[],
+    extractedData: any
+  ): any[] => {
+    console.log('🔄 [MAP] Mapping extracted data to manual form format...');
+    console.log(`📍 [MAP] Current locations: ${currentLocations.length}`);
+    console.log(`📍 [MAP] Extracted locations: ${extractedData.locations?.length || 0}`);
+    console.log(`🗑️ [MAP] Removals: ${extractedData.removedLocations?.length || 0}`);
+    
+    // Step 1: Convert current locations to manual form format
+    let manualLocations = currentLocations.map((loc, idx) => ({
+      location: loc.name || loc.fullAddress || '',
+      formattedAddress: loc.fullAddress || loc.formattedAddress || loc.name || '',
+      lat: loc.lat || 0,
+      lng: loc.lng || 0,
+      time: loc.time || '12:00',
+      purpose: loc.name || loc.fullAddress || '',
+      confidence: 'high' as 'high' | 'medium' | 'low',
+      verified: true,
+      placeId: loc.id || `location-${idx + 1}`,
+      originalIndex: idx, // Keep track of original index for change tracking
+    }));
+    
+    // Step 2: Apply removals
+    if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
+      const beforeCount = manualLocations.length;
+      manualLocations = manualLocations.filter((loc, idx) => {
+        const locText = `${loc.location} ${loc.purpose}`.toLowerCase();
+        const shouldRemove = extractedData.removedLocations.some((removal: string) => 
+          locText.includes(removal.toLowerCase())
+        );
+        
+        if (shouldRemove) {
+          console.log(`🗑️ [MAP] Removing location ${idx + 1}: ${loc.location} (matched: ${extractedData.removedLocations.find((r: string) => locText.includes(r.toLowerCase()))})`);
+        }
+        
+        return !shouldRemove;
+      });
+      console.log(`✅ [MAP] Removed ${beforeCount - manualLocations.length} location(s)`);
+    }
+    
+    // Step 3: Helper function to match extracted location to current
+    const matchExtractedToCurrent = (extractedLoc: any, currentLocs: any[]): { matched: boolean; index?: number; confidence: 'high' | 'medium' | 'low' } => {
+      // Strategy 1: Index-based matching (if locationIndex provided)
+      if (extractedLoc.locationIndex !== undefined) {
+        const targetIdx = extractedLoc.locationIndex;
+        if (targetIdx >= 0 && targetIdx < currentLocs.length) {
+          console.log(`✅ [MAP] Index match: locationIndex ${targetIdx}`);
+          return { matched: true, index: targetIdx, confidence: 'high' };
+        }
+      }
+      
+      // Strategy 2: Pickup/dropoff matching
+      // Check both location name AND purpose field (purpose is where pickup/dropoff keywords are stored)
+      const locNameLower = (extractedLoc.location || '').toLowerCase();
+      const purposeLower = (extractedLoc.purpose || '').toLowerCase();
+      const combinedText = `${locNameLower} ${purposeLower}`;
+      
+      const isPickup = combinedText.includes('pickup') || combinedText.includes('pick up') || combinedText.includes('collection');
+      const isDropoff = combinedText.includes('dropoff') || combinedText.includes('drop off') || combinedText.includes('destination');
+      
+      if (isPickup && currentLocs.length > 0) {
+        console.log(`✅ [MAP] Pickup match: index 0 (from purpose: "${extractedLoc.purpose}")`);
+        return { matched: true, index: 0, confidence: 'high' };
+      }
+      if (isDropoff && currentLocs.length > 0) {
+        console.log(`✅ [MAP] Dropoff match: index ${currentLocs.length - 1} (from purpose: "${extractedLoc.purpose}")`);
+        return { matched: true, index: currentLocs.length - 1, confidence: 'high' };
+      }
+      
+      // Strategy 3: Name matching (exact, partial, purpose)
+      for (let i = 0; i < currentLocs.length; i++) {
+        const current = currentLocs[i];
+        const currentName = (current.location || '').toLowerCase();
+        const currentPurpose = (current.purpose || '').toLowerCase();
+        const extractedName = (extractedLoc.location || '').toLowerCase();
+        const extractedPurpose = (extractedLoc.purpose || '').toLowerCase();
+        
+        // Exact match
+        if (extractedName === currentName || extractedName === currentPurpose) {
+          console.log(`✅ [MAP] Exact name match: index ${i}`);
+          return { matched: true, index: i, confidence: 'high' };
+        }
+        
+        // Partial match (extracted contains current or vice versa)
+        if (extractedName && currentName && (
+          extractedName.includes(currentName) || 
+          currentName.includes(extractedName) ||
+          extractedName.includes(currentPurpose) ||
+          currentPurpose.includes(extractedName)
+        )) {
+          console.log(`✅ [MAP] Partial name match: index ${i}`);
+          return { matched: true, index: i, confidence: 'medium' };
+        }
+        
+        // Purpose match
+        if (extractedPurpose && currentPurpose && (
+          extractedPurpose === currentPurpose ||
+          extractedPurpose.includes(currentPurpose) ||
+          currentPurpose.includes(extractedPurpose)
+        )) {
+          console.log(`✅ [MAP] Purpose match: index ${i}`);
+          return { matched: true, index: i, confidence: 'medium' };
+        }
+      }
+      
+      return { matched: false, confidence: 'low' };
+    };
+    
+    // Step 4: Apply modifications (locations that match existing ones)
+    if (extractedData.locations && extractedData.locations.length > 0) {
+      extractedData.locations.forEach((extractedLoc: any) => {
+        // Skip if it's an addition (has insertAfter/insertBefore or doesn't match)
+        if (extractedLoc.insertAfter || extractedLoc.insertBefore) {
+          return; // Will be handled in additions step
+        }
+        
+        const match = matchExtractedToCurrent(extractedLoc, manualLocations);
+        
+        if (match.matched && match.index !== undefined) {
+          const idx = match.index;
+          console.log(`✏️ [MAP] Modifying location ${idx + 1}: ${manualLocations[idx].location} → ${extractedLoc.location}`);
+          
+          // Only update time if it was explicitly provided and is different from current
+          // Preserve original time if extracted time is empty, same, or appears to be a default
+          // The extraction API often returns "12:00" as a default when no time is mentioned
+          const extractedTime = extractedLoc.time?.trim() || '';
+          const currentTime = manualLocations[idx].time || '';
+          const timeIsDifferent = extractedTime && extractedTime !== currentTime;
+          
+          // Check if the extracted time looks like a meaningful change (not just a default)
+          // The extraction API often returns "12:00" as a default when no time is mentioned
+          // Strategy: If extracted time is "12:00" and current time exists, preserve current time
+          // Only update time if:
+          // 1. Extracted time is NOT "12:00" (likely intentional)
+          // 2. Current time doesn't exist (use extracted as fallback)
+          // 3. Extracted time matches current time (no change needed, but handled above)
+          let shouldUpdateTime = false;
+          if (timeIsDifferent) {
+            if (!currentTime) {
+              // No current time exists, use extracted time
+              shouldUpdateTime = true;
+            } else if (extractedTime === '12:00' && currentTime !== '12:00') {
+              // Extracted time is "12:00" (likely default) and current time exists
+              // Preserve current time - don't update
+              shouldUpdateTime = false;
+            } else {
+              // Extracted time is not "12:00" or matches current, likely intentional
+              shouldUpdateTime = true;
+            }
+          }
+          
+          manualLocations[idx] = {
+            ...manualLocations[idx],
+            location: extractedLoc.location || manualLocations[idx].location,
+            formattedAddress: extractedLoc.formattedAddress || manualLocations[idx].formattedAddress,
+            lat: (extractedLoc.lat && extractedLoc.lat !== 0) ? extractedLoc.lat : manualLocations[idx].lat,
+            lng: (extractedLoc.lng && extractedLoc.lng !== 0) ? extractedLoc.lng : manualLocations[idx].lng,
+            time: shouldUpdateTime ? extractedTime : currentTime,
+            purpose: extractedLoc.purpose || manualLocations[idx].purpose,
+            verified: extractedLoc.verified !== undefined ? extractedLoc.verified : manualLocations[idx].verified,
+            placeId: extractedLoc.placeId || manualLocations[idx].placeId,
+            confidence: match.confidence as 'high' | 'medium' | 'low',
+            originalIndex: manualLocations[idx].originalIndex,
+          };
+          
+          if (shouldUpdateTime) {
+            console.log(`⏰ [MAP] Time updated for location ${idx + 1}: ${currentTime} → ${extractedTime}`);
+          } else if (timeIsDifferent) {
+            console.log(`⏰ [MAP] Time preserved for location ${idx + 1} (extracted "${extractedTime}" appears to be default, keeping "${currentTime}")`);
+          }
+        }
+      });
+    }
+    
+    // Step 5: Apply additions (new locations and insertions)
+    if (extractedData.locations && extractedData.locations.length > 0) {
+      const additions = extractedData.locations.filter((loc: any) => {
+        // It's an addition if:
+        // 1. Has insertAfter/insertBefore (explicit insertion)
+        // 2. Doesn't match any existing location
+        if (loc.insertAfter || loc.insertBefore) return true;
+        const match = matchExtractedToCurrent(loc, manualLocations);
+        return !match.matched;
+      });
+      
+      // Helper function to find reference location index
+      const findReferenceIndex = (reference: string, currentLocs: any[]): number => {
+        const refLower = reference.toLowerCase().trim();
+        
+        // Try multiple matching strategies
+        for (let i = 0; i < currentLocs.length; i++) {
+          const loc = currentLocs[i];
+          const locName = (loc.location || '').toLowerCase();
+          const locPurpose = (loc.purpose || '').toLowerCase();
+          const locFormatted = (loc.formattedAddress || '').toLowerCase();
+          const combinedText = `${locName} ${locPurpose} ${locFormatted}`;
+          
+          // Strategy 1: Exact match in any field
+          if (locName === refLower || locPurpose === refLower || locFormatted.includes(refLower)) {
+            return i;
+          }
+          
+          // Strategy 2: Reference is contained in location name or purpose
+          if (locName.includes(refLower) || locPurpose.includes(refLower)) {
+            return i;
+          }
+          
+          // Strategy 3: Location name or purpose is contained in reference (for partial matches)
+          if (refLower.includes(locName) || refLower.includes(locPurpose)) {
+            return i;
+          }
+          
+          // Strategy 4: Word-by-word matching (for "Soho House" matching "Soho House 76 Dean Street")
+          const refWords = refLower.split(/\s+/).filter(w => w.length > 2); // Ignore short words
+          if (refWords.length > 0 && refWords.every(word => combinedText.includes(word))) {
+            return i;
+          }
+        }
+        
+        return -1;
+      };
+      
+      additions.forEach((extractedLoc: any) => {
+        // Parse insertAfter/insertBefore from purpose if not explicitly provided
+        let insertAfter = extractedLoc.insertAfter;
+        let insertBefore = extractedLoc.insertBefore;
+        
+        if (!insertAfter && !insertBefore && extractedLoc.purpose) {
+          const purposeLower = (extractedLoc.purpose || '').toLowerCase();
+          // Check for "after [location]" pattern
+          const afterMatch = purposeLower.match(/(?:after|following|post)\s+(.+?)(?:\s|$)/);
+          if (afterMatch && afterMatch[1]) {
+            insertAfter = afterMatch[1].trim();
+            console.log(`🔍 [MAP] Parsed insertAfter from purpose: "${insertAfter}"`);
+          }
+          // Check for "before [location]" pattern
+          const beforeMatch = purposeLower.match(/(?:before|prior to|pre)\s+(.+?)(?:\s|$)/);
+          if (beforeMatch && beforeMatch[1]) {
+            insertBefore = beforeMatch[1].trim();
+            console.log(`🔍 [MAP] Parsed insertBefore from purpose: "${insertBefore}"`);
+          }
+        }
+        
+        const newLocation = {
+          location: extractedLoc.location || '',
+          formattedAddress: extractedLoc.formattedAddress || extractedLoc.location || '',
+          lat: extractedLoc.lat || 0,
+          lng: extractedLoc.lng || 0,
+          time: extractedLoc.time || '12:00',
+          purpose: extractedLoc.purpose || extractedLoc.location || '',
+          confidence: (extractedLoc.confidence || 'medium') as 'high' | 'medium' | 'low',
+          verified: extractedLoc.verified !== undefined ? extractedLoc.verified : false,
+          placeId: extractedLoc.placeId || `new-location-${Date.now()}-${Math.random()}`,
+          originalIndex: -1, // New locations don't have original index
+        };
+        
+        if (insertAfter) {
+          // Find reference location using improved matching
+          const refIndex = findReferenceIndex(insertAfter, manualLocations);
+          
+          if (refIndex !== -1) {
+            console.log(`➕ [MAP] Inserting after location ${refIndex + 1} (${manualLocations[refIndex].location}): ${extractedLoc.location}`);
+            manualLocations.splice(refIndex + 1, 0, newLocation);
+          } else {
+            console.log(`⚠️ [MAP] Could not find reference "${insertAfter}", appending at end`);
+            manualLocations.push(newLocation);
+          }
+        } else if (insertBefore) {
+          // Find reference location using improved matching
+          const refIndex = findReferenceIndex(insertBefore, manualLocations);
+          
+          if (refIndex !== -1) {
+            console.log(`➕ [MAP] Inserting before location ${refIndex + 1} (${manualLocations[refIndex].location}): ${extractedLoc.location}`);
+            manualLocations.splice(refIndex, 0, newLocation);
+          } else {
+            console.log(`⚠️ [MAP] Could not find reference "${insertBefore}", appending at end`);
+            manualLocations.push(newLocation);
+          }
+        } else {
+          // Append at end
+          console.log(`➕ [MAP] Adding new location at end: ${extractedLoc.location}`);
+          manualLocations.push(newLocation);
+        }
+      });
+    }
+    
+    // Remove temporary tracking fields before returning
+    return manualLocations.map(({ originalIndex, ...loc }) => loc);
+  };
+  
+  // Preview modal handlers
+  const handleApplyPreview = async () => {
+    console.log('✅ [PREVIEW] Applying changes...');
+    // Set editingLocations with preview data
+    setEditingLocations(previewLocations);
+    // Update driver notes if changed
+    if (previewDriverNotes !== driverNotes) {
+      setEditedDriverNotes(previewDriverNotes);
+      setDriverNotes(previewDriverNotes);
+    }
+    // Apply non-location field changes
+    if (previewNonLocationFields.leadPassengerName) {
+      setLeadPassengerName(previewNonLocationFields.leadPassengerName);
+    }
+    if (previewNonLocationFields.vehicleInfo) {
+      setVehicleInfo(previewNonLocationFields.vehicleInfo);
+    }
+    if (previewNonLocationFields.passengerCount) {
+      setPassengerCount(previewNonLocationFields.passengerCount);
+    }
+    if (previewNonLocationFields.tripDestination) {
+      setTripDestination(previewNonLocationFields.tripDestination);
+    }
+    // Close preview modal
+    setShowPreviewModal(false);
+    // Directly call handleSaveRouteEdits to apply changes (reuses working manual form logic)
+    await handleSaveRouteEdits();
+  };
+  
+  const handleEditManually = () => {
+    console.log('✏️ [PREVIEW] Opening manual edit form...');
+    // Set editingLocations with preview data (pre-filled)
+    setEditingLocations(previewLocations);
+    // Update driver notes
+    if (previewDriverNotes !== driverNotes) {
+      setEditedDriverNotes(previewDriverNotes);
+    }
+    // Pre-fill non-location fields in manual form
+    if (previewNonLocationFields.leadPassengerName) {
+      setLeadPassengerName(previewNonLocationFields.leadPassengerName);
+    }
+    if (previewNonLocationFields.vehicleInfo) {
+      setVehicleInfo(previewNonLocationFields.vehicleInfo);
+    }
+    if (previewNonLocationFields.passengerCount) {
+      setPassengerCount(previewNonLocationFields.passengerCount);
+    }
+    if (previewNonLocationFields.tripDestination) {
+      setTripDestination(previewNonLocationFields.tripDestination);
+    }
+    // Close preview modal
+    setShowPreviewModal(false);
+    // Open edit route modal
+    setShowEditRouteModal(true);
+  };
+  
+  const handleCancelPreview = () => {
+    console.log('❌ [PREVIEW] Cancelling changes...');
+    setShowPreviewModal(false);
+    setPreviewLocations([]);
+    setPreviewChanges({ removed: [], modified: [], added: [] });
+    setPreviewDriverNotes('');
+    setPreviewNonLocationFields({});
+    setIsRegenerating(false);
+  };
+
+  // Calculate changes for preview display
+  const calculateChanges = (currentLocations: any[], mappedLocations: any[]) => {
+    const changes = {
+      removed: [] as Array<{ index: number; location: any }>, // Store removed location data
+      modified: [] as number[], // Indices in mappedLocations
+      added: [] as number[], // Indices in mappedLocations
+    };
+    
+    // Track which current locations were matched
+    const matchedIndices = new Set<number>();
+    
+    // Find modifications and additions (locations in mappedLocations)
+    mappedLocations.forEach((mappedLoc, mappedIdx) => {
+      // Try to find matching current location
+      const currentIdx = currentLocations.findIndex((currentLoc, idx) => {
+        if (matchedIndices.has(idx)) return false; // Already matched
+        
+        const nameMatch = (currentLoc.name || '').toLowerCase() === (mappedLoc.location || '').toLowerCase() ||
+                         (currentLoc.fullAddress || '').toLowerCase() === (mappedLoc.formattedAddress || '').toLowerCase();
+        const coordMatch = currentLoc.lat === mappedLoc.lat && currentLoc.lng === mappedLoc.lng;
+        
+        return nameMatch || coordMatch;
+      });
+      
+      if (currentIdx !== -1) {
+        matchedIndices.add(currentIdx);
+        // Check if it was modified
+        const current = currentLocations[currentIdx];
+        const modified = 
+          (current.name || '') !== (mappedLoc.location || '') ||
+          (current.fullAddress || '') !== (mappedLoc.formattedAddress || '') ||
+          (current.time || '') !== (mappedLoc.time || '') ||
+          current.lat !== mappedLoc.lat ||
+          current.lng !== mappedLoc.lng;
+        
+        if (modified) {
+          changes.modified.push(mappedIdx);
+        }
+      } else {
+        // New location (not found in current)
+        changes.added.push(mappedIdx);
+      }
+    });
+    
+    // Find removals (current locations not in mapped)
+    currentLocations.forEach((currentLoc, idx) => {
+      if (!matchedIndices.has(idx)) {
+        // This location was removed
+        changes.removed.push({ index: idx, location: currentLoc });
+      }
+    });
+    
+    return changes;
+  };
+
   const handleExtractUpdates = async () => {
     // Security check: Only owners can extract updates
     if (!isOwner) {
@@ -3660,77 +4105,89 @@ export default function ResultsPage() {
       console.log('✅ Step 1 complete: Extracted data successfully');
       setExtractedUpdates(extractedData);
       
-      // Step 2: Intelligently compare with current state using AI
+      // Step 2: Map extracted data to manual form format (replacing comparison step)
       if (tripData) {
-        setUpdateProgress({ step: 'Comparing with current trip', error: null, canRetry: false });
+        setUpdateProgress({ step: 'Mapping updates to trip format', error: null, canRetry: false });
         setRegenerationProgress(20);
-        console.log('🔄 [UPDATE] Step 2: Comparing updates...');
+        console.log('🔄 [UPDATE] Step 2: Mapping extracted data to manual form format...');
         console.log('📍 [UPDATE] Current:', tripData.locations.length, 'locations');
         console.log('📍 [UPDATE] Extracted:', extractedData.locations?.length || 0, 'locations');
         
-        const compareResponse = await fetch('/api/compare-trip-updates', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            extractedData,
-            currentTripData: {
-              tripDate: tripData.tripDate,
-              leadPassengerName: leadPassengerName,
-              vehicle: vehicleInfo,
-              passengerCount: passengerCount,
-              tripDestination: tripDestination,
-              tripNotes: driverNotes,
-              locations: tripData.locations.map((loc: any, idx: number) => ({
-                id: loc.id,
-                name: loc.name,
-                address: loc.fullAddress || loc.name, // FIX: Send actual address, fallback to name
-                fullAddress: loc.fullAddress || loc.name, // FIX: Include fullAddress field
-                formattedAddress: loc.formattedAddress || loc.fullAddress || loc.name, // FIX: Include formattedAddress
-                time: loc.time,
-                purpose: loc.name, // Purpose is stored in name field
-                lat: loc.lat,
-                lng: loc.lng,
-                role: idx === 0 ? 'pickup' : (idx === tripData.locations.length - 1 ? 'drop-off' : 'stop'), // Add role for AI to understand
-              })),
-            },
-          }),
-        });
-
-        const compareResult = await compareResponse.json();
-
-        if (!compareResult.success) {
-          const errorMsg = compareResult.error || 'Failed to compare updates';
-          console.error('❌ [UPDATE] Comparison failed:', errorMsg);
-          setError(errorMsg);
+        try {
+          // Map extracted data to manual form format
+          const mappedLocations = mapExtractedToManualForm(tripData.locations, extractedData);
+          
+          // Calculate changes for preview
+          const changes = calculateChanges(tripData.locations, mappedLocations);
+          
+          // Update trip notes if changed
+          const newDriverNotes = extractedData.driverNotes || driverNotes;
+          const notesChanged = extractedData.driverNotes && extractedData.driverNotes !== driverNotes;
+          
+          console.log('✅ [UPDATE] Step 2: Mapping successful');
+          console.log('📊 [UPDATE] Changes:', {
+            removed: changes.removed.length,
+            modified: changes.modified.length,
+            added: changes.added.length,
+            notesChanged: notesChanged
+          });
+          
+          // Track non-location field changes
+          const nonLocationChanges: any = {};
+          if (extractedData.leadPassengerName && extractedData.leadPassengerName !== leadPassengerName) {
+            nonLocationChanges.leadPassengerName = extractedData.leadPassengerName;
+          }
+          if (extractedData.vehicleInfo && extractedData.vehicleInfo !== vehicleInfo) {
+            nonLocationChanges.vehicleInfo = extractedData.vehicleInfo;
+          }
+          if (extractedData.passengerCount && extractedData.passengerCount !== passengerCount) {
+            nonLocationChanges.passengerCount = extractedData.passengerCount;
+          }
+          if (extractedData.tripDestination && extractedData.tripDestination !== tripDestination) {
+            nonLocationChanges.tripDestination = extractedData.tripDestination;
+          }
+          
+          // Set preview data
+          setPreviewLocations(mappedLocations);
+          setPreviewChanges(changes);
+          setPreviewDriverNotes(newDriverNotes);
+          setPreviewNonLocationFields(nonLocationChanges);
+          
+          // Update other fields if changed (for immediate state update)
+          if (extractedData.leadPassengerName) {
+            setLeadPassengerName(extractedData.leadPassengerName);
+          }
+          if (extractedData.vehicleInfo) {
+            setVehicleInfo(extractedData.vehicleInfo);
+          }
+          if (extractedData.passengerCount) {
+            setPassengerCount(extractedData.passengerCount);
+          }
+          if (extractedData.tripDestination) {
+            setTripDestination(extractedData.tripDestination);
+          }
+          
+          // Mark step as complete
+          setRegenerationSteps(prev => prev.map(s => 
+            s.id === '1' ? { ...s, status: 'completed' as const } :
+            s.id === '2' ? { ...s, status: 'completed' as const } : s
+          ));
+          
+          // Show preview modal
+          setIsRegenerating(false);
+          setShowPreviewModal(true);
+          
+        } catch (mapError) {
+          console.error('❌ [UPDATE] Mapping failed:', mapError);
+          setError(mapError instanceof Error ? mapError.message : 'Failed to map updates');
           setUpdateProgress({
-            step: 'Comparison',
-            error: 'Could not match updates with current trip. This usually happens when location names are ambiguous. Try being more specific (e.g., "Change pickup at Gatwick to 3pm" instead of "Change time to 3pm")',
+            step: 'Mapping',
+            error: 'Could not map updates to trip format. Please try using the manual form.',
             canRetry: true,
           });
           setIsRegenerating(false);
           setRegenerationSteps(prev => prev.map(s => s.id === '2' ? { ...s, status: 'error' as const } : s));
-          return;
         }
-
-        console.log('✅ [UPDATE] Step 2: Comparison successful');
-        console.log('📊 [UPDATE] Changes detected:', compareResult.comparison?.locations?.filter((l: any) => l.action !== 'unchanged').length || 0);
-        
-        // Transform AI comparison result to our diff format
-        setUpdateProgress({ step: 'Preparing for regeneration', error: null, canRetry: false });
-        setRegenerationProgress(30);
-        console.log('🔄 Step 3: Transforming comparison to regeneration format...');
-        
-        const diff = transformComparisonToDiff(compareResult.comparison, extractedData);
-        setComparisonDiff(diff);
-        
-        // Step 2 complete, continue directly to regeneration
-        setRegenerationSteps(prev => prev.map(s => 
-          s.id === '2' ? { ...s, status: 'completed' as const } :
-          s.id === '3' ? { ...s, status: 'loading' as const } : s
-        ));
-        
-        // Continue directly to regeneration (skip preview)
-        await handleRegenerateDirectly(diff, extractedData);
       }
     } catch (err) {
       console.error('❌ Unexpected error during update extraction:', err);
@@ -8896,8 +9353,8 @@ export default function ResultsPage() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            {/* Trip Date and Trip Destination */}
-            <div className="hidden rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
+            {/* Trip Details - Passenger Name, Number of Passengers, Vehicle, Trip Destination */}
+            <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
               {/* Unified Grid for All Trip Fields */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
                 {/* Trip Date - spans 2 columns */}
@@ -9114,6 +9571,212 @@ export default function ResultsPage() {
               ) : (
                 'Update route'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Modal for AI-Assisted Updates */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Review changes</DialogTitle>
+            <DialogDescription>
+              Review the changes extracted from your update. You can apply them, edit manually, or cancel.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {/* Changes Summary */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-md p-3">
+                <div className="text-sm font-medium text-red-600 dark:text-red-400">Removed</div>
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{previewChanges.removed.length}</div>
+              </div>
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
+                <div className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Modified</div>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{previewChanges.modified.length}</div>
+              </div>
+              <div className="bg-green-500/10 border border-green-500/20 rounded-md p-3">
+                <div className="text-sm font-medium text-green-600 dark:text-green-400">Added</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{previewChanges.added.length}</div>
+              </div>
+            </div>
+
+            {/* Removed Locations */}
+            {previewChanges.removed.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground text-red-600 dark:text-red-400">Removed locations</h3>
+                {previewChanges.removed.map((removed, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-md border bg-red-500/10 border-red-500/30 line-through opacity-60"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {removed.index === 0 ? 'Pickup' : removed.index === (tripData?.locations?.length || 0) - 1 ? 'Dropoff' : `Stop ${removed.index + 1}`}
+                      </span>
+                      <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-600 dark:text-red-400 rounded">
+                        Removed
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="font-medium text-foreground">{removed.location.name || removed.location.fullAddress}</div>
+                      <div className="text-sm text-muted-foreground">{removed.location.fullAddress || removed.location.name}</div>
+                      <div className="text-xs text-muted-foreground">Time: {removed.location.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Updated Locations List */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Updated locations</h3>
+              {previewLocations.map((loc, idx) => {
+                const isModified = previewChanges.modified.includes(idx);
+                const isAdded = previewChanges.added.includes(idx);
+                
+                // Find original location for comparison
+                const originalLoc = tripData?.locations?.find((l: any, i: number) => {
+                  const nameMatch = (l.name || '').toLowerCase() === (loc.location || '').toLowerCase() ||
+                                   (l.fullAddress || '').toLowerCase() === (loc.formattedAddress || '').toLowerCase();
+                  const coordMatch = l.lat === loc.lat && l.lng === loc.lng;
+                  return nameMatch || coordMatch;
+                });
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-md border ${
+                      isModified
+                        ? 'bg-yellow-500/10 border-yellow-500/30'
+                        : isAdded
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-card border-border'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {idx === 0 ? 'Pickup' : idx === previewLocations.length - 1 ? 'Dropoff' : `Stop ${idx + 1}`}
+                          </span>
+                          {isModified && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded">
+                              Modified
+                            </span>
+                          )}
+                          {isAdded && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-green-500/20 text-green-600 dark:text-green-400 rounded">
+                              New
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="font-medium text-foreground">{loc.purpose || loc.location}</div>
+                          <div className="text-sm text-muted-foreground">{loc.formattedAddress || loc.location}</div>
+                          <div className="text-xs text-muted-foreground">Time: {loc.time}</div>
+                          
+                          {isModified && originalLoc && (
+                            <div className="mt-2 pt-2 border-t border-border/50 space-y-1 text-xs">
+                              <div className="text-muted-foreground">Changes:</div>
+                              {originalLoc.name !== loc.location && (
+                                <div>Name: {originalLoc.name} → {loc.location}</div>
+                              )}
+                              {originalLoc.time !== loc.time && (
+                                <div>Time: {originalLoc.time} → {loc.time}</div>
+                              )}
+                              {(originalLoc.lat !== loc.lat || originalLoc.lng !== loc.lng) && (
+                                <div>Location: Updated</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Non-Location Field Changes */}
+            {(previewNonLocationFields.leadPassengerName || 
+              previewNonLocationFields.vehicleInfo || 
+              previewNonLocationFields.passengerCount || 
+              previewNonLocationFields.tripDestination) && (
+              <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-md">
+                <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3">Trip details updated</div>
+                <div className="space-y-2 text-sm">
+                  {previewNonLocationFields.leadPassengerName && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium text-foreground min-w-[140px]">Passenger name:</span>
+                      <div className="flex-1">
+                        <div className="text-muted-foreground line-through">{leadPassengerName || '(empty)'}</div>
+                        <div className="text-foreground font-medium">{previewNonLocationFields.leadPassengerName}</div>
+                      </div>
+                    </div>
+                  )}
+                  {previewNonLocationFields.passengerCount && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium text-foreground min-w-[140px]">Passenger count:</span>
+                      <div className="flex-1">
+                        <div className="text-muted-foreground line-through">{passengerCount || 1}</div>
+                        <div className="text-foreground font-medium">{previewNonLocationFields.passengerCount}</div>
+                      </div>
+                    </div>
+                  )}
+                  {previewNonLocationFields.vehicleInfo && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium text-foreground min-w-[140px]">Vehicle:</span>
+                      <div className="flex-1">
+                        <div className="text-muted-foreground line-through">{vehicleInfo || '(empty)'}</div>
+                        <div className="text-foreground font-medium">{previewNonLocationFields.vehicleInfo}</div>
+                      </div>
+                    </div>
+                  )}
+                  {previewNonLocationFields.tripDestination && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium text-foreground min-w-[140px]">Trip destination:</span>
+                      <div className="flex-1">
+                        <div className="text-muted-foreground line-through">{tripDestination || '(empty)'}</div>
+                        <div className="text-foreground font-medium">{previewNonLocationFields.tripDestination}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Trip Notes Changes */}
+            {previewDriverNotes && previewDriverNotes !== driverNotes && (
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                <div className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">Trip notes updated</div>
+                <div className="text-sm text-foreground whitespace-pre-wrap">{previewDriverNotes}</div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button
+              variant="outline"
+              onClick={handleCancelPreview}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleEditManually}
+              className="border-yellow-500/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10"
+            >
+              Edit manually
+            </Button>
+            <Button
+              onClick={handleApplyPreview}
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+            >
+              Apply changes
             </Button>
           </DialogFooter>
         </DialogContent>
