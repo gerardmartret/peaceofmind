@@ -74,7 +74,7 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
     : `before:absolute before:inset-0 before:-z-10 before:translate-x-[150%] before:translate-y-[150%] before:scale-[2.5]
         before:rounded-[100%] ${colors.hoverBg} before:transition-transform before:duration-1000 before:content-[""]
         hover:scale-105 hover:before:translate-x-[0%] hover:before:translate-y-[0%] active:scale-95`;
-  
+
   return (
     <button
       className={cn(

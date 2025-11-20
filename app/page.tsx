@@ -713,6 +713,15 @@ const formatLocationDisplay = (fullAddress: string): { businessName: string; res
 };
 
 
+// Helper function to format date in local timezone (YYYY-MM-DD)
+// This avoids timezone issues when converting Date objects to strings
+const formatDateLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Home() {
   const router = useRouter();
   const { isLoaded: isGoogleMapsLoaded } = useGoogleMaps();
@@ -743,6 +752,7 @@ export default function Home() {
   // Multi-location trip state
   const [tripDate, setTripDate] = useState<Date | undefined>(undefined);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [extractedDatePickerOpen, setExtractedDatePickerOpen] = useState(false);
   const [locations, setLocations] = useState<Array<{
     id: string;
     name: string;
@@ -1010,8 +1020,8 @@ export default function Home() {
     setIsMounted(true);
     const today = new Date();
     const futureDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-    setStartDate(today.toISOString().split('T')[0]);
-    setEndDate(futureDate.toISOString().split('T')[0]);
+    setStartDate(formatDateLocal(today));
+    setEndDate(formatDateLocal(futureDate));
     setTripDate(today);
     
     // Restore extracted data from session storage
@@ -1429,7 +1439,7 @@ export default function Home() {
 
     console.log('\n🚀 Starting analysis for EXTRACTED trip data...');
     console.log(`📍 ${mappedLocations.length} locations mapped from extraction`);
-    console.log(`📅 Trip date: ${tripDateToUse.toISOString().split('T')[0]}`);
+    console.log(`📅 Trip date: ${formatDateLocal(tripDateToUse)}`);
     if (extractedDriverSummary) {
       console.log(`📝 Driver summary will be saved: ${extractedDriverSummary.substring(0, 50)}...`);
     }
@@ -1466,7 +1476,7 @@ export default function Home() {
 
     console.log('\n🚀 Starting analysis for MANUAL trip data...');
     console.log(`📍 ${validLocations.length} locations from manual form`);
-    console.log(`📅 Trip date: ${tripDateToUse.toISOString().split('T')[0]}`);
+    console.log(`📅 Trip date: ${formatDateLocal(tripDateToUse)}`);
 
     // Call the trip analysis with manual form data and all fields
     await performTripAnalysis(
@@ -1569,7 +1579,7 @@ export default function Home() {
     let backgroundProcessComplete = false;
 
     try {
-      const tripDateStr = tripDateObj.toISOString().split('T')[0];
+      const tripDateStr = formatDateLocal(tripDateObj);
       
       console.log(`🚀 [GENERATE] Starting report for ${validLocations.length} locations on ${tripDateStr}`);
 
@@ -2572,7 +2582,34 @@ export default function Home() {
     }
   };
 
-  // Handle date edit
+  // Handle extracted date select (for Calendar component)
+  const handleExtractedDateSelect = (date: Date | undefined) => {
+    if (date) {
+      const dateString = formatDateLocal(date);
+      setExtractedDate(dateString);
+      
+      // Save to session storage
+      if (typeof window !== 'undefined' && extractedLocations) {
+        sessionStorage.setItem('extractedTripData', JSON.stringify({
+          text: extractionText,
+          locations: extractedLocations,
+          date: dateString,
+          driverSummary: extractedDriverSummary,
+          leadPassengerName: leadPassengerName,
+          vehicleInfo: vehicleInfo,
+          passengerCount: passengerCount,
+          tripDestination: tripDestination,
+          passengerNames: passengerNames,
+          timestamp: new Date().toISOString(),
+        }));
+      }
+    } else {
+      setExtractedDate(null);
+    }
+    setExtractedDatePickerOpen(false);
+  };
+
+  // Handle date edit (legacy - for direct input, kept for backward compatibility)
   const handleDateEdit = (value: string) => {
     setExtractedDate(value);
     
@@ -2892,23 +2929,42 @@ export default function Home() {
                     {/* Trip Date - spans 2 columns */}
                     <div className="sm:col-span-2">
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip date</Label>
-                      <div className="relative">
-                        <div className={!extractedDate ? 'rounded-md border border-[#e77500] dark:border-[#e77500]' : ''}>
-                        <Input
-                          type="date"
-                          value={extractedDate || ''}
-                          onChange={(e) => handleDateEdit(e.target.value)}
-                            className={`rounded-md h-9 pl-10 ${
-                              !extractedDate 
-                                ? '!bg-white dark:!bg-[#e77500]/10 !text-[#05060A] dark:!text-foreground border-0 placeholder:!text-muted-foreground' 
-                                : 'bg-background border-border text-foreground'
-                          }`}
-                        />
-                        </div>
-                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
+                      <Popover open={extractedDatePickerOpen} onOpenChange={setExtractedDatePickerOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal bg-background",
+                              !extractedDate && "text-muted-foreground",
+                              !extractedDate && "border-[#e77500] dark:border-[#e77500]"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {extractedDate ? (() => {
+                              const [year, month, day] = extractedDate.split('-').map(Number);
+                              return format(new Date(year, month - 1, day), "PPP");
+                            })() : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={extractedDate ? (() => {
+                              const [year, month, day] = extractedDate.split('-').map(Number);
+                              return new Date(year, month - 1, day);
+                            })() : undefined}
+                            onSelect={handleExtractedDateSelect}
+                            disabled={(date) => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              return date < today;
+                            }}
+                            defaultMonth={new Date()}
+                            showOutsideDays={false}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                       {!extractedDate && (
                         <p className="text-xs text-[#e77500] dark:text-[#e77500] mt-1">
                           Please select a trip date to continue

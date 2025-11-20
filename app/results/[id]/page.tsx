@@ -2583,16 +2583,21 @@ export default function ResultsPage() {
           // Use a small delay to ensure database consistency
           setTimeout(() => {
             console.log('🔄 Refreshing quotes after realtime update...');
-            fetchQuotes();
+          fetchQuotes();
           }, 200);
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         console.log('🔄 Subscription status:', status);
         if (status === 'SUBSCRIBED') {
           console.log('✅ Successfully subscribed to quote updates for trip:', tripId);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Channel subscription error');
+          // Handle channel errors gracefully - connection issues are common and not critical
+          if (err) {
+            console.warn('⚠️ Channel subscription error (non-critical):', err.message || err);
+          } else {
+            console.warn('⚠️ Channel subscription error (connection issue)');
+          }
         } else if (status === 'TIMED_OUT') {
           console.warn('⚠️ Subscription timed out, retrying...');
         } else if (status === 'CLOSED') {
@@ -2602,7 +2607,12 @@ export default function ResultsPage() {
 
     return () => {
       console.log('🔄 Cleaning up quotes subscription');
-      supabase.removeChannel(quotesChannel);
+      try {
+        supabase.removeChannel(quotesChannel);
+      } catch (error) {
+        // Silently handle cleanup errors - channel may already be closed
+        console.debug('Channel cleanup:', error);
+      }
     };
   }, [tripId, isOwner, loading, ownershipChecked, fetchQuotes]);
 
@@ -5640,80 +5650,80 @@ export default function ResultsPage() {
                   </div>
                 ) : (
                   // Show submit quote form when no quote exists
-                  <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                    <div className="flex-1">
-                      <Input
-                        id="quote-email-loading"
-                        type="email"
-                        value={quoteEmail}
+                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <Input
+                      id="quote-email-loading"
+                      type="email"
+                      value={quoteEmail}
                         onChange={(e) => {
                           if (!isEmailFromUrl) {
                             setQuoteEmail(e.target.value);
                           }
                         }}
-                        placeholder="your.email@company.com"
+                      placeholder="your.email@company.com"
                         disabled={submittingQuote || isEmailFromUrl}
                         readOnly={isEmailFromUrl}
                         className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                      />
-                      {quoteEmailError && (
-                        <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                      )}
-                    </div>
+                    />
+                    {quoteEmailError && (
+                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                    )}
+                  </div>
 
-                    <div className="w-[140px]">
-                      <Input
-                        id="quote-price-loading"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={quotePrice}
-                        onChange={(e) => setQuotePrice(e.target.value)}
-                        placeholder="100.00"
-                        disabled={submittingQuote}
-                        className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                      />
-                      {quotePriceError && (
-                        <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                      )}
-                    </div>
+                  <div className="w-[140px]">
+                    <Input
+                      id="quote-price-loading"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={quotePrice}
+                      onChange={(e) => setQuotePrice(e.target.value)}
+                      placeholder="100.00"
+                      disabled={submittingQuote}
+                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                    />
+                    {quotePriceError && (
+                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                    )}
+                  </div>
 
-                    <div className="w-[100px]">
-                      <select
-                        id="quote-currency-loading"
-                        value={quoteCurrency}
-                        onChange={(e) => setQuoteCurrency(e.target.value)}
-                        disabled={submittingQuote}
-                        className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
-                      >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="JPY">JPY</option>
-                        <option value="CAD">CAD</option>
-                        <option value="AUD">AUD</option>
-                        <option value="CHF">CHF</option>
-                      </select>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={submittingQuote || !quoteEmail || !quotePrice}
-                      className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                  <div className="w-[100px]">
+                    <select
+                      id="quote-currency-loading"
+                      value={quoteCurrency}
+                      onChange={(e) => setQuoteCurrency(e.target.value)}
+                      disabled={submittingQuote}
+                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
                     >
-                      {submittingQuote ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Submitting...
-                        </>
-                      ) : (
-                        'Submit quote'
-                      )}
-                    </Button>
-                  </form>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="JPY">JPY</option>
+                      <option value="CAD">CAD</option>
+                      <option value="AUD">AUD</option>
+                      <option value="CHF">CHF</option>
+                    </select>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={submittingQuote || !quoteEmail || !quotePrice}
+                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                  >
+                    {submittingQuote ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit quote'
+                    )}
+                  </Button>
+                </form>
                 )}
               </div>
             </div>
@@ -5836,84 +5846,84 @@ export default function ResultsPage() {
                 </div>
               ) : (
                 // Show submit quote form when no quote exists
-                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                  <div className="flex-1">
-                    <Input
-                      id="quote-email"
-                      type="email"
-                      value={quoteEmail}
+              <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                <div className="flex-1">
+                  <Input
+                    id="quote-email"
+                    type="email"
+                    value={quoteEmail}
                       onChange={(e) => {
                         if (!isEmailFromUrl) {
                           setQuoteEmail(e.target.value);
                         }
                       }}
-                      placeholder="your.email@company.com"
+                    placeholder="your.email@company.com"
                       disabled={submittingQuote || isEmailFromUrl}
                       readOnly={isEmailFromUrl}
                       className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                    />
-                    {quoteEmailError && (
-                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                    )}
-                  </div>
+                  />
+                  {quoteEmailError && (
+                    <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                  )}
+                </div>
 
-                  <div className="w-[140px]">
-                    <Input
-                      id="quote-price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quotePrice}
-                      onChange={(e) => setQuotePrice(e.target.value)}
-                      placeholder="100.00"
-                      disabled={submittingQuote}
-                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                    />
-                    {quotePriceError && (
-                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                    )}
-                  </div>
+                <div className="w-[140px]">
+                  <Input
+                    id="quote-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={quotePrice}
+                    onChange={(e) => setQuotePrice(e.target.value)}
+                    placeholder="100.00"
+                    disabled={submittingQuote}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                  />
+                  {quotePriceError && (
+                    <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                  )}
+                </div>
 
-                  <div className="w-[100px]">
-                    <select
-                      id="quote-currency"
-                      value={quoteCurrency}
-                      onChange={(e) => setQuoteCurrency(e.target.value)}
-                      disabled={submittingQuote}
-                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
-                      <option value="CAD">CAD</option>
-                      <option value="AUD">AUD</option>
-                      <option value="CHF">CHF</option>
-                    </select>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={submittingQuote || !quoteEmail || !quotePrice}
-                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                <div className="w-[100px]">
+                  <select
+                    id="quote-currency"
+                    value={quoteCurrency}
+                    onChange={(e) => setQuoteCurrency(e.target.value)}
+                    disabled={submittingQuote}
+                    className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
                   >
-                    {submittingQuote ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Submitting...
-                      </>
-                    ) : (
-                      'Submit quote'
-                    )}
-                  </Button>
-                </form>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="JPY">JPY</option>
+                    <option value="CAD">CAD</option>
+                    <option value="AUD">AUD</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={submittingQuote || !quoteEmail || !quotePrice}
+                  className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                >
+                  {submittingQuote ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit quote'
+                  )}
+                </Button>
+              </form>
               )}
-            </div>
-          </div>
-        </div>
+                        </div>
+                        </div>
+                      </div>
       )}
 
       {/* Update Quote Modal */}
@@ -5934,7 +5944,7 @@ export default function ResultsPage() {
                     <p className="text-sm font-medium">
                       {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
                     </p>
-                  </div>
+                </div>
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="update-quote-price" className="text-sm font-medium">
@@ -5953,17 +5963,17 @@ export default function ResultsPage() {
                   />
                   {updateQuotePriceError && (
                     <p className="text-xs text-destructive">{updateQuotePriceError}</p>
-                  )}
-                </div>
+              )}
+            </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Currency</label>
                   <div className="px-3 py-2 rounded-md border border-border bg-muted/50">
                     <p className="text-sm font-medium">{myQuotes[0].currency}</p>
                     <p className="text-xs text-muted-foreground mt-1">Currency cannot be changed</p>
-                  </div>
-                </div>
+          </div>
+        </div>
               </>
-            )}
+      )}
           </div>
           <DialogFooter>
             <Button
@@ -6007,7 +6017,7 @@ export default function ResultsPage() {
         >
           <div className="container mx-auto px-4 pt-8 pb-3">
             
-            <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
+            <div className="rounded-md px-6 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
               <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Trip update</label>
               <div className="flex gap-4 items-start">
                 <div className="flex-1 relative">
@@ -6042,46 +6052,6 @@ export default function ResultsPage() {
                     'Update'
                   )}
                 </Button>
-                
-                {/* Edit Route Button */}
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2 h-[51px] bg-[#161820] border-[#E5E7EF]/20 hover:bg-[#E5E7EF]/10 text-[#F4F2EE]"
-                  onClick={() => {
-                    // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
-                    setEditingLocations(locations.map((loc, idx) => ({
-                      location: (loc as any).fullAddress || loc.name,
-                      formattedAddress: (loc as any).fullAddress || loc.name,
-                      lat: loc.lat,
-                      lng: loc.lng,
-                      time: loc.time,
-                      purpose: loc.name || '', // Store original name (purpose) to preserve it
-                      confidence: 'high',
-                      verified: true,
-                      placeId: `stable-id-${idx}-${Date.now()}`,
-                    })));
-                    setShowEditRouteModal(true);
-                  }}
-                >
-                  Go to manual
-                </Button>
-                </div>
-                
-                <div className="flex gap-3 flex-shrink-0">
-                    {extractedUpdates && !isExtracting && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setUpdateText('');
-                          setExtractedUpdates(null);
-                          setShowPreview(false);
-                          setComparisonDiff(null);
-                          setUpdateProgress({ step: '', error: null, canRetry: false });
-                        }}
-                      >
-                        Clear
-                      </Button>
-                    )}
                 </div>
                 </div>
 
@@ -6382,7 +6352,7 @@ export default function ResultsPage() {
                             }
                             // All other statuses use existing variants
                             return tripStatus === 'rejected' ? 'rejected' : 
-                                   tripStatus === 'confirmed' ? 'confirmed' : 
+                            tripStatus === 'confirmed' ? 'confirmed' : 
                                    driverEmail ? 'pending' : 'not-confirmed';
                           };
                           
@@ -6396,23 +6366,23 @@ export default function ResultsPage() {
                           return (
                             <FlowHoverButton
                               variant={buttonVariant}
-                              onClick={handleStatusToggle}
+                          onClick={handleStatusToggle}
                               disabled={updatingStatus || isCancelledWithActivity}
-                              icon={
+                          icon={
                                 isCancelledWithActivity ? undefined : // No icon for cancelled
                                 tripStatus === 'rejected' ? (
-                                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                  </svg>
-                                ) : tripStatus === 'confirmed' ? (
-                                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                ) : undefined
-                              }
-                            >
+                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                            ) : tripStatus === 'confirmed' ? (
+                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : undefined
+                          }
+                        >
                               {buttonText}
-                            </FlowHoverButton>
+                        </FlowHoverButton>
                           );
                         })()}
                       </div>
@@ -6433,6 +6403,7 @@ export default function ResultsPage() {
                       /Lexus\s*(?:E350|LS\s*500)/i,
                       /Volvo\s*S90/i,
                       /Cadillac\s*XTS/i,
+                      /\bBusiness\s+Sedan\b/i,
                     ];
                     
                     for (const pattern of carPatterns) {
@@ -6457,6 +6428,7 @@ export default function ResultsPage() {
                       /Lexus\s*(?:LX|GX|RX|NX)/i,
                       /Porsche\s*(?:Cayenne|Macan)/i,
                       /Volvo\s*(?:XC[4-9][0-9]?)/i,
+                      /\bBusiness\s+SUV\b/i,
                     ];
                     
                     return suvPatterns.some(pattern => pattern.test(text));
@@ -6468,8 +6440,12 @@ export default function ResultsPage() {
                   // Check for sedan patterns
                   const hasSedanPattern = extractCarInfo(vehicleInfo || '') || extractCarInfo(driverNotes || '');
                   
+                  // Check if any vehicle info exists (brand/model/type)
+                  const hasAnyVehicleInfo = !!(vehicleInfo && vehicleInfo.trim()) || hasSUVPattern || hasSedanPattern;
+                  
                   // Determine vehicle type: SUV takes priority if patterns match
                   // Otherwise use passenger count as fallback
+                  // Default to sedan for < 3 passengers when no vehicle specified
                   let vehicleType: 'suv' | 'sedan' | null = null;
                   
                   if (hasSUVPattern) {
@@ -6483,6 +6459,11 @@ export default function ResultsPage() {
                     } else if (numberOfPassengers <= 3) {
                       vehicleType = 'sedan';
                     }
+                  }
+                  
+                  // Default to sedan for <= 3 passengers when no vehicle info is provided
+                  if (!hasAnyVehicleInfo && numberOfPassengers <= 3) {
+                    vehicleType = 'sedan';
                   }
                   
                   return vehicleType ? (
@@ -6548,6 +6529,10 @@ export default function ResultsPage() {
                                 <p className="text-3xl font-semibold text-card-foreground break-words">
                                   {(() => {
                                     const carInfo = vehicleInfo || extractCarInfo(driverNotes);
+                                    // Default to "Business Sedan" when no vehicle info and passengers <= 3
+                                    if (!carInfo && !hasAnyVehicleInfo && numberOfPassengers <= 3) {
+                                      return 'Business Sedan';
+                                    }
                                     return carInfo || 'N/A';
                                   })()}
                                 </p>
@@ -6659,13 +6644,39 @@ export default function ResultsPage() {
           {!isLiveMode && (
             <Card className="mb-6 shadow-none">
               <CardContent className="px-6 pt-3 pb-6">
-                <div className="mb-3 flex items-center justify-between gap-4">
-                  <h3 className="text-xl font-semibold text-card-foreground">Trip Locations</h3>
+                <div className="mb-6 flex items-center justify-between gap-4">
+                  {(() => {
+                    const now = new Date();
+                    const tripDateTime = new Date(tripDate);
+                    const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
+                    const isLiveTripActive = now >= oneHourBefore;
+                    const tripCompleted = isTripCompleted();
+                    
+                    return (
+                      <h3 
+                        className={`text-xl font-semibold text-card-foreground ${
+                          tripCompleted 
+                            ? 'opacity-50 cursor-not-allowed' 
+                            : 'cursor-pointer hover:text-primary transition-colors'
+                        }`}
+                        onClick={() => {
+                          if (tripCompleted) return;
+                          if (isLiveMode) {
+                            stopLiveTrip();
+                          } else {
+                            startLiveTrip();
+                          }
+                        }}
+                      >
+                        Trip Locations
+                      </h3>
+                    );
+                  })()}
                   
                   {/* Action Buttons - Right Side */}
                   <div className="flex items-center gap-2">
-                    {/* Trip Breakdown Button */}
-                    {(() => {
+                    {/* Trip Breakdown Button - Only show when live */}
+                    {isLiveMode && (() => {
                       const now = new Date();
                       const tripDateTime = new Date(tripDate);
                       const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
@@ -6716,6 +6727,30 @@ export default function ResultsPage() {
                       );
                     })()}
                     
+                    {/* Edit trip Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => {
+                        // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
+                        setEditingLocations(locations.map((loc, idx) => ({
+                          location: (loc as any).fullAddress || loc.name,
+                          formattedAddress: (loc as any).fullAddress || loc.name,
+                          lat: loc.lat,
+                          lng: loc.lng,
+                          time: loc.time,
+                          purpose: loc.name || '', // Store original name (purpose) to preserve it
+                          confidence: 'high',
+                          verified: true,
+                          placeId: `stable-id-${idx}-${Date.now()}`,
+                        })));
+                        setShowEditRouteModal(true);
+                      }}
+                    >
+                      Edit trip
+                    </Button>
+                    
                     {/* View Map Button */}
                     <Button
                       variant="outline"
@@ -6726,7 +6761,6 @@ export default function ResultsPage() {
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                       </svg>
-                      View Map
                     </Button>
                   </div>
                 </div>
@@ -6911,7 +6945,7 @@ export default function ResultsPage() {
                 <div className="text-lg leading-snug">
                   {executiveReport.importantInformation?.split('\n').map((point: string, index: number) => (
                     <div key={index} className="flex items-start gap-2 mb-0.5">
-                      <span className="text-muted-foreground mt-0.5">-</span>
+                      <span className="text-muted-foreground mt-0.5">·</span>
                       <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
                     </div>
                   ))}
@@ -6935,7 +6969,7 @@ export default function ResultsPage() {
                   <div className="text-lg leading-snug text-white/95">
                     {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
                       <div key={index} className="flex items-start gap-2 mb-0.5">
-                        <span className="text-white mt-0.5">-</span>
+                        <span className="text-white mt-0.5">·</span>
                         <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
                       </div>
                     ))}
@@ -7014,7 +7048,9 @@ export default function ResultsPage() {
                         <div className="text-lg leading-snug">
                           {executiveReport.recommendations.map((rec: string, idx: number) => (
                             <div key={idx} className="flex items-start gap-2 mb-0.5">
-                              <span className="text-muted-foreground mt-0.5">-</span>
+                              <svg className="w-4 h-4 text-card-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
                               <span>{rec}</span>
                             </div>
                           ))}
