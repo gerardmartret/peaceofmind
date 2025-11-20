@@ -1031,21 +1031,38 @@ export default function Home() {
         try {
           const parsed = JSON.parse(savedData);
           
-          // Restore the data
-          setExtractionText(parsed.text || '');
-          // Mark all restored locations as verified
-          const restoredLocations = parsed.locations?.map((loc: any) => ({
-            ...loc,
-            verified: true
-          }));
-          setExtractedLocations(restoredLocations || null);
-          setExtractedDate(parsed.date || null);
-          setExtractedDriverSummary(parsed.driverSummary || null);
-          setLeadPassengerName(parsed.leadPassengerName || '');
-          setVehicleInfo(parsed.vehicleInfo || '');
-          setPassengerCount(parsed.passengerCount || 1);
-          setTripDestination(parsed.tripDestination || '');
-          setPassengerNames(parsed.passengerNames || []);
+          const savedDestination = parsed.tripDestination || '';
+          
+          // Validate destination if it exists
+          if (savedDestination && !isValidTripDestination(savedDestination)) {
+            console.log('❌ [SESSION] Unsupported city detected in saved data:', savedDestination);
+            setExtractionError('We don\'t support this city at the moment.');
+            setExtractionText(parsed.text || '');
+            setExtractedLocations(null);
+            setExtractedDate(null);
+            setExtractedDriverSummary(null);
+            setLeadPassengerName('');
+            setVehicleInfo('');
+            setPassengerCount(1);
+            setTripDestination('');
+            setPassengerNames([]);
+          } else {
+            // Restore the data
+            setExtractionText(parsed.text || '');
+            // Mark all restored locations as verified
+            const restoredLocations = parsed.locations?.map((loc: any) => ({
+              ...loc,
+              verified: true
+            }));
+            setExtractedLocations(restoredLocations || null);
+            setExtractedDate(parsed.date || null);
+            setExtractedDriverSummary(parsed.driverSummary || null);
+            setLeadPassengerName(parsed.leadPassengerName || '');
+            setVehicleInfo(parsed.vehicleInfo || '');
+            setPassengerCount(parsed.passengerCount || 1);
+            setTripDestination(savedDestination);
+            setPassengerNames(parsed.passengerNames || []);
+          }
         } catch (error) {
           console.error('❌ [SESSION] Error restoring data:', error);
         }
@@ -2321,6 +2338,25 @@ export default function Home() {
 
       console.log(`✅ [EXTRACT] Success - ${data.locations?.length || 0} locations, date: ${data.date}`);
       
+      const extractedDestination = data.tripDestination || '';
+      console.log('📍 [EXTRACT] Extracted trip destination:', extractedDestination);
+      
+      // Check if the extracted destination is supported
+      if (extractedDestination && !isValidTripDestination(extractedDestination)) {
+        console.log('❌ [EXTRACT] Unsupported city detected:', extractedDestination);
+        setExtractionError('We don\'t support this city at the moment.');
+        setExtractedLocations(null);
+        setExtractedDate(null);
+        setExtractedDriverSummary(null);
+        setLeadPassengerName('');
+        setVehicleInfo('');
+        setPassengerCount(1);
+        setTripDestination('');
+        setPassengerNames([]);
+        setLastExtractedText('');
+        return;
+      }
+      
       // Mark all extracted locations as verified
       const verifiedLocations = data.locations?.map((loc: any) => ({
         ...loc,
@@ -2332,8 +2368,6 @@ export default function Home() {
       setLeadPassengerName(data.leadPassengerName || '');
       setVehicleInfo(data.vehicleInfo || '');
       setPassengerCount(data.passengerCount || 1);
-      const extractedDestination = data.tripDestination || '';
-      console.log('📍 [EXTRACT] Setting trip destination:', extractedDestination);
       setTripDestination(extractedDestination);
       setPassengerNames(data.passengerNames || []);
       setLastExtractedText(extractionText);
