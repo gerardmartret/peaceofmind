@@ -26,6 +26,7 @@ import { searchEmergencyServices } from '@/lib/google-emergency-services';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { validateBusinessEmail } from '@/lib/email-validation';
 import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination, getDestinationTimezone } from '@/lib/city-helpers';
+import { getDisplayVehicle } from '@/lib/vehicle-helpers';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Label } from '@/components/ui/label';
@@ -597,6 +598,7 @@ export default function ResultsPage() {
   const [editingLocations, setEditingLocations] = useState<any[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
+  const [editingTripDate, setEditingTripDate] = useState<Date | undefined>(undefined);
   
   // Preview modal state for AI-assisted updates
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
@@ -605,6 +607,7 @@ export default function ResultsPage() {
     removed: Array<{ index: number; location: any }>;
     modified: number[];
     added: number[];
+    originalLocationMap?: Map<number, any>; // Map from mappedLocations index to original location
   }>({ removed: [], modified: [], added: [] });
   const [previewDriverNotes, setPreviewDriverNotes] = useState<string>('');
   const [previewNonLocationFields, setPreviewNonLocationFields] = useState<{
@@ -612,6 +615,14 @@ export default function ResultsPage() {
     vehicleInfo?: string;
     passengerCount?: number;
     tripDestination?: string;
+  }>({});
+  // Store original values from tripData for comparison
+  const [originalValues, setOriginalValues] = useState<{
+    leadPassengerName?: string;
+    vehicleInfo?: string;
+    passengerCount?: number;
+    tripDestination?: string;
+    driverNotes?: string;
   }>({});
   
   // Enhanced error tracking with step information
@@ -1404,6 +1415,80 @@ export default function ResultsPage() {
     }
   };
 
+  // Generate regeneration steps (same as home page generateLoadingSteps)
+  const generateRegenerationSteps = (locations: any[], tripDestination?: string) => {
+    const cityConfig = getCityConfig(tripDestination);
+    const steps = [];
+    let stepId = 1;
+
+    // London-specific data sources
+    if (cityConfig.isLondon) {
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Analyzing crime & safety data`,
+        description: `Retrieving safety statistics and crime reports from official UK Police database`,
+        source: 'UK Police National Database',
+        status: 'pending' as const
+      });
+
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Assessing traffic conditions`,
+        description: `Pulling real-time traffic data, road closures, and congestion patterns`,
+        source: 'Transport for London',
+        status: 'pending' as const
+      });
+
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Checking public transport disruptions`,
+        description: `Monitoring Underground, bus, and rail service disruptions`,
+        source: 'TfL Unified API',
+        status: 'pending' as const
+      });
+    }
+
+    // Universal data sources (all cities)
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Analyzing weather conditions`,
+      description: `Gathering meteorological data and forecast models for trip planning`,
+      source: 'Open-Meteo Weather Service',
+      status: 'pending' as const
+    });
+
+    // London-specific parking
+    if (cityConfig.isLondon) {
+      steps.push({
+        id: `step-${stepId++}`,
+        title: `Evaluating parking availability`,
+        description: `Analyzing parking facilities, restrictions, and pricing information`,
+        source: 'TfL Parking Database',
+        status: 'pending' as const
+      });
+    }
+
+    // Universal: Route calculation
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Calculating optimal routes`,
+      description: `Processing route efficiency, travel times, and traffic predictions`,
+      source: 'Google Maps Directions API',
+      status: 'pending' as const
+    });
+
+    // Universal: AI analysis
+    steps.push({
+      id: `step-${stepId++}`,
+      title: `Generating risk assessment`,
+      description: `Synthesizing data into comprehensive executive report with recommendations`,
+      source: 'OpenAI GPT-4 Analysis',
+      status: 'pending' as const
+    });
+
+    return steps;
+  };
+
   // Edit route modal handlers
   const handleEditRouteDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -1413,9 +1498,22 @@ export default function ResultsPage() {
         const oldIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === active.id);
         const newIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === over.id);
         
+        // Store the times in their current positions before reordering
+        const timesByPosition = items.map(item => item.time);
+        
+        // Reorder the locations
         const reorderedItems = arrayMove(items, oldIndex, newIndex);
+        
+        // Reassign times based on new positions (times stay with positions, not locations)
+        const itemsWithSwappedTimes = reorderedItems.map((item, index) => ({
+          ...item,
+          time: timesByPosition[index]
+        }));
+        
         console.log(`🔄 Edit route: Location reordered ${oldIndex + 1} → ${newIndex + 1}`);
-        return reorderedItems;
+        console.log(`   Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
+        
+        return itemsWithSwappedTimes;
       });
     }
   };
@@ -1493,11 +1591,9 @@ export default function ResultsPage() {
       
       setShowEditRouteModal(false);
       setIsRegenerating(true);
-      setRegenerationProgress(0);
-      setRegenerationStep('Preparing to regenerate route...');
       
-      // Call the existing regeneration logic (reuse from lines ~2660)
-      const tripDateStr = tripDate;
+      // Use editing trip date if set, otherwise fall back to current trip date
+      const tripDateStr = editingTripDate ? editingTripDate.toISOString().split('T')[0] : (tripData?.tripDate || tripDate);
       const days = 7;
       
       console.log(`🚀 [EDIT-ROUTE] Regenerating for ${validLocations.length} locations`);
@@ -1506,163 +1602,258 @@ export default function ResultsPage() {
       const cityConfig = getCityConfig(tripDestination);
       console.log(`🌍 [EDIT-ROUTE] City: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
       
-      setRegenerationProgress(40);
-      setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
+      // Initialize steps (same as home page)
+      const steps = generateRegenerationSteps(validLocations, tripDestination);
+      setRegenerationSteps(steps);
+      setRegenerationProgress(0);
       
-      // Fetch data for all locations (same as existing regeneration logic)
-      const results = await Promise.all(
-        locationsForDb.map(async (location) => {
-          console.log(`\n🔍 [EDIT-ROUTE] Fetching data for: ${location.name} at ${location.time}`);
+      // Simulate step-by-step loading with realistic timing and smooth progress (EXACT home page logic)
+      const simulateRegenerationSteps = async () => {
+        for (let i = 0; i < steps.length; i++) {
+          // Mark current step as loading
+          setRegenerationSteps(prev => prev.map((step, index) => 
+            index === i ? { ...step, status: 'loading' } : step
+          ));
+
+          // Calculate progress range for this step
+          const startProgress = (i / steps.length) * 100;
+          const endProgress = ((i + 1) / steps.length) * 100;
           
-          const tempDistrictId = `custom-${Date.now()}-${location.id}`;
+          // Variable duration for each step (2-3.5 seconds) to simulate different processing times
+          // Total target: ~10 seconds for all steps combined
+          const stepDurations = [2500, 3000, 2250, 2750, 3500, 2000, 3250, 2500]; // Faster durations
+          const baseDuration = stepDurations[i % stepDurations.length];
+          const stepDuration = baseDuration + Math.random() * 500;
           
-          // Universal APIs
-          const universalCalls = [
-            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}${tripDestination ? `&tripDestination=${encodeURIComponent(tripDestination)}` : ''}`),
-          ];
-          
-          // London-specific APIs (conditional)
-          const londonCalls = cityConfig.isLondon ? [
-            fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
-            fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
-            fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`),
-          ] : [
-            createMockResponse('crime', MOCK_DATA.crime),
-            createMockResponse('disruptions', MOCK_DATA.disruptions),
-            createMockResponse('parking', MOCK_DATA.parking),
-          ];
-          
-          const [crimeResponse, disruptionsResponse, parkingResponse, weatherResponse] = await Promise.all([
-            ...londonCalls,
-            ...universalCalls,
-          ]);
-          
-          if (cityConfig.isLondon) {
-            const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
-            const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
+          // Smoothly animate progress for this step with variable speed
+          const startTime = Date.now();
+          const animateProgress = () => {
+            const elapsed = Date.now() - startTime;
+            const stepProgress = Math.min(elapsed / stepDuration, 1);
             
-            for (let i = 0; i < responses.length; i++) {
-              if (!responses[i].ok) {
-                const errorText = await responses[i].text();
-                console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
-                throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
-              }
-            }
-          } else {
-            if (!weatherResponse.ok) {
-              const errorText = await weatherResponse.text();
-              console.error(`❌ weather API failed:`, weatherResponse.status, errorText);
-              throw new Error(`weather API returned ${weatherResponse.status}: ${errorText}`);
-            }
-          }
-          
-          const [crimeData, disruptionsData, parkingData, weatherData] = await Promise.all([
-            crimeResponse.json(),
-            disruptionsResponse.json(),
-            parkingResponse.json(),
-            weatherResponse.json(),
-          ]);
-          
-          const eventsData = {
-            success: true,
-            data: {
-              location: location.name,
-              coordinates: { lat: location.lat, lng: location.lng },
-              date: tripDateStr,
-              events: [],
-              summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 }
+            // Ease in-out curve for more natural feel
+            const eased = stepProgress < 0.5
+              ? 2 * stepProgress * stepProgress
+              : 1 - Math.pow(-2 * stepProgress + 2, 2) / 2;
+            
+            const currentProgress = startProgress + (endProgress - startProgress) * eased;
+            setRegenerationProgress(currentProgress);
+            
+            if (stepProgress < 1) {
+              requestAnimationFrame(animateProgress);
             }
           };
           
-          let cafeData = null;
-          try {
-            const cafes = await searchNearbyCafes(location.lat, location.lng, location.name);
-            cafeData = { success: true, data: cafes };
-          } catch (cafeError) {
-            console.error(`⚠️ Cafe search failed for ${location.name}:`, cafeError);
-            cafeData = {
-              success: true,
-              data: {
-                location: location.name,
-                coordinates: { lat: location.lat, lng: location.lng },
-                cafes: [],
-                summary: { total: 0, averageRating: 0, averageDistance: 0 }
+          animateProgress();
+          
+          // Wait for step duration
+          await new Promise(resolve => setTimeout(resolve, stepDuration));
+
+          // Mark current step as completed
+          setRegenerationSteps(prev => prev.map((step, index) => 
+            index === i ? { ...step, status: 'completed' } : step
+          ));
+        }
+        
+        // Ensure we hit 100% at the end
+        setRegenerationProgress(100);
+      };
+
+      // Start the loading simulation
+      simulateRegenerationSteps();
+      
+      // Track when background process completes
+      let backgroundCompleted = false;
+      let backgroundError: Error | null = null;
+      let backgroundResults: any = null;
+      let backgroundTrafficData: any = null;
+      let backgroundReportData: any = null;
+      
+      // Run actual API calls in parallel with animation
+      const runBackgroundProcess = async () => {
+        try {
+          // Fetch data for all locations (same as existing regeneration logic)
+          const results = await Promise.all(
+            locationsForDb.map(async (location) => {
+              console.log(`\n🔍 [EDIT-ROUTE] Fetching data for: ${location.name} at ${location.time}`);
+              
+              const tempDistrictId = `custom-${Date.now()}-${location.id}`;
+              
+              // Universal APIs
+              const universalCalls = [
+                fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}${tripDestination ? `&tripDestination=${encodeURIComponent(tripDestination)}` : ''}`),
+              ];
+              
+              // London-specific APIs (conditional)
+              const londonCalls = cityConfig.isLondon ? [
+                fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
+                fetch(`/api/tfl-disruptions?district=${tempDistrictId}&days=${days}`),
+                fetch(`/api/parking?lat=${location.lat}&lng=${location.lng}&location=${encodeURIComponent(location.name)}`),
+              ] : [
+                createMockResponse('crime', MOCK_DATA.crime),
+                createMockResponse('disruptions', MOCK_DATA.disruptions),
+                createMockResponse('parking', MOCK_DATA.parking),
+              ];
+              
+              const [crimeResponse, disruptionsResponse, parkingResponse, weatherResponse] = await Promise.all([
+                ...londonCalls,
+                ...universalCalls,
+              ]);
+              
+              if (cityConfig.isLondon) {
+                const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
+                const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
+                
+                for (let i = 0; i < responses.length; i++) {
+                  if (!responses[i].ok) {
+                    const errorText = await responses[i].text();
+                    console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
+                    throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
+                  }
+                }
+              } else {
+                if (!weatherResponse.ok) {
+                  const errorText = await weatherResponse.text();
+                  console.error(`❌ weather API failed:`, weatherResponse.status, errorText);
+                  throw new Error(`weather API returned ${weatherResponse.status}: ${errorText}`);
+                }
               }
-            };
+              
+              const [crimeData, disruptionsData, parkingData, weatherData] = await Promise.all([
+                crimeResponse.json(),
+                disruptionsResponse.json(),
+                parkingResponse.json(),
+                weatherResponse.json(),
+              ]);
+              
+              const eventsData = {
+                success: true,
+                data: {
+                  location: location.name,
+                  coordinates: { lat: location.lat, lng: location.lng },
+                  date: tripDateStr,
+                  events: [],
+                  summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 }
+                }
+              };
+              
+              let cafeData = null;
+              try {
+                const cafes = await searchNearbyCafes(location.lat, location.lng, location.name);
+                cafeData = { success: true, data: cafes };
+              } catch (cafeError) {
+                console.error(`⚠️ Cafe search failed for ${location.name}:`, cafeError);
+                cafeData = {
+                  success: true,
+                  data: {
+                    location: location.name,
+                    coordinates: { lat: location.lat, lng: location.lng },
+                    cafes: [],
+                    summary: { total: 0, averageRating: 0, averageDistance: 0 }
+                  }
+                };
+              }
+              
+              return {
+                locationId: location.id,
+                locationName: location.name,
+                fullAddress: location.fullAddress,
+                time: location.time,
+                data: {
+                  crime: crimeData.data,
+                  disruptions: disruptionsData.data,
+                  weather: weatherData.data,
+                  events: eventsData.data,
+                  parking: parkingData.data,
+                  cafes: cafeData.data,
+                },
+              };
+            })
+          );
+          
+          backgroundResults = results;
+          
+          // Get traffic predictions
+          const trafficData = await getTrafficPredictions(
+            locationsForDb.map(loc => ({
+              id: loc.id,
+              name: loc.name,
+              lat: loc.lat,
+              lng: loc.lng,
+              time: loc.time,
+            })),
+            tripDateStr,
+            tripDestination
+          );
+          
+          backgroundTrafficData = trafficData;
+          
+          // Generate executive report
+          const reportResponse = await fetch('/api/executive-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tripData: results,
+              tripDate: tripDateStr,
+              routeDistance: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.distanceMeters || 0), 0) / 1000,
+              routeDuration: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.minutes || 0), 0),
+              trafficPredictions: trafficData.data,
+              emailContent: null,
+              leadPassengerName,
+              vehicleInfo,
+              passengerCount,
+              tripDestination,
+              passengerNames,
+              driverNotes: editedDriverNotes || driverNotes, // Use edited notes if available
+            }),
+          });
+          
+          const reportData = await reportResponse.json();
+          
+          if (!reportData.success) {
+            throw new Error('Failed to generate executive report');
           }
           
-          return {
-            locationId: location.id,
-            locationName: location.name,
-            fullAddress: location.fullAddress,
-            time: location.time,
-            data: {
-              crime: crimeData.data,
-              disruptions: disruptionsData.data,
-              weather: weatherData.data,
-              events: eventsData.data,
-              parking: parkingData.data,
-              cafes: cafeData.data,
-            },
-          };
-        })
-      );
+          backgroundReportData = reportData.data;
+          backgroundCompleted = true;
+        } catch (err) {
+          backgroundError = err as Error;
+          backgroundCompleted = true;
+        }
+      };
       
-      setRegenerationProgress(70);
-      setRegenerationStep('Calculating traffic predictions...');
+      // Start background process (runs in parallel with animation)
+      runBackgroundProcess();
       
-      // Get traffic predictions
-      const trafficData = await getTrafficPredictions(
-        locationsForDb.map(loc => ({
-          id: loc.id,
-          name: loc.name,
-          lat: loc.lat,
-          lng: loc.lng,
-          time: loc.time,
-        })),
-        tripDateStr,
-        tripDestination
-      );
+      // Wait for both animation and background process to complete
+      // Wait for minimum animation duration (at least 10 seconds for all steps)
+      await new Promise(resolve => setTimeout(resolve, 10000));
       
-      setRegenerationProgress(90);
-      setRegenerationStep('Generating executive report...');
+      // Wait for background process if still running
+      while (!backgroundCompleted) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       
-      // Generate executive report
-      const reportResponse = await fetch('/api/executive-report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripData: results,
-          tripDate: tripDateStr,
-          routeDistance: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.distanceMeters || 0), 0) / 1000,
-          routeDuration: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.minutes || 0), 0),
-          trafficPredictions: trafficData.data,
-          emailContent: null,
-          leadPassengerName,
-          vehicleInfo,
-          passengerCount,
-          tripDestination,
-          passengerNames,
-          driverNotes: editedDriverNotes || driverNotes, // Use edited notes if available
-        }),
-      });
-      
-      const reportData = await reportResponse.json();
-      
-      if (!reportData.success) {
-        throw new Error('Failed to generate executive report');
+      // Check for errors
+      if (backgroundError) {
+        throw backgroundError;
       }
       
       // Update database with new locations and all other fields
       const updateData: any = {
           locations: JSON.stringify(locationsForDb),
-          trip_results: JSON.stringify(results),
-          traffic_predictions: JSON.stringify(trafficData),
-          executive_report: JSON.stringify(reportData.data),
+          trip_results: JSON.stringify(backgroundResults),
+          traffic_predictions: JSON.stringify(backgroundTrafficData),
+          executive_report: JSON.stringify(backgroundReportData),
           trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
           updated_at: new Date().toISOString(),
           version: (currentVersion || 0) + 1,
       };
+      
+      // Update trip date if changed
+      if (editingTripDate) {
+        updateData.trip_date = tripDateStr;
+      }
       
       // Update non-location fields if they have values (preserve existing if not changed)
       if (leadPassengerName) {
@@ -1695,6 +1886,9 @@ export default function ResultsPage() {
     } catch (error) {
       console.error('❌ [EDIT-ROUTE] Error saving route edits:', error);
       setIsRegenerating(false);
+      setRegenerationSteps(prev => prev.map(step => 
+        step.status === 'loading' ? { ...step, status: 'error' as const } : step
+      ));
       alert('Failed to update route. Please try again.');
     }
   };
@@ -4134,6 +4328,7 @@ export default function ResultsPage() {
     setPreviewChanges({ removed: [], modified: [], added: [] });
     setPreviewDriverNotes('');
     setPreviewNonLocationFields({});
+    setOriginalValues({});
     setIsRegenerating(false);
   };
 
@@ -4143,6 +4338,7 @@ export default function ResultsPage() {
       removed: [] as Array<{ index: number; location: any }>, // Store removed location data
       modified: [] as number[], // Indices in mappedLocations
       added: [] as number[], // Indices in mappedLocations
+      originalLocationMap: new Map<number, any>(), // Map from mappedLocations index to original location
     };
     
     // Track which current locations were matched
@@ -4163,8 +4359,11 @@ export default function ResultsPage() {
       
       if (currentIdx !== -1) {
         matchedIndices.add(currentIdx);
-        // Check if it was modified
         const current = currentLocations[currentIdx];
+        // Store mapping from mappedLocations index to original location
+        changes.originalLocationMap.set(mappedIdx, current);
+        
+        // Check if it was modified
         const modified = 
           (current.name || '') !== (mappedLoc.location || '') ||
           (current.fullAddress || '') !== (mappedLoc.formattedAddress || '') ||
@@ -4202,32 +4401,16 @@ export default function ResultsPage() {
 
     if (!updateText.trim()) return;
 
-    // Initialize unified loading state and steps
-    setIsRegenerating(true);
-    setIsExtracting(false); // Keep for compatibility but use isRegenerating as primary
+    // Don't show regeneration modal during extraction - it will show when user accepts preview
+    setIsExtracting(true);
     setError(null);
-    setUpdateProgress({ step: '', error: null, canRetry: false });
-    setRegenerationProgress(0);
-    
-    // Unified steps array covering extraction → comparison → regeneration
-    const unifiedSteps = [
-      { id: '1', title: 'Extracting Trip Data', description: 'Analyzing update text', source: 'OpenAI', status: 'loading' as const },
-      { id: '2', title: 'Comparing Changes', description: 'Matching updates with current trip', source: 'OpenAI', status: 'pending' as const },
-      { id: '3', title: 'Preparing Locations', description: 'Validating and geocoding locations', source: 'Google Maps', status: 'pending' as const },
-      { id: '4', title: 'Fetching Location Data', description: 'Gathering crime, weather, disruptions', source: 'Multiple APIs', status: 'pending' as const },
-      { id: '5', title: 'Traffic Analysis', description: 'Calculating real-time predictions', source: 'Google Maps', status: 'pending' as const },
-      { id: '6', title: 'Executive Report', description: 'Generating AI-powered analysis', source: 'OpenAI', status: 'pending' as const },
-      { id: '7', title: 'Saving Report', description: 'Updating database', source: 'Supabase', status: 'pending' as const },
-    ];
-    setRegenerationSteps(unifiedSteps);
+    setUpdateProgress({ step: 'Extracting trip data', error: null, canRetry: false });
 
     try {
       // PRE-PROCESSING: Strip email headers to prevent false positives
       const cleanedText = stripEmailMetadata(updateText);
       
       // Step 1: Extract updates from text
-      setUpdateProgress({ step: 'Extracting trip data', error: null, canRetry: false });
-      setRegenerationProgress(5);
       console.log('🔄 Step 1: Extracting updates from text...');
       
       const extractResponse = await fetch('/api/extract-trip', {
@@ -4250,17 +4433,9 @@ export default function ResultsPage() {
           error: 'Could not understand the update. Try rephrasing or breaking it into smaller pieces. For example: "Change pickup time to 3pm" or "Add stop at The Ritz Hotel"',
           canRetry: true,
         });
-        setIsRegenerating(false);
-        setRegenerationSteps(prev => prev.map(s => s.id === '1' ? { ...s, status: 'error' as const } : s));
+        setIsExtracting(false);
         return;
       }
-
-      // Step 1 complete
-      setRegenerationProgress(15);
-      setRegenerationSteps(prev => prev.map(s => 
-        s.id === '1' ? { ...s, status: 'completed' as const } :
-        s.id === '2' ? { ...s, status: 'loading' as const } : s
-      ));
 
       // POST-PROCESSING: Log removal operations if detected
       if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
@@ -4328,7 +4503,6 @@ export default function ResultsPage() {
       // Step 2: Map extracted data to manual form format (replacing comparison step)
       if (tripData) {
         setUpdateProgress({ step: 'Mapping updates to trip format', error: null, canRetry: false });
-        setRegenerationProgress(20);
         console.log('🔄 [UPDATE] Step 2: Mapping extracted data to manual form format...');
         console.log('📍 [UPDATE] Current:', tripData.locations.length, 'locations');
         console.log('📍 [UPDATE] Extracted:', extractedData.locations?.length || 0, 'locations');
@@ -4352,18 +4526,28 @@ export default function ResultsPage() {
             notesChanged: notesChanged
           });
           
-          // Track non-location field changes
+          // Store original values from tripData BEFORE updating state
+          const originalValuesData = {
+            leadPassengerName: leadPassengerName,
+            vehicleInfo: vehicleInfo,
+            passengerCount: passengerCount,
+            tripDestination: tripDestination,
+            driverNotes: driverNotes,
+          };
+          setOriginalValues(originalValuesData);
+          
+          // Track non-location field changes (compare against original values)
           const nonLocationChanges: any = {};
-          if (extractedData.leadPassengerName && extractedData.leadPassengerName !== leadPassengerName) {
+          if (extractedData.leadPassengerName && extractedData.leadPassengerName !== originalValuesData.leadPassengerName) {
             nonLocationChanges.leadPassengerName = extractedData.leadPassengerName;
           }
-          if (extractedData.vehicleInfo && extractedData.vehicleInfo !== vehicleInfo) {
+          if (extractedData.vehicleInfo && extractedData.vehicleInfo !== originalValuesData.vehicleInfo) {
             nonLocationChanges.vehicleInfo = extractedData.vehicleInfo;
           }
-          if (extractedData.passengerCount && extractedData.passengerCount !== passengerCount) {
+          if (extractedData.passengerCount && extractedData.passengerCount !== originalValuesData.passengerCount) {
             nonLocationChanges.passengerCount = extractedData.passengerCount;
           }
-          if (extractedData.tripDestination && extractedData.tripDestination !== tripDestination) {
+          if (extractedData.tripDestination && extractedData.tripDestination !== originalValuesData.tripDestination) {
             nonLocationChanges.tripDestination = extractedData.tripDestination;
           }
           
@@ -4387,14 +4571,8 @@ export default function ResultsPage() {
             setTripDestination(extractedData.tripDestination);
           }
           
-          // Mark step as complete
-        setRegenerationSteps(prev => prev.map(s => 
-            s.id === '1' ? { ...s, status: 'completed' as const } :
-            s.id === '2' ? { ...s, status: 'completed' as const } : s
-        ));
-        
-          // Show preview modal
-          setIsRegenerating(false);
+          // Show preview modal (regeneration modal will show when user accepts)
+          setIsExtracting(false);
           setShowPreviewModal(true);
           
         } catch (mapError) {
@@ -4405,8 +4583,7 @@ export default function ResultsPage() {
             error: 'Could not map updates to trip format. Please try using the manual form.',
             canRetry: true,
           });
-          setIsRegenerating(false);
-          setRegenerationSteps(prev => prev.map(s => s.id === '2' ? { ...s, status: 'error' as const } : s));
+          setIsExtracting(false);
         }
       }
     } catch (err) {
@@ -4418,7 +4595,7 @@ export default function ResultsPage() {
         error: `Something went wrong during ${updateProgress.step || 'the update process'}. ${errorMessage}`,
         canRetry: true,
       });
-      setIsRegenerating(false);
+      setIsExtracting(false);
     }
   };
 
@@ -6009,7 +6186,7 @@ export default function ResultsPage() {
       </Dialog>
 
       {/* Update Trip Section - Sticky Bar - Only show for owners */}
-        {isOwner && !isLiveMode && (
+        {isOwner && !isLiveMode && !isRegenerating && (
         <div 
           className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
             scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
@@ -6090,12 +6267,12 @@ export default function ResultsPage() {
 
         {/* Loading State Modal - Full Screen Overlay (Same as Homepage) */}
         {isRegenerating && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto">
-              <CardContent className="p-8">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[80] p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto flex items-center justify-center">
+              <CardContent className="px-8 py-12 w-full">
                 <div className="space-y-8">
                   {/* Circular Progress Indicator */}
-                  <div className="flex flex-col items-center gap-4">
+                  <div className="flex flex-col items-center gap-3">
                     <div className="relative w-32 h-32">
                       {/* Background Circle */}
                       <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
@@ -6130,7 +6307,7 @@ export default function ResultsPage() {
                       </div>
                     </div>
                     <div className="text-center">
-                      <h3 className="text-xl font-semibold mb-1">Updating Report</h3>
+                      <h3 className="text-xl font-semibold mb-1">Updating trip</h3>
                       <p className="text-sm text-muted-foreground">
                         {regenerationSteps.filter(s => s.status === 'completed').length} of {regenerationSteps.length} steps completed
                       </p>
@@ -6138,111 +6315,137 @@ export default function ResultsPage() {
                   </div>
 
                   {/* Steps Carousel - Exact Homepage Animation */}
-                  <div className="relative h-[200px] overflow-hidden">
-                    {regenerationSteps.map((step, index) => {
-                      const isActive = step.status === 'loading';
-                      const isCompleted = step.status === 'completed';
-                      const isPending = step.status === 'pending';
-                      
-                      // Calculate position relative to active step
-                      const activeIndex = regenerationSteps.findIndex(s => s.status === 'loading');
-                      const position = index - activeIndex;
-                      
-                      // Determine visibility and styling
-                      let transform = '';
-                      let opacity = 0;
-                      let scale = 0.85;
-                      let zIndex = 0;
-                      let blur = 'blur(4px)';
-                      
-                      if (position === 0) {
-                        // Active step - center
-                        transform = 'translateY(0)';
-                        opacity = 1;
-                        scale = 1;
-                        zIndex = 30;
-                        blur = 'blur(0)';
-                      } else if (position === -1) {
-                        // Previous step - hide completely
-                        transform = 'translateY(-120px)';
-                        opacity = 0;
-                        scale = 0.85;
-                        zIndex = 10;
-                      } else if (position === 1) {
-                        // Next step - hide completely
-                        transform = 'translateY(120px)';
-                        opacity = 0;
-                        scale = 0.85;
-                        zIndex = 10;
-                      } else if (position < -1) {
-                        // Steps further above
-                        transform = 'translateY(-120px)';
-                        opacity = 0;
-                        scale = 0.85;
-                        zIndex = 10;
-                      } else {
-                        // Steps further below
-                        transform = 'translateY(120px)';
-                        opacity = 0;
-                        scale = 0.85;
-                        zIndex = 10;
-                      }
-                      
-                      return (
-                        <div
-                          key={step.id}
-                          className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out"
-                          style={{
-                            transform: `${transform} scale(${scale})`,
-                            opacity: opacity,
-                            zIndex: zIndex,
-                            filter: blur
-                          }}
-                        >
+                  <div className="relative h-[200px] overflow-hidden flex items-center justify-center">
+                    {regenerationProgress >= 100 ? (
+                      // Completion View - Show redirect message
+                      <div className="w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
+                        <div className="flex flex-col items-center justify-center gap-3 mt-8">
+                          <svg className="animate-spin h-12 w-12 text-muted-foreground" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <h3 className="text-lg font-semibold text-card-foreground">Redirecting to brief</h3>
+                        </div>
+                      </div>
+                    ) : (
+                      // Carousel View - Show current and previous steps only
+                      regenerationSteps.map((step, index) => {
+                        const isActive = step.status === 'loading';
+                        const isCompleted = step.status === 'completed';
+                        const isPending = step.status === 'pending';
+                        
+                        // Calculate position relative to active step
+                        const activeIndex = regenerationSteps.findIndex(s => s.status === 'loading');
+                        
+                        // If no active step (all completed), don't render any steps
+                        if (activeIndex === -1) {
+                          return null;
+                        }
+                        
+                        const position = index - activeIndex;
+                        
+                        // Determine visibility and styling
+                        let transform = '';
+                        let opacity = 0;
+                        let scale = 0.85;
+                        let zIndex = 0;
+                        let blur = 'blur(4px)';
+                        
+                        if (position === 0) {
+                          // Active step - center
+                          transform = 'translateY(0)';
+                          opacity = 1;
+                          scale = 1;
+                          zIndex = 30;
+                          blur = 'blur(0)';
+                        } else if (position === -1) {
+                          // Previous step - hide completely (no watermark)
+                          transform = 'translateY(-120px)';
+                          opacity = 0;
+                          scale = 0.85;
+                          zIndex = 10;
+                        } else if (position === 1) {
+                          // Next step - hide completely (no watermark)
+                          transform = 'translateY(120px)';
+                          opacity = 0;
+                          scale = 0.85;
+                          zIndex = 10;
+                        } else if (position < -1) {
+                          // Steps further above
+                          transform = 'translateY(-120px)';
+                          opacity = 0;
+                          scale = 0.85;
+                          zIndex = 10;
+                        } else {
+                          // Steps further below
+                          transform = 'translateY(120px)';
+                          opacity = 0;
+                          scale = 0.85;
+                          zIndex = 10;
+                        }
+                        
+                        return (
                           <div
-                            className={`flex items-start gap-4 p-4 rounded-lg border ${
-                              isActive 
-                                ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10' 
-                                : isCompleted
-                                  ? 'border-green-500/30 bg-green-500/5'
-                                  : 'border-border bg-muted/30'
-                            }`}
+                            key={step.id}
+                            className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out"
+                            style={{
+                              transform: `${transform} scale(${scale})`,
+                              opacity: opacity,
+                              zIndex: zIndex,
+                              filter: blur
+                            }}
                           >
-                            {/* Status Icon */}
-                            <div className="flex-shrink-0 mt-0.5">
-                              {isPending && (
-                                <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
-                              )}
-                              {isActive && (
-                                <div className="w-6 h-6 rounded-full border-2 border-[#05060A] dark:border-[#E5E7EF] border-t-transparent animate-spin"></div>
-                              )}
-                              {isCompleted && (
-                                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Step Content */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <h4 className={`text-base font-semibold ${isActive ? 'text-[#05060A] dark:text-[#E5E7EF]' : ''}`}>
-                                  {step.title}
-                                </h4>
-                                <span className="text-xs font-medium text-[#05060A] dark:text-[#E5E7EF] bg-secondary dark:bg-[#2a2a2c] px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
-                                  {step.source}
-                                </span>
+                            <div
+                              className={`flex items-start gap-4 p-4 rounded-lg border ${
+                                isActive 
+                                  ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10' 
+                                  : isCompleted
+                                    ? 'border-green-500/30 bg-green-500/5'
+                                    : 'border-border bg-muted/30'
+                              }`}
+                            >
+                              {/* Status Icon */}
+                              <div className="flex-shrink-0 mt-0.5" style={{ isolation: 'isolate' }}>
+                                {isPending && (
+                                  <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
+                                )}
+                                {isActive && (
+                                  <div 
+                                    className="w-6 h-6 rounded-full border-2 border-[#05060A] border-t-transparent"
+                                    style={{
+                                      animation: 'spin 1s linear infinite',
+                                      willChange: 'transform'
+                                    }}
+                                  ></div>
+                                )}
+                                {isCompleted && (
+                                  <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                )}
                               </div>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {step.description}
-                              </p>
+                              
+                              {/* Step Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <h4 className={`text-base font-semibold ${isActive ? 'text-[#05060A] dark:text-[#E5E7EF]' : ''}`}>
+                                    {step.title}
+                                  </h4>
+                                  <span className="text-xs font-medium text-[#05060A] dark:text-[#E5E7EF] bg-secondary dark:bg-[#2a2a2c] px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
+                                    {step.source}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                  {step.description}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
@@ -6528,12 +6731,13 @@ export default function ResultsPage() {
                                 </div>
                                 <p className="text-3xl font-semibold text-card-foreground break-words">
                                   {(() => {
-                                    const carInfo = vehicleInfo || extractCarInfo(driverNotes);
-                                    // Default to "Business Sedan" when no vehicle info and passengers <= 3
-                                    if (!carInfo && !hasAnyVehicleInfo && numberOfPassengers <= 3) {
-                                      return 'Business Sedan';
-                                    }
-                                    return carInfo || 'N/A';
+                                    // First, try to get vehicle from vehicleInfo field or driverNotes
+                                    const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
+                                    
+                                    // Use the helper to determine what to display:
+                                    // - If vehicle is empty or not in whitelist, show auto-selected vehicle
+                                    // - If vehicle is in whitelist, show that vehicle
+                                    return getDisplayVehicle(requestedVehicle, numberOfPassengers);
                                   })()}
                                 </p>
                           </div>
@@ -6745,6 +6949,28 @@ export default function ResultsPage() {
                           verified: true,
                           placeId: `stable-id-${idx}-${Date.now()}`,
                         })));
+                        // Initialize editing trip date from current trip data
+                        if (tripData?.tripDate) {
+                          // Parse the date string to Date object (handle ISO format)
+                          try {
+                            const dateToSet = new Date(tripData.tripDate);
+                            if (!isNaN(dateToSet.getTime())) {
+                              setEditingTripDate(dateToSet);
+                            }
+                          } catch (e) {
+                            console.error('Error parsing trip date:', e);
+                          }
+                        }
+                        // Ensure passenger count is initialized from current trip data (default to 1 if not set)
+                        const initialPassengerCount = tripData?.passengerCount !== undefined && tripData.passengerCount !== null 
+                          ? tripData.passengerCount 
+                          : (passengerCount > 0 ? passengerCount : 1);
+                        setPassengerCount(initialPassengerCount);
+                        // Ensure trip destination is set for display
+                        const initialTripDestination = tripDestination || tripData?.tripDestination || '';
+                        if (initialTripDestination) {
+                          setTripDestination(initialTripDestination);
+                        }
                         setShowEditRouteModal(true);
                       }}
                     >
@@ -6943,12 +7169,35 @@ export default function ResultsPage() {
                   </h3>
                 </div>
                 <div className="text-lg leading-snug">
-                  {executiveReport.importantInformation?.split('\n').map((point: string, index: number) => (
-                    <div key={index} className="flex items-start gap-2 mb-0.5">
-                      <span className="text-muted-foreground mt-0.5">·</span>
-                      <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    // Split by multiple delimiters: newlines, semicolons, periods followed by space, or bullet points
+                    const notes = executiveReport.importantInformation || '';
+                    // First, try splitting by newlines (most common)
+                    let points = notes.split(/\n+/);
+                    
+                    // If no newlines found, try splitting by semicolons
+                    if (points.length === 1 && notes.includes(';')) {
+                      points = notes.split(/;+/);
+                    }
+                    
+                    // If still single item, try splitting by periods followed by space (sentence boundaries)
+                    if (points.length === 1 && notes.includes('. ')) {
+                      points = notes.split(/\.\s+/).filter((p: string) => p.length > 0);
+                    }
+                    
+                    // Clean up each point: trim, remove leading bullets, and filter empty
+                    const cleanedPoints = points
+                      .map((point: string) => point.trim())
+                      .map((point: string) => point.replace(/^[-•*]\s*/, ''))
+                      .filter((point: string) => point.length > 0);
+                    
+                    return cleanedPoints.map((point: string, index: number) => (
+                      <div key={index} className="flex items-start gap-2 mb-0.5">
+                        <span className="text-muted-foreground mt-0.5">·</span>
+                        <span>{point}</span>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -6967,12 +7216,35 @@ export default function ResultsPage() {
                     </h3>
                   </div>
                   <div className="text-lg leading-snug text-white/95">
-                    {executiveReport.exceptionalInformation?.split('\n').map((point: string, index: number) => (
-                      <div key={index} className="flex items-start gap-2 mb-0.5">
-                        <span className="text-white mt-0.5">·</span>
-                        <span>{point.trim().replace(/^[-•*]\s*/, '')}</span>
-                      </div>
-                    ))}
+                    {(() => {
+                      // Split by multiple delimiters: newlines, semicolons, periods followed by space, or bullet points
+                      const notes = executiveReport.exceptionalInformation || '';
+                      // First, try splitting by newlines (most common)
+                      let points = notes.split(/\n+/);
+                      
+                      // If no newlines found, try splitting by semicolons
+                      if (points.length === 1 && notes.includes(';')) {
+                        points = notes.split(/;+/);
+                      }
+                      
+                      // If still single item, try splitting by periods followed by space (sentence boundaries)
+                      if (points.length === 1 && notes.includes('. ')) {
+                        points = notes.split(/\.\s+/).filter((p: string) => p.length > 0);
+                      }
+                      
+                      // Clean up each point: trim, remove leading bullets, and filter empty
+                      const cleanedPoints = points
+                        .map((point: string) => point.trim())
+                        .map((point: string) => point.replace(/^[-•*]\s*/, ''))
+                        .filter((point: string) => point.length > 0);
+                      
+                      return cleanedPoints.map((point: string, index: number) => (
+                        <div key={index} className="flex items-start gap-2 mb-0.5">
+                          <span className="text-white mt-0.5">·</span>
+                          <span>{point}</span>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -8497,23 +8769,17 @@ export default function ResultsPage() {
         )}
 
         {/* Footer Navigation */}
-        <div className="text-center py-8">
-          <p className="text-lg font-medium text-foreground mb-4">
-            Driverbrief wishes you a nice trip
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 mb-4">
+        <div className="py-8">
+          <div className="flex flex-wrap justify-start gap-3">
             <Button
               onClick={handlePlanNewTrip}
               variant="default"
               size="lg"
               className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
             >
-              Plan New Trip
+              Plan new trip
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Powered by UK Police API, TfL, Open-Meteo, OpenAI - 100% Free
-          </p>
         </div>
       </div>
 
@@ -9716,22 +9982,27 @@ export default function ResultsPage() {
                       <Button
                         variant="outline"
                         id="tripDate"
+                        type="button"
                         className={cn(
                           "w-full justify-start text-left font-normal bg-background",
-                          !tripData?.tripDate && "text-muted-foreground"
+                          !editingTripDate && "text-muted-foreground"
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {tripData?.tripDate ? format(new Date(tripData.tripDate), "PPP") : <span>Pick a date</span>}
+                        {editingTripDate ? format(editingTripDate, "PPP") : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent 
+                      className="w-auto p-0 z-[100]" 
+                      align="start"
+                      sideOffset={4}
+                    >
                       <Calendar
                         mode="single"
-                        selected={tripData?.tripDate ? new Date(tripData.tripDate) : undefined}
+                        selected={editingTripDate}
                         onSelect={(date) => {
-                          if (tripData && date) {
-                            setTripData({ ...tripData, tripDate: date.toISOString().split('T')[0] });
+                          if (date) {
+                            setEditingTripDate(date);
                             setDatePickerOpen(false);
                           }
                         }}
@@ -9740,7 +10011,7 @@ export default function ResultsPage() {
                           today.setHours(0, 0, 0, 0);
                           return date < today;
                         }}
-                        defaultMonth={new Date()}
+                        defaultMonth={editingTripDate || new Date()}
                         showOutsideDays={false}
                         initialFocus
                       />
@@ -9748,46 +10019,19 @@ export default function ResultsPage() {
                   </Popover>
                 </div>
 
-                {/* Trip Destination - spans 2 columns */}
+                {/* Trip Destination - spans 2 columns - READ-ONLY (for visualization only) */}
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
                     Trip destination
                   </label>
-                  <Select
-                    value={tripDestination || ''}
-                    onValueChange={(value) => {
-                      if (isValidTripDestination(value)) {
-                        setTripDestination(value);
-                      } else {
-                        console.error(`Invalid trip destination: "${value}"`);
-                        // Silently reject invalid destinations
-                      }
-                    }}
-                    disabled={loadingDestinations}
-                  >
-                    <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
-                      <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select destination"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Default city options */}
-                      <SelectItem key="London" value="London">
-                        London
-                      </SelectItem>
-                      <SelectItem key="New York" value="New York">
-                        New York
-                      </SelectItem>
-                      
-                      {/* Database destinations (exclude default cities, filter by whitelist) */}
-                      {availableDestinations
-                        .filter(dest => !['London', 'New York'].includes(dest))
-                        .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
-                        .map((destination) => (
-                          <SelectItem key={destination} value={destination}>
-                            {destination}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    value={tripDestination || tripData?.tripDestination || ''}
+                    readOnly
+                    disabled
+                    className="bg-muted/50 border-border rounded-md h-9 text-foreground cursor-not-allowed"
+                    placeholder="No destination set"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Trip destination cannot be changed</p>
                 </div>
 
                 {/* Lead Passenger Name - spans 2 columns */}
@@ -9918,7 +10162,7 @@ export default function ResultsPage() {
                   Updating...
                 </>
               ) : (
-                'Update route'
+                'Update trip'
               )}
             </Button>
           </DialogFooter>
@@ -9936,133 +10180,135 @@ export default function ResultsPage() {
           </DialogHeader>
           
           <div className="space-y-6 mt-4">
-            {/* Changes Summary */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-red-500/10 border border-red-500/20 rounded-md p-3">
-                <div className="text-sm font-medium text-red-600 dark:text-red-400">Removed</div>
-                <div className="text-2xl font-bold text-red-600 dark:text-red-400">{previewChanges.removed.length}</div>
-              </div>
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
-                <div className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Modified</div>
-                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{previewChanges.modified.length}</div>
-              </div>
-              <div className="bg-green-500/10 border border-green-500/20 rounded-md p-3">
-                <div className="text-sm font-medium text-green-600 dark:text-green-400">Added</div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{previewChanges.added.length}</div>
-              </div>
-            </div>
-
             {/* Removed Locations */}
             {previewChanges.removed.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground text-red-600 dark:text-red-400">Removed locations</h3>
+                <h3 className="text-sm font-semibold text-foreground">Removed locations</h3>
                 {previewChanges.removed.map((removed, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-md border bg-red-500/10 border-red-500/30 line-through opacity-60"
+                    className="p-4 rounded-md border bg-muted/30 border-border line-through opacity-60"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-medium text-muted-foreground">
                         {removed.index === 0 ? 'Pickup' : removed.index === (tripData?.locations?.length || 0) - 1 ? 'Dropoff' : `Stop ${removed.index + 1}`}
                       </span>
-                      <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-600 dark:text-red-400 rounded">
+                      <span className="px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded">
                         Removed
                       </span>
                     </div>
                     <div className="space-y-1">
-                      <div className="font-medium text-foreground">{removed.location.name || removed.location.fullAddress}</div>
-                      <div className="text-sm text-muted-foreground">{removed.location.fullAddress || removed.location.name}</div>
-                      <div className="text-xs text-muted-foreground">Time: {removed.location.time}</div>
+                      <div className="font-medium text-foreground">{removed.location.name || removed.location.displayName || '(empty)'}</div>
+                      <div className="text-xs text-muted-foreground">Time: {removed.location.time || '(empty)'}</div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Updated Locations List */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Updated locations</h3>
-              {previewLocations.map((loc, idx) => {
-                const isModified = previewChanges.modified.includes(idx);
-                const isAdded = previewChanges.added.includes(idx);
-                
-                // Find original location for comparison
-                const originalLoc = tripData?.locations?.find((l: any, i: number) => {
-                  const nameMatch = (l.name || '').toLowerCase() === (loc.location || '').toLowerCase() ||
-                                   (l.fullAddress || '').toLowerCase() === (loc.formattedAddress || '').toLowerCase();
-                  const coordMatch = l.lat === loc.lat && l.lng === loc.lng;
-                  return nameMatch || coordMatch;
-                });
-                
-                return (
-                  <div
-                    key={idx}
-                    className={`p-4 rounded-md border ${
-                      isModified
-                        ? 'bg-yellow-500/10 border-yellow-500/30'
-                        : isAdded
-                        ? 'bg-green-500/10 border-green-500/30'
-                        : 'bg-card border-border'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {idx === 0 ? 'Pickup' : idx === previewLocations.length - 1 ? 'Dropoff' : `Stop ${idx + 1}`}
-                          </span>
-                          {isModified && (
-                            <span className="px-2 py-0.5 text-xs font-medium bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded">
-                              Modified
+            {/* Updated Locations List - Only show modified or added locations */}
+            {(previewChanges.modified.length > 0 || previewChanges.added.length > 0) && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Updated locations</h3>
+                {previewLocations.map((loc, idx) => {
+                  const isModified = previewChanges.modified.includes(idx);
+                  const isAdded = previewChanges.added.includes(idx);
+                  
+                  // Only show modified or added locations
+                  if (!isModified && !isAdded) {
+                    return null;
+                  }
+                  
+                  // Find original location for comparison using the mapping from calculateChanges
+                  const originalLoc = previewChanges.originalLocationMap?.get(idx);
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-md border bg-muted/30 border-border"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {idx === 0 ? 'Pickup' : idx === previewLocations.length - 1 ? 'Dropoff' : `Stop ${idx + 1}`}
                             </span>
-                          )}
-                          {isAdded && (
-                            <span className="px-2 py-0.5 text-xs font-medium bg-green-500/20 text-green-600 dark:text-green-400 rounded">
-                              New
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-1">
-                          <div className="font-medium text-foreground">{loc.purpose || loc.location}</div>
-                          <div className="text-sm text-muted-foreground">{loc.formattedAddress || loc.location}</div>
-                          <div className="text-xs text-muted-foreground">Time: {loc.time}</div>
+                            {isModified && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-secondary text-secondary-foreground rounded">
+                                Modified
+                              </span>
+                            )}
+                            {isAdded && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-secondary text-secondary-foreground rounded">
+                                New
+                              </span>
+                            )}
+                          </div>
                           
-                          {isModified && originalLoc && (
-                            <div className="mt-2 pt-2 border-t border-border/50 space-y-1 text-xs">
-                              <div className="text-muted-foreground">Changes:</div>
-                              {originalLoc.name !== loc.location && (
-                                <div>Name: {originalLoc.name} → {loc.location}</div>
+                          <div className="space-y-2">
+                            {/* Location Name/Address */}
+                            <div>
+                              <div className="text-xs font-medium text-muted-foreground mb-1">Location:</div>
+                              {isModified && originalLoc ? (
+                                <div className="space-y-1">
+                                  <div className="text-sm text-muted-foreground line-through">{originalLoc.name || originalLoc.displayName || '(empty)'}</div>
+                                  <div className="text-sm font-medium text-foreground">{loc.purpose || loc.location || loc.formattedAddress}</div>
+                                </div>
+                              ) : (
+                                <div className="text-sm font-medium text-foreground">{loc.purpose || loc.location || loc.formattedAddress}</div>
                               )}
-                              {originalLoc.time !== loc.time && (
-                                <div>Time: {originalLoc.time} → {loc.time}</div>
-                              )}
-                              {(originalLoc.lat !== loc.lat || originalLoc.lng !== loc.lng) && (
-                                <div>Location: Updated</div>
+                              {loc.formattedAddress && loc.formattedAddress !== (loc.purpose || loc.location) && (
+                                <div className="text-xs text-muted-foreground mt-1">{loc.formattedAddress}</div>
                               )}
                             </div>
-                          )}
+                            
+                            {/* Time */}
+                            <div>
+                              <div className="text-xs font-medium text-muted-foreground mb-1">Time:</div>
+                              {isModified && originalLoc ? (
+                                <div className="space-y-1">
+                                  <div className="text-sm text-muted-foreground line-through">{originalLoc.time || '(empty)'}</div>
+                                  <div className="text-sm font-medium text-foreground">{loc.time}</div>
+                                </div>
+                              ) : (
+                                <div className="text-sm font-medium text-foreground">{loc.time}</div>
+                              )}
+                            </div>
+                            
+                            {/* Address details if location changed */}
+                            {isModified && originalLoc && (
+                              (originalLoc.name || originalLoc.displayName) !== (loc.formattedAddress || loc.location || loc.purpose) && (
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">Address:</div>
+                                  <div className="space-y-1">
+                                    <div className="text-sm text-muted-foreground line-through">{originalLoc.name || originalLoc.displayName || '(empty)'}</div>
+                                    <div className="text-sm text-foreground">{loc.formattedAddress || loc.location || '(empty)'}</div>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Non-Location Field Changes */}
             {(previewNonLocationFields.leadPassengerName || 
               previewNonLocationFields.vehicleInfo || 
               previewNonLocationFields.passengerCount || 
               previewNonLocationFields.tripDestination) && (
-              <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-md">
-                <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-3">Trip details updated</div>
+              <div className="p-4 bg-muted/30 border border-border rounded-md">
+                <div className="text-sm font-semibold text-foreground mb-3">Trip details updated</div>
                 <div className="space-y-2 text-sm">
                   {previewNonLocationFields.leadPassengerName && (
                     <div className="flex items-start gap-2">
                       <span className="font-medium text-foreground min-w-[140px]">Passenger name:</span>
                       <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{leadPassengerName || '(empty)'}</div>
+                        <div className="text-muted-foreground line-through">{originalValues.leadPassengerName || '(empty)'}</div>
                         <div className="text-foreground font-medium">{previewNonLocationFields.leadPassengerName}</div>
                       </div>
                     </div>
@@ -10071,7 +10317,7 @@ export default function ResultsPage() {
                     <div className="flex items-start gap-2">
                       <span className="font-medium text-foreground min-w-[140px]">Passenger count:</span>
                       <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{passengerCount || 1}</div>
+                        <div className="text-muted-foreground line-through">{originalValues.passengerCount || 1}</div>
                         <div className="text-foreground font-medium">{previewNonLocationFields.passengerCount}</div>
                       </div>
                     </div>
@@ -10080,7 +10326,7 @@ export default function ResultsPage() {
                     <div className="flex items-start gap-2">
                       <span className="font-medium text-foreground min-w-[140px]">Vehicle:</span>
                       <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{vehicleInfo || '(empty)'}</div>
+                        <div className="text-muted-foreground line-through">{originalValues.vehicleInfo || '(empty)'}</div>
                         <div className="text-foreground font-medium">{previewNonLocationFields.vehicleInfo}</div>
                       </div>
                     </div>
@@ -10089,7 +10335,7 @@ export default function ResultsPage() {
                     <div className="flex items-start gap-2">
                       <span className="font-medium text-foreground min-w-[140px]">Trip destination:</span>
                       <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{tripDestination || '(empty)'}</div>
+                        <div className="text-muted-foreground line-through">{originalValues.tripDestination || '(empty)'}</div>
                         <div className="text-foreground font-medium">{previewNonLocationFields.tripDestination}</div>
                       </div>
                     </div>
@@ -10099,10 +10345,19 @@ export default function ResultsPage() {
             )}
 
             {/* Trip Notes Changes */}
-            {previewDriverNotes && previewDriverNotes !== driverNotes && (
-              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-md">
-                <div className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">Trip notes updated</div>
-                <div className="text-sm text-foreground whitespace-pre-wrap">{previewDriverNotes}</div>
+            {previewDriverNotes && previewDriverNotes !== originalValues.driverNotes && (
+              <div className="p-4 bg-muted/30 border border-border rounded-md">
+                <div className="text-sm font-semibold text-foreground mb-3">Trip notes updated</div>
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">Previous:</div>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap line-through">{originalValues.driverNotes || '(empty)'}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">New:</div>
+                    <div className="text-sm text-foreground whitespace-pre-wrap">{previewDriverNotes}</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -10117,7 +10372,6 @@ export default function ResultsPage() {
             <Button
               variant="outline"
               onClick={handleEditManually}
-              className="border-yellow-500/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10"
             >
               Edit manually
             </Button>

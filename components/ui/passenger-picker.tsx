@@ -38,14 +38,14 @@ export function PassengerPicker({ value, onChange, className, id }: PassengerPic
   }
 
   return (
-    <Select value={value.toString()} onValueChange={handleChange}>
+    <Select value={value ? value.toString() : "1"} onValueChange={handleChange}>
       <SelectTrigger id={id} className={cn("w-full bg-white", className)}>
         <div className="flex items-center gap-2 w-full">
           <Users className="h-4 w-4" />
           <SelectValue>{getDisplayValue()}</SelectValue>
         </div>
       </SelectTrigger>
-      <SelectContent className="max-h-[200px]">
+      <SelectContent className="max-h-[200px] !z-[100]" position="popper">
         {passengerOptions.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}

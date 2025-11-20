@@ -28,6 +28,7 @@ import { validateBusinessEmail } from '@/lib/email-validation';
 import { useAuth } from '@/lib/auth-context';
 import { useHomepageContext } from '@/lib/homepage-context';
 import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination } from '@/lib/city-helpers';
+import { getDisplayVehicle } from '@/lib/vehicle-helpers';
 import {
   DndContext,
   closestCenter,
@@ -432,6 +433,7 @@ interface SortableExtractedLocationItemProps {
   onEditStart: (index: number, field: 'location' | 'time' | 'purpose') => void;
   onEditEnd: () => void;
   tripDestination?: string; // Add trip destination for city-aware location search
+  showValidationMessages?: boolean; // Show validation messages when button is clicked but disabled
 }
 
 function SortableExtractedLocationItem({
@@ -448,6 +450,7 @@ function SortableExtractedLocationItem({
   onEditStart,
   onEditEnd,
   tripDestination,
+  showValidationMessages = false,
 }: SortableExtractedLocationItemProps) {
   const {
     attributes,
@@ -487,9 +490,45 @@ function SortableExtractedLocationItem({
     // Handles formats like: "London UK", "London, UK", "london uk", "London, United Kingdom", etc.
     // Pattern: city name + optional space/comma + optional country code/name
     // When location is vague, Google Maps returns city center coordinates, so we detect by text pattern
-    const cityOnlyPattern = new RegExp(`^${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*,\\s*|\\s+)?(uk|usa|us|united\\s+kingdom|united\\s+states)?$`, 'i');
+    const cityOnlyPattern = new RegExp(`^${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*,\\s*|\\s+)?(uk|usa|us|united\\s+kingdom|united\\s+states|france|deutschland|germany|singapore|japan|switzerland)?$`, 'i');
     
     if (cityOnlyPattern.test(locationText)) {
+      return true;
+    }
+    
+    // Check for non-specific addresses: place name + city + country WITHOUT postcode or detailed street address
+    // This handles cases like "Some Place, Paris, France" where there's no postcode or street address
+    
+    // Define postcode patterns for different cities
+    const postcodePatterns: { [key: string]: RegExp } = {
+      'paris': /\b\d{5}\b/, // French postcodes: 5 digits (e.g., 75001, 75002)
+      'london': /\b([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}|\b(?:EC|WC|SW|SE|NW|N|E|W|W1|SW1|EC1|WC1)[0-9]{1,2}[A-Z]{0,2}\b)/i, // UK postcodes
+      'new york': /\b\d{5}(?:-\d{4})?\b/, // US ZIP codes: 5 or 9 digits
+      'boston': /\b\d{5}(?:-\d{4})?\b/, // US ZIP codes
+      'singapore': /\b\d{6}\b/, // Singapore postcodes: 6 digits
+      'frankfurt': /\b\d{5}\b/, // German postcodes: 5 digits
+      'tokyo': /\b\d{3}-?\d{4}\b/, // Japanese postcodes: 3-4 digits with optional hyphen
+      'zurich': /\b\d{4}\b/, // Swiss postcodes: 4 digits
+    };
+    
+    const cityKey = destinationText.toLowerCase();
+    const postcodePattern = postcodePatterns[cityKey];
+    
+    // Check if address contains a postcode
+    const hasPostcode = postcodePattern ? postcodePattern.test(locationText) : false;
+    
+    // Check if address has street-level detail (numbers, street names like "rue", "avenue", "street", "st", "ave", etc.)
+    const hasStreetDetail = /\b(\d+\s*(rue|avenue|boulevard|bd|street|st|avenue|ave|road|rd|lane|ln|drive|dr|way|path|close|plaza|place|pl|square|sq|row|court|ct|terrace|ter|gardens|gdn|park|crescent|cr|circle|cir|view|rise|heights|hill|manor|villas|walk|villa|mews|gate|quay|wharf|dock|bridge|passage|alley|mews|yards|grove|wood|green|mount|maunt|rise|down|dene|vale|end|side|corner|cross|crossing|intersection))\b/i.test(locationText);
+    
+    // Check if address matches pattern: [Place Name], [City], [Country] without postcode or street detail
+    // This pattern suggests a vague location like "Some Place, Paris, France"
+    const genericPlacePattern = new RegExp(
+      `^[^,]+,\\s*${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:,\\s*(?:france|deutschland|germany|uk|united\\s+kingdom|usa|united\\s+states|singapore|japan|switzerland))?$`,
+      'i'
+    );
+    
+    // If it matches the generic place pattern AND lacks postcode AND lacks street detail, it's non-specific
+    if (genericPlacePattern.test(locationText) && !hasPostcode && !hasStreetDetail) {
       return true;
     }
     
@@ -540,6 +579,11 @@ function SortableExtractedLocationItem({
                 }`}
             />
             </div>
+            {showValidationMessages && (!location.time || location.time === 'null' || location.time === 'undefined' || (typeof location.time === 'string' && location.time.trim() === '')) && (
+              <p className="text-xs text-[#e77500] dark:text-[#e77500] mt-1">
+                Insert time
+              </p>
+            )}
           </div>
 
           {/* Location and Purpose Stacked */}
@@ -610,6 +654,11 @@ function SortableExtractedLocationItem({
                     )}
                   </div>
                 </div>
+              )}
+              {showValidationMessages && hasNonSpecificLocation && (
+                <p className="text-xs text-[#e77500] dark:text-[#e77500] mt-1">
+                  Please select a specific address
+                </p>
               )}
             </div>
 
@@ -821,6 +870,7 @@ export default function Home() {
   const [passengerNames, setPassengerNames] = useState<string[]>([]);
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | 'purpose' | null>(null);
+  const [showValidationMessages, setShowValidationMessages] = useState(false);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -1841,6 +1891,9 @@ export default function Home() {
       const normalizedDestination = normalizeTripDestination(tripDestination);
 
       // Prepare trip data
+      // Get the display vehicle (auto-selected if vehicle is empty or not in whitelist)
+      const displayVehicle = getDisplayVehicle(vehicleInfo, passengerCount);
+      
       const tripInsertData: any = {
         user_email: emailToUse,
         trip_date: tripDateStr,
@@ -1850,7 +1903,7 @@ export default function Home() {
         executive_report: executiveReportData as any,
         trip_notes: driverSummary || null,
         lead_passenger_name: passengerNameForDb,
-        vehicle: vehicleInfo || null,
+        vehicle: displayVehicle || null,
         passenger_count: passengerCount || 1,
         trip_destination: normalizedDestination,
         password: null
@@ -1859,7 +1912,7 @@ export default function Home() {
       // Debug: Log what we're saving to database
       console.log('💾 [FRONTEND] Database save values:');
       console.log('   lead_passenger_name:', passengerNameForDb ? '[SET]' : '[NOT SET]');
-      console.log('   vehicle:', vehicleInfo || null);
+      console.log('   vehicle:', displayVehicle || null);
       console.log('   passenger_count:', passengerCount || 1);
       console.log('   trip_destination:', tripDestination || null);
       console.log('   trip_notes:', driverSummary || null);
@@ -2687,6 +2740,16 @@ export default function Home() {
     }
   };
 
+  // Clear validation messages when form becomes valid
+  useEffect(() => {
+    if (showValidationMessages && !loadingTrip) {
+      const isValid = extractedLocations?.every(loc => loc.verified) && !hasUnknownOrMissingValues();
+      if (isValid) {
+        setShowValidationMessages(false);
+      }
+    }
+  }, [extractedDate, extractedLocations, loadingTrip, showValidationMessages, tripDestination]);
+
   // Get time label based on position in the trip
   const getTimeLabel = (index: number, totalLocations: number) => {
     if (index === 0) return 'Pickup Time';
@@ -2699,6 +2762,84 @@ export default function Home() {
     if (score >= 60) return 'Moderately Safe';
     if (score >= 40) return 'Caution Advised';
     return 'High Alert';
+  };
+
+  // Check if form has any "unknown" or missing values that prevent creating the brief
+  const hasUnknownOrMissingValues = () => {
+    // Check if date is missing
+    if (!extractedDate) {
+      return true;
+    }
+
+    // Check if there are any locations with unknown status or missing/invalid data
+    if (!extractedLocations || extractedLocations.length === 0) {
+      return true;
+    }
+
+    // Helper function to check if a location is non-specific (same logic as in SortableExtractedLocationItem)
+    const isNonSpecificLocation = (location: any) => {
+      if (!tripDestination) return false;
+      
+      const locationText = (location.formattedAddress || location.location || '').toLowerCase().trim();
+      const destinationText = tripDestination.toLowerCase().trim();
+      
+      // Check if location matches trip destination exactly (city name only)
+      if (locationText === destinationText) return true;
+      
+      // Check if location is just the city name with optional country suffix
+      const cityOnlyPattern = new RegExp(`^${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*,\\s*|\\s+)?(uk|usa|us|united\\s+kingdom|united\\s+states|france|deutschland|germany|singapore|japan|switzerland)?$`, 'i');
+      
+      if (cityOnlyPattern.test(locationText)) {
+        return true;
+      }
+      
+      // Define postcode patterns for different cities
+      const postcodePatterns: { [key: string]: RegExp } = {
+        'paris': /\b\d{5}\b/,
+        'london': /\b([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}|\b(?:EC|WC|SW|SE|NW|N|E|W|W1|SW1|EC1|WC1)[0-9]{1,2}[A-Z]{0,2}\b)/i,
+        'new york': /\b\d{5}(?:-\d{4})?\b/,
+        'boston': /\b\d{5}(?:-\d{4})?\b/,
+        'singapore': /\b\d{6}\b/,
+        'frankfurt': /\b\d{5}\b/,
+        'tokyo': /\b\d{3}-?\d{4}\b/,
+        'zurich': /\b\d{4}\b/,
+      };
+      
+      const cityKey = destinationText.toLowerCase();
+      const postcodePattern = postcodePatterns[cityKey];
+      const hasPostcode = postcodePattern ? postcodePattern.test(locationText) : false;
+      
+      // Check if address has street-level detail
+      const hasStreetDetail = /\b(\d+\s*(rue|avenue|boulevard|bd|street|st|avenue|ave|road|rd|lane|ln|drive|dr|way|path|close|plaza|place|pl|square|sq|row|court|ct|terrace|ter|gardens|gdn|park|crescent|cr|circle|cir|view|rise|heights|hill|manor|villas|walk|villa|mews|gate|quay|wharf|dock|bridge|passage|alley|mews|yards|grove|wood|green|mount|maunt|rise|down|dene|vale|end|side|corner|cross|crossing|intersection))\b/i.test(locationText);
+      
+      // Check if address matches pattern: [Place Name], [City], [Country] without postcode or street detail
+      const genericPlacePattern = new RegExp(
+        `^[^,]+,\\s*${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:,\\s*(?:france|deutschland|germany|uk|united\\s+kingdom|usa|united\\s+states|singapore|japan|switzerland))?$`,
+        'i'
+      );
+      
+      // If it matches the generic place pattern AND lacks postcode AND lacks street detail, it's non-specific
+      if (genericPlacePattern.test(locationText) && !hasPostcode && !hasStreetDetail) {
+        return true;
+      }
+      
+      return false;
+    };
+
+    // Check each location for unknown status or missing/invalid time
+    for (const location of extractedLocations) {
+      // Check if location is unknown (non-specific)
+      if (isNonSpecificLocation(location)) {
+        return true;
+      }
+      
+      // Check if time is missing or invalid
+      if (!location.time || location.time === 'null' || location.time === 'undefined' || (typeof location.time === 'string' && location.time.trim() === '')) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   return (
@@ -2904,15 +3045,7 @@ export default function Home() {
         {/* Extracted Results - Matching Manual Form Design */}
         {!showManualForm && extractedLocations && extractedLocations.length > 0 && (
               <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <h2 className="text-xl font-medium text-card-foreground">
-                      Route review
-                    </h2>
-                  </div>
+                <div className="flex items-center justify-end mb-4">
                   <Button
                     onClick={handleClearExtraction}
                     variant="outline"
@@ -2972,75 +3105,16 @@ export default function Home() {
                       )}
                     </div>
 
-                    {/* Trip Destination - spans 2 columns */}
+                    {/* Trip Destination - spans 2 columns - READ-ONLY (for visualization only) */}
                     <div className="sm:col-span-2">
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip destination</Label>
-                      <Select
+                      <Input
                         value={tripDestination || ''}
-                        onValueChange={(value) => {
-                          if (isValidTripDestination(value)) {
-                          setTripDestination(value);
-                          if (typeof window !== 'undefined' && extractedLocations) {
-                            sessionStorage.setItem('extractedTripData', JSON.stringify({
-                              text: extractionText,
-                              locations: extractedLocations,
-                              date: extractedDate,
-                              driverSummary: extractedDriverSummary,
-                              leadPassengerName: leadPassengerName,
-                              vehicleInfo: vehicleInfo,
-                              passengerCount: passengerCount,
-                              tripDestination: value,
-                              passengerNames: passengerNames,
-                              timestamp: new Date().toISOString(),
-                            }));
-                            }
-                          } else {
-                            setExtractionError(`"${value}" is not an allowed destination. Please select from the list.`);
-                          }
-                        }}
-                        disabled={loadingDestinations}
-                      >
-                        <SelectTrigger className="w-full bg-background border-border rounded-md h-9 text-foreground">
-                          <SelectValue placeholder={loadingDestinations ? "Loading destinations..." : "Select destination"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {/* Default city options */}
-                          <SelectItem key="London" value="London">
-                            London
-                          </SelectItem>
-                          <SelectItem key="New York" value="New York">
-                            New York
-                          </SelectItem>
-                          <SelectItem key="Singapore" value="Singapore">
-                            Singapore
-                          </SelectItem>
-                          <SelectItem key="Frankfurt" value="Frankfurt">
-                            Frankfurt
-                          </SelectItem>
-                          <SelectItem key="Paris" value="Paris">
-                            Paris
-                          </SelectItem>
-                          <SelectItem key="Tokyo" value="Tokyo">
-                            Tokyo
-                          </SelectItem>
-                          <SelectItem key="Boston" value="Boston">
-                            Boston
-                          </SelectItem>
-                          <SelectItem key="Zurich" value="Zurich">
-                            Zurich
-                          </SelectItem>
-                          
-                          {/* Database destinations (exclude default cities, filter by whitelist) */}
-                          {availableDestinations
-                            .filter(dest => !['London', 'New York', 'Singapore', 'Frankfurt', 'Paris', 'Tokyo', 'Boston', 'Zurich'].includes(dest))
-                            .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
-                            .map((destination) => (
-                              <SelectItem key={destination} value={destination}>
-                                {destination}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                        readOnly
+                        disabled
+                        className="bg-muted/50 border-border rounded-md h-9 text-foreground cursor-not-allowed"
+                        placeholder="No destination set"
+                      />
                     </div>
 
                     {/* Lead Passenger Name - spans 2 columns */}
@@ -3099,9 +3173,20 @@ export default function Home() {
                     <div className="sm:col-span-1">
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Vehicle</Label>
                       <Input
-                        value={vehicleInfo}
+                        value={getDisplayVehicle(vehicleInfo, passengerCount)}
                         onChange={(e) => {
-                          setVehicleInfo(e.target.value);
+                          // Only allow editing if the vehicle is in the whitelist or user is clearing it
+                          const newValue = e.target.value;
+                          const { isAllowedVehicle } = require('@/lib/vehicle-helpers');
+                          
+                          // If user is typing a new value, check if it matches an allowed vehicle pattern
+                          // If not, revert to auto-selected vehicle
+                          if (newValue && newValue.trim() && !isAllowedVehicle(newValue)) {
+                            // User typed something not in whitelist - don't update, keep showing auto-selected
+                            return;
+                          }
+                          
+                          setVehicleInfo(newValue);
                           if (typeof window !== 'undefined' && extractedLocations) {
                             sessionStorage.setItem('extractedTripData', JSON.stringify({
                               text: extractionText,
@@ -3109,7 +3194,7 @@ export default function Home() {
                               date: extractedDate,
                               driverSummary: extractedDriverSummary,
                               leadPassengerName: leadPassengerName,
-                              vehicleInfo: e.target.value,
+                              vehicleInfo: newValue,
                               passengerCount: passengerCount,
                               tripDestination: tripDestination,
                               passengerNames: passengerNames,
@@ -3150,6 +3235,7 @@ export default function Home() {
                             editingIndex={editingExtractedIndex}
                             editingField={editingExtractedField}
                             tripDestination={tripDestination}
+                            showValidationMessages={showValidationMessages}
                             onEditStart={(index, field) => {
                               setEditingExtractedIndex(index);
                               setEditingExtractedField(field);
@@ -3247,8 +3333,16 @@ export default function Home() {
                 {/* Create brief Button */}
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Button
-                    onClick={handleExtractedTripSubmit}
-                    disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified)}
+                    onClick={() => {
+                      const isDisabled = loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues();
+                      if (isDisabled) {
+                        setShowValidationMessages(true);
+                      } else {
+                        setShowValidationMessages(false);
+                        handleExtractedTripSubmit();
+                      }
+                    }}
+                    disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues()}
                     size="lg"
                     className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                   >

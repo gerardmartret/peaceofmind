@@ -16,6 +16,14 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
       <div 
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
+        onPointerDown={(e) => {
+          // Allow clicks on Popover and Select content to pass through
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-slot="popover-content"]') || 
+              target.closest('[data-slot="select-content"]')) {
+            e.stopPropagation();
+          }
+        }}
       />
       {/* Content */}
       <div className="relative z-50">
