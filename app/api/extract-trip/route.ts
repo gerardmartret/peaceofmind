@@ -468,6 +468,45 @@ Rules for driver notes:
       hasSpecialRemarks: !!parsed.specialRemarks,
     });
     
+    // FIX 1: Validate and fix "HH:MM" literal strings in time fields
+    if (parsed.locations && Array.isArray(parsed.locations)) {
+      parsed.locations.forEach((loc: any, idx: number) => {
+        if (loc.time === 'HH:MM' || loc.time === 'hh:mm' || loc.time === 'HH:mm') {
+          console.warn(`⚠️ [FIX] Location ${idx + 1} has literal "HH:MM" time, estimating time based on context`);
+          
+          // Estimate time based on position and other locations
+          if (parsed.locations.length > 1) {
+            // If there are other locations, estimate based on position
+            const totalLocations = parsed.locations.length;
+            const position = idx / (totalLocations - 1); // 0 = start, 1 = end
+            
+            // Estimate: start at 09:00, end at 17:00, spread evenly
+            const startHour = 9;
+            const endHour = 17;
+            const estimatedHour = Math.round(startHour + (endHour - startHour) * position);
+            const estimatedMinute = idx === 0 ? 0 : (idx % 2 === 0 ? 0 : 30); // Alternate :00 and :30
+            
+            loc.time = `${estimatedHour.toString().padStart(2, '0')}:${estimatedMinute.toString().padStart(2, '0')}`;
+            loc.confidence = 'low'; // Mark as estimated
+            console.log(`   → Estimated time: ${loc.time} (confidence: low)`);
+          } else {
+            // Single location: default to 12:00
+            loc.time = '12:00';
+            loc.confidence = 'low';
+            console.log(`   → Default time: ${loc.time} (confidence: low)`);
+          }
+        } else if (loc.time && typeof loc.time === 'string') {
+          // Validate time format is HH:MM
+          const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+          if (!timeRegex.test(loc.time)) {
+            console.warn(`⚠️ [FIX] Location ${idx + 1} has invalid time format "${loc.time}", defaulting to 12:00`);
+            loc.time = '12:00';
+            loc.confidence = 'low';
+          }
+        }
+      });
+    }
+    
     if (parsed.tripPurpose) {
       console.log('📝 [API] Trip purpose generated:', parsed.tripPurpose.substring(0, 100) + '...');
     }

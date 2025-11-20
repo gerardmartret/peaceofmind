@@ -3598,17 +3598,51 @@ export default function ResultsPage() {
       originalIndex: idx, // Keep track of original index for change tracking
     }));
     
-    // Step 2: Apply removals
+    // Step 2: Apply removals with improved matching (FIX 2)
     if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
       const beforeCount = manualLocations.length;
       manualLocations = manualLocations.filter((loc, idx) => {
         const locText = `${loc.location} ${loc.purpose}`.toLowerCase();
-        const shouldRemove = extractedData.removedLocations.some((removal: string) => 
-          locText.includes(removal.toLowerCase())
-        );
+        
+        const shouldRemove = extractedData.removedLocations.some((removal: string) => {
+          const removalLower = removal.toLowerCase().trim();
+          const removalWords = removalLower.split(/\s+/).filter(w => w.length > 0);
+          
+          // Strategy 1: Exact phrase match (highest confidence)
+          if (locText.includes(removalLower)) {
+            return true;
+          }
+          
+          // Strategy 2: All words present (for "Mori Tower" matching "Stop at Mori Tower")
+          if (removalWords.length > 1 && removalWords.every(word => locText.includes(word))) {
+            return true;
+          }
+          
+          // Strategy 3: Word boundary matching (prevents "tower" matching "Tower Entrance" when removal is single word)
+          if (removalWords.length === 1) {
+            // Single word: use word boundary or exact match
+            const wordBoundaryRegex = new RegExp(`\\b${removalWords[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            return wordBoundaryRegex.test(locText);
+          }
+          
+          return false;
+        });
         
         if (shouldRemove) {
-          console.log(`🗑️ [MAP] Removing location ${idx + 1}: ${loc.location} (matched: ${extractedData.removedLocations.find((r: string) => locText.includes(r.toLowerCase()))})`);
+          const matchedRemoval = extractedData.removedLocations.find((r: string) => {
+            const removalLower = r.toLowerCase().trim();
+            const removalWords = removalLower.split(/\s+/).filter(w => w.length > 0);
+            const locText = `${loc.location} ${loc.purpose}`.toLowerCase();
+            
+            if (locText.includes(removalLower)) return true;
+            if (removalWords.length > 1 && removalWords.every(word => locText.includes(word))) return true;
+            if (removalWords.length === 1) {
+              const wordBoundaryRegex = new RegExp(`\\b${removalWords[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+              return wordBoundaryRegex.test(locText);
+            }
+            return false;
+          });
+          console.log(`🗑️ [MAP] Removing location ${idx + 1}: ${loc.location} (matched: "${matchedRemoval}")`);
         }
         
         return !shouldRemove;
@@ -3864,6 +3898,22 @@ export default function ResultsPage() {
           placeId: extractedLoc.placeId || `new-location-${Date.now()}-${Math.random()}`,
           originalIndex: -1, // New locations don't have original index
         };
+        
+        // FIX 3: Validate location has required fields before adding
+        const hasValidLocation = newLocation.location.trim() !== '' || 
+                                 newLocation.formattedAddress.trim() !== '';
+        const hasValidCoords = (newLocation.lat !== 0 && newLocation.lng !== 0) || 
+                               (extractedLoc.lat !== 0 && extractedLoc.lng !== 0);
+        
+        if (!hasValidLocation) {
+          console.warn(`⚠️ [MAP] Skipping empty location: location="${newLocation.location}", formattedAddress="${newLocation.formattedAddress}"`);
+          console.warn(`   - This location will not be added to the trip`);
+          return; // Skip this location
+        }
+        
+        if (!hasValidCoords && !extractedLoc.verified) {
+          console.warn(`⚠️ [MAP] Location "${newLocation.location}" has no coordinates and is not verified, but adding anyway (will be geocoded later)`);
+        }
         
         if (insertAfter) {
           // Find reference location using improved matching

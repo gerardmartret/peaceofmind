@@ -160,9 +160,29 @@ function createTrafficLegs(locations: Array<{
     const origin = locations[i];
     const destination = locations[i + 1];
     
+    // FIX 4: Validate time format before using it (safety net)
+    const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+    let validTime = origin.time;
+    
+    if (!validTime || typeof validTime !== 'string' || !timeRegex.test(validTime)) {
+      console.error(`❌ [TRAFFIC] Invalid time format for location "${origin.name}": "${origin.time}"`);
+      console.error(`   Using fallback time: 12:00`);
+      validTime = '12:00';
+    }
+    
     // Create departure time for this leg
-    let legDepartureTime = `${tripDate}T${origin.time}:00`;
+    let legDepartureTime = `${tripDate}T${validTime}:00`;
     const plannedDeparture = new Date(legDepartureTime);
+    
+    // Validate the date was parsed correctly
+    if (isNaN(plannedDeparture.getTime())) {
+      console.error(`❌ [TRAFFIC] Invalid departure time: "${legDepartureTime}"`);
+      // Use current time + 1 hour as fallback
+      const fallbackDate = new Date();
+      fallbackDate.setHours(fallbackDate.getHours() + 1);
+      legDepartureTime = fallbackDate.toISOString();
+      console.log(`   Using fallback time: ${legDepartureTime}`);
+    }
     
     // If the planned departure is in the past, adjust it to be in the future
     if (plannedDeparture <= now) {
@@ -170,7 +190,8 @@ function createTrafficLegs(locations: Array<{
       // Keep the same time but move it to tomorrow
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(parseInt(origin.time.split(':')[0]), parseInt(origin.time.split(':')[1]), 0, 0);
+      const timeParts = validTime.split(':');
+      tomorrow.setHours(parseInt(timeParts[0]) || 12, parseInt(timeParts[1]) || 0, 0, 0);
       legDepartureTime = tomorrow.toISOString();
       console.log(`⚠️ Planned departure ${plannedDeparture.toISOString()} is in the past. Using tomorrow at same time: ${tomorrow.toISOString()}`);
     }
