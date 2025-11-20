@@ -63,9 +63,9 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host') || 'localhost:3000';
     const protocol = host.includes('localhost') ? 'http' : 'https';
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
-    // Add quote parameter to highlight quote form for drivers
-    const tripLink = `${baseUrl}/results/${tripId}?quote=true`;
-    const password = trip.password;
+    // Add quote parameter and driver email to highlight quote form and pre-fill email
+    const encodedEmail = encodeURIComponent(driverEmail.trim());
+    const tripLink = `${baseUrl}/results/${tripId}?quote=true&email=${encodedEmail}`;
 
     // Send email
     const { data, error } = await resend.emails.send({
@@ -102,23 +102,12 @@ export async function POST(request: NextRequest) {
                         You have been invited to submit a quote for a trip scheduled on <strong style="color: #05060A;">${tripDate}</strong>.
                       </p>
                       
-                      <!-- Password Box -->
-                      <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; margin: 24px 0; border: 2px solid #05060A;">
-                        <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #666666; text-transform: uppercase; letter-spacing: 0.5px;">
-                          Access Password
-                        </p>
-                        <p style="margin: 0; font-size: 24px; font-weight: 700; color: #05060A; font-family: 'Courier New', monospace; letter-spacing: 2px;">
-                          ${password}
-                        </p>
-                      </div>
-                      
                       <div style="background-color: #ffffff; padding: 16px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #05060A;">
                         <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
                           <strong style="color: #05060A;">Instructions:</strong><br/>
                           1. Click the button below to view the trip details<br/>
-                          2. Enter the password above when prompted<br/>
-                          3. Review the complete trip information<br/>
-                          4. Submit your quote at the bottom of the page
+                          2. Review the complete trip information<br/>
+                          3. Submit your quote at the bottom of the page
                         </p>
                       </div>
                       

@@ -712,15 +712,6 @@ const formatLocationDisplay = (fullAddress: string): { businessName: string; res
   return { businessName, restOfAddress };
 };
 
-// Generate a random password for password protection
-const generatePassword = (): string => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let password = '';
-  for (let i = 0; i < 8; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-};
 
 export default function Home() {
   const router = useRouter();
@@ -814,7 +805,6 @@ export default function Home() {
   const [leadPassengerName, setLeadPassengerName] = useState<string>('');
   const [vehicleInfo, setVehicleInfo] = useState<string>('');
   const [passengerCount, setPassengerCount] = useState<number>(1);
-  const [protectWithPassword, setProtectWithPassword] = useState<boolean>(false);
   const [tripDestination, setTripDestination] = useState<string>('');
   const [availableDestinations, setAvailableDestinations] = useState<string[]>([]);
   const [loadingDestinations, setLoadingDestinations] = useState(false);
@@ -1454,8 +1444,7 @@ export default function Home() {
       vehicleInfo,
       passengerCount,
       tripDestination,
-      passengerNames,
-      protectWithPassword
+      passengerNames
     );
   };
 
@@ -1489,8 +1478,7 @@ export default function Home() {
       vehicleInfo,
       passengerCount,
       tripDestination,
-      passengerNames,
-      protectWithPassword
+      passengerNames
     );
   };
 
@@ -1504,7 +1492,6 @@ export default function Home() {
     passengerCount?: number,
     tripDestination?: string,
     passengerNames?: string[],
-    shouldProtectWithPassword?: boolean
   ) => {
     // Check if Google Maps API is loaded
     if (!isGoogleMapsLoaded) {
@@ -1856,7 +1843,7 @@ export default function Home() {
         vehicle: vehicleInfo || null,
         passenger_count: passengerCount || 1,
         trip_destination: normalizedDestination,
-        password: shouldProtectWithPassword ? generatePassword() : null
+        password: null
       };
       
       // Debug: Log what we're saving to database
@@ -3222,21 +3209,6 @@ export default function Home() {
                     )}
                   </Button>
 
-                  {/* Password Protection Checkbox - Only for authenticated users */}
-                  {isAuthenticated && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="protect-password-extracted"
-                        checked={protectWithPassword}
-                        onChange={(e) => setProtectWithPassword(e.target.checked)}
-                        className="w-4 h-4 rounded border-border bg-background checked:bg-[#05060A] dark:checked:bg-[#E5E7EF] checked:border-[#05060A] dark:checked:border-[#E5E7EF] focus:outline-none cursor-pointer transition-colors appearance-none"
-                      />
-                      <label htmlFor="protect-password-extracted" className="text-sm text-muted-foreground cursor-pointer select-none whitespace-nowrap">
-                        Protect with password
-                      </label>
-                    </div>
-                  )}
 
                   <Button
                     onClick={() => setMapOpen(true)}
@@ -3525,21 +3497,6 @@ export default function Home() {
               )}
             </Button>
 
-            {/* Password Protection Checkbox - Only for authenticated users */}
-            {isAuthenticated && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="protect-password"
-                  checked={protectWithPassword}
-                  onChange={(e) => setProtectWithPassword(e.target.checked)}
-                  className="w-4 h-4 rounded border-border bg-background checked:bg-[#05060A] dark:checked:bg-[#E5E7EF] checked:border-[#05060A] dark:checked:border-[#E5E7EF] focus:outline-none cursor-pointer transition-colors appearance-none"
-                />
-                <label htmlFor="protect-password" className="text-sm text-muted-foreground cursor-pointer select-none whitespace-nowrap">
-                  Protect with password
-                </label>
-              </div>
-            )}
 
             <Button
               onClick={() => setMapOpen(true)}
