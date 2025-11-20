@@ -1047,21 +1047,21 @@ export default function Home() {
             setTripDestination('');
             setPassengerNames([]);
           } else {
-            // Restore the data
-            setExtractionText(parsed.text || '');
-            // Mark all restored locations as verified
-            const restoredLocations = parsed.locations?.map((loc: any) => ({
-              ...loc,
-              verified: true
-            }));
-            setExtractedLocations(restoredLocations || null);
-            setExtractedDate(parsed.date || null);
-            setExtractedDriverSummary(parsed.driverSummary || null);
-            setLeadPassengerName(parsed.leadPassengerName || '');
-            setVehicleInfo(parsed.vehicleInfo || '');
-            setPassengerCount(parsed.passengerCount || 1);
+          // Restore the data
+          setExtractionText(parsed.text || '');
+          // Mark all restored locations as verified
+          const restoredLocations = parsed.locations?.map((loc: any) => ({
+            ...loc,
+            verified: true
+          }));
+          setExtractedLocations(restoredLocations || null);
+          setExtractedDate(parsed.date || null);
+          setExtractedDriverSummary(parsed.driverSummary || null);
+          setLeadPassengerName(parsed.leadPassengerName || '');
+          setVehicleInfo(parsed.vehicleInfo || '');
+          setPassengerCount(parsed.passengerCount || 1);
             setTripDestination(savedDestination);
-            setPassengerNames(parsed.passengerNames || []);
+          setPassengerNames(parsed.passengerNames || []);
           }
         } catch (error) {
           console.error('❌ [SESSION] Error restoring data:', error);

@@ -268,7 +268,9 @@ CRITICAL: Distinguish between ADD and normal location mentions:
     - "make sure driver is dressed like a clown" → locations: [], driverNotes: "- Make sure driver is dressed like a clown"
     - "bring a watermelon" → locations: [], driverNotes: "- Bring a watermelon"
     - "ok" or "sounds good" → locations: [], driverNotes: "- Acknowledged", success: true
+    - "change car to Mercedes G class" → locations: [], vehicleInfo: "Mercedes G-Class", driverNotes: null (vehicle update extracted to vehicleInfo field)
     - Any text that doesn't contain locations should still be captured in driverNotes if it's meaningful
+- CRITICAL: Vehicle updates (change car, update vehicle, etc.) MUST ALWAYS be extracted to vehicleInfo field, regardless of whether locations are present or not. Do NOT put vehicle brand/model in driverNotes - it belongs in vehicleInfo field.
 - CRITICAL EXCEPTION: Location UPDATE instructions (change/update pickup/dropoff/stop location) MUST be extracted to locations array, NOT driverNotes:
   * "change pickup location to Gatwick" → locations: [{location: "Gatwick Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
   * "update pick up to Heathrow" → locations: [{location: "Heathrow Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
@@ -283,6 +285,25 @@ CRITICAL: Arrival/Departure keyword categorization:
     - "arrival changed to Heathrow" → locations: [{location: "Heathrow Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
     - "departure location changed to London City Airport" → locations: [{location: "London City Airport", time: "17:00", purpose: "Drop off", confidence: "high"}]
     - "departure changed to Gatwick" → locations: [{location: "Gatwick Airport", time: "17:00", purpose: "Drop off", confidence: "high"}]
+
+CRITICAL: Time UPDATE instructions (when time is changed but location is not mentioned):
+  * If text says "arrival time changed to [time]", "pickup time changed to [time]", "pick up time changed to [time]", "arrival changed to [time]", etc.:
+    - Extract a location with the updated time
+    - Use "Pick up" as the purpose (since it's an arrival)
+    - If no specific location mentioned, use a generic pickup location name like "Airport" or "Pickup Location" (the location will be clarified later)
+    - Examples:
+      * "arrival time changed to 08:30" → locations: [{location: "Airport", time: "08:30", purpose: "Pick up", confidence: "high"}]
+      * "pickup time changed to 14:00" → locations: [{location: "Pickup Location", time: "14:00", purpose: "Pick up", confidence: "high"}]
+      * "arrival changed to 08 30" → locations: [{location: "Airport", time: "08:30", purpose: "Pick up", confidence: "high"}]
+  * If text says "departure time changed to [time]", "dropoff time changed to [time]", "drop off time changed to [time]", "departure changed to [time]", etc.:
+    - Extract a location with the updated time
+    - Use "Drop off" as the purpose (since it's a departure)
+    - If no specific location mentioned, use a generic dropoff location name like "Airport" or "Dropoff Location"
+    - Examples:
+      * "departure time changed to 20:00" → locations: [{location: "Airport", time: "20:00", purpose: "Drop off", confidence: "high"}]
+      * "dropoff time changed to 18:30" → locations: [{location: "Dropoff Location", time: "18:30", purpose: "Drop off", confidence: "high"}]
+  * Time format conversion: "08 30" → "08:30", "14 00" → "14:00", "9am" → "09:00", "3pm" → "15:00"
+  * These are time updates and MUST be extracted to locations array, NOT driverNotes
 - If no extractable information at all (no locations, no notes, no passenger info, etc.), then return success: false
 - CRITICAL DATE RULE: Return date as null if NO date is mentioned in text. Do NOT invent, assume, or default to any date. ONLY if date IS mentioned: convert to YYYY-MM-DD format. If year is NOT mentioned but date is, use current year (${new Date().getFullYear()}). Examples: "March 15" → "${new Date().getFullYear()}-03-15", "Dec 25" → "${new Date().getFullYear()}-12-25", but if text has NO date → null
 - Pay attention to context around each location: who is involved, what type of activity, company names, venue names
@@ -321,6 +342,9 @@ UPDATE/MODIFICATION OPERATIONS (CRITICAL):
   * "change passenger first name to Kendrik" → leadPassengerName: "Kendrik"
   * "update passenger name to Mr. Smith" → leadPassengerName: "Mr. Smith"
   * "set vehicle to Mercedes S-Class" → vehicleInfo: "Mercedes S-Class"
+  * "change car to Mercedes G class" → vehicleInfo: "Mercedes G-Class"
+  * "update vehicle to BMW 7 Series" → vehicleInfo: "BMW 7 Series"
+  * "change car to Audi A8" → vehicleInfo: "Audi A8"
   * "modify date to March 15" → date: "${new Date().getFullYear()}-03-15"
   * "change pickup time to 3pm" → locations: [{location: "Pickup", time: "15:00", purpose: "Pick up", confidence: "high"}] (extract location entry with updated time - location name can be generic like "Pickup" or "Dropoff" if only time is being updated)
   * "update passenger count to 4" → passengerCount: 4
@@ -330,7 +354,8 @@ UPDATE/MODIFICATION OPERATIONS (CRITICAL):
   * "change stop 2 to The Ritz Hotel" → Extract location with appropriate time and purpose
 - Field recognition patterns:
   * "passenger" + ("name"|"first name"|"firstname") → leadPassengerName
-  * "vehicle"|"car"|"auto" → vehicleInfo
+  * "vehicle"|"car"|"auto" + ("to"|"changed to"|"update to"|"change to") → vehicleInfo (ALWAYS extract vehicle updates, even if no locations are mentioned)
+  * "change car"|"update car"|"change vehicle"|"update vehicle" → vehicleInfo (CRITICAL: Extract vehicle info even in note-only updates)
   * "date"|"trip date"|"day" → date
   * "time"|"pickup time"|"dropoff time" → time (for locations)
   * "passenger count"|"number of passengers"|"passengers" → passengerCount
@@ -576,17 +601,33 @@ Rules for driver notes:
           const queryLower = (loc.location || '').toLowerCase();
           const addressLower = (googleData.formattedAddress || '').toLowerCase();
           
-          // Detect if query is for an airport
+          // Detect if query is for an airport (expanded detection)
           const isAirportQuery = queryLower.includes('airport') || 
                                 queryLower.includes('lgw') || queryLower.includes('lhr') || 
                                 queryLower.includes('lcy') || queryLower.includes('stn') || 
                                 queryLower.includes('ltn') || queryLower.includes('jfk') || 
                                 queryLower.includes('lga') || queryLower.includes('ewr') ||
+                                queryLower.includes('cdg') || queryLower.includes('ory') ||
+                                queryLower.includes('sin') || queryLower.includes('fra') ||
+                                queryLower.includes('nrt') || queryLower.includes('hnd') ||
+                                queryLower.includes('bos') || queryLower.includes('zrh') ||
                                 queryLower.includes('gatwick') || queryLower.includes('heathrow') ||
-                                queryLower.includes('stansted') || queryLower.includes('luton');
+                                queryLower.includes('stansted') || queryLower.includes('luton') ||
+                                queryLower.includes('charles de gaulle') || queryLower.includes('orly') ||
+                                queryLower.includes('changi') || queryLower.includes('brandenburg');
           
+          // Detect if result is an airport (expanded detection including abbreviations)
           const isAirportResult = addressLower.includes('airport') || 
-                                 addressLower.includes('lgw') || addressLower.includes('lhr');
+                                 addressLower.includes('arpt') || // Airport abbreviation
+                                 addressLower.includes('aeroport') || // French for airport
+                                 addressLower.includes('flughafen') || // German for airport
+                                 addressLower.includes('lgw') || addressLower.includes('lhr') ||
+                                 addressLower.includes('cdg') || addressLower.includes('ory') ||
+                                 addressLower.includes('sin') || addressLower.includes('fra') ||
+                                 addressLower.includes('jfk') || addressLower.includes('lga') ||
+                                 addressLower.includes('ewr') || addressLower.includes('nrt') ||
+                                 addressLower.includes('hnd') || addressLower.includes('bos') ||
+                                 addressLower.includes('zrh');
           
           // If query is for airport but result isn't, there's a mismatch
           if (isAirportQuery && !isAirportResult) {
@@ -594,6 +635,17 @@ Rules for driver notes:
             console.error(`   Query: "${loc.location}" (appears to be airport)`);
             console.error(`   Result: "${googleData.formattedAddress}" (NOT an airport)`);
             console.error(`   → Re-geocoding with explicit airport query...`);
+            
+            // Get city config to determine correct country/region
+            const cityConfig = getCityConfig(parsed.tripDestination || tripDestination);
+            const countrySuffix = cityConfig.isLondon ? 'UK' : 
+                                 parsed.tripDestination === 'New York' ? 'USA' :
+                                 parsed.tripDestination === 'Singapore' ? 'Singapore' :
+                                 parsed.tripDestination === 'Frankfurt' ? 'Germany' :
+                                 parsed.tripDestination === 'Paris' ? 'France' :
+                                 parsed.tripDestination === 'Tokyo' ? 'Japan' :
+                                 parsed.tripDestination === 'Boston' ? 'USA' :
+                                 parsed.tripDestination === 'Zurich' ? 'Switzerland' : 'UK';
             
             // Determine which airport and re-geocode with explicit query
             let retryQuery = loc.location;
@@ -607,8 +659,23 @@ Rules for driver notes:
               retryQuery = 'Luton Airport, Luton, UK';
             } else if (queryLower.includes('city airport') || queryLower.includes('lcy')) {
               retryQuery = 'London City Airport, London, UK';
+            } else if (queryLower.includes('charles de gaulle') || queryLower.includes('cdg')) {
+              retryQuery = 'Paris Charles de Gaulle Airport, France';
+            } else if (queryLower.includes('orly') || queryLower.includes('ory')) {
+              retryQuery = 'Paris Orly Airport, France';
+            } else if (parsed.tripDestination === 'Paris' && queryLower.includes('airport')) {
+              // Generic airport query for Paris - try CDG first (main airport)
+              retryQuery = 'Paris Charles de Gaulle Airport, France';
+            } else if (parsed.tripDestination === 'London' && queryLower.includes('airport')) {
+              // Generic airport query for London - try Heathrow first (main airport)
+              retryQuery = 'Heathrow Airport, London, UK';
+            } else if (parsed.tripDestination === 'New York' && queryLower.includes('airport')) {
+              // Generic airport query for NYC - try JFK first (main airport)
+              retryQuery = 'John F. Kennedy International Airport, New York, USA';
             } else {
-              retryQuery = loc.location + ' Airport, UK';
+              // Use city name + Airport + country
+              const cityName = parsed.tripDestination || 'London';
+              retryQuery = `${cityName} Airport, ${countrySuffix}`;
             }
             
             const fixedData = await verifyLocationWithGoogle(retryQuery, parsed.tripDestination || tripDestination);
