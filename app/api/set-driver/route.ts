@@ -102,12 +102,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // IMPORTANT: Invalidate old driver tokens if driver is being changed
+    // IMPORTANT: Invalidate old driver tokens and notify previous driver if driver is being changed
     const currentDriver = trip.driver;
-    if (currentDriver && currentDriver !== normalizedEmail) {
+    const previousDriverEmail = currentDriver && currentDriver !== normalizedEmail ? currentDriver : null;
+    
+    if (previousDriverEmail) {
       console.log(`🔄 Driver being changed for trip ${tripId}`);
-      console.log(`🗑️ Invalidating tokens for previous driver`);
+      console.log(`🗑️ Invalidating tokens for previous driver: ${previousDriverEmail}`);
       
+      // Invalidate old driver tokens
       const { error: invalidateError } = await supabase
         .from('driver_tokens')
         .update({
@@ -115,7 +118,7 @@ export async function POST(request: NextRequest) {
           invalidation_reason: 'driver_changed'
         })
         .eq('trip_id', tripId)
-        .eq('driver_email', currentDriver)
+        .eq('driver_email', previousDriverEmail)
         .eq('used', false)
         .is('invalidated_at', null);
       
@@ -124,6 +127,34 @@ export async function POST(request: NextRequest) {
         // Don't fail the request, just log the error
       } else {
         console.log(`✅ Previous driver tokens invalidated`);
+      }
+      
+      // Send unassignment email to previous driver if trip status is pending (driver hasn't accepted yet)
+      if (trip.status === 'pending') {
+        console.log(`📧 Sending unassignment notification to previous driver: ${previousDriverEmail}`);
+        fetch(`${request.url.split('/api')[0]}/api/notify-driver-unassignment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tripId: tripId,
+            driverEmail: previousDriverEmail,
+            tripDate: trip.trip_date,
+            leadPassengerName: trip.lead_passenger_name,
+            tripDestination: trip.trip_destination,
+          })
+        }).then(res => res.json())
+          .then(result => {
+            if (result.success) {
+              console.log('✅ Driver unassignment notification sent');
+            } else {
+              console.log('⚠️ Failed to send unassignment notification:', result.error);
+            }
+          })
+          .catch(err => {
+            console.log('⚠️ Unassignment notification will be sent in background:', err.message);
+          });
+      } else {
+        console.log(`ℹ️ Trip status is ${trip.status}, skipping unassignment email (driver may have already accepted/rejected)`);
       }
     }
 

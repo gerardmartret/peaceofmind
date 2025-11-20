@@ -671,6 +671,10 @@ export default function ResultsPage() {
   const [submittingQuote, setSubmittingQuote] = useState<boolean>(false);
   const [quoteSuccess, setQuoteSuccess] = useState<boolean>(false);
   const [quoteSuccessMessage, setQuoteSuccessMessage] = useState<string>('Quote submitted successfully!');
+  const [showUpdateQuoteModal, setShowUpdateQuoteModal] = useState<boolean>(false);
+  const [updateQuotePrice, setUpdateQuotePrice] = useState<string>('');
+  const [updateQuotePriceError, setUpdateQuotePriceError] = useState<string | null>(null);
+  const [updatingQuote, setUpdatingQuote] = useState<boolean>(false);
   
   // Driver's own quotes (only their submissions)
   const [myQuotes, setMyQuotes] = useState<Array<{
@@ -684,6 +688,8 @@ export default function ResultsPage() {
   
   // Driver state
   const [driverEmail, setDriverEmail] = useState<string | null>(null);
+  // Store original driver email from database to check activity even if state changes
+  const originalDriverEmailRef = useRef<string | null>(null);
   const [manualDriverEmail, setManualDriverEmail] = useState<string>('');
   const [manualDriverError, setManualDriverError] = useState<string | null>(null);
   const [settingDriver, setSettingDriver] = useState<boolean>(false);
@@ -2136,6 +2142,7 @@ export default function ResultsPage() {
         setCurrentVersion(data.version || 1); // Load current version
         setTripStatus(data.status || 'not confirmed'); // Load trip status
         setDriverEmail(data.driver || null); // Load driver email
+        originalDriverEmailRef.current = data.driver || null; // Store original driver email for activity check
         
         // Populate location display names from database
         const displayNames: {[key: string]: string} = {};
@@ -2464,8 +2471,21 @@ export default function ResultsPage() {
       const result = await response.json();
 
       if (result.success) {
-        setQuotes(result.quotes || []);
-        console.log(`✅ Fetched ${result.quotes?.length || 0} quotes`);
+        // Deduplicate quotes: show only the latest quote per driver email
+        const quotesArray = result.quotes || [];
+        const quoteMap = new Map<string, typeof quotesArray[0]>();
+        
+        // Since quotes are already ordered by created_at DESC, first occurrence per email is the latest
+        quotesArray.forEach((quote: any) => {
+          const emailKey = quote.email.toLowerCase().trim();
+          if (!quoteMap.has(emailKey)) {
+            quoteMap.set(emailKey, quote);
+          }
+        });
+        
+        const deduplicatedQuotes = Array.from(quoteMap.values());
+        setQuotes(deduplicatedQuotes);
+        console.log(`✅ Fetched ${quotesArray.length} quotes, showing ${deduplicatedQuotes.length} unique driver quotes`);
       } else {
         console.error('❌ Failed to fetch quotes:', result.error);
         if (result.details) {
@@ -2510,8 +2530,14 @@ export default function ResultsPage() {
       const result = await safeJsonParse(response);
 
       if (result.success) {
-        setMyQuotes(result.quotes || []);
-        console.log(`✅ Fetched ${result.quotes?.length || 0} of my quotes`);
+        // Get only the latest quote (first in array since ordered by created_at DESC)
+        const quotesArray = result.quotes || [];
+        setMyQuotes(quotesArray);
+        // Set quoteEmail if not already set and we have a quote
+        if (quotesArray.length > 0 && !quoteEmail) {
+          setQuoteEmail(quotesArray[0].email);
+        }
+        console.log(`✅ Fetched ${quotesArray.length} of my quotes, using latest: ${quotesArray[0] ? `${quotesArray[0].currency} ${quotesArray[0].price}` : 'none'}`);
       } else {
         console.error('❌ Failed to fetch my quotes:', result.error);
       }
@@ -2535,12 +2561,12 @@ export default function ResultsPage() {
 
   // Subscribe to quote updates (for real-time updates when driver submits quote)
   useEffect(() => {
-    if (!tripId || !isOwner) return;
+    if (!tripId || !isOwner || loading || !ownershipChecked) return;
 
     console.log('🔄 Setting up realtime subscription for quote updates');
 
     const quotesChannel = supabase
-      .channel(`quotes-${tripId}`)
+      .channel(`quotes-${tripId}-${Date.now()}`) // Add timestamp to ensure unique channel
       .on(
         'postgres_changes',
         {
@@ -2551,17 +2577,34 @@ export default function ResultsPage() {
         },
         (payload) => {
           console.log('🔄 Realtime quote update received:', payload);
+          console.log('📊 Event type:', payload.eventType);
+          console.log('📊 New/Updated quote:', payload.new);
           // Refresh quotes when any change occurs
-          fetchQuotes();
+          // Use a small delay to ensure database consistency
+          setTimeout(() => {
+            console.log('🔄 Refreshing quotes after realtime update...');
+            fetchQuotes();
+          }, 200);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🔄 Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to quote updates for trip:', tripId);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Channel subscription error');
+        } else if (status === 'TIMED_OUT') {
+          console.warn('⚠️ Subscription timed out, retrying...');
+        } else if (status === 'CLOSED') {
+          console.log('🔄 Subscription closed');
+        }
+      });
 
     return () => {
       console.log('🔄 Cleaning up quotes subscription');
       supabase.removeChannel(quotesChannel);
     };
-  }, [tripId, isOwner, fetchQuotes]);
+  }, [tripId, isOwner, loading, ownershipChecked, fetchQuotes]);
 
   // Subscribe to trip status changes (for real-time updates)
   useEffect(() => {
@@ -2894,6 +2937,83 @@ export default function ResultsPage() {
       setQuoteEmailError('Failed to submit quote. Please try again.');
     } finally {
       setSubmittingQuote(false);
+    }
+  };
+
+  // Handle opening update quote modal
+  const handleOpenUpdateQuote = () => {
+    // Check if driver is assigned - prevent updates if assigned
+    if (driverEmail) {
+      setQuoteEmailError('Quote cannot be updated - driver already assigned');
+      return;
+    }
+    
+    const latestQuote = myQuotes[0];
+    if (latestQuote) {
+      setUpdateQuotePrice('');
+      setUpdateQuotePriceError(null);
+      setShowUpdateQuoteModal(true);
+    }
+  };
+
+  // Handle updating quote
+  const handleUpdateQuote = async () => {
+    // Check if driver is assigned - prevent updates if assigned
+    if (driverEmail) {
+      setUpdateQuotePriceError('Quote cannot be updated - driver already assigned');
+      return;
+    }
+
+    setUpdateQuotePriceError(null);
+
+    // Validate price
+    const priceNum = parseFloat(updateQuotePrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      setUpdateQuotePriceError('Please enter a valid price greater than 0');
+      return;
+    }
+
+    const latestQuote = myQuotes[0];
+    if (!latestQuote) {
+      setUpdateQuotePriceError('No existing quote found');
+      return;
+    }
+
+    setUpdatingQuote(true);
+
+    try {
+      const response = await fetch('/api/submit-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tripId: tripId,
+          email: quoteEmail.trim() || latestQuote.email,
+          price: priceNum,
+          currency: latestQuote.currency, // Lock to original currency
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Quote updated successfully');
+        setShowUpdateQuoteModal(false);
+        setUpdateQuotePrice('');
+        setQuoteSuccessMessage('Quote updated successfully! The trip owner will see your updated offer.');
+        setQuoteSuccess(true);
+        
+        // Refresh driver's quotes to show the new latest quote
+        await fetchMyQuotes(quoteEmail.trim() || latestQuote.email);
+        
+        // Hide success message after 5 seconds
+        setTimeout(() => setQuoteSuccess(false), 5000);
+      } else {
+        setUpdateQuotePriceError(result.error || 'Failed to update quote');
+      }
+    } catch (error) {
+      setUpdateQuotePriceError('Failed to update quote. Please try again.');
+    } finally {
+      setUpdatingQuote(false);
     }
   };
 
@@ -5463,7 +5583,9 @@ export default function ResultsPage() {
           >
             <div className="container mx-auto px-4 pt-8 pb-3">
               <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
-                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Submit quote</label>
+                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">
+                  {myQuotes.length > 0 ? 'Your quote' : 'Submit quote'}
+                </label>
                 
                 {quoteSuccess && (
                   <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
@@ -5473,118 +5595,125 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                  <div className="flex-1">
-                    <Input
-                      id="quote-email-loading"
-                      type="email"
-                      value={quoteEmail}
-                      onChange={(e) => {
-                        if (!isEmailFromUrl) {
-                          setQuoteEmail(e.target.value);
-                        }
-                      }}
-                      placeholder="your.email@company.com"
-                      disabled={submittingQuote || isEmailFromUrl}
-                      readOnly={isEmailFromUrl}
-                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                    />
-                    {quoteEmailError && (
-                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                    )}
+                {driverEmail && myQuotes.length > 0 && (
+                  <div className="mb-3 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30">
+                    <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                      Quote cannot be updated - driver already assigned
+                    </p>
                   </div>
+                )}
 
-                  <div className="w-[140px]">
-                    <Input
-                      id="quote-price-loading"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quotePrice}
-                      onChange={(e) => setQuotePrice(e.target.value)}
-                      placeholder="100.00"
-                      disabled={submittingQuote}
-                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                    />
-                    {quotePriceError && (
-                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                    )}
-                  </div>
+                {myQuotes.length > 0 ? (
+                  // Show update quote UI when quote exists
+                  <div className="flex gap-3 items-start">
+                    <div className="flex-1">
+                      <Input
+                        id="quote-email-loading-existing"
+                        type="email"
+                        value={quoteEmail || myQuotes[0].email}
+                        disabled={true}
+                        readOnly={true}
+                        className="h-[44px] border-border bg-background dark:bg-input/30 text-foreground cursor-not-allowed opacity-75"
+                      />
+                    </div>
 
-                  <div className="w-[100px]">
-                    <select
-                      id="quote-currency-loading"
-                      value={quoteCurrency}
-                      onChange={(e) => setQuoteCurrency(e.target.value)}
-                      disabled={submittingQuote}
-                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                    <div className="w-[140px] flex items-center">
+                      <p className="text-sm font-medium text-foreground">
+                        {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
+                      </p>
+                    </div>
+
+                    <div className="w-[100px] flex items-center">
+                      <p className="text-sm text-muted-foreground">
+                        {myQuotes[0].currency}
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={handleOpenUpdateQuote}
+                      disabled={!!driverEmail}
+                      className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
-                      <option value="CAD">CAD</option>
-                      <option value="AUD">AUD</option>
-                      <option value="CHF">CHF</option>
-                    </select>
+                      Update Quote
+                    </Button>
                   </div>
+                ) : (
+                  // Show submit quote form when no quote exists
+                  <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                    <div className="flex-1">
+                      <Input
+                        id="quote-email-loading"
+                        type="email"
+                        value={quoteEmail}
+                        onChange={(e) => {
+                          if (!isEmailFromUrl) {
+                            setQuoteEmail(e.target.value);
+                          }
+                        }}
+                        placeholder="your.email@company.com"
+                        disabled={submittingQuote || isEmailFromUrl}
+                        readOnly={isEmailFromUrl}
+                        className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
+                      />
+                      {quoteEmailError && (
+                        <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                      )}
+                    </div>
 
-                  <Button
-                    type="submit"
-                    disabled={submittingQuote || !quoteEmail || !quotePrice}
-                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-                  >
-                    {submittingQuote ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Submitting...
-                      </>
-                    ) : (
-                      'Submit quote'
-                    )}
-                  </Button>
-                </form>
+                    <div className="w-[140px]">
+                      <Input
+                        id="quote-price-loading"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={quotePrice}
+                        onChange={(e) => setQuotePrice(e.target.value)}
+                        placeholder="100.00"
+                        disabled={submittingQuote}
+                        className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                      />
+                      {quotePriceError && (
+                        <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                      )}
+                    </div>
 
-                {/* Display driver's submitted quotes */}
-                {myQuotes.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-xs font-medium text-muted-foreground mb-2">Your submitted quote:</p>
-                    {myQuotes.map((quote) => {
-                      const timeAgo = (() => {
-                        const now = new Date();
-                        const created = new Date(quote.created_at);
-                        const diffMs = now.getTime() - created.getTime();
-                        const diffMins = Math.floor(diffMs / 60000);
-                        const diffHours = Math.floor(diffMins / 60);
-                        const diffDays = Math.floor(diffHours / 24);
-                        
-                        if (diffDays > 0) return `${diffDays}d ago`;
-                        if (diffHours > 0) return `${diffHours}h ago`;
-                        if (diffMins > 0) return `${diffMins}m ago`;
-                        return 'just now';
-                      })();
+                    <div className="w-[100px]">
+                      <select
+                        id="quote-currency-loading"
+                        value={quoteCurrency}
+                        onChange={(e) => setQuoteCurrency(e.target.value)}
+                        disabled={submittingQuote}
+                        className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                        <option value="CAD">CAD</option>
+                        <option value="AUD">AUD</option>
+                        <option value="CHF">CHF</option>
+                      </select>
+                    </div>
 
-                      return (
-                        <div 
-                          key={quote.id} 
-                          className="flex items-center justify-between px-3 py-2 rounded-md bg-background/50 dark:bg-input/20 border border-border/50"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{quote.email}</p>
-                            <p className="text-xs text-muted-foreground">{timeAgo}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-foreground">
-                              {quote.currency} {quote.price.toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    <Button
+                      type="submit"
+                      disabled={submittingQuote || !quoteEmail || !quotePrice}
+                      className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                    >
+                      {submittingQuote ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit quote'
+                      )}
+                    </Button>
+                  </form>
                 )}
               </div>
             </div>
@@ -5650,7 +5779,9 @@ export default function ResultsPage() {
         >
           <div className="container mx-auto px-4 pt-8 pb-3">
             <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
-              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Submit quote</label>
+              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">
+                {myQuotes.length > 0 ? 'Your quote' : 'Submit quote'}
+              </label>
               
               {quoteSuccess && (
                 <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
@@ -5660,123 +5791,212 @@ export default function ResultsPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                <div className="flex-1">
-                  <Input
-                    id="quote-email"
-                    type="email"
-                    value={quoteEmail}
-                    onChange={(e) => {
-                      if (!isEmailFromUrl) {
-                        setQuoteEmail(e.target.value);
-                      }
-                    }}
-                    placeholder="your.email@company.com"
-                    disabled={submittingQuote || isEmailFromUrl}
-                    readOnly={isEmailFromUrl}
-                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                  />
-                  {quoteEmailError && (
-                    <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                  )}
+              {driverEmail && myQuotes.length > 0 && (
+                <div className="mb-3 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30">
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                    Quote cannot be updated - driver already assigned
+                  </p>
                 </div>
+              )}
 
-                <div className="w-[140px]">
-                  <Input
-                    id="quote-price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={quotePrice}
-                    onChange={(e) => setQuotePrice(e.target.value)}
-                    placeholder="100.00"
-                    disabled={submittingQuote}
-                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                  />
-                  {quotePriceError && (
-                    <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                  )}
-                </div>
+              {myQuotes.length > 0 ? (
+                // Show update quote UI when quote exists
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <Input
+                      id="quote-email-existing"
+                      type="email"
+                      value={quoteEmail || myQuotes[0].email}
+                      disabled={true}
+                      readOnly={true}
+                      className="h-[44px] border-border bg-background dark:bg-input/30 text-foreground cursor-not-allowed opacity-75"
+                    />
+                  </div>
 
-                <div className="w-[100px]">
-                  <select
-                    id="quote-currency"
-                    value={quoteCurrency}
-                    onChange={(e) => setQuoteCurrency(e.target.value)}
-                    disabled={submittingQuote}
-                    className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                  <div className="w-[140px] flex items-center">
+                    <p className="text-sm font-medium text-foreground">
+                      {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="w-[100px] flex items-center">
+                    <p className="text-sm text-muted-foreground">
+                      {myQuotes[0].currency}
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleOpenUpdateQuote}
+                    disabled={!!driverEmail}
+                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
-                    <option value="CAD">CAD</option>
-                    <option value="AUD">AUD</option>
-                    <option value="CHF">CHF</option>
-                  </select>
+                    Update Quote
+                  </Button>
                 </div>
+              ) : (
+                // Show submit quote form when no quote exists
+                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <Input
+                      id="quote-email"
+                      type="email"
+                      value={quoteEmail}
+                      onChange={(e) => {
+                        if (!isEmailFromUrl) {
+                          setQuoteEmail(e.target.value);
+                        }
+                      }}
+                      placeholder="your.email@company.com"
+                      disabled={submittingQuote || isEmailFromUrl}
+                      readOnly={isEmailFromUrl}
+                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
+                    />
+                    {quoteEmailError && (
+                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                    )}
+                  </div>
 
-                <Button
-                  type="submit"
-                  disabled={submittingQuote || !quoteEmail || !quotePrice}
-                  className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-                >
-                  {submittingQuote ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit quote'
-                  )}
-                </Button>
-              </form>
+                  <div className="w-[140px]">
+                    <Input
+                      id="quote-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={quotePrice}
+                      onChange={(e) => setQuotePrice(e.target.value)}
+                      placeholder="100.00"
+                      disabled={submittingQuote}
+                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                    />
+                    {quotePriceError && (
+                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                    )}
+                  </div>
 
-              {/* Display driver's submitted quotes */}
-              {myQuotes.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Your submitted quote:</p>
-                  {myQuotes.map((quote) => {
-                    const timeAgo = (() => {
-                      const now = new Date();
-                      const created = new Date(quote.created_at);
-                      const diffMs = now.getTime() - created.getTime();
-                      const diffMins = Math.floor(diffMs / 60000);
-                      const diffHours = Math.floor(diffMins / 60);
-                      const diffDays = Math.floor(diffHours / 24);
-                      
-                      if (diffDays > 0) return `${diffDays}d ago`;
-                      if (diffHours > 0) return `${diffHours}h ago`;
-                      if (diffMins > 0) return `${diffMins}m ago`;
-                      return 'just now';
-                    })();
+                  <div className="w-[100px]">
+                    <select
+                      id="quote-currency"
+                      value={quoteCurrency}
+                      onChange={(e) => setQuoteCurrency(e.target.value)}
+                      disabled={submittingQuote}
+                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="JPY">JPY</option>
+                      <option value="CAD">CAD</option>
+                      <option value="AUD">AUD</option>
+                      <option value="CHF">CHF</option>
+                    </select>
+                  </div>
 
-                    return (
-                      <div 
-                        key={quote.id} 
-                        className="flex items-center justify-between px-3 py-2 rounded-md bg-background/50 dark:bg-input/20 border border-border/50"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-foreground truncate">{quote.email}</p>
-                          <p className="text-xs text-muted-foreground">{timeAgo}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-foreground">
-                            {quote.currency} {quote.price.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                  <Button
+                    type="submit"
+                    disabled={submittingQuote || !quoteEmail || !quotePrice}
+                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                  >
+                    {submittingQuote ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit quote'
+                    )}
+                  </Button>
+                </form>
               )}
             </div>
           </div>
         </div>
       )}
+
+      {/* Update Quote Modal */}
+      <Dialog open={showUpdateQuoteModal} onOpenChange={setShowUpdateQuoteModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update quote</DialogTitle>
+            <DialogDescription>
+              You're about to update the previous price. The trip owner will see your updated offer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {myQuotes[0] && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Previous price</label>
+                  <div className="px-3 py-2 rounded-md border border-border bg-muted/50">
+                    <p className="text-sm font-medium">
+                      {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="update-quote-price" className="text-sm font-medium">
+                    New price
+                  </label>
+                  <Input
+                    id="update-quote-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={updateQuotePrice}
+                    onChange={(e) => setUpdateQuotePrice(e.target.value)}
+                    placeholder="Enter new price"
+                    disabled={updatingQuote}
+                    className={`h-[44px] ${updateQuotePriceError ? 'border-destructive' : ''}`}
+                  />
+                  {updateQuotePriceError && (
+                    <p className="text-xs text-destructive">{updateQuotePriceError}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Currency</label>
+                  <div className="px-3 py-2 rounded-md border border-border bg-muted/50">
+                    <p className="text-sm font-medium">{myQuotes[0].currency}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Currency cannot be changed</p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowUpdateQuoteModal(false);
+                setUpdateQuotePrice('');
+                setUpdateQuotePriceError(null);
+              }}
+              disabled={updatingQuote}
+            >
+              Dismiss
+            </Button>
+            <Button
+              onClick={handleUpdateQuote}
+              disabled={updatingQuote || !updateQuotePrice}
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+            >
+              {updatingQuote ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Updating...
+                </>
+              ) : (
+                'Update'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Update Trip Section - Sticky Bar - Only show for owners */}
         {isOwner && !isLiveMode && (
@@ -6142,34 +6362,59 @@ export default function ResultsPage() {
                         </div>
                       </div>
                       <div className="flex-shrink-0">
-                        <FlowHoverButton
-                          variant={
-                            tripStatus === 'cancelled' ? 'cancelled' :
-                            tripStatus === 'rejected' ? 'rejected' :
-                            tripStatus === 'confirmed' ? 'confirmed' : 
-                            driverEmail ? 'pending' : 
-                            'not-confirmed'
-                          }
-                          onClick={handleStatusToggle}
-                          disabled={updatingStatus || tripStatus === 'cancelled'}
-                          icon={
-                            tripStatus === 'cancelled' ? (
-                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            ) : tripStatus === 'rejected' ? (
-                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                            ) : tripStatus === 'confirmed' ? (
-                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : undefined
-                          }
-                        >
-                          {tripStatus === 'cancelled' ? 'Cancelled' : tripStatus === 'rejected' ? 'Rejected' : tripStatus === 'confirmed' ? 'Confirmed' : driverEmail ? 'Pending' : 'Not confirmed'}
-                        </FlowHoverButton>
+                        {(() => {
+                          // Determine if there was any activity (driver assigned, quotes requested, or quotes received)
+                          // Check both current state and original data to ensure we catch activity even if state changes
+                          const hasDriverInState = !!driverEmail;
+                          const hasDriverInOriginalData = !!originalDriverEmailRef.current;
+                          const hasQuotes = quotes.length > 0;
+                          const hasSentEmails = sentDriverEmails.length > 0;
+                          // Activity exists if driver was ever assigned OR quotes were requested/received
+                          const hasActivity = hasDriverInState || hasDriverInOriginalData || hasQuotes || hasSentEmails;
+                          
+                          // Determine variant based on status and activity
+                          const getButtonVariant = () => {
+                            if (tripStatus === 'cancelled' && hasActivity) {
+                              return 'cancelled'; // Red, disabled
+                            }
+                            if (tripStatus === 'not confirmed' || (tripStatus === 'cancelled' && !hasActivity)) {
+                              return 'request-quote-style'; // Match request quote button colors/frame
+                            }
+                            // All other statuses use existing variants
+                            return tripStatus === 'rejected' ? 'rejected' : 
+                                   tripStatus === 'confirmed' ? 'confirmed' : 
+                                   driverEmail ? 'pending' : 'not-confirmed';
+                          };
+                          
+                          const buttonVariant = getButtonVariant();
+                          const isCancelledWithActivity = tripStatus === 'cancelled' && hasActivity;
+                          const buttonText = isCancelledWithActivity ? 'Cancelled' : 
+                                           tripStatus === 'rejected' ? 'Rejected' : 
+                                           tripStatus === 'confirmed' ? 'Confirmed' : 
+                                           driverEmail ? 'Pending' : 'Not confirmed';
+                          
+                          return (
+                            <FlowHoverButton
+                              variant={buttonVariant}
+                              onClick={handleStatusToggle}
+                              disabled={updatingStatus || isCancelledWithActivity}
+                              icon={
+                                isCancelledWithActivity ? undefined : // No icon for cancelled
+                                tripStatus === 'rejected' ? (
+                                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                  </svg>
+                                ) : tripStatus === 'confirmed' ? (
+                                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : undefined
+                              }
+                            >
+                              {buttonText}
+                            </FlowHoverButton>
+                          );
+                        })()}
                       </div>
                     </div>
                 </div>
@@ -6276,7 +6521,7 @@ export default function ResultsPage() {
                                 )}
                                 {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
                               </Button>
-                              {quotes.length > 0 && !driverEmail && (
+                              {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
                                 <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
                                   {quotes.length}
                                 </span>
