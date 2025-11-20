@@ -28,7 +28,13 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
   
   // Get city configuration for location bias
   const cityConfig = getCityConfig(tripDestination);
-  const countryCode = cityConfig.isLondon ? 'gb' : 'us'; // gb for London, us for other cities (New York, etc.)
+  // Determine country code based on trip destination
+  let countryCode = 'us'; // Default to US
+  if (cityConfig.isLondon) {
+    countryCode = 'gb';
+  } else if (tripDestination === 'Singapore') {
+    countryCode = 'sg';
+  }
   
   // City-specific location bounds (prioritizes metro area while allowing broader searches)
   const getLocationBounds = () => {
@@ -45,6 +51,13 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
       return new google.maps.LatLngBounds(
         new google.maps.LatLng(51.2868, -0.5103), // Southwest
         new google.maps.LatLng(51.6918, 0.3340)   // Northeast
+      );
+    } else if (tripDestination === 'Singapore') {
+      // Singapore island bounds with buffer: covers Singapore island and surrounding areas
+      // Southwest corner to Northeast corner (~50km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(1.15, 103.6),  // Southwest
+        new google.maps.LatLng(1.47, 104.0)    // Northeast
       );
     }
     return undefined; // No bounds for other cities

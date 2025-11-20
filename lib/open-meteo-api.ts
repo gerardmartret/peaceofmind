@@ -35,19 +35,21 @@ export interface DailySummary {
  * @param lat Latitude
  * @param lng Longitude
  * @param days Number of days to forecast (default: 7)
+ * @param timezone IANA timezone string (default: 'Europe/London')
  */
 export async function getWeatherForecast(
   lat: number,
   lng: number,
-  days: number = 7
+  days: number = 7,
+  timezone: string = 'Europe/London'
 ): Promise<WeatherData> {
   try {
-    console.log(`🌤️  Fetching weather forecast for ${lat}, ${lng} (${days} days)`);
+    console.log(`🌤️  Fetching weather forecast for ${lat}, ${lng} (${days} days, timezone: ${timezone})`);
     
     const url = `https://api.open-meteo.com/v1/forecast?` +
       `latitude=${lat}&longitude=${lng}` +
       `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,wind_speed_10m_max` +
-      `&timezone=Europe/London` +
+      `&timezone=${encodeURIComponent(timezone)}` +
       `&forecast_days=${days}`;
     
     console.log(`📡 Calling Open-Meteo API...`);

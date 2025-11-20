@@ -69,6 +69,7 @@ const formatLocationDisplay = (fullAddress: string): { businessName: string; res
     { keyword: 'stansted', fullName: 'Stansted Airport' },
     { keyword: 'luton', fullName: 'Luton Airport' },
     { keyword: 'london city airport', fullName: 'London City Airport' },
+    { keyword: 'changi', fullName: 'Changi Airport' },
   ];
   
   for (const airport of airportKeywords) {
@@ -1490,7 +1491,7 @@ export default function ResultsPage() {
           
           // Universal APIs
           const universalCalls = [
-            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}${tripDestination ? `&tripDestination=${encodeURIComponent(tripDestination)}` : ''}`),
           ];
           
           // London-specific APIs (conditional)
@@ -1592,7 +1593,8 @@ export default function ResultsPage() {
           lng: loc.lng,
           time: loc.time,
         })),
-        tripDateStr
+        tripDateStr,
+        tripDestination
       );
       
       setRegenerationProgress(90);
@@ -4714,7 +4716,7 @@ export default function ResultsPage() {
 
           // Universal APIs (always called)
           const universalCalls = [
-            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}${tripDestination ? `&tripDestination=${encodeURIComponent(tripDestination)}` : ''}`),
           ];
 
           // London-specific APIs (conditional)
@@ -4832,7 +4834,7 @@ export default function ResultsPage() {
       console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
       try {
-        trafficData = await getTrafficPredictions(validLocations, tripDateStr);
+        trafficData = await getTrafficPredictions(validLocations, tripDateStr, tripDestination);
       } catch (trafficError) {
         console.error('❌ Traffic prediction error:', trafficError);
         trafficData = {

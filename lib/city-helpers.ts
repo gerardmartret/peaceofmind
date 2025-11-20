@@ -10,6 +10,7 @@ export const LONDON_IDENTIFIER = 'London';
 export const ALLOWED_TRIP_DESTINATIONS = [
   'London',
   'New York',
+  'Singapore',
   // Add more approved destinations here as needed
 ] as const;
 
@@ -22,7 +23,8 @@ export type AllowedDestination = typeof ALLOWED_TRIP_DESTINATIONS[number];
  */
 export function isValidTripDestination(destination: string | null | undefined): boolean {
   if (!destination) return true; // null/undefined is allowed (defaults to London)
-  return ALLOWED_TRIP_DESTINATIONS.includes(destination as AllowedDestination);
+  // Use explicit array check to avoid TypeScript readonly tuple issues
+  return (ALLOWED_TRIP_DESTINATIONS as readonly string[]).includes(destination);
 }
 
 /**
@@ -53,6 +55,9 @@ export function getDestinationTimezone(tripDestination?: string | null): string 
   if (tripDestination === 'New York') {
     return 'America/New_York';
   }
+  if (tripDestination === 'Singapore') {
+    return 'Asia/Singapore';
+  }
   // Default to London timezone (also handles null/undefined for backward compatibility)
   return 'Europe/London';
 }
@@ -68,19 +73,26 @@ export function getCityConfig(tripDestination?: string | null) {
   // Geocoding bias includes metro area for better coverage
   // For NYC: includes Yonkers, Jersey City, Newark, Long Island, etc.
   // For London: includes Greater London area
+  // For Singapore: includes Singapore island and surrounding areas
   let geocodingBias = 'London, UK';
+  let geocodingRegion = 'uk';
   if (!isLondon) {
     if (tripDestination === 'New York') {
       geocodingBias = 'New York, NY, USA'; // Will match NYC metro area broadly
+      geocodingRegion = 'us';
+    } else if (tripDestination === 'Singapore') {
+      geocodingBias = 'Singapore, Singapore';
+      geocodingRegion = 'sg';
     } else {
       geocodingBias = `${tripDestination}, USA`;
+      geocodingRegion = 'us';
     }
   }
   
   return {
     isLondon,
     geocodingBias,
-    geocodingRegion: isLondon ? 'uk' : 'us',
+    geocodingRegion,
     cityName: tripDestination || 'London',
     enableCrimeAPI: isLondon,
     enableTflAPI: isLondon,

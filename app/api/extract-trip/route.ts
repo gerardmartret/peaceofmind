@@ -112,11 +112,12 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a trip planning assistant that extracts location and time information from unstructured text (emails, messages, etc.).
 
-CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
+CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London, SIN/Changi=Singapore), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
 
 METRO AREA COVERAGE:
 - "New York" = NYC metro area (Manhattan, Brooklyn, Queens, Bronx, Staten Island, Yonkers, Jersey City, Newark, Hoboken, Long Island)
 - "London" = Greater London (all 32 boroughs + City of London)
+- "Singapore" = Singapore island + surrounding areas within ~50km
 - Include locations in surrounding areas within ~50km of city center
 
 CRITICAL: For driverNotes, preserve ALL unique content from the original email BUT exclude ANY information that's already extracted into structured fields (locations, times, dates, names). Do NOT repeat location names, addresses, times, or dates in driverNotes - these are already in the locations array. ONLY include contextual details not captured elsewhere.
@@ -125,15 +126,17 @@ Extract:
 1. All locations (addresses, landmarks, stations, airports, etc.) - identify which city/metro area they belong to
    - For New York: Include NYC proper (Manhattan, Brooklyn, Queens, Bronx, Staten Island) AND metro area (Yonkers, Jersey City, Newark, Long Island, etc.)
    - For London: Include Greater London area
+   - For Singapore: Include Singapore island and surrounding areas
 2. Associated times for each location
 3. Trip date if mentioned
 4. Lead passenger name (main/first passenger name)
 5. Number of passengers (total count)
 6. Trip destination/city - CRITICAL: Detect from context! Look for:
-   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", etc.
-   - Airport codes: JFK/LGA/EWR/Newark = New York, LHR/LGW/STN/LTN = London
+   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", "Singapore", "Singapura", etc.
+   - Airport codes: JFK/LGA/EWR/Newark = New York, LHR/LGW/STN/LTN = London, SIN/Changi = Singapore
    - Address patterns: "NY", "Manhattan", "Brooklyn", "Queens", "Bronx", "Yonkers", "Jersey City" = New York
    - Address patterns: "UK", "Westminster", "Camden" = London
+   - Address patterns: "SG", "Singapore" = Singapore
 7. Vehicle information (ONLY brand and model, e.g., 'Mercedes S-Class', 'BMW 7 Series')
 8. Driver notes (ONLY information that doesn't fit in structured fields - NO location names, NO times, NO dates. Include: contact info, special instructions, flight details, vehicle features, dress codes, allergies, preferences, etc.)
 9. Passenger names (all passenger names as array)
@@ -227,9 +230,11 @@ CRITICAL: Distinguish between ADD and normal location mentions:
 - Expand abbreviated locations appropriately:
   * Airport codes: JFK/LGA/EWR → include "Airport" suffix
   * LHR/LGW/STN/LTN → include "Airport" suffix
+  * SIN/Changi → include "Airport" suffix
 - ONLY include locations in the trip destination city/metro area (auto-detect from context)
 - For New York: Include all NYC metro area locations (Yonkers, Jersey City, Newark, etc. are valid)
 - For London: Include all Greater London locations
+- For Singapore: Include all Singapore island and surrounding area locations
 - IMPORTANT: If the text contains ONLY instructions, notes, or verbal updates WITHOUT locations:
   * Return locations as empty array []
   * Put all instructions/notes in driverNotes field

@@ -6,6 +6,7 @@ import {
   getWeatherEmoji 
 } from '@/lib/open-meteo-api';
 import { LONDON_DISTRICTS } from '@/lib/uk-police-api';
+import { getDestinationTimezone } from '@/lib/city-helpers';
 
 export async function GET(request: Request) {
   try {
@@ -14,6 +15,8 @@ export async function GET(request: Request) {
     const customLat = searchParams.get('lat');
     const customLng = searchParams.get('lng');
     const days = parseInt(searchParams.get('days') || '7');
+    const tripDestination = searchParams.get('tripDestination') || null;
+    const timezone = getDestinationTimezone(tripDestination);
 
     let lat: number, lng: number, locationName: string;
 
@@ -53,7 +56,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch weather data
-    const weatherData = await getWeatherForecast(lat, lng, days);
+    const weatherData = await getWeatherForecast(lat, lng, days, timezone);
     const dailyForecasts = processWeatherData(weatherData);
     const summary = getWeatherSummary(dailyForecasts);
 

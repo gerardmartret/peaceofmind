@@ -1,3 +1,5 @@
+import { getDestinationTimezone } from './city-helpers';
+
 interface TrafficLeg {
   leg: string; // "A→B", "B→C", etc.
   origin: { lat: number; lng: number; name: string };
@@ -65,7 +67,8 @@ async function calculateLegTiming(
   origin: { lat: number; lng: number; name: string },
   destination: { lat: number; lng: number; name: string },
   departureTime: string,
-  legLabel: string
+  legLabel: string,
+  timezone: string = 'Europe/London'
 ): Promise<TrafficResult> {
   const directionsService = new google.maps.DirectionsService();
   
@@ -79,11 +82,11 @@ async function calculateLegTiming(
     const fallbackDate = new Date();
     fallbackDate.setHours(fallbackDate.getHours() + 1);
     console.log(`   Using fallback time: ${fallbackDate.toISOString()}`);
-    return calculateLegTiming(origin, destination, fallbackDate.toISOString(), legLabel);
+    return calculateLegTiming(origin, destination, fallbackDate.toISOString(), legLabel, timezone);
   }
   
   console.log(`🚗 Calculating ${legLabel}: ${origin.name} → ${destination.name}`);
-  console.log(`   Departure: ${departureDate.toLocaleString('en-GB', { timeZone: 'Europe/London' })}`);
+  console.log(`   Departure: ${departureDate.toLocaleString('en-GB', { timeZone: timezone })}`);
   
   return new Promise((resolve) => {
     directionsService.route(
@@ -199,7 +202,8 @@ export async function getTrafficPredictions(
     lng: number;
     time: string;
   }>,
-  tripDate: string
+  tripDate: string,
+  tripDestination?: string | null
 ): Promise<TrafficPredictionResponse> {
   try {
     console.log('\n🚦 TRAFFIC PREDICTION ANALYSIS');
@@ -234,12 +238,16 @@ export async function getTrafficPredictions(
     let totalMinutesNoTraffic = 0;
     let totalDistanceMeters = 0;
     
+    // Get timezone for the trip destination
+    const timezone = getDestinationTimezone(tripDestination);
+    
     for (const leg of trafficLegs) {
       const result = await calculateLegTiming(
         leg.origin,
         leg.destination,
         leg.departureTime,
-        leg.leg
+        leg.leg,
+        timezone
       );
       
       trafficResults.push(result);

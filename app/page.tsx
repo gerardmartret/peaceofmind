@@ -1583,7 +1583,7 @@ export default function Home() {
 
           // Universal APIs (always called)
           const universalCalls = [
-            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}`),
+            fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}${tripDestination ? `&tripDestination=${encodeURIComponent(tripDestination)}` : ''}`),
           ];
 
           // London-specific APIs (conditional)
@@ -1746,7 +1746,7 @@ export default function Home() {
       // Get traffic predictions for the route
       let trafficData = null;
       try {
-        trafficData = await getTrafficPredictions(validLocations, tripDateStr);
+        trafficData = await getTrafficPredictions(validLocations, tripDateStr, tripDestination);
       } catch (trafficError) {
         trafficData = {
           success: false,
@@ -2932,10 +2932,13 @@ export default function Home() {
                           <SelectItem key="New York" value="New York">
                             New York
                           </SelectItem>
+                          <SelectItem key="Singapore" value="Singapore">
+                            Singapore
+                          </SelectItem>
                           
                           {/* Database destinations (exclude default cities, filter by whitelist) */}
                           {availableDestinations
-                            .filter(dest => !['London', 'New York'].includes(dest))
+                            .filter(dest => !['London', 'New York', 'Singapore'].includes(dest))
                             .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
                             .map((destination) => (
                               <SelectItem key={destination} value={destination}>
@@ -3284,10 +3287,13 @@ export default function Home() {
                     <SelectItem key="New York" value="New York">
                       New York
                     </SelectItem>
+                    <SelectItem key="Singapore" value="Singapore">
+                      Singapore
+                    </SelectItem>
                     
                     {/* Database destinations (exclude default cities, filter by whitelist) */}
                     {availableDestinations
-                      .filter(dest => !['London', 'New York'].includes(dest))
+                      .filter(dest => !['London', 'New York', 'Singapore'].includes(dest))
                       .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
                       .map((destination) => (
                         <SelectItem key={destination} value={destination}>
