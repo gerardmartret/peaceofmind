@@ -112,13 +112,18 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a trip planning assistant that extracts location and time information from unstructured text (emails, messages, etc.).
 
-CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London, SIN/Changi=Singapore), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
+CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London, SIN/Changi=Singapore, FRA=Frankfurt, CDG/ORY=Paris, NRT/HND=Tokyo, BOS=Boston, ZRH=Zurich), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
 
 METRO AREA COVERAGE:
 - "New York" = NYC metro area (Manhattan, Brooklyn, Queens, Bronx, Staten Island, Yonkers, Jersey City, Newark, Hoboken, Long Island)
 - "London" = Greater London (all 32 boroughs + City of London)
-- "Singapore" = Singapore island + surrounding areas within ~50km
-- Include locations in surrounding areas within ~50km of city center
+- "Singapore" = Singapore island + surrounding areas within ~80-100km
+- "Frankfurt" = Frankfurt metro area + surrounding areas within ~80-100km
+- "Paris" = Paris metro area + surrounding areas within ~80-100km
+- "Tokyo" = Tokyo metro area + surrounding areas within ~80-100km
+- "Boston" = Boston metro area + surrounding areas within ~80-100km
+- "Zurich" = Zurich metro area + surrounding areas within ~80-100km
+- Include locations in surrounding areas within ~80-100km of city center for day trips
 
 CRITICAL: For driverNotes, preserve ALL unique content from the original email BUT exclude ANY information that's already extracted into structured fields (locations, times, dates, names). Do NOT repeat location names, addresses, times, or dates in driverNotes - these are already in the locations array. ONLY include contextual details not captured elsewhere.
 
@@ -127,16 +132,26 @@ Extract:
    - For New York: Include NYC proper (Manhattan, Brooklyn, Queens, Bronx, Staten Island) AND metro area (Yonkers, Jersey City, Newark, Long Island, etc.)
    - For London: Include Greater London area
    - For Singapore: Include Singapore island and surrounding areas
+   - For Frankfurt: Include Frankfurt and surrounding areas within ~80-100km
+   - For Paris: Include Paris and surrounding areas within ~80-100km
+   - For Tokyo: Include Tokyo and surrounding areas within ~80-100km
+   - For Boston: Include Boston and surrounding areas within ~80-100km
+   - For Zurich: Include Zurich and surrounding areas within ~80-100km
 2. Associated times for each location
 3. Trip date if mentioned
 4. Lead passenger name (main/first passenger name)
 5. Number of passengers (total count)
 6. Trip destination/city - CRITICAL: Detect from context! Look for:
-   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", "Singapore", "Singapura", etc.
-   - Airport codes: JFK/LGA/EWR/Newark = New York, LHR/LGW/STN/LTN = London, SIN/Changi = Singapore
+   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", "Singapore", "Singapura", "Frankfurt", "Paris", "Tokyo", "Boston", "Zurich", etc.
+   - Airport codes: JFK/LGA/EWR/Newark = New York, LHR/LGW/STN/LTN = London, SIN/Changi = Singapore, FRA = Frankfurt, CDG/ORY = Paris, NRT/HND = Tokyo, BOS = Boston, ZRH = Zurich
    - Address patterns: "NY", "Manhattan", "Brooklyn", "Queens", "Bronx", "Yonkers", "Jersey City" = New York
    - Address patterns: "UK", "Westminster", "Camden" = London
    - Address patterns: "SG", "Singapore" = Singapore
+   - Address patterns: "DE", "Germany", "Frankfurt" = Frankfurt
+   - Address patterns: "FR", "France", "Paris" = Paris
+   - Address patterns: "JP", "Japan", "Tokyo" = Tokyo
+   - Address patterns: "MA", "Massachusetts", "Boston" = Boston
+   - Address patterns: "CH", "Switzerland", "Zurich" = Zurich
 7. Vehicle information (ONLY brand and model, e.g., 'Mercedes S-Class', 'BMW 7 Series')
 8. Driver notes (ONLY information that doesn't fit in structured fields - NO location names, NO times, NO dates. Include: contact info, special instructions, flight details, vehicle features, dress codes, allergies, preferences, etc.)
 9. Passenger names (all passenger names as array)
@@ -231,10 +246,20 @@ CRITICAL: Distinguish between ADD and normal location mentions:
   * Airport codes: JFK/LGA/EWR → include "Airport" suffix
   * LHR/LGW/STN/LTN → include "Airport" suffix
   * SIN/Changi → include "Airport" suffix
+  * FRA → include "Airport" suffix
+  * CDG/ORY → include "Airport" suffix
+  * NRT/HND → include "Airport" suffix
+  * BOS → include "Airport" suffix
+  * ZRH → include "Airport" suffix
 - ONLY include locations in the trip destination city/metro area (auto-detect from context)
 - For New York: Include all NYC metro area locations (Yonkers, Jersey City, Newark, etc. are valid)
 - For London: Include all Greater London locations
 - For Singapore: Include all Singapore island and surrounding area locations
+- For Frankfurt: Include all Frankfurt and surrounding area locations (within ~80-100km)
+- For Paris: Include all Paris and surrounding area locations (within ~80-100km)
+- For Tokyo: Include all Tokyo and surrounding area locations (within ~80-100km)
+- For Boston: Include all Boston and surrounding area locations (within ~80-100km)
+- For Zurich: Include all Zurich and surrounding area locations (within ~80-100km)
 - IMPORTANT: If the text contains ONLY instructions, notes, or verbal updates WITHOUT locations:
   * Return locations as empty array []
   * Put all instructions/notes in driverNotes field

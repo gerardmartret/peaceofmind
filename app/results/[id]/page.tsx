@@ -70,6 +70,19 @@ const formatLocationDisplay = (fullAddress: string): { businessName: string; res
     { keyword: 'luton', fullName: 'Luton Airport' },
     { keyword: 'london city airport', fullName: 'London City Airport' },
     { keyword: 'changi', fullName: 'Changi Airport' },
+    { keyword: 'frankfurt airport', fullName: 'Frankfurt Airport' },
+    { keyword: 'frankfurt am main airport', fullName: 'Frankfurt Airport' },
+    { keyword: 'charles de gaulle', fullName: 'Charles de Gaulle Airport' },
+    { keyword: 'cdg', fullName: 'Charles de Gaulle Airport' },
+    { keyword: 'orly', fullName: 'Orly Airport' },
+    { keyword: 'orly airport', fullName: 'Orly Airport' },
+    { keyword: 'narita', fullName: 'Narita Airport' },
+    { keyword: 'narita airport', fullName: 'Narita Airport' },
+    { keyword: 'haneda', fullName: 'Haneda Airport' },
+    { keyword: 'haneda airport', fullName: 'Haneda Airport' },
+    { keyword: 'logan', fullName: 'Logan International Airport' },
+    { keyword: 'logan international', fullName: 'Logan International Airport' },
+    { keyword: 'zurich airport', fullName: 'Zurich Airport' },
   ];
   
   for (const airport of airportKeywords) {
@@ -4239,6 +4252,11 @@ export default function ResultsPage() {
 
   // Transform AI comparison result to our diff format for UI display
   const transformComparisonToDiff = (comparison: any, extractedData: any) => {
+    console.log(`🔍 [TRANSFORM-DIAG] Starting transformation of comparison result`);
+    console.log(`   - Current trip has ${tripData?.locations?.length || 0} locations`);
+    console.log(`   - Comparison has ${comparison.locations?.length || 0} location changes`);
+    console.log(`   - Trip destination: "${tripDestination}"`);
+    
     const diff: any = {
       tripDateChanged: comparison.tripDateChanged || false,
       locations: [],
@@ -4286,6 +4304,9 @@ export default function ResultsPage() {
         }
         
         if (locChange.action === 'removed') {
+          console.log(`🗑️ [REMOVAL-DIAG] Removing location at index ${locChange.currentIndex}: "${locChange.currentLocation?.name || locChange.currentLocation?.address || 'Unknown'}"`);
+          console.log(`   - fullAddress: "${locChange.currentLocation?.fullAddress || 'MISSING'}"`);
+          console.log(`   - coordinates: (${locChange.currentLocation?.lat || 0}, ${locChange.currentLocation?.lng || 0})`);
           diff.locations.push({
             type: 'removed',
             index: locChange.currentIndex,
@@ -4473,16 +4494,31 @@ export default function ResultsPage() {
             
             // CRITICAL FIX: Ensure fullAddress and formattedAddress are set from extractedLocation for proper display
             if (!finalLoc.fullAddress && locChange.extractedLocation) {
+              const beforeFullAddress = finalLoc.fullAddress;
               finalLoc.fullAddress = locChange.extractedLocation.formattedAddress || 
                                      locChange.extractedLocation.location || 
                                      finalLoc.address || 
                                      finalLoc.name;
+              if (finalLoc.fullAddress !== beforeFullAddress) {
+                console.log(`🔍 [ADDRESS-DIAG] Location ${locChange.currentIndex} fullAddress set: "${beforeFullAddress}" → "${finalLoc.fullAddress}" (source: ${locChange.extractedLocation.formattedAddress ? 'formattedAddress' : locChange.extractedLocation.location ? 'location' : finalLoc.address ? 'address' : 'name'})`);
+                // Check if address is just city name
+                if (finalLoc.fullAddress && finalLoc.fullAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
+                  console.warn(`⚠️ [ADDRESS-DIAG] WARNING: Location ${locChange.currentIndex} fullAddress is just city name "${finalLoc.fullAddress}" - this might be a fallback issue!`);
+                }
+              }
             }
             if (!finalLoc.formattedAddress && locChange.extractedLocation) {
+              const beforeFormattedAddress = finalLoc.formattedAddress;
               finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress || 
                                      locChange.extractedLocation.location || 
                                      finalLoc.address || 
                                      finalLoc.name;
+              if (finalLoc.formattedAddress !== beforeFormattedAddress) {
+                console.log(`🔍 [ADDRESS-DIAG] Location ${locChange.currentIndex} formattedAddress set: "${beforeFormattedAddress}" → "${finalLoc.formattedAddress}"`);
+                if (finalLoc.formattedAddress && finalLoc.formattedAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
+                  console.warn(`⚠️ [ADDRESS-DIAG] WARNING: Location ${locChange.currentIndex} formattedAddress is just city name "${finalLoc.formattedAddress}" - this might be a fallback issue!`);
+                }
+              }
             }
             
             // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
@@ -4520,13 +4556,23 @@ export default function ResultsPage() {
             // CRITICAL FIX: Ensure fullAddress is properly set for display
             // For time-only changes, preserve the original fullAddress from currentLoc
             const timeOnlyChange = locChange.changes?.timeChanged && !locChange.changes?.addressChanged;
-            const fullAddress = timeOnlyChange && (currentLoc as any)?.fullAddress
-              ? (currentLoc as any).fullAddress
+            const currentFullAddress = (currentLoc as any)?.fullAddress;
+            const fullAddress = timeOnlyChange && currentFullAddress
+              ? currentFullAddress
               : (locChange.extractedLocation.formattedAddress || 
                  locChange.extractedLocation.location || 
                  locChange.currentLocation.address ||
-                 (currentLoc as any)?.fullAddress ||
+                 currentFullAddress ||
                  locChange.currentLocation.name);
+            // Diagnostic logging for address assignment
+            if (fullAddress && fullAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
+              console.warn(`⚠️ [ADDRESS-DIAG] Location ${locChange.currentIndex} fullAddress resolved to just city name "${fullAddress}"`);
+              console.warn(`   - timeOnlyChange: ${timeOnlyChange}, currentFullAddress: "${currentFullAddress}"`);
+              console.warn(`   - extractedLocation.formattedAddress: "${locChange.extractedLocation.formattedAddress}"`);
+              console.warn(`   - extractedLocation.location: "${locChange.extractedLocation.location}"`);
+              console.warn(`   - currentLocation.address: "${locChange.currentLocation.address}"`);
+              console.warn(`   - currentLocation.name: "${locChange.currentLocation.name}"`);
+            }
             
             const purpose = locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name;
             const formattedAddress = fullAddress;
@@ -4620,9 +4666,15 @@ export default function ResultsPage() {
         }
         // Also ensure existing entries have valid coordinates
         else if (finalLocationsMap[idx] && (!finalLocationsMap[idx].lat || !finalLocationsMap[idx].lng || finalLocationsMap[idx].lat === 0 || finalLocationsMap[idx].lng === 0)) {
-          console.log(`🔄 Restoring coordinates for location at index ${idx}: ${currentLoc.name}`);
+          const beforeLat = finalLocationsMap[idx].lat;
+          const beforeLng = finalLocationsMap[idx].lng;
+          console.log(`🔄 [COORD-DIAG] Restoring coordinates for location at index ${idx}: ${currentLoc.name}`);
+          console.log(`   - Before: (${beforeLat}, ${beforeLng}) → After: (${currentLoc.lat}, ${currentLoc.lng})`);
           finalLocationsMap[idx].lat = currentLoc.lat;
           finalLocationsMap[idx].lng = currentLoc.lng;
+        } else if (finalLocationsMap[idx]) {
+          // Log coordinate state even if not restoring
+          console.log(`🔍 [COORD-DIAG] Location ${idx} "${currentLoc.name}" has coordinates: (${finalLocationsMap[idx].lat}, ${finalLocationsMap[idx].lng})`);
         }
       });
     }
@@ -4633,7 +4685,20 @@ export default function ResultsPage() {
       .filter(idx => !isNaN(idx))
       .sort((a, b) => a - b);
     
-    diff.finalLocations = sortedIndices.map(idx => finalLocationsMap[idx]);
+    console.log(`🔍 [FINAL-LOCATIONS-DIAG] Building final locations array from ${sortedIndices.length} indices`);
+    diff.finalLocations = sortedIndices.map(idx => {
+      const loc = finalLocationsMap[idx];
+      // Log each location's state
+      console.log(`   [${idx}] "${loc.name}" - coords: (${loc.lat}, ${loc.lng}), fullAddress: "${loc.fullAddress || 'MISSING'}", formattedAddress: "${loc.formattedAddress || 'MISSING'}"`);
+      // Check for issues
+      if (loc.lat === 0 && loc.lng === 0) {
+        console.warn(`   ⚠️ [${idx}] Location has invalid coordinates (0, 0)!`);
+      }
+      if (loc.fullAddress && loc.fullAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
+        console.warn(`   ⚠️ [${idx}] Location fullAddress is just city name "${loc.fullAddress}"!`);
+      }
+      return loc;
+    });
     
     // FIX: Ensure unique IDs in final locations array (prevent React duplicate key errors)
     const usedIds = new Set<string>();
@@ -5038,6 +5103,7 @@ export default function ResultsPage() {
       console.log('🔍 [DEBUG] Final locations before validation:', JSON.stringify(finalLocations, null, 2));
       
       // Filter out locations with invalid coordinates (lat === 0 && lng === 0)
+      console.log(`🔍 [VALIDATION-DIAG] Starting validation with ${finalLocations.length} locations`);
       const validLocations = finalLocations
         .map((loc: any, idx: number) => {
           const location = {
@@ -5052,7 +5118,9 @@ export default function ResultsPage() {
           
           // Log locations with invalid coordinates
           if (location.lat === 0 && location.lng === 0) {
-            console.warn(`⚠️ [DEBUG] Location ${idx + 1} (${location.name}) has invalid coordinates (0, 0)`);
+            console.warn(`⚠️ [VALIDATION-DIAG] Location ${idx + 1} (${location.name}) has invalid coordinates (0, 0)`);
+            console.warn(`   - fullAddress: "${location.fullAddress}"`);
+            console.warn(`   - Original loc data:`, JSON.stringify(loc, null, 2));
           }
           
           return location;
@@ -5060,7 +5128,8 @@ export default function ResultsPage() {
         .filter((loc: any) => {
           const isValid = loc.lat !== 0 || loc.lng !== 0;
           if (!isValid) {
-            console.warn(`⚠️ [DEBUG] Filtering out location "${loc.name}" due to invalid coordinates`);
+            console.warn(`⚠️ [VALIDATION-DIAG] Filtering out location "${loc.name}" due to invalid coordinates`);
+            console.warn(`   - This location will be removed from the trip`);
           }
           return isValid;
         });
@@ -5208,22 +5277,41 @@ export default function ResultsPage() {
               const geocoder = new google.maps.Geocoder();
               const query = loc.fullAddress || loc.address || loc.name || '';
               
+              // Diagnostic: Check if query is just city name
+              if (query && query.toLowerCase() === (tripDestination || '').toLowerCase()) {
+                console.warn(`⚠️ [GEOCODE-DIAG] WARNING: Geocoding query is just city name "${query}" - this might cause address replacement!`);
+                console.warn(`   - loc.fullAddress: "${loc.fullAddress}"`);
+                console.warn(`   - loc.address: "${loc.address}"`);
+                console.warn(`   - loc.name: "${loc.name}"`);
+              }
+              
               return new Promise<typeof loc>((resolve) => {
+                const geocodeQuery = `${query}, ${cityConfig.geocodingBias}`;
+                console.log(`🔍 [GEOCODE-DIAG] Geocoding query: "${geocodeQuery}"`);
                 geocoder.geocode(
-                  { address: `${query}, ${cityConfig.geocodingBias}`, region: cityConfig.geocodingRegion },
+                  { address: geocodeQuery, region: cityConfig.geocodingRegion },
                   (results, status) => {
                     if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
                       const result = results[0];
+                      const beforeFullAddress = loc.fullAddress;
                       const geocodedLoc = {
                         ...loc,
                         lat: result.geometry.location.lat(),
                         lng: result.geometry.location.lng(),
                         fullAddress: result.formatted_address || loc.fullAddress || loc.address || loc.name,
                       };
-                      console.log(`   ✅ Geocoded: ${geocodedLoc.name} → (${geocodedLoc.lat}, ${geocodedLoc.lng})`);
+                      console.log(`   ✅ [GEOCODE-DIAG] Geocoded: ${geocodedLoc.name} → (${geocodedLoc.lat}, ${geocodedLoc.lng})`);
+                      if (geocodedLoc.fullAddress !== beforeFullAddress) {
+                        console.log(`   - fullAddress changed: "${beforeFullAddress}" → "${geocodedLoc.fullAddress}"`);
+                        // Check if result is just city center
+                        if (geocodedLoc.fullAddress && geocodedLoc.fullAddress.toLowerCase().includes((tripDestination || '').toLowerCase()) && !geocodedLoc.fullAddress.includes(',')) {
+                          console.warn(`   ⚠️ [GEOCODE-DIAG] WARNING: Geocoded address appears to be just city name: "${geocodedLoc.fullAddress}"`);
+                        }
+                      }
                       resolve(geocodedLoc);
                     } else {
-                      console.warn(`   ⚠️ Geocoding failed for: ${query} (status: ${status})`);
+                      console.warn(`   ⚠️ [GEOCODE-DIAG] Geocoding failed for: ${query} (status: ${status})`);
+                      console.warn(`   - Keeping original location data`);
                       // Keep original location even if geocoding fails
                       resolve(loc);
                     }

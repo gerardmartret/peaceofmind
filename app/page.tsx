@@ -2332,7 +2332,9 @@ export default function Home() {
       setLeadPassengerName(data.leadPassengerName || '');
       setVehicleInfo(data.vehicleInfo || '');
       setPassengerCount(data.passengerCount || 1);
-      setTripDestination(data.tripDestination || '');
+      const extractedDestination = data.tripDestination || '';
+      console.log('📍 [EXTRACT] Setting trip destination:', extractedDestination);
+      setTripDestination(extractedDestination);
       setPassengerNames(data.passengerNames || []);
       setLastExtractedText(extractionText);
 
@@ -2935,10 +2937,25 @@ export default function Home() {
                           <SelectItem key="Singapore" value="Singapore">
                             Singapore
                           </SelectItem>
+                          <SelectItem key="Frankfurt" value="Frankfurt">
+                            Frankfurt
+                          </SelectItem>
+                          <SelectItem key="Paris" value="Paris">
+                            Paris
+                          </SelectItem>
+                          <SelectItem key="Tokyo" value="Tokyo">
+                            Tokyo
+                          </SelectItem>
+                          <SelectItem key="Boston" value="Boston">
+                            Boston
+                          </SelectItem>
+                          <SelectItem key="Zurich" value="Zurich">
+                            Zurich
+                          </SelectItem>
                           
                           {/* Database destinations (exclude default cities, filter by whitelist) */}
                           {availableDestinations
-                            .filter(dest => !['London', 'New York', 'Singapore'].includes(dest))
+                            .filter(dest => !['London', 'New York', 'Singapore', 'Frankfurt', 'Paris', 'Tokyo', 'Boston', 'Zurich'].includes(dest))
                             .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
                             .map((destination) => (
                               <SelectItem key={destination} value={destination}>
@@ -3290,10 +3307,25 @@ export default function Home() {
                     <SelectItem key="Singapore" value="Singapore">
                       Singapore
                     </SelectItem>
+                    <SelectItem key="Frankfurt" value="Frankfurt">
+                      Frankfurt
+                    </SelectItem>
+                    <SelectItem key="Paris" value="Paris">
+                      Paris
+                    </SelectItem>
+                    <SelectItem key="Tokyo" value="Tokyo">
+                      Tokyo
+                    </SelectItem>
+                    <SelectItem key="Boston" value="Boston">
+                      Boston
+                    </SelectItem>
+                    <SelectItem key="Zurich" value="Zurich">
+                      Zurich
+                    </SelectItem>
                     
                     {/* Database destinations (exclude default cities, filter by whitelist) */}
                     {availableDestinations
-                      .filter(dest => !['London', 'New York', 'Singapore'].includes(dest))
+                      .filter(dest => !['London', 'New York', 'Singapore', 'Frankfurt', 'Paris', 'Tokyo', 'Boston', 'Zurich'].includes(dest))
                       .filter(dest => isValidTripDestination(dest)) // Extra safety: filter invalid destinations
                       .map((destination) => (
                         <SelectItem key={destination} value={destination}>

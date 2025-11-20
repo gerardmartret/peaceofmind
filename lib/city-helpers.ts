@@ -11,6 +11,11 @@ export const ALLOWED_TRIP_DESTINATIONS = [
   'London',
   'New York',
   'Singapore',
+  'Frankfurt',
+  'Paris',
+  'Tokyo',
+  'Boston',
+  'Zurich',
   // Add more approved destinations here as needed
 ] as const;
 
@@ -58,6 +63,21 @@ export function getDestinationTimezone(tripDestination?: string | null): string 
   if (tripDestination === 'Singapore') {
     return 'Asia/Singapore';
   }
+  if (tripDestination === 'Frankfurt') {
+    return 'Europe/Berlin';
+  }
+  if (tripDestination === 'Paris') {
+    return 'Europe/Paris';
+  }
+  if (tripDestination === 'Tokyo') {
+    return 'Asia/Tokyo';
+  }
+  if (tripDestination === 'Boston') {
+    return 'America/New_York';
+  }
+  if (tripDestination === 'Zurich') {
+    return 'Europe/Zurich';
+  }
   // Default to London timezone (also handles null/undefined for backward compatibility)
   return 'Europe/London';
 }
@@ -74,6 +94,7 @@ export function getCityConfig(tripDestination?: string | null) {
   // For NYC: includes Yonkers, Jersey City, Newark, Long Island, etc.
   // For London: includes Greater London area
   // For Singapore: includes Singapore island and surrounding areas
+  // For other cities: includes city and surrounding areas for day trips
   let geocodingBias = 'London, UK';
   let geocodingRegion = 'uk';
   if (!isLondon) {
@@ -83,6 +104,21 @@ export function getCityConfig(tripDestination?: string | null) {
     } else if (tripDestination === 'Singapore') {
       geocodingBias = 'Singapore, Singapore';
       geocodingRegion = 'sg';
+    } else if (tripDestination === 'Frankfurt') {
+      geocodingBias = 'Frankfurt, Germany';
+      geocodingRegion = 'de';
+    } else if (tripDestination === 'Paris') {
+      geocodingBias = 'Paris, France';
+      geocodingRegion = 'fr';
+    } else if (tripDestination === 'Tokyo') {
+      geocodingBias = 'Tokyo, Japan';
+      geocodingRegion = 'jp';
+    } else if (tripDestination === 'Boston') {
+      geocodingBias = 'Boston, MA, USA';
+      geocodingRegion = 'us';
+    } else if (tripDestination === 'Zurich') {
+      geocodingBias = 'Zurich, Switzerland';
+      geocodingRegion = 'ch';
     } else {
       geocodingBias = `${tripDestination}, USA`;
       geocodingRegion = 'us';

@@ -34,6 +34,16 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
     countryCode = 'gb';
   } else if (tripDestination === 'Singapore') {
     countryCode = 'sg';
+  } else if (tripDestination === 'Frankfurt') {
+    countryCode = 'de';
+  } else if (tripDestination === 'Paris') {
+    countryCode = 'fr';
+  } else if (tripDestination === 'Tokyo') {
+    countryCode = 'jp';
+  } else if (tripDestination === 'Boston') {
+    countryCode = 'us';
+  } else if (tripDestination === 'Zurich') {
+    countryCode = 'ch';
   }
   
   // City-specific location bounds (prioritizes metro area while allowing broader searches)
@@ -58,6 +68,41 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
       return new google.maps.LatLngBounds(
         new google.maps.LatLng(1.15, 103.6),  // Southwest
         new google.maps.LatLng(1.47, 104.0)    // Northeast
+      );
+    } else if (tripDestination === 'Frankfurt') {
+      // Frankfurt bounds with generous buffer for day trips: covers Frankfurt and surrounding areas
+      // Southwest corner to Northeast corner (~80-100km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(49.6, 8.0),   // Southwest
+        new google.maps.LatLng(50.6, 9.2)    // Northeast
+      );
+    } else if (tripDestination === 'Paris') {
+      // Paris bounds with generous buffer for day trips: covers Paris and surrounding areas
+      // Southwest corner to Northeast corner (~80-100km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(48.3, 1.8),   // Southwest
+        new google.maps.LatLng(49.4, 2.8)    // Northeast
+      );
+    } else if (tripDestination === 'Tokyo') {
+      // Tokyo bounds with generous buffer for day trips: covers Tokyo and surrounding areas
+      // Southwest corner to Northeast corner (~80-100km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(35.0, 139.0), // Southwest
+        new google.maps.LatLng(36.2, 140.2)  // Northeast
+      );
+    } else if (tripDestination === 'Boston') {
+      // Boston bounds with generous buffer for day trips: covers Boston and surrounding areas
+      // Southwest corner to Northeast corner (~80-100km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(41.8, -71.6), // Southwest
+        new google.maps.LatLng(42.9, -70.4)  // Northeast
+      );
+    } else if (tripDestination === 'Zurich') {
+      // Zurich bounds with generous buffer for day trips: covers Zurich and surrounding areas
+      // Southwest corner to Northeast corner (~80-100km coverage)
+      return new google.maps.LatLngBounds(
+        new google.maps.LatLng(46.9, 8.0),    // Southwest
+        new google.maps.LatLng(47.8, 9.0)     // Northeast
       );
     }
     return undefined; // No bounds for other cities
