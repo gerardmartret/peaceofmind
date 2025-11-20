@@ -3630,6 +3630,22 @@ export default function ResultsPage() {
         return { matched: true, index: currentLocs.length - 1, confidence: 'high' };
       }
       
+      // Strategy 2.5: Arrival/departure keyword matching
+      // Arrival = pickup (where passenger arrives), Departure = dropoff (where passenger departs)
+      const isArrival = combinedText.includes('arrival') || combinedText.includes('arrive') || combinedText.includes('arriving') || 
+                        combinedText.includes('landing') || combinedText.includes('land') || combinedText.includes('arrived');
+      const isDeparture = combinedText.includes('departure') || combinedText.includes('depart') || combinedText.includes('departing') || 
+                         combinedText.includes('leaving') || combinedText.includes('leave') || combinedText.includes('departed');
+      
+      if (isArrival && currentLocs.length > 0) {
+        console.log(`✅ [MAP] Arrival match → Pickup: index 0 (from purpose: "${extractedLoc.purpose}")`);
+        return { matched: true, index: 0, confidence: 'high' };
+      }
+      if (isDeparture && currentLocs.length > 0) {
+        console.log(`✅ [MAP] Departure match → Dropoff: index ${currentLocs.length - 1} (from purpose: "${extractedLoc.purpose}")`);
+        return { matched: true, index: currentLocs.length - 1, confidence: 'high' };
+      }
+      
       // Strategy 3: Name matching (exact, partial, purpose)
       for (let i = 0; i < currentLocs.length; i++) {
         const current = currentLocs[i];
@@ -3672,13 +3688,22 @@ export default function ResultsPage() {
     // Step 4: Apply modifications (locations that match existing ones)
     if (extractedData.locations && extractedData.locations.length > 0) {
       extractedData.locations.forEach((extractedLoc: any) => {
-        // Skip if it's an addition (has insertAfter/insertBefore or doesn't match)
-        if (extractedLoc.insertAfter || extractedLoc.insertBefore) {
+        // First, try to match the location (including arrival/departure → pickup/dropoff)
+        const match = matchExtractedToCurrent(extractedLoc, manualLocations);
+        
+        // If it matches pickup/dropoff (including via arrival/departure keywords), treat as modification
+        // even if it has insertAfter/insertBefore metadata (those are likely false positives)
+        const isPickupOrDropoffMatch = match.matched && match.index !== undefined && 
+          (match.index === 0 || match.index === manualLocations.length - 1);
+        
+        // Skip to additions only if:
+        // 1. It doesn't match AND has insertion metadata, OR
+        // 2. It doesn't match AND doesn't have insertion metadata (will be handled in additions)
+        if (!match.matched && (extractedLoc.insertAfter || extractedLoc.insertBefore)) {
           return; // Will be handled in additions step
         }
         
-        const match = matchExtractedToCurrent(extractedLoc, manualLocations);
-        
+        // If it matches (especially pickup/dropoff), treat as modification regardless of insertion metadata
         if (match.matched && match.index !== undefined) {
           const idx = match.index;
           console.log(`✏️ [MAP] Modifying location ${idx + 1}: ${manualLocations[idx].location} → ${extractedLoc.location}`);
@@ -3738,11 +3763,19 @@ export default function ResultsPage() {
     // Step 5: Apply additions (new locations and insertions)
     if (extractedData.locations && extractedData.locations.length > 0) {
       const additions = extractedData.locations.filter((loc: any) => {
-        // It's an addition if:
-        // 1. Has insertAfter/insertBefore (explicit insertion)
-        // 2. Doesn't match any existing location
-        if (loc.insertAfter || loc.insertBefore) return true;
+        // First check if it matches (including arrival/departure → pickup/dropoff)
         const match = matchExtractedToCurrent(loc, manualLocations);
+        
+        // If it matches pickup/dropoff, it's NOT an addition (should have been handled in Step 4)
+        if (match.matched && match.index !== undefined && 
+            (match.index === 0 || match.index === manualLocations.length - 1)) {
+          return false; // Already handled as modification
+        }
+        
+        // It's an addition if:
+        // 1. Doesn't match any existing location AND has insertAfter/insertBefore (explicit insertion)
+        // 2. Doesn't match any existing location (will be appended)
+        if (!match.matched && (loc.insertAfter || loc.insertBefore)) return true;
         return !match.matched;
       });
       
@@ -6135,7 +6168,7 @@ export default function ResultsPage() {
                     const suvPatterns = [
                       /\bSUV\b/i,
                       /\b(?:sport\s*utility|sport\s*ute)\b/i,
-                      /(?:Mercedes|Merc)\s*(?:GLS|GLE|GL|GLC)/i,
+                      /(?:Mercedes|Merc)\s*(?:GLS|GLE|GL|GLC|G[\s-]*Class)/i,
                       /BMW\s*(?:X[1-9]|XM)/i,
                       /Audi\s*(?:Q[3-9]|Q8)/i,
                       /Range\s*Rover/i,

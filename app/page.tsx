@@ -274,15 +274,15 @@ function SortableLocationItem({
               {getTimeLabel()}
             </Label>
             <div className={!location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === '' ? 'rounded-md border border-[#e77500] dark:border-[#e77500]' : ''}>
-              <TimePicker
-                value={location.time}
-                onChange={(value) => onTimeChange(location.id, value)}
+            <TimePicker
+              value={location.time}
+              onChange={(value) => onTimeChange(location.id, value)}
                 className={`h-9 ${
                   !location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === ''
                     ? '!bg-white dark:!bg-[#e77500]/10 border-0'
                     : ''
                 }`}
-              />
+            />
             </div>
           </div>
 
@@ -530,15 +530,15 @@ function SortableExtractedLocationItem({
               {getTimeLabel()}
             </Label>
             <div className={!location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === '' ? 'rounded-md border border-[#e77500] dark:border-[#e77500]' : ''}>
-              <TimePicker
-                value={location.time}
-                onChange={(value) => onTimeChange(index, value)}
+            <TimePicker
+              value={location.time}
+              onChange={(value) => onTimeChange(index, value)}
                 className={`h-9 ${
                   !location.time || location.time === 'null' || location.time === 'undefined' || location.time.trim() === ''
                     ? '!bg-white dark:!bg-[#e77500]/10 border-0'
                     : ''
                 }`}
-              />
+            />
             </div>
           </div>
 
@@ -574,7 +574,7 @@ function SortableExtractedLocationItem({
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       {hasNonSpecificLocation ? (
                         <div className="text-sm text-card-foreground">
-                          Not specified
+                          Unknown
                         </div>
                       ) : (
                         (() => {
@@ -2871,16 +2871,16 @@ export default function Home() {
                       <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Trip date</Label>
                       <div className="relative">
                         <div className={!extractedDate ? 'rounded-md border border-[#e77500] dark:border-[#e77500]' : ''}>
-                          <Input
-                            type="date"
-                            value={extractedDate || ''}
-                            onChange={(e) => handleDateEdit(e.target.value)}
+                        <Input
+                          type="date"
+                          value={extractedDate || ''}
+                          onChange={(e) => handleDateEdit(e.target.value)}
                             className={`rounded-md h-9 pl-10 ${
                               !extractedDate 
                                 ? '!bg-white dark:!bg-[#e77500]/10 !text-[#05060A] dark:!text-foreground border-0 placeholder:!text-muted-foreground' 
                                 : 'bg-background border-border text-foreground'
-                            }`}
-                          />
+                          }`}
+                        />
                         </div>
                         <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

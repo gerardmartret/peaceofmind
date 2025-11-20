@@ -244,6 +244,15 @@ CRITICAL: Distinguish between ADD and normal location mentions:
   * "update pick up to Heathrow" → locations: [{location: "Heathrow Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
   * "change dropoff location to London City Airport" → locations: [{location: "London City Airport", time: "17:00", purpose: "Drop off", confidence: "high"}]
   * These are location updates, NOT just notes - they must go in locations array
+
+CRITICAL: Arrival/Departure keyword categorization:
+  * "arrival", "arrive", "arriving", "landing", "land", "arrived" → ALWAYS categorize as "Pick up" (passenger arrives at this location)
+  * "departure", "depart", "departing", "leaving", "leave", "departed" → ALWAYS categorize as "Drop off" (passenger departs from this location)
+  * Examples:
+    - "arrival location changed to Gatwick" → locations: [{location: "Gatwick Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
+    - "arrival changed to Heathrow" → locations: [{location: "Heathrow Airport", time: "09:00", purpose: "Pick up", confidence: "high"}]
+    - "departure location changed to London City Airport" → locations: [{location: "London City Airport", time: "17:00", purpose: "Drop off", confidence: "high"}]
+    - "departure changed to Gatwick" → locations: [{location: "Gatwick Airport", time: "17:00", purpose: "Drop off", confidence: "high"}]
 - If no extractable information at all (no locations, no notes, no passenger info, etc.), then return success: false
 - CRITICAL DATE RULE: Return date as null if NO date is mentioned in text. Do NOT invent, assume, or default to any date. ONLY if date IS mentioned: convert to YYYY-MM-DD format. If year is NOT mentioned but date is, use current year (${new Date().getFullYear()}). Examples: "March 15" → "${new Date().getFullYear()}-03-15", "Dec 25" → "${new Date().getFullYear()}-12-25", but if text has NO date → null
 - Pay attention to context around each location: who is involved, what type of activity, company names, venue names
@@ -297,6 +306,8 @@ UPDATE/MODIFICATION OPERATIONS (CRITICAL):
   * "passenger count"|"number of passengers"|"passengers" → passengerCount
   * "pickup"|"pick up"|"pick-up" + ("location"|"address"|"place") → Extract as first location (pickup)
   * "dropoff"|"drop off"|"drop-off" + ("location"|"address"|"place") → Extract as last location (dropoff)
+  * "arrival"|"arrive"|"arriving"|"landing"|"land"|"arrived" + ("location"|"address"|"place") → Extract as first location with purpose "Pick up" (arrival = pickup)
+  * "departure"|"depart"|"departing"|"leaving"|"leave"|"departed" + ("location"|"address"|"place") → Extract as last location with purpose "Drop off" (departure = dropoff)
   * "stop" + number + "to" → Extract as location at that position
 - CRITICAL: When location update pattern is detected (pickup/dropoff/stop), extract the NEW location to the locations array with:
   * Full location name (expand airport codes: LGW → Gatwick Airport, LHR → Heathrow Airport)

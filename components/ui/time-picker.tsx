@@ -83,7 +83,7 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
           }}
         >
           <Clock className="mr-2 h-4 w-4" />
-          {isTimeNotSpecified ? <span>Not specified</span> : (value ? getDisplayValue() : <span>Select time</span>)}
+          {isTimeNotSpecified ? <span>Unknown</span> : (value ? getDisplayValue() : <span>Select time</span>)}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-4 z-[100]" align="start">
