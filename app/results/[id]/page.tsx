@@ -1573,14 +1573,9 @@ export default function ResultsPage() {
       const locations = locationsToUse || editingLocations;
       
       // Validate all locations have valid coordinates
-      const validLocations = locations.filter(loc => {
-        // Location must have coordinates and at least one name field
-        const hasCoords = loc.lat !== 0 && loc.lng !== 0;
-        const hasName = (loc.location && loc.location.trim() !== '') || 
-                       (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
-                       (loc.purpose && loc.purpose.trim() !== '');
-        return hasCoords && hasName;
-      });
+      const validLocations = editingLocations.filter(loc => 
+        loc.lat !== 0 && loc.lng !== 0 && loc.location.trim() !== ''
+      );
       
       if (validLocations.length === 0) {
         alert('Please select at least one valid location');
@@ -4276,24 +4271,8 @@ export default function ResultsPage() {
   // Preview modal handlers
   const handleApplyPreview = async () => {
     console.log('✅ [PREVIEW] Applying changes...');
-    
-    // Validate previewLocations before proceeding
-    const validPreviewLocations = previewLocations.filter(loc => {
-      // Location must have coordinates and at least one name field
-      const hasCoords = loc.lat !== 0 && loc.lng !== 0;
-      const hasName = (loc.location && loc.location.trim() !== '') || 
-                     (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
-                     (loc.purpose && loc.purpose.trim() !== '');
-      return hasCoords && hasName;
-    });
-    
-    if (validPreviewLocations.length === 0) {
-      alert('Please ensure all locations have valid addresses and coordinates. Some locations may need to be selected from the address dropdown.');
-      return;
-    }
-    
     // Set editingLocations with preview data
-    setEditingLocations(validPreviewLocations);
+    setEditingLocations(previewLocations);
     // Update driver notes if changed
     if (previewDriverNotes !== driverNotes) {
       setEditedDriverNotes(previewDriverNotes);
@@ -4314,8 +4293,8 @@ export default function ResultsPage() {
     }
     // Close preview modal
     setShowPreviewModal(false);
-    // Pass locations directly to avoid state timing issues
-    await handleSaveRouteEdits(validPreviewLocations);
+    // Directly call handleSaveRouteEdits to apply changes (reuses working manual form logic)
+    await handleSaveRouteEdits();
   };
   
   const handleEditManually = () => {

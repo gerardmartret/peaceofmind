@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Verify trip exists and user is owner
     const { data: trip, error: tripError } = await supabase
       .from('trips')
-      .select('id, user_id, user_email, status, driver')
+      .select('id, user_id, user_email, status, driver, trip_date, lead_passenger_name, trip_destination')
       .eq('id', tripId)
       .single();
 
