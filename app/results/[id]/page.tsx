@@ -1570,12 +1570,21 @@ export default function ResultsPage() {
       console.log('💾 Saving route edits and regenerating...');
       
       // Use provided locations or fall back to editingLocations
+      // This avoids React state timing issues when called immediately after setState
       const locations = locationsToUse || editingLocations;
       
       // Validate all locations have valid coordinates
-      const validLocations = editingLocations.filter(loc => 
-        loc.lat !== 0 && loc.lng !== 0 && loc.location.trim() !== ''
-      );
+      // Use the 'locations' variable (which may be from parameter) instead of 'editingLocations' state
+      // Also check all possible location fields: location, formattedAddress, or purpose
+      const validLocations = locations.filter(loc => {
+        // Must have valid coordinates
+        const hasCoords = loc.lat !== 0 && loc.lng !== 0;
+        // Must have at least one name field populated
+        const hasName = (loc.location && loc.location.trim() !== '') || 
+                       (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
+                       (loc.purpose && loc.purpose.trim() !== '');
+        return hasCoords && hasName;
+      });
       
       if (validLocations.length === 0) {
         alert('Please select at least one valid location');
@@ -4271,8 +4280,53 @@ export default function ResultsPage() {
   // Preview modal handlers
   const handleApplyPreview = async () => {
     console.log('✅ [PREVIEW] Applying changes...');
-    // Set editingLocations with preview data
-    setEditingLocations(previewLocations);
+    
+    // Prepare validated locations to pass directly (avoiding React state timing issues)
+    // Check all possible location fields: location, formattedAddress, or purpose
+    const validatedLocations = previewLocations.filter(loc => {
+      const hasCoords = loc.lat !== 0 && loc.lng !== 0;
+      const hasName = (loc.location && loc.location.trim() !== '') || 
+                     (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
+                     (loc.purpose && loc.purpose.trim() !== '');
+      return hasCoords && hasName;
+    });
+    
+    // Fallback: If previewLocations is empty/invalid and we have tripData, use original locations
+    // This handles cases where only non-location fields (passenger, vehicle) were changed
+    let locationsToSave = validatedLocations;
+    if (locationsToSave.length === 0 && tripData?.locations && tripData.locations.length > 0) {
+      console.log('⚠️ [PREVIEW] No valid preview locations, falling back to tripData.locations');
+      // Convert tripData.locations to manual form format (same as mapExtractedToManualForm does)
+      locationsToSave = tripData.locations.map((loc: any, idx: number) => ({
+        location: loc.name || (loc as any).fullAddress || '',
+        formattedAddress: (loc as any).fullAddress || (loc as any).formattedAddress || loc.name || '',
+        lat: loc.lat || 0,
+        lng: loc.lng || 0,
+        time: loc.time || '12:00',
+        purpose: loc.name || (loc as any).fullAddress || '',
+        confidence: 'high' as 'high' | 'medium' | 'low',
+        verified: true,
+        placeId: loc.id || `location-${idx + 1}`,
+      }));
+    }
+    
+    // Final validation
+    const finalValidLocations = locationsToSave.filter(loc => {
+      const hasCoords = loc.lat !== 0 && loc.lng !== 0;
+      const hasName = (loc.location && loc.location.trim() !== '') || 
+                     (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
+                     (loc.purpose && loc.purpose.trim() !== '');
+      return hasCoords && hasName;
+    });
+    
+    if (finalValidLocations.length === 0) {
+      alert('Please ensure all locations have valid addresses and coordinates. Some locations may need to be selected from the address dropdown.');
+      return;
+    }
+    
+    // Set editingLocations with validated data (for UI consistency, even though we pass directly)
+    setEditingLocations(finalValidLocations);
+    
     // Update driver notes if changed
     if (previewDriverNotes !== driverNotes) {
       setEditedDriverNotes(previewDriverNotes);
@@ -4293,8 +4347,8 @@ export default function ResultsPage() {
     }
     // Close preview modal
     setShowPreviewModal(false);
-    // Directly call handleSaveRouteEdits to apply changes (reuses working manual form logic)
-    await handleSaveRouteEdits();
+    // Pass validated locations directly to avoid React state timing issues
+    await handleSaveRouteEdits(finalValidLocations);
   };
   
   const handleEditManually = () => {
