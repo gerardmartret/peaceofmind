@@ -132,7 +132,7 @@ export async function generateExecutiveReport(
             : 'No CPZ restrictions',
         };
       }
-      
+
       return base;
     });
 
@@ -140,34 +140,34 @@ export async function generateExecutiveReport(
 
 PASSENGER INFORMATION:
 ${(() => {
-  let passengerInfo = '';
-  
-  if (leadPassengerName) {
-    passengerInfo += `Lead Passenger Name: ${leadPassengerName}\n`;
-  }
-  
-  if (passengerCount && passengerCount > 0) {
-    passengerInfo += `Number of Passengers: ${passengerCount}\n`;
-  }
-  
-  if (passengerNames && passengerNames.length > 0) {
-    passengerInfo += `Passenger Names: ${passengerNames.join(', ')}\n`;
-  }
-  
-  if (tripDestination) {
-    passengerInfo += `Trip Destination: ${tripDestination}\n`;
-  }
-  
-  if (vehicleInfo) {
-    passengerInfo += `Vehicle: ${vehicleInfo}\n`;
-  }
-  
-  if (driverNotes) {
-    passengerInfo += `Trip Notes: ${driverNotes}\n`;
-  }
-  
-  return passengerInfo || 'Passenger information not available';
-})()}
+        let passengerInfo = '';
+
+        if (leadPassengerName) {
+          passengerInfo += `Lead Passenger Name: ${leadPassengerName}\n`;
+        }
+
+        if (passengerCount && passengerCount > 0) {
+          passengerInfo += `Number of Passengers: ${passengerCount}\n`;
+        }
+
+        if (passengerNames && passengerNames.length > 0) {
+          passengerInfo += `Passenger Names: ${passengerNames.join(', ')}\n`;
+        }
+
+        if (tripDestination) {
+          passengerInfo += `Trip Destination: ${tripDestination}\n`;
+        }
+
+        if (vehicleInfo) {
+          passengerInfo += `Vehicle: ${vehicleInfo}\n`;
+        }
+
+        if (driverNotes) {
+          passengerInfo += `Trip Notes: ${driverNotes}\n`;
+        }
+
+        return passengerInfo || 'Passenger information not available';
+      })()}
 
 ${emailContent ? `
 EMAIL CONTEXT:
@@ -180,16 +180,37 @@ Locations: ${tripData.length} stops
 
 ${trafficPredictions ? `TRAFFIC PREDICTIONS:
 ${JSON.stringify(trafficPredictions.map(leg => ({
-  leg: leg.leg,
-  route: `${leg.originName.split(',')[0]} → ${leg.destinationName.split(',')[0]}`,
-  minutes: leg.minutes,
-  noTrafficMinutes: leg.minutesNoTraffic,
-  delay: leg.minutes - leg.minutesNoTraffic
-})))}
+        leg: leg.leg,
+        route: `${leg.originName.split(',')[0]} → ${leg.destinationName.split(',')[0]}`,
+        minutes: leg.minutes,
+        noTrafficMinutes: leg.minutesNoTraffic,
+        delay: leg.minutes - leg.minutesNoTraffic
+      })))}
 ` : ''}
 
 LOCATION DATA:
 ${JSON.stringify(dataSummary)}
+
+ANALYSIS REQUIREMENTS (ALL TRIPS):
+
+1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
+
+2. TOP DISRUPTOR: Give the ONE thing most likely to disrupt the trip. Explain why.
+
+3. RISK SCORE EXPLANATION: Explain why the trip risk score is what it is. Explain which data is used and how it is used to calculate the score.
+
+4. ROUTE DISRUPTIONS:
+   - Driving risks (traffic, road closures, weather)
+   - External disruptions${trafficPredictions ? '\n   - Historical traffic delays' : ''}
+
+5. KEY HIGHLIGHTS: 4-6 critical points
+   Type: danger (high risk), warning (moderate), info (neutral), success (positive)
+
+6. EXCEPTIONAL INFORMATION: Critical/urgent trip requirements as actionable statements (from trip notes only)
+
+7. IMPORTANT INFORMATION: Contextual trip requirements as actionable statements (from trip notes only)
+
+8. RECOMMENDATIONS: Data-driven insights from location analysis
 
 ${cityConfig.isLondon ? `
 DATA SOURCES AVAILABLE (London):
@@ -201,25 +222,10 @@ DATA SOURCES AVAILABLE (London):
 - Premium cafes (Google Places)
 - Events data
 
-ANALYSIS REQUIREMENTS:
-
-1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
-   Include crime data, TfL disruptions, and parking difficulty (10-15% weight) in your assessment
-
-2. Give the ONE thing that most likely to disrupt the trip. Explain why.
-3. Explain why the trip risk score is what it is. Explain which data is used and how it is used to calculate the score.
-
-4. ROUTE DISRUPTIONS:
-   - Driving risks (traffic, TfL disruptions, road closures, weather)
-   - External disruptions ${trafficPredictions ? '\n   - Historical traffic delays' : ''}
-   - Crime and safety concerns
-
-5. KEY HIGHLIGHTS: 4-6 critical points
-   Type: danger (high risk), warning (moderate), info (neutral), success (positive)
-
-6. EXCEPTIONAL INFORMATION: Critical/urgent trip requirements as actionable statements
-7. IMPORTANT INFORMATION: Contextual trip requirements as actionable statements
-8. RECOMMENDATIONS: Data-driven insights from location analysis (traffic, crime, TfL disruptions, weather, parking, CPZ zones)
+CITY-SPECIFIC FOCUS:
+- Include crime data, TfL disruptions, and parking difficulty (10-15% weight) in risk assessment
+- Route disruptions should include: TfL disruptions, crime and safety concerns
+- Recommendations: traffic timing, parking strategies, crime precautions, weather prep, CPZ zones
 ` : `
 DATA SOURCES AVAILABLE (${cityConfig.cityName} - Non-London):
 - Weather forecast (Open-Meteo)
@@ -229,25 +235,10 @@ DATA SOURCES AVAILABLE (${cityConfig.cityName} - Non-London):
 
 NOTE: UK Police crime data, TfL disruptions, and CPZ parking data NOT available for ${cityConfig.cityName}.
 
-ANALYSIS REQUIREMENTS:
-
-1. TRIP RISK SCORE (1-10): 1-3=Low, 4-6=Moderate, 7-8=High, 9-10=Critical
-   Focus assessment on weather conditions, traffic predictions, and events. No crime/TfL/parking data available.
-
-2. Give the ONE thing that most likely to disrupt the trip. Explain why (focus on weather, traffic, events).
-3. Explain why the trip risk score is what it is. Explain which data sources you used (weather, traffic predictions, events) and how they influenced the score.
-
-4. ROUTE DISRUPTIONS:
-   - Driving risks (traffic, weather, road conditions)
-   - External disruptions ${trafficPredictions ? '\n   - Historical traffic delays' : ''}
-   - Major events
-
-5. KEY HIGHLIGHTS: 4-6 critical points
-   Type: danger (high risk), warning (moderate), info (neutral), success (positive)
-
-6. EXCEPTIONAL INFORMATION: Critical/urgent trip requirements as actionable statements
-7. IMPORTANT INFORMATION: Contextual trip requirements as actionable statements
-8. RECOMMENDATIONS: Data-driven insights from available data (traffic predictions, weather, events, cafes). Do NOT mention crime, TfL disruptions, or parking restrictions as these are not available.
+CITY-SPECIFIC FOCUS:
+- Focus risk assessment on weather conditions, traffic predictions, and events only
+- Route disruptions should include: major events
+- Recommendations: traffic timing, weather prep (do NOT mention crime, TfL disruptions, or parking restrictions)
 `}
 
 Return JSON:
@@ -265,29 +256,32 @@ Return JSON:
 
 TRIP NOTES → EXCEPTIONAL & IMPORTANT (actionable statements):
 
-⚠️ CRITICAL: DO NOT INVENT INFORMATION. Extract ONLY what is explicitly stated in trip notes. If trip notes are empty or contain no relevant items, return empty string '' for both exceptionalInformation and importantInformation.
+⚠️ CRITICAL RULE - ZERO SKIPPING:
+1. COUNT bullet points in trip notes
+2. Extract EVERY SINGLE bullet point - NO EXCEPTIONS
+3. Categorize each into Exceptional OR Important
+4. If unsure where to categorize → put in Important Information (default)
+5. NEVER skip, combine, or omit any bullet point
+6. Total extracted items MUST EQUAL total input bullet points
 
-BEFORE STARTING: Count how many lines are in trip notes. This number = total items you must extract to Exceptional + Important. If trip notes are empty or null, both fields must be empty strings ''.
+EXTRACTION PROCESS:
+- Split trip notes by newlines
+- Each non-empty line = 1 bullet point to extract
+- Extract literal content only - NEVER invent or add items from examples
+- If trip notes empty → return empty strings '' for both fields
 
-STEP 1 - EXTRACT (100% coverage, no invention):
-- COUNT trip note lines FIRST: If 10 lines → must extract exactly 10 items. If 0 lines → return empty strings ''
-- Process trip notes LINE BY LINE - extract EVERY line without exception
-- Extract ONLY what's LITERALLY stated - NEVER invent or add items from examples
-- If line contains multiple items with "and" (e.g., "WiFi and chargers"), extract as ONE item mentioning BOTH parts
-- NEVER SKIP: ANY food restrictions (no X, avoid Y, etc), signs to hold, dress codes (suits, uniforms), bags/luggage help, vehicle features (WiFi, chargers, glass, temperature), water/drinks, newspapers, quiet driver, contact info, quotes, waiting time
-- NEVER ADD: Do not add items that are not explicitly mentioned in trip notes, even if they seem logical or appear in examples below
-
-STEP 2 - CATEGORIZE (zero overlap):
-EXCEPTIONAL: 
-  - ANY food restrictions/allergies (any mention of "no X", "allergy", "allergic", "cannot have", food avoidances)
-  - Dress codes: "suit", "uniform", "plain black", "dark suit", any clothing requirements
-  - Driver behavior: "silent", "quiet", "no talking", "maintain discretion"
+CATEGORIZATION RULES:
+EXCEPTIONAL (safety-critical, urgent):
+  - Food restrictions/allergies ("no X", "allergy", "cannot have")
+  - Dress codes ("suit", "uniform", "plain black")
+  - Driver behavior ("silent", "quiet", "no talking", "maintain discretion")
   - Signs to hold (name signs for pickup)
   - Security codes
   - Urgent operations (monitor flight, hide car, confirm immediately)
-IMPORTANT: 
+
+IMPORTANT (operational, contextual):
   - Contacts (names, phone numbers, emails)
-  - Vehicle specs (WiFi, chargers, privacy glass, temperature, massage seats, fridge, etc.)
+  - Vehicle specs (WiFi, chargers, privacy glass, temperature, etc.)
   - Newspapers (FT, WSJ, etc)
   - Food/drinks to provide (water, sparkling, snacks, champagne)
   - Luggage/bags help
@@ -296,12 +290,10 @@ IMPORTANT:
   - Quotes, billing, invoicing
   - Waiting time
 
-CRITICAL CATEGORIZATION RULES:
-- "Driver: suit, silent" → EXCEPTIONAL (suit=dress code, silent=behavior)
-- "Track flight X" → IMPORTANT (flight tracking)
-- "No nuts" or any "no X" food → EXCEPTIONAL (safety)
-- "Contact X" → IMPORTANT (contact info)
-- If unsure, prefer EXCEPTIONAL for safety/urgency items
+FALLBACK RULE:
+If you cannot determine whether an item is Exceptional or Important:
+→ Put it in Important Information
+→ NEVER skip the item
 
 STEP 3 - FORMAT as actionable statements with verbs:
 - Use action verbs: "Ensure", "Confirm", "Verify", "Maintain", "Stock", "Keep", "Prepare", "Monitor", "Assist"
@@ -319,12 +311,11 @@ API DATA → RECOMMENDATIONS (data-driven insights ONLY):
 
 CRITICAL VALIDATION (ENFORCE STRICTLY):
 1. COUNT FIRST: Trip note lines = Items in (Exceptional + Important) - MUST BE EQUAL OR REPORT FAILS
-2. Check every line extracted: ANY food restrictions/allergies, signs, dress codes, newspapers, privacy glass, quiet driver, bags, water, WiFi, chargers, contacts, quotes
+2. Check every line extracted: food restrictions/allergies, signs, dress codes, newspapers, privacy glass, quiet driver, bags, water, WiFi, chargers, contacts, quotes
 3. Recommendations contain ZERO trip note items (only data-driven insights)
 4. All three sections use same actionable verb style
 5. Compound items (X and Y) preserve both X AND Y
 6. COMMON FAILURES: Missing food restrictions ("no X", allergies), missing signs to hold, missing dress codes, missing newspapers, missing privacy glass, missing quiet driver - these are UNACCEPTABLE
-7. NEVER INVENT: If trip notes say "bring pineapple", do NOT add nut-free requirements, suit requirements, or any other items not mentioned
 
 ⚠️ EXAMPLES BELOW ARE FOR REFERENCE ONLY - DO NOT COPY THEM ⚠️
 These examples show the FORMAT and STYLE, but you must ONLY extract what is actually in the trip notes provided above.
@@ -350,9 +341,7 @@ Recommendations (data-driven ONLY, not from trip notes):
    "Exercise caution in high crime area (78 crimes reported); keep doors locked when stationary"
    "Rain expected at 15:00; ensure umbrella available and pre-warm vehicle 10 minutes before departure"
    "CPZ Zone active until 18:30; use nearby NCP car park at £4.50/hr to avoid penalties"
-   "Limited parking availability at destination; arrive 10 minutes early to secure spot"
-
-⚠️ FINAL REMINDER: The examples above are ONLY to show format and style. You MUST extract ONLY what is explicitly stated in the trip notes provided in PASSENGER INFORMATION section. If trip notes are empty or contain no relevant items, return empty string '' for both exceptionalInformation and importantInformation. DO NOT copy items from examples.`;
+   "Limited parking availability at destination; arrive 10 minutes early to secure spot"`;
 
     // Use GPT-4o-mini for comprehensive executive analysis (proven working, 90% cost reduction)
     console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
@@ -365,7 +354,7 @@ Recommendations (data-driven ONLY, not from trip notes):
     });
 
     const responseText = completion.choices[0]?.message?.content || '';
-    
+
     console.log(`\n🔧 Model: ${completion.model}`);
     console.log(`📊 Tokens: ${completion.usage?.total_tokens} (prompt: ${completion.usage?.prompt_tokens}, completion: ${completion.usage?.completion_tokens})`);
     console.log(`💰 Estimated cost: $${((completion.usage?.prompt_tokens || 0) * 0.15 / 1000000 + (completion.usage?.completion_tokens || 0) * 0.60 / 1000000).toFixed(6)}`);
@@ -390,27 +379,27 @@ Recommendations (data-driven ONLY, not from trip notes):
       // Remove trailing commas before closing braces/brackets
       // Match: ,\s*} or ,\s*]
       json = json.replace(/,(\s*[}\]])/g, '$1');
-      
+
       // Remove trailing commas in arrays/objects (more aggressive)
       // This handles cases like: "key": "value",} or "key": "value",]
       json = json.replace(/,(\s*[}\]])/g, '$1');
-      
+
       // Remove comments (single line and multi-line)
       json = json.replace(/\/\/.*$/gm, '');
       json = json.replace(/\/\*[\s\S]*?\*\//g, '');
-      
+
       return json.trim();
     }
 
     // Extract JSON from response - GPT-4o-mini may wrap in markdown
     let jsonText = responseText;
-    
+
     // Remove markdown code blocks
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    
+
     // Try to find complete JSON object
     let jsonMatch = jsonText.match(/\{[\s\S]*"tripRiskScore"[\s\S]*\}/);
-    
+
     if (!jsonMatch) {
       console.error('❌ No JSON found in response');
       console.error('❌ Full response:', responseText);
@@ -422,7 +411,7 @@ Recommendations (data-driven ONLY, not from trip notes):
     let startIndex = jsonMatch.index!;
     let braceCount = 0;
     let endIndex = startIndex;
-    
+
     for (let i = startIndex; i < jsonText.length; i++) {
       if (jsonText[i] === '{') braceCount++;
       if (jsonText[i] === '}') {
@@ -433,7 +422,7 @@ Recommendations (data-driven ONLY, not from trip notes):
         }
       }
     }
-    
+
     let jsonString = jsonText.substring(startIndex, endIndex);
     console.log('✅ JSON extracted successfully');
     console.log(`📏 JSON length: ${jsonString.length} characters`);
@@ -477,6 +466,47 @@ Recommendations (data-driven ONLY, not from trip notes):
       console.log('✅ Converted importantInformation to string format');
     }
 
+    // VALIDATION: Ensure all trip notes bullet points were extracted
+    if (driverNotes && driverNotes.trim()) {
+      const inputBullets = driverNotes
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      const exceptionalBullets = (report.exceptionalInformation || '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      const importantBullets = (report.importantInformation || '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      const totalExtracted = exceptionalBullets.length + importantBullets.length;
+
+      console.log(`\n📊 TRIP NOTES EXTRACTION VALIDATION:`);
+      console.log(`   Input bullet points: ${inputBullets.length}`);
+      console.log(`   Exceptional items: ${exceptionalBullets.length}`);
+      console.log(`   Important items: ${importantBullets.length}`);
+      console.log(`   Total extracted: ${totalExtracted}`);
+
+      if (totalExtracted !== inputBullets.length) {
+        console.error(`\n❌ EXTRACTION MISMATCH DETECTED!`);
+        console.error(`   Expected ${inputBullets.length} items, got ${totalExtracted} items`);
+        console.error(`   Difference: ${inputBullets.length - totalExtracted} items`);
+        console.error(`\n   Input bullets:`);
+        inputBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+        console.error(`\n   Exceptional output:`);
+        exceptionalBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+        console.error(`\n   Important output:`);
+        importantBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+        console.error(`\n⚠️ WARNING: Some trip notes may have been lost or combined!`);
+      } else {
+        console.log(`✅ All ${inputBullets.length} bullet points successfully extracted and categorized`);
+      }
+    }
+
     // VALIDATION: Check field types
     console.log('🔍 Validating report fields...');
     console.log(`   - exceptionalInformation: ${typeof report.exceptionalInformation} (${report.exceptionalInformation ? 'exists' : 'empty'})`);
@@ -502,11 +532,11 @@ Recommendations (data-driven ONLY, not from trip notes):
 // Helper function to extract bullet points ending with * from trip notes
 function extractExceptionalFromAsterisk(notes: string): string | null {
   if (!notes || !notes.trim()) return null;
-  
+
   // Split by newlines and filter for lines ending with *
   const lines = notes.split('\n').map(line => line.trim()).filter(line => line.length > 0);
   const exceptionalItems: string[] = [];
-  
+
   lines.forEach(line => {
     // Check if line ends with * (with optional whitespace)
     if (line.endsWith('*')) {
@@ -526,9 +556,9 @@ function extractExceptionalFromAsterisk(notes: string): string | null {
       }
     }
   });
-  
+
   if (exceptionalItems.length === 0) return null;
-  
+
   return exceptionalItems.join('\n');
 }
 
