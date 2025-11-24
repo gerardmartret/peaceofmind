@@ -3004,7 +3004,7 @@ export default function Home() {
                   variant="outline"
                   size="lg"
                 >
-                  Enter manually
+                  Enter data manually
                 </Button>
 
                 <Button
