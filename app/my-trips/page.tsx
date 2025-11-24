@@ -113,7 +113,7 @@ export default function MyTripsPage() {
     // Try to extract passenger name from trip_notes or special_remarks
     const extractPassengerName = (text: string | null): string | null => {
       if (!text) return null;
-      
+
       // Look for common patterns like "Mr. Smith", "John Doe", "Client: Name", etc.
       const patterns = [
         /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/,
@@ -123,7 +123,7 @@ export default function MyTripsPage() {
         /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/, // First word if capitalized
         /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:trip|journey|transfer|pickup)/, // Name followed by trip words
       ];
-      
+
       for (const pattern of patterns) {
         const match = text.match(pattern);
         if (match && match[1]) {
@@ -149,14 +149,14 @@ export default function MyTripsPage() {
     // Try to get purpose keywords for context
     const getPurposeKeywords = (text: string | null): string | null => {
       if (!text) return null;
-      
+
       // Look for common business/personal keywords
       const keywords = [
         'meeting', 'conference', 'appointment', 'interview', 'lunch', 'dinner',
         'airport', 'hotel', 'office', 'client', 'business', 'personal',
         'wedding', 'event', 'celebration', 'shopping', 'medical', 'transfer'
       ];
-      
+
       const lowerText = text.toLowerCase();
       for (const keyword of keywords) {
         if (lowerText.includes(keyword)) {
@@ -167,7 +167,7 @@ export default function MyTripsPage() {
     };
 
     const purposeKeyword = getPurposeKeywords(trip.trip_notes) ||
-                          (trip.trip_destination ? `to ${trip.trip_destination}` : null);
+      (trip.trip_destination ? `to ${trip.trip_destination}` : null);
 
     // Generate one-sentence description based on available data
     // ALWAYS prioritize passenger name when available
@@ -180,7 +180,7 @@ export default function MyTripsPage() {
     } else if (trip.trip_destination) {
       return `Trip to ${trip.trip_destination} with ${locationText}`;
     }
-    
+
     // Fallback to date-based description
     const date = new Date(trip.trip_date);
     const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -243,9 +243,9 @@ export default function MyTripsPage() {
 
         {/* Trips List */}
         {!loading && trips.length > 0 && (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-6">
             {trips.map((trip) => (
-              <Link key={trip.id} href={`/results/${trip.id}`}>
+              <Link key={trip.id} href={`/results/${trip.id}`} className="block">
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-primary/50">
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -254,7 +254,7 @@ export default function MyTripsPage() {
                           {generateTripName(trip)}
                         </CardTitle>
                         <CardDescription className="mt-1">
-                          {formatDate(trip.created_at)}
+                          Created on: {formatDate(trip.created_at)}
                         </CardDescription>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -284,9 +284,15 @@ export default function MyTripsPage() {
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
-                        Trip date: <span className="font-medium text-foreground">{trip.trip_date}</span>
+                        Trip date: <span className="font-medium text-foreground">
+                          {trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          }) : 'N/A'}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-2 text-primary font-medium text-sm">
+                      <div className="flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm">
                         View report
                         <svg
                           className="w-4 h-4"

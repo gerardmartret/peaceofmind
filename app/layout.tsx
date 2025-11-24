@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Driverbrief - Roadshow planner",
+  title: "Chauffs - Roadshow planner",
   description: "Plan your roadshow with ease",
   icons: [
     {
