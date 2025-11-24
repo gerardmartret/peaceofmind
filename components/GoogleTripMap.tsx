@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { GoogleMap, DirectionsRenderer, Marker, InfoWindow, TrafficLayer } from '@react-google-maps/api';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 
@@ -27,13 +27,32 @@ interface GoogleTripMapProps {
   tripDestination?: string; // Add trip destination for dynamic center
 }
 
-const getMapContainerStyle = (height: string) => ({
-  width: '100%',
-  height: height,
-  minHeight: '300px', // Ensure minimum height
-  borderRadius: '8px', // Add some styling
-  display: 'block',
-});
+const getMapContainerStyle = (height: string) => {
+  const baseStyle = {
+    width: '100%',
+    borderRadius: '8px',
+    display: 'block' as const,
+  };
+
+  if (height === '100%') {
+    return {
+      ...baseStyle,
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: '100%',
+    };
+  }
+
+  return {
+    ...baseStyle,
+    position: 'relative' as const,
+    height: height,
+    minHeight: '300px',
+  };
+};
 
 // City-specific default centers
 const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
@@ -131,16 +150,19 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
   const { isLoaded, loadError } = useGoogleMaps();
 
-  // Calculate valid locations at the top level
-  const validLocations = locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name);
-  
+  // Memoize valid locations to prevent unnecessary recalculations
+  const validLocations = useMemo(() =>
+    locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name),
+    [locations]
+  );
+
   // Get city-specific default center
   const defaultCenter = getDefaultCenter(tripDestination);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
     console.log('🗺️ Google Maps loaded successfully');
-    
+
     // Ensure the map is properly sized and visible
     setTimeout(() => {
       if (map) {
@@ -162,7 +184,7 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
     }
 
     const validLocations = locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name);
-    
+
     if (validLocations.length === 0) {
       console.log('⏸️ No valid locations to map');
       setDirectionsResponse(null);
@@ -186,13 +208,13 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
       // Calculate route with Google Directions API
       const directionsService = new google.maps.DirectionsService();
-      
+
       const origin = { lat: validLocations[0].lat, lng: validLocations[0].lng };
-      const destination = { 
-        lat: validLocations[validLocations.length - 1].lat, 
-        lng: validLocations[validLocations.length - 1].lng 
+      const destination = {
+        lat: validLocations[validLocations.length - 1].lat,
+        lng: validLocations[validLocations.length - 1].lng
       };
-      
+
       const waypoints = validLocations.slice(1, -1).map(loc => ({
         location: { lat: loc.lat, lng: loc.lng },
         stopover: true,
@@ -217,7 +239,7 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
         (result, status) => {
           if (status === google.maps.DirectionsStatus.OK && result) {
             console.log('✅ Route calculated successfully');
-            
+
             setDirectionsResponse(result);
 
             // Calculate total distance and duration
@@ -245,7 +267,7 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
             const normalDuration = result.routes[0].legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
             const trafficDuration = result.routes[0].legs.reduce((sum, leg) => sum + (leg.duration_in_traffic?.value || leg.duration?.value || 0), 0);
             const trafficDelay = Math.round((trafficDuration - normalDuration) / 60);
-            
+
             if (trafficDelay > 0) {
               console.log(`   🚦 Traffic delay: +${trafficDelay} min`);
             }
@@ -261,7 +283,7 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
     // Add a small delay to ensure the map is fully rendered
     const timeoutId = setTimeout(calculateRoute, 500);
-    
+
     return () => clearTimeout(timeoutId);
   }, [isLoaded, locations]);
 
@@ -272,11 +294,11 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
       validLocations.forEach(location => {
         bounds.extend(new google.maps.LatLng(location.lat, location.lng));
       });
-      map.fitBounds(bounds, { 
-        top: 50, 
-        right: 50, 
-        bottom: 50, 
-        left: 50 
+      map.fitBounds(bounds, {
+        top: 50,
+        right: 50,
+        bottom: 50,
+        left: 50
       });
       console.log('🗺️ Map bounds fitted to show all locations');
     }
@@ -289,11 +311,11 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
       validLocations.forEach(location => {
         bounds.extend(new google.maps.LatLng(location.lat, location.lng));
       });
-      map.fitBounds(bounds, { 
-        top: 50, 
-        right: 50, 
-        bottom: 50, 
-        left: 50 
+      map.fitBounds(bounds, {
+        top: 50,
+        right: 50,
+        bottom: 50,
+        left: 50
       });
       console.log('🗺️ Map bounds fitted to show all locations on load');
     }
@@ -341,17 +363,17 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
     if (validLocations.length === 1) {
       return { lat: validLocations[0].lat, lng: validLocations[0].lng };
     }
-    
+
     // Calculate center of all locations
     const avgLat = validLocations.reduce((sum, loc) => sum + loc.lat, 0) / validLocations.length;
     const avgLng = validLocations.reduce((sum, loc) => sum + loc.lng, 0) / validLocations.length;
     return { lat: avgLat, lng: avgLng };
   };
-  
+
   const center = calculateCenter();
 
   return (
-    <div className="relative w-full h-full" style={{ width: '100%', height: '100%' }}>
+    <div className={height === '100%' ? 'relative w-full h-full' : 'relative w-full'} style={height !== '100%' ? { height } : undefined}>
       <GoogleMap
         mapContainerStyle={getMapContainerStyle(height)}
         center={center}
@@ -423,7 +445,7 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
                 </div>
               )}
               {validLocations[selectedMarker].safetyScore && (
-                <div 
+                <div
                   className="text-sm font-bold mt-1"
                   style={{ color: getSafetyColor(validLocations[selectedMarker].safetyScore!) }}
                 >

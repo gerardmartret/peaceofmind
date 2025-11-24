@@ -56,12 +56,12 @@ const numberToLetter = (num: number): string => {
 // Helper function to extract business/place name and format address display
 const formatLocationDisplay = (fullAddress: string): { businessName: string; restOfAddress: string } => {
   if (!fullAddress) return { businessName: '', restOfAddress: '' };
-  
+
   const parts = fullAddress.split(',').map(p => p.trim());
-  
+
   if (parts.length === 0) return { businessName: fullAddress, restOfAddress: '' };
   if (parts.length === 1) return { businessName: parts[0], restOfAddress: '' };
-  
+
   // Special handling for airports - look for airport name in the address
   const lowerAddress = fullAddress.toLowerCase();
   const airportKeywords = [
@@ -85,7 +85,7 @@ const formatLocationDisplay = (fullAddress: string): { businessName: string; res
     { keyword: 'logan international', fullName: 'Logan International Airport' },
     { keyword: 'zurich airport', fullName: 'Zurich Airport' },
   ];
-  
+
   for (const airport of airportKeywords) {
     if (lowerAddress.includes(airport.keyword)) {
       // If it's a terminal, show "Airport Name - Terminal X"
@@ -101,12 +101,12 @@ const formatLocationDisplay = (fullAddress: string): { businessName: string; res
       return { businessName, restOfAddress };
     }
   }
-  
+
   // For non-airports, first part is typically the business/place name
   const businessName = parts[0];
   // Rest is the detailed address
   const restOfAddress = parts.slice(1).join(', ');
-  
+
   return { businessName, restOfAddress };
 };
 
@@ -142,7 +142,7 @@ const formatTimeForPicker = (time: string | number | undefined): string => {
     console.log('⚠️ [TimePicker] No time value provided, using default 09:00');
     return '09:00';
   }
-  
+
   // If it's already a string in HH:MM format, normalize it
   if (typeof time === 'string' && time.includes(':')) {
     const [hours, minutes] = time.split(':');
@@ -155,7 +155,7 @@ const formatTimeForPicker = (time: string | number | undefined): string => {
     console.log('✅ [TimePicker] Formatted time from string:', time, '→', result);
     return result;
   }
-  
+
   // If it's a decimal number (e.g., 14.5 for 14:30) or string number
   if (typeof time === 'number' || (typeof time === 'string' && !time.includes(':'))) {
     const numTime = typeof time === 'number' ? time : parseFloat(String(time));
@@ -172,7 +172,7 @@ const formatTimeForPicker = (time: string | number | undefined): string => {
     console.log('✅ [TimePicker] Formatted time from number:', time, '→', result);
     return result;
   }
-  
+
   console.log('⚠️ [TimePicker] Unknown time format:', time, 'using default 09:00');
   return '09:00';
 };
@@ -221,7 +221,7 @@ function SortableEditLocationItem({
       <div className="absolute top-2 left-2 text-muted-foreground/40 text-xs font-normal">
         {numberToLetter(index + 1)}
       </div>
-      
+
       <div className="flex items-center gap-3">
         <div
           {...attributes}
@@ -263,7 +263,7 @@ function SortableEditLocationItem({
                 />
               </div>
             ) : (
-              <div 
+              <div
                 className="relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                 onClick={() => onEditStart(index, 'location')}
               >
@@ -275,7 +275,7 @@ function SortableEditLocationItem({
                     {(() => {
                       const fullAddr = location.formattedAddress || location.location;
                       const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
-                      
+
                       return (
                         <>
                           <div className="text-sm font-semibold text-card-foreground truncate flex-shrink-0">
@@ -302,7 +302,7 @@ function SortableEditLocationItem({
         </div>
 
         {canRemove && (
-          <button 
+          <button
             className="flex-shrink-0 p-2 text-muted-foreground hover:text-destructive transition-colors"
             onClick={() => onRemove(index)}
           >
@@ -513,7 +513,7 @@ export default function ResultsPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [tripData, setTripData] = useState<TripData | null>(null);
-  
+
   // Helper function to safely parse JSON responses
   const safeJsonParse = async (response: Response) => {
     if (!response.ok) {
@@ -535,9 +535,9 @@ export default function ResultsPage() {
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [editingLocationName, setEditingLocationName] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [locationDisplayNames, setLocationDisplayNames] = useState<{[key: string]: string}>({});
-  const [expandedLocations, setExpandedLocations] = useState<{[key: string]: boolean}>({});
-  const [expandedRoutes, setExpandedRoutes] = useState<{[key: string]: boolean}>({});
+  const [locationDisplayNames, setLocationDisplayNames] = useState<{ [key: string]: string }>({});
+  const [expandedLocations, setExpandedLocations] = useState<{ [key: string]: boolean }>({});
+  const [expandedRoutes, setExpandedRoutes] = useState<{ [key: string]: boolean }>({});
   const [driverNotes, setDriverNotes] = useState<string>('');
   const [leadPassengerName, setLeadPassengerName] = useState<string>('');
   const [vehicleInfo, setVehicleInfo] = useState<string>('');
@@ -548,7 +548,7 @@ export default function ResultsPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [editedDriverNotes, setEditedDriverNotes] = useState<string>('');
   const [showNotesSuccess, setShowNotesSuccess] = useState(false);
-  
+
   // Update functionality state
   const [updateText, setUpdateText] = useState<string>('');
   const [extractedUpdates, setExtractedUpdates] = useState<any>(null);
@@ -567,16 +567,16 @@ export default function ResultsPage() {
     source: string;
     status: 'pending' | 'loading' | 'completed' | 'error';
   }>>([]);
-  
+
   // Driver view modal state
   const [showDriverModal, setShowDriverModal] = useState<boolean>(false);
   const [assignOnlyMode, setAssignOnlyMode] = useState<boolean>(false); // When true, hide quote functionality
-  
+
   // Driver confirmation dialog state (for drivers to confirm pending trips)
   const [showDriverConfirmDialog, setShowDriverConfirmDialog] = useState<boolean>(false);
   const [showDriverRejectDialog, setShowDriverRejectDialog] = useState<boolean>(false);
   const [confirmingTrip, setConfirmingTrip] = useState<boolean>(false);
-  
+
   // Driver token authentication (magic link)
   const [driverToken, setDriverToken] = useState<string | null>(null);
   const [validatedDriverEmail, setValidatedDriverEmail] = useState<string | null>(null);
@@ -586,10 +586,10 @@ export default function ResultsPage() {
   const [tokenMessage, setTokenMessage] = useState<string | null>(null);
   const [canTakeAction, setCanTakeAction] = useState<boolean>(false);
   const [rejectingTrip, setRejectingTrip] = useState<boolean>(false);
-  
+
   // Map modal state
   const [showMapModal, setShowMapModal] = useState<boolean>(false);
-  
+
   // Edit route modal state
   const [showEditRouteModal, setShowEditRouteModal] = useState<boolean>(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -599,7 +599,7 @@ export default function ResultsPage() {
   const [editingExtractedIndex, setEditingExtractedIndex] = useState<number | null>(null);
   const [editingExtractedField, setEditingExtractedField] = useState<'location' | 'time' | null>(null);
   const [editingTripDate, setEditingTripDate] = useState<Date | undefined>(undefined);
-  
+
   // Preview modal state for AI-assisted updates
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
   const [previewLocations, setPreviewLocations] = useState<any[]>([]);
@@ -624,7 +624,7 @@ export default function ResultsPage() {
     tripDestination?: string;
     driverNotes?: string;
   }>({});
-  
+
   // Enhanced error tracking with step information
   const [updateProgress, setUpdateProgress] = useState<{
     step: string;
@@ -635,14 +635,14 @@ export default function ResultsPage() {
     error: null,
     canRetry: false,
   });
-  
+
   // Live Trip functionality state
   const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
   const [activeLocationIndex, setActiveLocationIndex] = useState<number | null>(null);
   const [liveTripInterval, setLiveTripInterval] = useState<NodeJS.Timeout | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  
-  
+
+
   // Trip status state
   const [tripStatus, setTripStatus] = useState<string>('not confirmed');
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
@@ -652,19 +652,19 @@ export default function ResultsPage() {
   const [statusModalSuccess, setStatusModalSuccess] = useState<string | null>(null);
   const [resendingConfirmation, setResendingConfirmation] = useState<boolean>(false);
   const [cancellingTrip, setCancellingTrip] = useState<boolean>(false);
-  
+
   // Flow A (quote selection) confirmation modal
   const [showFlowAModal, setShowFlowAModal] = useState<boolean>(false);
   const [selectedQuoteDriver, setSelectedQuoteDriver] = useState<string | null>(null);
-  
+
   // Flow B (direct assign) confirmation modal  
   const [showFlowBModal, setShowFlowBModal] = useState<boolean>(false);
   const [directAssignDriver, setDirectAssignDriver] = useState<string | null>(null);
-  
+
   // Trip update notification state
   const [showUpdateNotificationModal, setShowUpdateNotificationModal] = useState<boolean>(false);
   const [sendingUpdateNotification, setSendingUpdateNotification] = useState<boolean>(false);
-  
+
   // Quotes state
   const [quotes, setQuotes] = useState<Array<{
     id: string;
@@ -686,7 +686,7 @@ export default function ResultsPage() {
   const [updateQuotePrice, setUpdateQuotePrice] = useState<string>('');
   const [updateQuotePriceError, setUpdateQuotePriceError] = useState<string | null>(null);
   const [updatingQuote, setUpdatingQuote] = useState<boolean>(false);
-  
+
   // Driver's own quotes (only their submissions)
   const [myQuotes, setMyQuotes] = useState<Array<{
     id: string;
@@ -696,7 +696,7 @@ export default function ResultsPage() {
     created_at: string;
   }>>([]);
   const [loadingMyQuotes, setLoadingMyQuotes] = useState<boolean>(false);
-  
+
   // Driver state
   const [driverEmail, setDriverEmail] = useState<string | null>(null);
   // Store original driver email from database to check activity even if state changes
@@ -710,7 +710,7 @@ export default function ResultsPage() {
   const [notifyingDriver, setNotifyingDriver] = useState<boolean>(false);
   const [notificationSuccess, setNotificationSuccess] = useState<boolean>(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
-  
+
   // Quote request state (for inviting drivers to quote)
   const [allocateDriverEmail, setAllocateDriverEmail] = useState<string>('');
   const [allocateDriverEmailError, setAllocateDriverEmailError] = useState<string | null>(null);
@@ -721,14 +721,14 @@ export default function ResultsPage() {
     email: string;
     sentAt: string;
   }>>([]);
-  
+
   // Drivania quote state
   const [loadingDrivaniaQuote, setLoadingDrivaniaQuote] = useState<boolean>(false);
   const [drivaniaQuotes, setDrivaniaQuotes] = useState<any>(null);
   const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
   const [drivaniaServiceType, setDrivaniaServiceType] = useState<'one-way' | 'hourly' | null>(null);
   const [complexRouteDetails, setComplexRouteDetails] = useState<any>(null);
-  
+
   // Guest signup state
   const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
   const [isGuestCreatedTrip, setIsGuestCreatedTrip] = useState<boolean>(false);
@@ -739,7 +739,7 @@ export default function ResultsPage() {
 
   // Scroll position state for sticky update bar
   const [scrollY, setScrollY] = useState(0);
-  
+
 
   // Drag and drop sensors for edit route modal
   const editRouteSensors = useSensors(
@@ -748,6 +748,21 @@ export default function ResultsPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Memoize map locations to prevent unnecessary re-renders
+  // Must be called at top level before any conditional logic to maintain hook order
+  const mapLocations = React.useMemo(() => {
+    if (!tripData?.tripResults) return [];
+    return tripData.tripResults.map((result, index) => ({
+      id: result.locationId,
+      name: result.locationName,
+      // Use weather coordinates (universal, works for all cities)
+      lat: result.data.weather.coordinates.lat,
+      lng: result.data.weather.coordinates.lng,
+      time: result.time,
+      safetyScore: result.data.crime.safetyScore || undefined,
+    }));
+  }, [tripData?.tripResults]);
 
   // Avoid hydration mismatch for theme-dependent content
   useEffect(() => {
@@ -786,7 +801,7 @@ export default function ResultsPage() {
     if (textarea) {
       // Reset height to allow shrinking
       textarea.style.height = '44px';
-      
+
       // Calculate new height based on content (up to max 3 lines ~120px)
       const newHeight = Math.min(textarea.scrollHeight, 120);
       textarea.style.height = `${newHeight}px`;
@@ -797,7 +812,7 @@ export default function ResultsPage() {
   const quoteParam = searchParams.get('quote');
   const emailParam = searchParams.get('email');
   const [isEmailFromUrl, setIsEmailFromUrl] = useState<boolean>(false);
-  
+
   useEffect(() => {
     if (quoteParam === 'true' && !isOwner && !isGuestCreator && !isGuestCreatedTrip && !loading && quoteFormRef.current) {
       // Wait a bit for page to fully render, then scroll
@@ -805,7 +820,7 @@ export default function ResultsPage() {
         quoteFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 500);
     }
-    
+
     // Pre-fill email from URL parameter if present
     if (emailParam && quoteParam === 'true' && !isOwner) {
       const decodedEmail = decodeURIComponent(emailParam);
@@ -822,12 +837,12 @@ export default function ResultsPage() {
   // Validate driver token if present in URL (magic link authentication)
   useEffect(() => {
     const token = searchParams.get('driver_token');
-    
+
     if (!token || !tripId || loading) return;
-    
+
     console.log('🔍 Driver token detected in URL, validating...');
     setDriverToken(token);
-    
+
     async function validateToken() {
       try {
         const response = await fetch('/api/validate-driver-token', {
@@ -843,13 +858,13 @@ export default function ResultsPage() {
 
         if (result.success) {
           console.log('✅ Driver token validated successfully');
-          console.log('📊 Token info:', { 
-            tokenUsed: result.tokenUsed, 
+          console.log('📊 Token info:', {
+            tokenUsed: result.tokenUsed,
             canTakeAction: result.canTakeAction,
             tripStatus: result.tripStatus,
-            hasMessage: !!result.message 
+            hasMessage: !!result.message
           });
-          
+
           setValidatedDriverEmail(result.driverEmail);
           setIsDriverView(true);
           setQuoteEmail(result.driverEmail); // Pre-fill email for convenience
@@ -876,19 +891,19 @@ export default function ResultsPage() {
   // This function just formats the time string (HH:MM) for display
   const getDestinationLocalTime = (timeString: string): string => {
     if (!timeString) return 'N/A';
-    
+
     // Parse the time string (e.g., "18:35" or "18")
     const timeParts = timeString.split(':');
     const hours = parseInt(timeParts[0]) || 0;
     const minutes = parseInt(timeParts[1]) || 0;
-    
+
     // Format as HH:MM (pad with zeros if needed)
     const formattedHours = hours.toString().padStart(2, '0');
     const formattedMinutes = minutes.toString().padStart(2, '0');
-    
+
     return `${formattedHours}:${formattedMinutes}`;
   };
-  
+
   // Keep getLondonLocalTime for backward compatibility
   const getLondonLocalTime = (timeString: string): string => {
     return getDestinationLocalTime(timeString);
@@ -1014,7 +1029,7 @@ export default function ResultsPage() {
       const tripDateObj = new Date(tripDate);
       const originDateTime = new Date(tripDateObj);
       originDateTime.setHours(originHours, originMinutes, 0, 0);
-      
+
       const destDateTime = new Date(tripDateObj);
       destDateTime.setHours(destHours, destMinutes, 0, 0);
 
@@ -1069,13 +1084,13 @@ export default function ResultsPage() {
 
 
   // Function to extract flight numbers from driver notes
-  const extractFlightNumbers = (notes: string): {[locationName: string]: string[]} => {
+  const extractFlightNumbers = (notes: string): { [locationName: string]: string[] } => {
     if (!notes) return {};
-    
+
     console.log('🔍 [DEBUG] extractFlightNumbers - Input notes:', notes);
-    
-    const flightMap: {[locationName: string]: string[]} = {};
-    
+
+    const flightMap: { [locationName: string]: string[] } = {};
+
     // Common flight number patterns - more comprehensive
     const flightPatterns = [
       /\b([A-Z]{2,3}\s*\d{3,4})\b/g, // BA123, AA1234, etc.
@@ -1084,28 +1099,28 @@ export default function ResultsPage() {
       /\b([A-Z]{2,3}\s*\d{3,4})\s*(?:at|from|to)\s*(?:heathrow|gatwick|stansted|luton|city|airport)/gi, // "BA123 at Heathrow"
       /\b(heathrow|gatwick|stansted|luton|city|airport).*?([A-Z]{2,3}\s*\d{3,4})/gi, // "Heathrow BA123"
     ];
-    
+
     // Common airport keywords
     const airportKeywords = [
       'heathrow', 'gatwick', 'stansted', 'luton', 'city', 'airport',
       'terminal', 'arrivals', 'departures', 'lhr', 'lgw', 'stn', 'ltn'
     ];
-    
+
     // Split notes into sentences and look for flight numbers near airport mentions
     const sentences = notes.split(/[.!?]+/);
     console.log('🔍 [DEBUG] extractFlightNumbers - Sentences:', sentences);
-    
+
     sentences.forEach(sentence => {
       const lowerSentence = sentence.toLowerCase();
       console.log('🔍 [DEBUG] extractFlightNumbers - Checking sentence:', sentence);
-      
+
       // Check if sentence mentions an airport
-      const mentionedAirport = airportKeywords.find(keyword => 
+      const mentionedAirport = airportKeywords.find(keyword =>
         lowerSentence.includes(keyword)
       );
-      
+
       console.log('🔍 [DEBUG] extractFlightNumbers - Mentioned airport:', mentionedAirport);
-      
+
       if (mentionedAirport) {
         // Look for flight numbers in this sentence
         flightPatterns.forEach(pattern => {
@@ -1130,9 +1145,9 @@ export default function ResultsPage() {
                 } else if (lowerSentence.includes('city')) {
                   airportName = 'London City Airport';
                 }
-                
+
                 console.log('🔍 [DEBUG] extractFlightNumbers - Airport name:', airportName);
-                
+
                 if (!flightMap[airportName]) {
                   flightMap[airportName] = [];
                 }
@@ -1145,7 +1160,7 @@ export default function ResultsPage() {
         });
       }
     });
-    
+
     console.log('🔍 [DEBUG] extractFlightNumbers - Final flight map:', flightMap);
     return flightMap;
   };
@@ -1155,37 +1170,37 @@ export default function ResultsPage() {
     if (!notes) {
       return 'Executive transportation service';
     }
-    
+
     // Extract key operational details
-    const serviceType = notes.toLowerCase().includes('full day') ? 'Full day hourly-based journey' : 
-                       notes.toLowerCase().includes('hourly') ? 'Hourly-based journey' :
-                       notes.toLowerCase().includes('chauffeur') ? 'Chauffeur service' :
-                       'Executive transportation service';
-    
+    const serviceType = notes.toLowerCase().includes('full day') ? 'Full day hourly-based journey' :
+      notes.toLowerCase().includes('hourly') ? 'Hourly-based journey' :
+        notes.toLowerCase().includes('chauffeur') ? 'Chauffeur service' :
+          'Executive transportation service';
+
     // Extract client name
     const nameMatch = notes.match(/\b(Mr\.|Mrs\.|Ms\.|Dr\.|Sir|Lady)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/);
     const clientName = nameMatch ? `${nameMatch[1]} ${nameMatch[2]}` : 'Client';
-    
+
     // Extract location context
     const locationContext = notes.toLowerCase().includes('london') ? 'in London' : 'in the specified area';
-    
+
     // Count stops
     const stopCount = locations?.length || 0;
     const stopText = stopCount === 1 ? 'stop' : 'stops';
-    
+
     // Extract start and end times from locations
     let timeInfo = '';
     if (locations && locations.length > 0) {
       const startTime = locations[0]?.time ? getLondonLocalTime(locations[0].time) : '';
       const endTime = locations[locations.length - 1]?.time ? getLondonLocalTime(locations[locations.length - 1].time) : '';
-      
+
       if (startTime && endTime && startTime !== endTime) {
         timeInfo = ` starting at ${startTime} and finishing at ${endTime}`;
       } else if (startTime) {
         timeInfo = ` starting at ${startTime}`;
       }
     }
-    
+
     return `${serviceType} for ${clientName} with ${stopCount} ${stopText} ${locationContext}${timeInfo}`;
   };
 
@@ -1195,11 +1210,11 @@ export default function ResultsPage() {
       console.log('🚗 [CAR DEBUG] No driver notes provided');
       return null;
     }
-    
+
     console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION START =====');
     console.log('🚗 [CAR DEBUG] Input driver notes:', notes);
     console.log('🚗 [CAR DEBUG] Notes length:', notes.length);
-    
+
     // Enhanced car patterns - prioritize full specifications (brand + model)
     const carPatterns = [
       // Color + Brand + Model (highest priority)
@@ -1221,57 +1236,57 @@ export default function ResultsPage() {
       // "black car", "luxury vehicle" etc
       /\b(black|white|silver|grey|gray|blue|red|green|gold|champagne)\s+(car|vehicle|auto)\b/gi
     ];
-    
+
     console.log('🚗 [CAR DEBUG] Total patterns to check:', carPatterns.length);
-    
+
     // Split notes into sentences and look for car mentions
     const sentences = notes.split(/[.!?]+/).filter(s => s.trim().length > 0);
     console.log('🚗 [CAR DEBUG] Sentences found:', sentences.length);
     console.log('🚗 [CAR DEBUG] Sentences:', sentences);
-    
+
     // Track the best match (most complete specification)
     let bestMatch = null;
     let bestMatchScore = 0;
-    
+
     for (let i = 0; i < sentences.length; i++) {
       const sentence = sentences[i].trim();
       console.log(`🚗 [CAR DEBUG] Checking sentence ${i + 1}:`, sentence);
-      
+
       for (let j = 0; j < carPatterns.length; j++) {
         const pattern = carPatterns[j];
         console.log(`🚗 [CAR DEBUG] Testing pattern ${j + 1}:`, pattern);
-        
+
         const matches = sentence.match(pattern);
         if (matches && matches.length > 0) {
           console.log('🚗 [CAR DEBUG] ✅ MATCH FOUND!');
           console.log('🚗 [CAR DEBUG] Matches:', matches);
           console.log('🚗 [CAR DEBUG] Pattern that matched:', pattern);
-          
+
           // Calculate match score (higher score = more complete specification)
           let matchScore = 0;
           const match = matches[0].trim().toLowerCase();
-          
+
           // Score based on pattern priority (earlier patterns = higher priority)
           matchScore += (carPatterns.length - j) * 10;
-          
+
           // Bonus points for brand + model combinations
-          if (match.includes('s-class') || match.includes('e-class') || match.includes('a-class') || 
-              match.includes('a4') || match.includes('a6') || match.includes('a8') ||
-              match.includes('x5') || match.includes('x3') || match.includes('x1') ||
-              match.includes('q5') || match.includes('q7') || match.includes('q8')) {
+          if (match.includes('s-class') || match.includes('e-class') || match.includes('a-class') ||
+            match.includes('a4') || match.includes('a6') || match.includes('a8') ||
+            match.includes('x5') || match.includes('x3') || match.includes('x1') ||
+            match.includes('q5') || match.includes('q7') || match.includes('q8')) {
             matchScore += 20;
           }
-          
+
           // Bonus points for color specification
           if (match.includes('black') || match.includes('white') || match.includes('silver') ||
-              match.includes('grey') || match.includes('gray') || match.includes('blue') ||
-              match.includes('red') || match.includes('green') || match.includes('gold') ||
-              match.includes('champagne')) {
+            match.includes('grey') || match.includes('gray') || match.includes('blue') ||
+            match.includes('red') || match.includes('green') || match.includes('gold') ||
+            match.includes('champagne')) {
             matchScore += 10;
           }
-          
+
           console.log('🚗 [CAR DEBUG] Match score:', matchScore);
-          
+
           // Keep the best match
           if (matchScore > bestMatchScore) {
             bestMatch = matches[0].trim();
@@ -1281,27 +1296,27 @@ export default function ResultsPage() {
         }
       }
     }
-    
+
     // Process the best match if found
     if (bestMatch) {
       console.log('🚗 [CAR DEBUG] ✅ BEST MATCH SELECTED!');
       console.log('🚗 [CAR DEBUG] Best match:', bestMatch);
       console.log('🚗 [CAR DEBUG] Best match score:', bestMatchScore);
-      
+
       // Clean up and format the car mention
       let carMention = bestMatch;
       console.log('🚗 [CAR DEBUG] Raw best match:', carMention);
-      
+
       // Capitalize first letter of each word
       carMention = carMention.replace(/\b\w/g, l => l.toUpperCase());
       console.log('🚗 [CAR DEBUG] After capitalization:', carMention);
-      
+
       // Clean up common formatting issues
       carMention = carMention.replace(/\s+/g, ' ');
       carMention = carMention.replace(/\bCar\b/g, 'car');
       carMention = carMention.replace(/\bVehicle\b/g, 'vehicle');
       carMention = carMention.replace(/\bAuto\b/g, 'auto');
-      
+
       // Format brand + model combinations properly
       carMention = carMention.replace(/\bMercedes\s+S-Class\b/gi, 'Mercedes S-Class');
       carMention = carMention.replace(/\bMercedes\s+E-Class\b/gi, 'Mercedes E-Class');
@@ -1316,12 +1331,12 @@ export default function ResultsPage() {
       carMention = carMention.replace(/\bAudi\s+Q5\b/gi, 'Audi Q5');
       carMention = carMention.replace(/\bAudi\s+Q7\b/gi, 'Audi Q7');
       carMention = carMention.replace(/\bAudi\s+Q8\b/gi, 'Audi Q8');
-      
+
       console.log('🚗 [CAR DEBUG] Final formatted car mention:', carMention);
       console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION SUCCESS =====');
       return carMention;
     }
-    
+
     console.log('🚗 [CAR DEBUG] ❌ No car information found in any sentence');
     console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION FAILED =====');
     return null;
@@ -1332,7 +1347,7 @@ export default function ResultsPage() {
     // Get the current display name or use the first part of the full address
     const currentDisplayName = locationDisplayNames[locationId] || currentName.split(',')[0];
     setEditingLocationName(currentDisplayName);
-    
+
     // Select all text in the input field after it's rendered
     setTimeout(() => {
       if (inputRef.current) {
@@ -1358,8 +1373,8 @@ export default function ResultsPage() {
 
     try {
       // Update the locations array with the new display name
-      const updatedLocations = tripData.locations.map(loc => 
-        loc.id === locationId 
+      const updatedLocations = tripData.locations.map(loc =>
+        loc.id === locationId
           ? { ...loc, displayName: editingLocationName.trim() }
           : loc
       );
@@ -1377,12 +1392,12 @@ export default function ResultsPage() {
         updateData.trip_notes = driverNotes || null;
         console.log('💾 [SAVE-LOCATION] Preserving current trip notes:', driverNotes);
       }
-      
-      console.log('💾 [SAVE-LOCATION] Updating trip with:', { 
-        locations: updatedLocations.length, 
-        trip_notes: updateData.trip_notes ? 'preserved' : 'unchanged' 
+
+      console.log('💾 [SAVE-LOCATION] Updating trip with:', {
+        locations: updatedLocations.length,
+        trip_notes: updateData.trip_notes ? 'preserved' : 'unchanged'
       });
-      
+
       const { error: updateError } = await supabase
         .from('trips')
         .update(updateData)
@@ -1492,27 +1507,27 @@ export default function ResultsPage() {
   // Edit route modal handlers
   const handleEditRouteDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     if (over && active.id !== over.id) {
       setEditingLocations((items) => {
         const oldIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === active.id);
         const newIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === over.id);
-        
+
         // Store the times in their current positions before reordering
         const timesByPosition = items.map(item => item.time);
-        
+
         // Reorder the locations
         const reorderedItems = arrayMove(items, oldIndex, newIndex);
-        
+
         // Reassign times based on new positions (times stay with positions, not locations)
         const itemsWithSwappedTimes = reorderedItems.map((item, index) => ({
           ...item,
           time: timesByPosition[index]
         }));
-        
+
         console.log(`🔄 Edit route: Location reordered ${oldIndex + 1} → ${newIndex + 1}`);
         console.log(`   Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
-        
+
         return itemsWithSwappedTimes;
       });
     }
@@ -1568,11 +1583,11 @@ export default function ResultsPage() {
   const handleSaveRouteEdits = async (locationsToUse?: any[]) => {
     try {
       console.log('💾 Saving route edits and regenerating...');
-      
+
       // Use provided locations or fall back to editingLocations
       // This avoids React state timing issues when called immediately after setState
       const locations = locationsToUse || editingLocations;
-      
+
       // Validate all locations have valid coordinates
       // Use the 'locations' variable (which may be from parameter) instead of 'editingLocations' state
       // Also check all possible location fields: location, formattedAddress, or purpose
@@ -1580,17 +1595,17 @@ export default function ResultsPage() {
         // Must have valid coordinates
         const hasCoords = loc.lat !== 0 && loc.lng !== 0;
         // Must have at least one name field populated
-        const hasName = (loc.location && loc.location.trim() !== '') || 
-                       (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
-                       (loc.purpose && loc.purpose.trim() !== '');
+        const hasName = (loc.location && loc.location.trim() !== '') ||
+          (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
+          (loc.purpose && loc.purpose.trim() !== '');
         return hasCoords && hasName;
       });
-      
+
       if (validLocations.length === 0) {
         alert('Please select at least one valid location');
         return;
       }
-      
+
       // Convert to database format - preserve original name (purpose)
       const locationsForDb = validLocations.map((loc, idx) => ({
         id: `location-${idx + 1}`,
@@ -1600,87 +1615,87 @@ export default function ResultsPage() {
         lng: loc.lng,
         time: loc.time,
       }));
-      
+
       setShowEditRouteModal(false);
       setIsRegenerating(true);
-      
+
       // Use editing trip date if set, otherwise fall back to current trip date
       const tripDateStr = editingTripDate ? editingTripDate.toISOString().split('T')[0] : (tripData?.tripDate || tripDate);
       const days = 7;
-      
+
       console.log(`🚀 [EDIT-ROUTE] Regenerating for ${validLocations.length} locations`);
-      
+
       // Get city configuration
       const cityConfig = getCityConfig(tripDestination);
       console.log(`🌍 [EDIT-ROUTE] City: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
-      
+
       // Initialize steps (same as home page)
       const steps = generateRegenerationSteps(validLocations, tripDestination);
       setRegenerationSteps(steps);
       setRegenerationProgress(0);
-      
+
       // Simulate step-by-step loading with realistic timing and smooth progress (EXACT home page logic)
       const simulateRegenerationSteps = async () => {
         for (let i = 0; i < steps.length; i++) {
           // Mark current step as loading
-          setRegenerationSteps(prev => prev.map((step, index) => 
+          setRegenerationSteps(prev => prev.map((step, index) =>
             index === i ? { ...step, status: 'loading' } : step
           ));
 
           // Calculate progress range for this step
           const startProgress = (i / steps.length) * 100;
           const endProgress = ((i + 1) / steps.length) * 100;
-          
+
           // Variable duration for each step (2-3.5 seconds) to simulate different processing times
           // Total target: ~10 seconds for all steps combined
           const stepDurations = [2500, 3000, 2250, 2750, 3500, 2000, 3250, 2500]; // Faster durations
           const baseDuration = stepDurations[i % stepDurations.length];
           const stepDuration = baseDuration + Math.random() * 500;
-          
+
           // Smoothly animate progress for this step with variable speed
           const startTime = Date.now();
           const animateProgress = () => {
             const elapsed = Date.now() - startTime;
             const stepProgress = Math.min(elapsed / stepDuration, 1);
-            
+
             // Ease in-out curve for more natural feel
             const eased = stepProgress < 0.5
               ? 2 * stepProgress * stepProgress
               : 1 - Math.pow(-2 * stepProgress + 2, 2) / 2;
-            
+
             const currentProgress = startProgress + (endProgress - startProgress) * eased;
             setRegenerationProgress(currentProgress);
-            
+
             if (stepProgress < 1) {
               requestAnimationFrame(animateProgress);
             }
           };
-          
+
           animateProgress();
-          
+
           // Wait for step duration
           await new Promise(resolve => setTimeout(resolve, stepDuration));
 
           // Mark current step as completed
-          setRegenerationSteps(prev => prev.map((step, index) => 
+          setRegenerationSteps(prev => prev.map((step, index) =>
             index === i ? { ...step, status: 'completed' } : step
           ));
         }
-        
+
         // Ensure we hit 100% at the end
         setRegenerationProgress(100);
       };
 
       // Start the loading simulation
       simulateRegenerationSteps();
-      
+
       // Track when background process completes
       let backgroundCompleted = false;
       let backgroundError: Error | null = null;
       let backgroundResults: any = null;
       let backgroundTrafficData: any = null;
       let backgroundReportData: any = null;
-      
+
       // Run actual API calls in parallel with animation
       const runBackgroundProcess = async () => {
         try {
@@ -1688,14 +1703,14 @@ export default function ResultsPage() {
           const results = await Promise.all(
             locationsForDb.map(async (location) => {
               console.log(`\n🔍 [EDIT-ROUTE] Fetching data for: ${location.name} at ${location.time}`);
-              
+
               const tempDistrictId = `custom-${Date.now()}-${location.id}`;
-              
+
               // Universal APIs
               const universalCalls = [
                 fetch(`/api/weather?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}&days=${days}${tripDestination ? `&tripDestination=${encodeURIComponent(tripDestination)}` : ''}`),
               ];
-              
+
               // London-specific APIs (conditional)
               const londonCalls = cityConfig.isLondon ? [
                 fetch(`/api/uk-crime?district=${tempDistrictId}&lat=${location.lat}&lng=${location.lng}`),
@@ -1706,16 +1721,16 @@ export default function ResultsPage() {
                 createMockResponse('disruptions', MOCK_DATA.disruptions),
                 createMockResponse('parking', MOCK_DATA.parking),
               ];
-              
+
               const [crimeResponse, disruptionsResponse, parkingResponse, weatherResponse] = await Promise.all([
                 ...londonCalls,
                 ...universalCalls,
               ]);
-              
+
               if (cityConfig.isLondon) {
                 const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
                 const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
-                
+
                 for (let i = 0; i < responses.length; i++) {
                   if (!responses[i].ok) {
                     const errorText = await responses[i].text();
@@ -1730,14 +1745,14 @@ export default function ResultsPage() {
                   throw new Error(`weather API returned ${weatherResponse.status}: ${errorText}`);
                 }
               }
-              
+
               const [crimeData, disruptionsData, parkingData, weatherData] = await Promise.all([
                 crimeResponse.json(),
                 disruptionsResponse.json(),
                 parkingResponse.json(),
                 weatherResponse.json(),
               ]);
-              
+
               const eventsData = {
                 success: true,
                 data: {
@@ -1748,7 +1763,7 @@ export default function ResultsPage() {
                   summary: { total: 0, byType: {}, bySeverity: {}, highSeverity: 0 }
                 }
               };
-              
+
               let cafeData = null;
               try {
                 const cafes = await searchNearbyCafes(location.lat, location.lng, location.name);
@@ -1765,7 +1780,7 @@ export default function ResultsPage() {
                   }
                 };
               }
-              
+
               return {
                 locationId: location.id,
                 locationName: location.name,
@@ -1782,9 +1797,9 @@ export default function ResultsPage() {
               };
             })
           );
-          
+
           backgroundResults = results;
-          
+
           // Get traffic predictions
           const trafficData = await getTrafficPredictions(
             locationsForDb.map(loc => ({
@@ -1797,9 +1812,9 @@ export default function ResultsPage() {
             tripDateStr,
             tripDestination
           );
-          
+
           backgroundTrafficData = trafficData;
-          
+
           // Generate executive report
           const reportResponse = await fetch('/api/executive-report', {
             method: 'POST',
@@ -1819,13 +1834,13 @@ export default function ResultsPage() {
               driverNotes: editedDriverNotes || driverNotes, // Use edited notes if available
             }),
           });
-          
+
           const reportData = await reportResponse.json();
-          
+
           if (!reportData.success) {
             throw new Error('Failed to generate executive report');
           }
-          
+
           backgroundReportData = reportData.data;
           backgroundCompleted = true;
         } catch (err) {
@@ -1833,40 +1848,40 @@ export default function ResultsPage() {
           backgroundCompleted = true;
         }
       };
-      
+
       // Start background process (runs in parallel with animation)
       runBackgroundProcess();
-      
+
       // Wait for both animation and background process to complete
       // Wait for minimum animation duration (at least 10 seconds for all steps)
       await new Promise(resolve => setTimeout(resolve, 10000));
-      
+
       // Wait for background process if still running
       while (!backgroundCompleted) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      
+
       // Check for errors
       if (backgroundError) {
         throw backgroundError;
       }
-      
+
       // Update database with new locations and all other fields
       const updateData: any = {
-          locations: JSON.stringify(locationsForDb),
-          trip_results: JSON.stringify(backgroundResults),
-          traffic_predictions: JSON.stringify(backgroundTrafficData),
-          executive_report: JSON.stringify(backgroundReportData),
-          trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
-          updated_at: new Date().toISOString(),
-          version: (currentVersion || 0) + 1,
+        locations: JSON.stringify(locationsForDb),
+        trip_results: JSON.stringify(backgroundResults),
+        traffic_predictions: JSON.stringify(backgroundTrafficData),
+        executive_report: JSON.stringify(backgroundReportData),
+        trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
+        updated_at: new Date().toISOString(),
+        version: (currentVersion || 0) + 1,
       };
-      
+
       // Update trip date if changed
       if (editingTripDate) {
         updateData.trip_date = tripDateStr;
       }
-      
+
       // Update non-location fields if they have values (preserve existing if not changed)
       if (leadPassengerName) {
         updateData.lead_passenger_name = leadPassengerName;
@@ -1880,25 +1895,25 @@ export default function ResultsPage() {
       if (tripDestination) {
         updateData.trip_destination = tripDestination;
       }
-      
+
       const { error: updateError } = await supabase
         .from('trips')
         .update(updateData)
         .eq('id', tripId);
-      
+
       if (updateError) {
         throw updateError;
       }
-      
+
       console.log('✅ [EDIT-ROUTE] Route updated successfully!');
-      
+
       // Reload page to show updated data
       window.location.reload();
-      
+
     } catch (error) {
       console.error('❌ [EDIT-ROUTE] Error saving route edits:', error);
       setIsRegenerating(false);
-      setRegenerationSteps(prev => prev.map(step => 
+      setRegenerationSteps(prev => prev.map(step =>
         step.status === 'loading' ? { ...step, status: 'error' as const } : step
       ));
       alert('Failed to update route. Please try again.');
@@ -1933,7 +1948,7 @@ export default function ResultsPage() {
     // Get current time in trip destination timezone
     const timezone = getDestinationTimezone(tripDestination);
     const now = new Date();
-    
+
     // Format current time in destination timezone and parse it back
     const timeString = now.toLocaleTimeString('en-GB', {
       timeZone: timezone,
@@ -1941,11 +1956,11 @@ export default function ResultsPage() {
       minute: '2-digit',
       hour12: false,
     });
-    
+
     const [hours, minutes] = timeString.split(':').map(Number);
     const localTime = new Date();
     localTime.setHours(hours, minutes, 0, 0);
-    
+
     return localTime;
   };
 
@@ -1966,7 +1981,7 @@ export default function ResultsPage() {
       const locationTime = parseInt(location.time) || 0;
       const locationTimeInMinutes = locationTime * 60;
       const diff = Math.abs(currentTimeInMinutes - locationTimeInMinutes);
-      
+
       if (diff < smallestDiff) {
         smallestDiff = diff;
         closestIndex = index;
@@ -1985,7 +2000,7 @@ export default function ResultsPage() {
     const now = new Date();
     const tripDateTime = new Date(tripData.tripDate);
     const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
-    
+
     return now >= oneHourBefore;
   };
 
@@ -1997,15 +2012,15 @@ export default function ResultsPage() {
 
     const now = new Date();
     const tripDateTime = new Date(tripData.tripDate);
-    
+
     // Get drop-off time (last location)
     const lastLocation = tripData.locations[tripData.locations.length - 1];
     const timeValue = lastLocation.time;
-    
+
     // Parse time - can be string "HH:MM" or decimal number (e.g., 14.5 for 14:30)
     let hours = 0;
     let minutes = 0;
-    
+
     if (typeof timeValue === 'string') {
       const timeParts = timeValue.split(':');
       hours = parseInt(timeParts[0]) || 0;
@@ -2018,14 +2033,14 @@ export default function ResultsPage() {
       hours = Math.floor(parsed);
       minutes = Math.round((parsed % 1) * 60);
     }
-    
+
     // Calculate drop-off datetime
     const dropoffDate = new Date(tripDateTime);
     dropoffDate.setHours(hours, minutes, 0, 0);
-    
+
     // Check if 15 minutes have passed since drop-off
     const fifteenMinutesAfter = new Date(dropoffDate.getTime() + 15 * 60 * 1000);
-    
+
     return now >= fifteenMinutesAfter;
   };
 
@@ -2060,7 +2075,7 @@ export default function ResultsPage() {
 
   const handleSaveNotes = async () => {
     if (!tripId) return;
-    
+
     // Security check: Only owners can save notes
     if (!isOwner) {
       console.error('❌ Unauthorized: Only trip owners can edit driver notes');
@@ -2069,7 +2084,7 @@ export default function ResultsPage() {
 
     try {
       setIsSavingNotes(true);
-      
+
       console.log('Saving notes with values:', {
         editedDriverNotes,
         leadPassengerName,
@@ -2079,11 +2094,11 @@ export default function ResultsPage() {
         passengerNames,
         tripId
       });
-      
+
       const updateData: any = {
         trip_notes: editedDriverNotes
       };
-      
+
       // Only include new fields if they have values
       if (leadPassengerName) {
         updateData.lead_passenger_name = leadPassengerName;
@@ -2099,26 +2114,26 @@ export default function ResultsPage() {
       }
       // Note: passenger_names column doesn't exist in database
       // Passenger names are still used for display but not stored in DB
-      
+
       console.log('Update data:', updateData);
-      
+
       // First check if the trip exists
       const { data: existingTrip, error: fetchError } = await supabase
         .from('trips')
         .select('id')
         .eq('id', tripId)
         .single();
-        
+
       if (fetchError) {
         console.error('Error fetching trip:', fetchError);
         return;
       }
-      
+
       if (!existingTrip) {
         console.error('Trip not found with ID:', tripId);
         return;
       }
-      
+
       const { error: updateError } = await supabase
         .from('trips')
         .update(updateData)
@@ -2133,10 +2148,10 @@ export default function ResultsPage() {
 
       // Update the local state with the saved notes
       setDriverNotes(editedDriverNotes);
-      
+
       setIsEditingNotes(false);
       setShowNotesSuccess(true);
-      
+
       // Hide success message after 3 seconds
       setTimeout(() => {
         setShowNotesSuccess(false);
@@ -2158,7 +2173,7 @@ export default function ResultsPage() {
 
       try {
         console.log(`📡 Loading trip from database: ${tripId}`);
-        
+
         const { data, error: fetchError } = await supabase
           .from('trips')
           .select('*')
@@ -2180,14 +2195,14 @@ export default function ResultsPage() {
         }
 
         console.log('✅ Trip loaded from database');
-        
+
         // Check ownership: if user is authenticated and their ID matches the trip's user_id
         const tripUserId = data.user_id;
         const currentUserId = user?.id;
-        
+
         // Use local variable to determine ownership
         const userIsOwner = isAuthenticated && currentUserId && tripUserId === currentUserId;
-        
+
         if (userIsOwner) {
           setIsOwner(true);
           console.log('🔐 User is the owner of this trip - editing enabled');
@@ -2195,7 +2210,7 @@ export default function ResultsPage() {
           setIsOwner(false);
           console.log('👁️ User is NOT the owner - read-only mode');
         }
-        
+
         // Check if trip was created by a guest (user_id is null)
         if (!tripUserId) {
           setIsGuestCreatedTrip(true);
@@ -2203,7 +2218,7 @@ export default function ResultsPage() {
         } else {
           setIsGuestCreatedTrip(false);
         }
-        
+
         // Check if user is guest creator (for signup CTA)
         if (!isAuthenticated && !tripUserId && typeof window !== 'undefined') {
           const createdTripId = sessionStorage.getItem('guestCreatedTripId');
@@ -2212,12 +2227,12 @@ export default function ResultsPage() {
             console.log('👤 Guest user created this trip - showing signup CTA');
           }
         }
-        
+
         // Transform database data to match expected TripData format
         // Ensure traffic_predictions has correct structure with success flag
         let trafficPredictionsFormatted: any = null;
         let rawTrafficPredictions = data.traffic_predictions as any;
-        
+
         // Parse if stored as JSON string
         if (typeof rawTrafficPredictions === 'string') {
           try {
@@ -2227,7 +2242,7 @@ export default function ResultsPage() {
             rawTrafficPredictions = null;
           }
         }
-        
+
         if (rawTrafficPredictions) {
           // Check if it already has the correct structure
           if (rawTrafficPredictions.success !== undefined && Array.isArray(rawTrafficPredictions.data)) {
@@ -2257,7 +2272,7 @@ export default function ResultsPage() {
 
         // FIX: Validate and fix location IDs when loading from database
         const usedIds = new Set<string>();
-        
+
         // Parse locations if they're stored as JSON string
         let locationsArray = data.locations;
         if (typeof locationsArray === 'string') {
@@ -2268,13 +2283,13 @@ export default function ResultsPage() {
             locationsArray = [];
           }
         }
-        
+
         // Ensure locationsArray is actually an array
         if (!Array.isArray(locationsArray)) {
           console.error('❌ Locations is not an array after parsing:', typeof locationsArray, locationsArray);
           locationsArray = [];
         }
-        
+
         const locationsWithValidIds = locationsArray.map((loc: any, idx: number) => {
           // Check if ID is invalid (literal string from AI bug)
           if (!loc.id || loc.id === 'currentLocation.id' || loc.id === 'extractedLocation.id' || loc.id.includes('Location.id')) {
@@ -2286,7 +2301,7 @@ export default function ResultsPage() {
               id: newId
             };
           }
-          
+
           // Check for duplicate IDs
           if (usedIds.has(loc.id)) {
             const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -2297,7 +2312,7 @@ export default function ResultsPage() {
               id: newId
             };
           }
-          
+
           usedIds.add(loc.id);
           return loc;
         });
@@ -2312,7 +2327,7 @@ export default function ResultsPage() {
             tripResultsParsed = [];
           }
         }
-        
+
         let executiveReportParsed = data.executive_report;
         if (typeof executiveReportParsed === 'string') {
           try {
@@ -2349,9 +2364,9 @@ export default function ResultsPage() {
         setTripStatus(data.status || 'not confirmed'); // Load trip status
         setDriverEmail(data.driver || null); // Load driver email
         originalDriverEmailRef.current = data.driver || null; // Store original driver email for activity check
-        
+
         // Populate location display names from database
-        const displayNames: {[key: string]: string} = {};
+        const displayNames: { [key: string]: string } = {};
         tripData.locations.forEach((loc: any) => {
           // Use the location name (which is now the purpose) as the display name
           if (loc.name) {
@@ -2359,9 +2374,9 @@ export default function ResultsPage() {
           }
         });
         setLocationDisplayNames(displayNames);
-        
+
         // Password protection removed - all users can access reports
-        
+
         // Mark ownership as checked and loading complete - MUST be last to prevent UI glitches
         setOwnershipChecked(true);
         setLoading(false);
@@ -2371,7 +2386,7 @@ export default function ResultsPage() {
         setLoading(false);
       }
     }
-    
+
     loadTripFromDatabase();
   }, [tripId, router, user, isAuthenticated]);
 
@@ -2382,7 +2397,7 @@ export default function ResultsPage() {
 
   // Track previous locations to detect changes
   const prevLocationsRef = useRef<string>('');
-  
+
   // Clear Drivania quotes when trip locations actually change
   useEffect(() => {
     if (tripData?.locations) {
@@ -2392,7 +2407,7 @@ export default function ResultsPage() {
         lng: loc.lng,
         time: loc.time,
       })));
-      
+
       // Only clear if locations have actually changed
       if (prevLocationsRef.current && prevLocationsRef.current !== locationsKey) {
         console.log('🔄 Trip locations changed - clearing old Drivania quotes');
@@ -2400,7 +2415,7 @@ export default function ResultsPage() {
         setDrivaniaError(null);
         setDrivaniaServiceType(null);
       }
-      
+
       prevLocationsRef.current = locationsKey;
     }
   }, [tripData?.locations, tripData?.tripDate]);
@@ -2417,28 +2432,28 @@ export default function ResultsPage() {
   const handleGuestSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setGuestSignupError(null);
-    
+
     // Validation
     if (!guestSignupPassword || guestSignupPassword.length < 6) {
       setGuestSignupError('Password must be at least 6 characters');
       return;
     }
-    
+
     if (!tripData?.userEmail) {
       setGuestSignupError('Email not found. Please try again.');
       return;
     }
-    
+
     setGuestSignupLoading(true);
-    
+
     try {
       // Create auth user with email and password
       const { error: signUpError } = await signUp(tripData.userEmail, guestSignupPassword);
-      
+
       if (signUpError) {
         // Handle specific errors
-        if (signUpError.message.toLowerCase().includes('already registered') || 
-            signUpError.message.toLowerCase().includes('already exists')) {
+        if (signUpError.message.toLowerCase().includes('already registered') ||
+          signUpError.message.toLowerCase().includes('already exists')) {
           setGuestSignupError(`This email already has an account. Please login instead.`);
         } else {
           setGuestSignupError(signUpError.message);
@@ -2446,13 +2461,13 @@ export default function ResultsPage() {
         setGuestSignupLoading(false);
         return;
       }
-      
+
       // Wait a moment for auth state to update
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       // Get the session to get user ID
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session?.user?.id) {
         // Update ALL trips with this email to link to new user
         const { error: updateError } = await supabase
@@ -2460,22 +2475,22 @@ export default function ResultsPage() {
           .update({ user_id: session.user.id })
           .eq('user_email', tripData.userEmail)
           .is('user_id', null);
-        
+
         if (updateError) {
           console.error('Error linking trips to user:', updateError);
         } else {
           console.log('✅ All guest trips linked to new account');
         }
-        
+
         // Clear sessionStorage
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('guestCreatedTripId');
         }
-        
+
         // Show success and refresh page
         setGuestSignupSuccess(true);
         setGuestSignupError(null);
-        
+
         // Refresh the page after 2 seconds to show owner UI
         setTimeout(() => {
           window.location.reload();
@@ -2505,27 +2520,27 @@ export default function ResultsPage() {
       'rejected': ['pending', 'not confirmed'], // Can retry after rejection
       'cancelled': [], // TERMINAL STATUS - no transitions allowed, must create new trip
     };
-    
+
     return VALID_TRANSITIONS[from]?.includes(to) ?? false;
   };
 
   const handleStatusToggle = () => {
     if (!tripId || updatingStatus) return;
-    
+
     // Check if user is the assigned driver (not owner)
-    const isAssignedDriver = !isOwner && driverEmail && quoteEmail && 
+    const isAssignedDriver = !isOwner && driverEmail && quoteEmail &&
       driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim();
-    
+
     // DRIVER FLOW: Assigned driver clicking to confirm pending trip
     if (isAssignedDriver && tripStatus === 'pending') {
       console.log('🚗 [DRIVER] Assigned driver clicked confirmation button, opening confirmation dialog');
       setShowDriverConfirmDialog(true);
       return;
     }
-    
+
     // OWNER FLOW: Block non-owners who aren't the assigned driver
     if (!isOwner) return;
-    
+
     // If trip is rejected, allow user to request quotes or assign driver again
     // Rejected behaves like "not confirmed" - service is not secured
     if (tripStatus === 'rejected') {
@@ -2534,9 +2549,9 @@ export default function ResultsPage() {
       setShowDriverModal(true);
       return;
     }
-    
+
     const newStatus = tripStatus === 'confirmed' ? 'not confirmed' : 'confirmed';
-    
+
     // If confirming without a driver, open driver modal in assign-only mode
     if (newStatus === 'confirmed' && !driverEmail) {
       console.log('🚗 [STATUS] No driver assigned, opening driver modal in assign-only mode');
@@ -2544,7 +2559,7 @@ export default function ResultsPage() {
       setShowDriverModal(true);
       return;
     }
-    
+
     // Otherwise, show confirmation modal
     setPendingStatus(newStatus);
     setStatusModalSuccess(null);
@@ -2555,7 +2570,7 @@ export default function ResultsPage() {
 
   const handleConfirmStatusChange = async (notifyDriver: boolean = false) => {
     if (!tripId || !isOwner || !pendingStatus) return;
-    
+
     setUpdatingStatus(true);
 
     try {
@@ -2581,18 +2596,18 @@ export default function ResultsPage() {
         const oldStatus = tripStatus;
         setTripStatus(pendingStatus);
         console.log(`✅ Trip status updated to: ${pendingStatus}`);
-        
+
         // If changing from confirmed to not confirmed, clear driver in UI
         if (oldStatus === 'confirmed' && pendingStatus === 'not confirmed') {
           setDriverEmail(null);
           console.log(`✅ Driver assignment cleared in UI`);
         }
-        
+
         // Send notification for other cases (confirmed -> confirmed, not confirmed -> confirmed)
         if (notifyDriver && driverEmail && !(oldStatus === 'confirmed' && pendingStatus === 'not confirmed')) {
           await sendStatusChangeNotification();
         }
-        
+
         // Close modal
         setShowStatusModal(false);
         setPendingStatus(null);
@@ -2608,12 +2623,12 @@ export default function ResultsPage() {
 
   const sendStatusChangeNotification = async () => {
     if (!tripId || !driverEmail || !pendingStatus) return;
-    
+
     setSendingStatusNotification(true);
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         console.error('❌ No session found');
         return;
@@ -2621,7 +2636,7 @@ export default function ResultsPage() {
 
       const response = await fetch('/api/notify-status-change', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -2647,12 +2662,12 @@ export default function ResultsPage() {
 
   const fetchQuotes = useCallback(async () => {
     if (!tripId || !isOwner) return;
-    
+
     setLoadingQuotes(true);
     try {
       const response = await fetch('/api/get-quotes', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -2680,7 +2695,7 @@ export default function ResultsPage() {
         // Deduplicate quotes: show only the latest quote per driver email
         const quotesArray = result.quotes || [];
         const quoteMap = new Map<string, typeof quotesArray[0]>();
-        
+
         // Since quotes are already ordered by created_at DESC, first occurrence per email is the latest
         quotesArray.forEach((quote: any) => {
           const emailKey = quote.email.toLowerCase().trim();
@@ -2688,7 +2703,7 @@ export default function ResultsPage() {
             quoteMap.set(emailKey, quote);
           }
         });
-        
+
         const deduplicatedQuotes = Array.from(quoteMap.values());
         setQuotes(deduplicatedQuotes);
         console.log(`✅ Fetched ${quotesArray.length} quotes, showing ${deduplicatedQuotes.length} unique driver quotes`);
@@ -2719,12 +2734,12 @@ export default function ResultsPage() {
   // Fetch driver's own quotes (for non-owners)
   const fetchMyQuotes = useCallback(async (email: string) => {
     if (!tripId || !email) return;
-    
+
     setLoadingMyQuotes(true);
     try {
       const response = await fetch('/api/get-quotes', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -2789,7 +2804,7 @@ export default function ResultsPage() {
           // Use a small delay to ensure database consistency
           setTimeout(() => {
             console.log('🔄 Refreshing quotes after realtime update...');
-          fetchQuotes();
+            fetchQuotes();
           }, 200);
         }
       )
@@ -2841,24 +2856,24 @@ export default function ResultsPage() {
         (payload) => {
           console.log('🔄 Realtime trip update received');
           console.log('📊 Current UI state - Status:', tripStatus, 'Has driver:', !!driverEmail);
-          
+
           if (payload.new) {
             const newStatus = payload.new.status;
             const newDriver = payload.new.driver;
-            
+
             console.log('📊 Database update - New status:', newStatus, 'New driver:', newDriver);
-            
+
             // Update status if changed
             if (newStatus && newStatus !== tripStatus) {
               console.log(`✅ Trip status updated via realtime: ${tripStatus} → ${newStatus}`);
               setTripStatus(newStatus);
-              
+
               // Special case: Auto-confirmation from driver quote submission
               if (tripStatus === 'pending' && newStatus === 'confirmed') {
                 console.log('🎯 Detected Pending → Confirmed transition (likely from driver quote submission)');
               }
             }
-            
+
             // Update driver if changed
             if (newDriver !== undefined && newDriver !== driverEmail) {
               console.log(`✅ Driver updated via realtime: ${driverEmail ? 'assigned' : 'unassigned'} → ${newDriver ? 'assigned' : 'unassigned'}`);
@@ -2879,11 +2894,11 @@ export default function ResultsPage() {
   useEffect(() => {
     async function fetchDriverSuggestions() {
       if (!isOwner || !user?.id) return;
-      
+
       try {
         const response = await fetch('/api/get-user-drivers', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -2918,13 +2933,13 @@ export default function ResultsPage() {
 
   const handleSetDriver = async (email: string) => {
     if (!tripId || !isOwner || settingDriver) return;
-    
+
     setSettingDriver(true);
     setManualDriverError(null);
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         console.error('❌ No session found');
         setManualDriverError('Please log in to set driver');
@@ -2934,7 +2949,7 @@ export default function ResultsPage() {
 
       const response = await fetch('/api/set-driver', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -2951,7 +2966,7 @@ export default function ResultsPage() {
         console.log(`✅ Driver set successfully`);
         setManualDriverEmail('');
         setShowDriverSuggestions(false);
-        
+
         // If in assign-only mode, close modal (don't auto-confirm, let user manually confirm)
         if (assignOnlyMode) {
           console.log('🚗 [ASSIGN-ONLY] Driver assigned, closing modal. Trip status is now Pending.');
@@ -2973,7 +2988,7 @@ export default function ResultsPage() {
   const handleManualDriverInputChange = (value: string) => {
     setManualDriverEmail(value);
     setManualDriverError(null);
-    
+
     // Filter suggestions based on input
     if (value.trim().length > 0) {
       const filtered = driverSuggestions.filter(driver =>
@@ -2999,14 +3014,14 @@ export default function ResultsPage() {
 
   const handleNotifyDriver = async () => {
     if (!tripId || !isOwner || !driverEmail || notifyingDriver) return;
-    
+
     setNotifyingDriver(true);
     setNotificationError(null);
     setNotificationSuccess(false);
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         console.error('❌ No session found');
         setNotificationError('Please log in to notify driver');
@@ -3016,7 +3031,7 @@ export default function ResultsPage() {
 
       const response = await fetch('/api/notify-driver', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -3046,10 +3061,10 @@ export default function ResultsPage() {
   const handleUpdateNotificationResponse = async (notify: boolean) => {
     if (notify && driverEmail) {
       setSendingUpdateNotification(true);
-      
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (!session) {
           console.error('❌ No session found');
           window.location.reload();
@@ -3058,7 +3073,7 @@ export default function ResultsPage() {
 
         const response = await fetch('/api/notify-driver', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
@@ -3089,7 +3104,7 @@ export default function ResultsPage() {
 
   const handleSubmitQuote = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Reset errors and success
     setQuoteEmailError(null);
     setQuotePriceError(null);
@@ -3130,19 +3145,19 @@ export default function ResultsPage() {
         console.log(`✅ Quote ${action} successfully`);
         const submittedEmail = quoteEmail.trim();
         setQuoteSuccessMessage(
-          result.isUpdate 
+          result.isUpdate
             ? 'Quote updated successfully! The trip owner will see your updated offer.'
             : 'Quote submitted successfully! The trip owner will review your offer.'
         );
         setQuoteSuccess(true);
-        
+
         // Fetch the driver's quotes to show their submission
         fetchMyQuotes(submittedEmail);
-        
+
         // Clear form fields but keep email for future quotes
         setQuotePrice('');
         setQuoteCurrency('USD');
-        
+
         // Hide success message after 5 seconds
         setTimeout(() => setQuoteSuccess(false), 5000);
       } else {
@@ -3163,7 +3178,7 @@ export default function ResultsPage() {
       setQuoteEmailError('Quote cannot be updated - driver already assigned');
       return;
     }
-    
+
     const latestQuote = myQuotes[0];
     if (latestQuote) {
       setUpdateQuotePrice('');
@@ -3217,10 +3232,10 @@ export default function ResultsPage() {
         setUpdateQuotePrice('');
         setQuoteSuccessMessage('Quote updated successfully! The trip owner will see your updated offer.');
         setQuoteSuccess(true);
-        
+
         // Refresh driver's quotes to show the new latest quote
         await fetchMyQuotes(quoteEmail.trim() || latestQuote.email);
-        
+
         // Hide success message after 5 seconds
         setTimeout(() => setQuoteSuccess(false), 5000);
       } else {
@@ -3236,7 +3251,7 @@ export default function ResultsPage() {
   const handleSendQuoteRequest = async (emailToUse?: string) => {
     const driverEmail = emailToUse || allocateDriverEmail;
     if (!tripId || !isOwner || !driverEmail || sendingQuoteRequest) return;
-    
+
     // Reset errors and success
     setAllocateDriverEmailError(null);
     setManualDriverError(null);
@@ -3262,7 +3277,7 @@ export default function ResultsPage() {
     try {
       // Get the current session to send auth token
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         setQuoteRequestError('You must be logged in to send quote requests');
         setSendingQuoteRequest(false);
@@ -3271,7 +3286,7 @@ export default function ResultsPage() {
 
       const response = await fetch('/api/request-quote', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
@@ -3292,7 +3307,7 @@ export default function ResultsPage() {
             sentAt: new Date().toISOString(),
           }
         ]);
-        
+
         setQuoteRequestSuccess(`Quote request sent to ${driverEmail.trim()}`);
         // Clear form
         setManualDriverEmail('');
@@ -3410,17 +3425,17 @@ export default function ResultsPage() {
         const oldDropoff = tripData.locations[tripData.locations.length - 1];
         const newPickup = typedLocations[0];
         const newDropoff = typedLocations[typedLocations.length - 1];
-        
-        const pickupChanged = oldPickup?.lat !== newPickup?.lat || 
-                              oldPickup?.lng !== newPickup?.lng ||
-                              oldPickup?.time !== newPickup?.time ||
-                              oldPickup?.name !== newPickup?.name;
-        
-        const dropoffChanged = oldDropoff?.lat !== newDropoff?.lat || 
-                               oldDropoff?.lng !== newDropoff?.lng ||
-                               oldDropoff?.time !== newDropoff?.time ||
-                               oldDropoff?.name !== newDropoff?.name;
-        
+
+        const pickupChanged = oldPickup?.lat !== newPickup?.lat ||
+          oldPickup?.lng !== newPickup?.lng ||
+          oldPickup?.time !== newPickup?.time ||
+          oldPickup?.name !== newPickup?.name;
+
+        const dropoffChanged = oldDropoff?.lat !== newDropoff?.lat ||
+          oldDropoff?.lng !== newDropoff?.lng ||
+          oldDropoff?.time !== newDropoff?.time ||
+          oldDropoff?.name !== newDropoff?.name;
+
         console.log('🔄 Location comparison:', {
           pickupChanged,
           dropoffChanged,
@@ -3429,7 +3444,7 @@ export default function ResultsPage() {
           oldDropoff: oldDropoff ? { lat: oldDropoff.lat, lng: oldDropoff.lng, time: oldDropoff.time, name: oldDropoff.name } : null,
           newDropoff: newDropoff ? { lat: newDropoff.lat, lng: newDropoff.lng, time: newDropoff.time, name: newDropoff.name } : null,
         });
-        
+
         if (!pickupChanged && !dropoffChanged) {
           console.log('⚠️ WARNING: Pickup and dropoff coordinates/times unchanged. Drivania will return the same quote even if intermediate stops changed.');
           console.log('💡 Note: Drivania API only uses pickup and dropoff for quote calculation. Intermediate stops are not included.');
@@ -3655,13 +3670,13 @@ export default function ResultsPage() {
   const mergeNotes = (existingNotes: string, newNotes: string): string => {
     const existingBullets = parseNotesToBullets(existingNotes);
     const newBullets = parseNotesToBullets(newNotes);
-    
+
     // Simple deduplication: check if a bullet point is similar to an existing one
     const isSimilar = (bullet1: string, bullet2: string): boolean => {
       const normalize = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, '').trim();
       const norm1 = normalize(bullet1);
       const norm2 = normalize(bullet2);
-      
+
       // Exact match or one contains the other (for fuzzy matching)
       if (norm1 === norm2) return true;
       if (norm1.length > 20 && norm2.length > 20) {
@@ -3676,7 +3691,7 @@ export default function ResultsPage() {
 
     // Keep existing notes first
     const merged: string[] = [...existingBullets];
-    
+
     // Add new notes that aren't similar to existing ones
     for (const newBullet of newBullets) {
       const isDuplicate = merged.some(existing => isSimilar(existing, newBullet));
@@ -3803,7 +3818,7 @@ export default function ResultsPage() {
 
         // If address seems the same, preserve coordinates
         if (currentLoc && (
-          (extractedLoc.formattedAddress || extractedLoc.location || '').toLowerCase() === 
+          (extractedLoc.formattedAddress || extractedLoc.location || '').toLowerCase() ===
           (currentLoc.name || '').toLowerCase()
         )) {
           newLoc.lat = currentLoc.lat;
@@ -3820,7 +3835,7 @@ export default function ResultsPage() {
     const mergedNotes = newNotes && newNotes.trim() ? mergeNotes(driverNotes, newNotes) : driverNotes;
 
     // Merge passenger info
-    const mergedPassengerName = extracted.leadPassengerName || 
+    const mergedPassengerName = extracted.leadPassengerName ||
       (extracted.passengerNames?.length > 0 ? extracted.passengerNames.join(', ') : leadPassengerName);
 
     return {
@@ -3838,7 +3853,7 @@ export default function ResultsPage() {
   // Helper: Strip email metadata to prevent false positives
   const stripEmailMetadata = (text: string): string => {
     console.log('🧹 [PRE-PROCESSING] Stripping email headers...');
-    
+
     // Remove standalone email headers ONLY (headers on their own line or with just email/date after colon)
     // Match patterns like "From: email@domain.com\n" or "Subject: Some Subject\n"
     // But DON'T match "Date: 12 nov 2025 hey there..." (has content after date)
@@ -3855,20 +3870,20 @@ export default function ResultsPage() {
       .replace(/^Bcc:\s*[^\n]+$/gim, '')
       .replace(/^\s*[\r\n]+/gm, '') // Remove empty lines
       .trim();
-    
+
     // If Date: is inline with content, just remove the date portion
     // "Date: 12 nov 2025 08:11  hey again..." → "  hey again..."
     cleaned = cleaned.replace(/^Date:\s*\d{1,2}\s+[a-z]{3}\s+\d{4}\s+\d{2}:\d{2}\s+/gim, '');
-    
+
     // Remove command markers (EXTRAER VIAJE, EXTRACT TRIP, etc.)
     cleaned = cleaned.replace(/\s+EXTRAER\s+VIAJE\s*$/i, '');
     cleaned = cleaned.replace(/\s+EXTRACT\s+TRIP\s*$/i, '');
-    
+
     const removedChars = text.length - cleaned.length;
     if (removedChars > 0) {
       console.log(`✅ [PRE-PROCESSING] Removed ${removedChars} characters of email metadata`);
     }
-    
+
     return cleaned.trim();
   };
 
@@ -3876,28 +3891,28 @@ export default function ResultsPage() {
   const detectUnchangedFields = (updateText: string): Set<string> => {
     const text = updateText.toLowerCase();
     const unchangedFields = new Set<string>();
-    
+
     // Detect "same" language indicating most fields unchanged
-    const hasSameLanguage = text.includes('rest same') || text.includes('same same') || 
-                           text.includes('everything else same') || text.includes('rest unchanged');
-    
+    const hasSameLanguage = text.includes('rest same') || text.includes('same same') ||
+      text.includes('everything else same') || text.includes('rest unchanged');
+
     if (hasSameLanguage) {
       console.log('🔍 [POST-PROCESSING] Detected "same" language - will validate extracted fields');
-      
+
       // If update doesn't explicitly mention these fields, they should be unchanged
-      if (!text.includes('vehicle') && !text.includes('car') && !text.includes('mercedes') && 
-          !text.includes('bmw') && !text.includes('audi')) {
+      if (!text.includes('vehicle') && !text.includes('car') && !text.includes('mercedes') &&
+        !text.includes('bmw') && !text.includes('audi')) {
         unchangedFields.add('vehicle');
       }
       if (!text.includes('passenger') && !text.match(/mr\.|ms\.|mrs\.|dr\./)) {
         unchangedFields.add('passengers');
       }
-      if (!text.match(/\d{1,2}\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i) && 
-          !text.match(/(january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{1,2}/i)) {
+      if (!text.match(/\d{1,2}\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i) &&
+        !text.match(/(january|february|march|april|may|june|july|august|september|october|november|december)\s*\d{1,2}/i)) {
         unchangedFields.add('date');
       }
     }
-    
+
     return unchangedFields;
   };
 
@@ -3911,7 +3926,7 @@ export default function ResultsPage() {
     console.log(`📍 [MAP] Current locations: ${currentLocations.length}`);
     console.log(`📍 [MAP] Extracted locations: ${extractedData.locations?.length || 0}`);
     console.log(`🗑️ [MAP] Removals: ${extractedData.removedLocations?.length || 0}`);
-    
+
     // Step 1: Convert current locations to manual form format
     let manualLocations = currentLocations.map((loc, idx) => ({
       location: loc.name || loc.fullAddress || '',
@@ -3925,43 +3940,43 @@ export default function ResultsPage() {
       placeId: loc.id || `location-${idx + 1}`,
       originalIndex: idx, // Keep track of original index for change tracking
     }));
-    
+
     // Step 2: Apply removals with improved matching (FIX 2)
     if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
       const beforeCount = manualLocations.length;
       manualLocations = manualLocations.filter((loc, idx) => {
         const locText = `${loc.location} ${loc.purpose}`.toLowerCase();
-        
+
         const shouldRemove = extractedData.removedLocations.some((removal: string) => {
           const removalLower = removal.toLowerCase().trim();
           const removalWords = removalLower.split(/\s+/).filter(w => w.length > 0);
-          
+
           // Strategy 1: Exact phrase match (highest confidence)
           if (locText.includes(removalLower)) {
             return true;
           }
-          
+
           // Strategy 2: All words present (for "Mori Tower" matching "Stop at Mori Tower")
           if (removalWords.length > 1 && removalWords.every(word => locText.includes(word))) {
             return true;
           }
-          
+
           // Strategy 3: Word boundary matching (prevents "tower" matching "Tower Entrance" when removal is single word)
           if (removalWords.length === 1) {
             // Single word: use word boundary or exact match
             const wordBoundaryRegex = new RegExp(`\\b${removalWords[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
             return wordBoundaryRegex.test(locText);
           }
-          
+
           return false;
         });
-        
+
         if (shouldRemove) {
           const matchedRemoval = extractedData.removedLocations.find((r: string) => {
             const removalLower = r.toLowerCase().trim();
             const removalWords = removalLower.split(/\s+/).filter(w => w.length > 0);
             const locText = `${loc.location} ${loc.purpose}`.toLowerCase();
-            
+
             if (locText.includes(removalLower)) return true;
             if (removalWords.length > 1 && removalWords.every(word => locText.includes(word))) return true;
             if (removalWords.length === 1) {
@@ -3972,12 +3987,12 @@ export default function ResultsPage() {
           });
           console.log(`🗑️ [MAP] Removing location ${idx + 1}: ${loc.location} (matched: "${matchedRemoval}")`);
         }
-        
+
         return !shouldRemove;
       });
       console.log(`✅ [MAP] Removed ${beforeCount - manualLocations.length} location(s)`);
     }
-    
+
     // Step 3: Helper function to match extracted location to current
     const matchExtractedToCurrent = (extractedLoc: any, currentLocs: any[]): { matched: boolean; index?: number; confidence: 'high' | 'medium' | 'low' } => {
       // Strategy 1: Index-based matching (if locationIndex provided)
@@ -3988,16 +4003,16 @@ export default function ResultsPage() {
           return { matched: true, index: targetIdx, confidence: 'high' };
         }
       }
-      
+
       // Strategy 2: Pickup/dropoff matching
       // Check both location name AND purpose field (purpose is where pickup/dropoff keywords are stored)
       const locNameLower = (extractedLoc.location || '').toLowerCase();
       const purposeLower = (extractedLoc.purpose || '').toLowerCase();
       const combinedText = `${locNameLower} ${purposeLower}`;
-      
+
       const isPickup = combinedText.includes('pickup') || combinedText.includes('pick up') || combinedText.includes('collection');
       const isDropoff = combinedText.includes('dropoff') || combinedText.includes('drop off') || combinedText.includes('destination');
-      
+
       if (isPickup && currentLocs.length > 0) {
         console.log(`✅ [MAP] Pickup match: index 0 (from purpose: "${extractedLoc.purpose}")`);
         return { matched: true, index: 0, confidence: 'high' };
@@ -4006,14 +4021,14 @@ export default function ResultsPage() {
         console.log(`✅ [MAP] Dropoff match: index ${currentLocs.length - 1} (from purpose: "${extractedLoc.purpose}")`);
         return { matched: true, index: currentLocs.length - 1, confidence: 'high' };
       }
-      
+
       // Strategy 2.5: Arrival/departure keyword matching
       // Arrival = pickup (where passenger arrives), Departure = dropoff (where passenger departs)
-      const isArrival = combinedText.includes('arrival') || combinedText.includes('arrive') || combinedText.includes('arriving') || 
-                        combinedText.includes('landing') || combinedText.includes('land') || combinedText.includes('arrived');
-      const isDeparture = combinedText.includes('departure') || combinedText.includes('depart') || combinedText.includes('departing') || 
-                         combinedText.includes('leaving') || combinedText.includes('leave') || combinedText.includes('departed');
-      
+      const isArrival = combinedText.includes('arrival') || combinedText.includes('arrive') || combinedText.includes('arriving') ||
+        combinedText.includes('landing') || combinedText.includes('land') || combinedText.includes('arrived');
+      const isDeparture = combinedText.includes('departure') || combinedText.includes('depart') || combinedText.includes('departing') ||
+        combinedText.includes('leaving') || combinedText.includes('leave') || combinedText.includes('departed');
+
       if (isArrival && currentLocs.length > 0) {
         console.log(`✅ [MAP] Arrival match → Pickup: index 0 (from purpose: "${extractedLoc.purpose}")`);
         return { matched: true, index: 0, confidence: 'high' };
@@ -4022,7 +4037,7 @@ export default function ResultsPage() {
         console.log(`✅ [MAP] Departure match → Dropoff: index ${currentLocs.length - 1} (from purpose: "${extractedLoc.purpose}")`);
         return { matched: true, index: currentLocs.length - 1, confidence: 'high' };
       }
-      
+
       // Strategy 3: Name matching (exact, partial, purpose)
       for (let i = 0; i < currentLocs.length; i++) {
         const current = currentLocs[i];
@@ -4030,16 +4045,16 @@ export default function ResultsPage() {
         const currentPurpose = (current.purpose || '').toLowerCase();
         const extractedName = (extractedLoc.location || '').toLowerCase();
         const extractedPurpose = (extractedLoc.purpose || '').toLowerCase();
-        
+
         // Exact match
         if (extractedName === currentName || extractedName === currentPurpose) {
           console.log(`✅ [MAP] Exact name match: index ${i}`);
           return { matched: true, index: i, confidence: 'high' };
         }
-        
+
         // Partial match (extracted contains current or vice versa)
         if (extractedName && currentName && (
-          extractedName.includes(currentName) || 
+          extractedName.includes(currentName) ||
           currentName.includes(extractedName) ||
           extractedName.includes(currentPurpose) ||
           currentPurpose.includes(extractedName)
@@ -4047,7 +4062,7 @@ export default function ResultsPage() {
           console.log(`✅ [MAP] Partial name match: index ${i}`);
           return { matched: true, index: i, confidence: 'medium' };
         }
-        
+
         // Purpose match
         if (extractedPurpose && currentPurpose && (
           extractedPurpose === currentPurpose ||
@@ -4058,40 +4073,40 @@ export default function ResultsPage() {
           return { matched: true, index: i, confidence: 'medium' };
         }
       }
-      
+
       return { matched: false, confidence: 'low' };
     };
-    
+
     // Step 4: Apply modifications (locations that match existing ones)
     if (extractedData.locations && extractedData.locations.length > 0) {
       extractedData.locations.forEach((extractedLoc: any) => {
         // First, try to match the location (including arrival/departure → pickup/dropoff)
         const match = matchExtractedToCurrent(extractedLoc, manualLocations);
-        
+
         // If it matches pickup/dropoff (including via arrival/departure keywords), treat as modification
         // even if it has insertAfter/insertBefore metadata (those are likely false positives)
-        const isPickupOrDropoffMatch = match.matched && match.index !== undefined && 
+        const isPickupOrDropoffMatch = match.matched && match.index !== undefined &&
           (match.index === 0 || match.index === manualLocations.length - 1);
-        
+
         // Skip to additions only if:
         // 1. It doesn't match AND has insertion metadata, OR
         // 2. It doesn't match AND doesn't have insertion metadata (will be handled in additions)
         if (!match.matched && (extractedLoc.insertAfter || extractedLoc.insertBefore)) {
           return; // Will be handled in additions step
         }
-        
+
         // If it matches (especially pickup/dropoff), treat as modification regardless of insertion metadata
         if (match.matched && match.index !== undefined) {
           const idx = match.index;
           console.log(`✏️ [MAP] Modifying location ${idx + 1}: ${manualLocations[idx].location} → ${extractedLoc.location}`);
-          
+
           // Only update time if it was explicitly provided and is different from current
           // Preserve original time if extracted time is empty, same, or appears to be a default
           // The extraction API often returns "12:00" as a default when no time is mentioned
           const extractedTime = extractedLoc.time?.trim() || '';
           const currentTime = manualLocations[idx].time || '';
           const timeIsDifferent = extractedTime && extractedTime !== currentTime;
-          
+
           // Check if the extracted time looks like a meaningful change (not just a default)
           // The extraction API often returns "12:00" as a default when no time is mentioned
           // Strategy: If extracted time is "12:00" and current time exists, preserve current time
@@ -4113,7 +4128,7 @@ export default function ResultsPage() {
               shouldUpdateTime = true;
             }
           }
-          
+
           manualLocations[idx] = {
             ...manualLocations[idx],
             location: extractedLoc.location || manualLocations[idx].location,
@@ -4127,7 +4142,7 @@ export default function ResultsPage() {
             confidence: match.confidence as 'high' | 'medium' | 'low',
             originalIndex: manualLocations[idx].originalIndex,
           };
-          
+
           if (shouldUpdateTime) {
             console.log(`⏰ [MAP] Time updated for location ${idx + 1}: ${currentTime} → ${extractedTime}`);
           } else if (timeIsDifferent) {
@@ -4136,30 +4151,30 @@ export default function ResultsPage() {
         }
       });
     }
-    
+
     // Step 5: Apply additions (new locations and insertions)
     if (extractedData.locations && extractedData.locations.length > 0) {
       const additions = extractedData.locations.filter((loc: any) => {
         // First check if it matches (including arrival/departure → pickup/dropoff)
         const match = matchExtractedToCurrent(loc, manualLocations);
-        
+
         // If it matches pickup/dropoff, it's NOT an addition (should have been handled in Step 4)
-        if (match.matched && match.index !== undefined && 
-            (match.index === 0 || match.index === manualLocations.length - 1)) {
+        if (match.matched && match.index !== undefined &&
+          (match.index === 0 || match.index === manualLocations.length - 1)) {
           return false; // Already handled as modification
         }
-        
+
         // It's an addition if:
         // 1. Doesn't match any existing location AND has insertAfter/insertBefore (explicit insertion)
         // 2. Doesn't match any existing location (will be appended)
         if (!match.matched && (loc.insertAfter || loc.insertBefore)) return true;
         return !match.matched;
       });
-      
+
       // Helper function to find reference location index
       const findReferenceIndex = (reference: string, currentLocs: any[]): number => {
         const refLower = reference.toLowerCase().trim();
-        
+
         // Try multiple matching strategies
         for (let i = 0; i < currentLocs.length; i++) {
           const loc = currentLocs[i];
@@ -4167,37 +4182,37 @@ export default function ResultsPage() {
           const locPurpose = (loc.purpose || '').toLowerCase();
           const locFormatted = (loc.formattedAddress || '').toLowerCase();
           const combinedText = `${locName} ${locPurpose} ${locFormatted}`;
-          
+
           // Strategy 1: Exact match in any field
           if (locName === refLower || locPurpose === refLower || locFormatted.includes(refLower)) {
             return i;
           }
-          
+
           // Strategy 2: Reference is contained in location name or purpose
           if (locName.includes(refLower) || locPurpose.includes(refLower)) {
             return i;
           }
-          
+
           // Strategy 3: Location name or purpose is contained in reference (for partial matches)
           if (refLower.includes(locName) || refLower.includes(locPurpose)) {
             return i;
           }
-          
+
           // Strategy 4: Word-by-word matching (for "Soho House" matching "Soho House 76 Dean Street")
           const refWords = refLower.split(/\s+/).filter(w => w.length > 2); // Ignore short words
           if (refWords.length > 0 && refWords.every(word => combinedText.includes(word))) {
             return i;
           }
         }
-        
+
         return -1;
       };
-      
+
       additions.forEach((extractedLoc: any) => {
         // Parse insertAfter/insertBefore from purpose if not explicitly provided
         let insertAfter = extractedLoc.insertAfter;
         let insertBefore = extractedLoc.insertBefore;
-        
+
         if (!insertAfter && !insertBefore && extractedLoc.purpose) {
           const purposeLower = (extractedLoc.purpose || '').toLowerCase();
           // Check for "after [location]" pattern
@@ -4213,7 +4228,7 @@ export default function ResultsPage() {
             console.log(`🔍 [MAP] Parsed insertBefore from purpose: "${insertBefore}"`);
           }
         }
-        
+
         const newLocation = {
           location: extractedLoc.location || '',
           formattedAddress: extractedLoc.formattedAddress || extractedLoc.location || '',
@@ -4226,27 +4241,27 @@ export default function ResultsPage() {
           placeId: extractedLoc.placeId || `new-location-${Date.now()}-${Math.random()}`,
           originalIndex: -1, // New locations don't have original index
         };
-        
+
         // FIX 3: Validate location has required fields before adding
-        const hasValidLocation = newLocation.location.trim() !== '' || 
-                                 newLocation.formattedAddress.trim() !== '';
-        const hasValidCoords = (newLocation.lat !== 0 && newLocation.lng !== 0) || 
-                               (extractedLoc.lat !== 0 && extractedLoc.lng !== 0);
-        
+        const hasValidLocation = newLocation.location.trim() !== '' ||
+          newLocation.formattedAddress.trim() !== '';
+        const hasValidCoords = (newLocation.lat !== 0 && newLocation.lng !== 0) ||
+          (extractedLoc.lat !== 0 && extractedLoc.lng !== 0);
+
         if (!hasValidLocation) {
           console.warn(`⚠️ [MAP] Skipping empty location: location="${newLocation.location}", formattedAddress="${newLocation.formattedAddress}"`);
           console.warn(`   - This location will not be added to the trip`);
           return; // Skip this location
         }
-        
+
         if (!hasValidCoords && !extractedLoc.verified) {
           console.warn(`⚠️ [MAP] Location "${newLocation.location}" has no coordinates and is not verified, but adding anyway (will be geocoded later)`);
         }
-        
+
         if (insertAfter) {
           // Find reference location using improved matching
           const refIndex = findReferenceIndex(insertAfter, manualLocations);
-          
+
           if (refIndex !== -1) {
             console.log(`➕ [MAP] Inserting after location ${refIndex + 1} (${manualLocations[refIndex].location}): ${extractedLoc.location}`);
             manualLocations.splice(refIndex + 1, 0, newLocation);
@@ -4257,7 +4272,7 @@ export default function ResultsPage() {
         } else if (insertBefore) {
           // Find reference location using improved matching
           const refIndex = findReferenceIndex(insertBefore, manualLocations);
-          
+
           if (refIndex !== -1) {
             console.log(`➕ [MAP] Inserting before location ${refIndex + 1} (${manualLocations[refIndex].location}): ${extractedLoc.location}`);
             manualLocations.splice(refIndex, 0, newLocation);
@@ -4272,25 +4287,25 @@ export default function ResultsPage() {
         }
       });
     }
-    
+
     // Remove temporary tracking fields before returning
     return manualLocations.map(({ originalIndex, ...loc }) => loc);
   };
-  
+
   // Preview modal handlers
   const handleApplyPreview = async () => {
     console.log('✅ [PREVIEW] Applying changes...');
-    
+
     // Prepare validated locations to pass directly (avoiding React state timing issues)
     // Check all possible location fields: location, formattedAddress, or purpose
     const validatedLocations = previewLocations.filter(loc => {
       const hasCoords = loc.lat !== 0 && loc.lng !== 0;
-      const hasName = (loc.location && loc.location.trim() !== '') || 
-                     (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
-                     (loc.purpose && loc.purpose.trim() !== '');
+      const hasName = (loc.location && loc.location.trim() !== '') ||
+        (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
+        (loc.purpose && loc.purpose.trim() !== '');
       return hasCoords && hasName;
     });
-    
+
     // Fallback: If previewLocations is empty/invalid and we have tripData, use original locations
     // This handles cases where only non-location fields (passenger, vehicle) were changed
     let locationsToSave = validatedLocations;
@@ -4309,24 +4324,24 @@ export default function ResultsPage() {
         placeId: loc.id || `location-${idx + 1}`,
       }));
     }
-    
+
     // Final validation
     const finalValidLocations = locationsToSave.filter(loc => {
       const hasCoords = loc.lat !== 0 && loc.lng !== 0;
-      const hasName = (loc.location && loc.location.trim() !== '') || 
-                     (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
-                     (loc.purpose && loc.purpose.trim() !== '');
+      const hasName = (loc.location && loc.location.trim() !== '') ||
+        (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
+        (loc.purpose && loc.purpose.trim() !== '');
       return hasCoords && hasName;
     });
-    
+
     if (finalValidLocations.length === 0) {
       alert('Please ensure all locations have valid addresses and coordinates. Some locations may need to be selected from the address dropdown.');
       return;
     }
-    
+
     // Set editingLocations with validated data (for UI consistency, even though we pass directly)
     setEditingLocations(finalValidLocations);
-    
+
     // Update driver notes if changed
     if (previewDriverNotes !== driverNotes) {
       setEditedDriverNotes(previewDriverNotes);
@@ -4350,7 +4365,7 @@ export default function ResultsPage() {
     // Pass validated locations directly to avoid React state timing issues
     await handleSaveRouteEdits(finalValidLocations);
   };
-  
+
   const handleEditManually = () => {
     console.log('✏️ [PREVIEW] Opening manual edit form...');
     // Set editingLocations with preview data (pre-filled)
@@ -4377,7 +4392,7 @@ export default function ResultsPage() {
     // Open edit route modal
     setShowEditRouteModal(true);
   };
-  
+
   const handleCancelPreview = () => {
     console.log('❌ [PREVIEW] Cancelling changes...');
     setShowPreviewModal(false);
@@ -4397,37 +4412,37 @@ export default function ResultsPage() {
       added: [] as number[], // Indices in mappedLocations
       originalLocationMap: new Map<number, any>(), // Map from mappedLocations index to original location
     };
-    
+
     // Track which current locations were matched
     const matchedIndices = new Set<number>();
-    
+
     // Find modifications and additions (locations in mappedLocations)
     mappedLocations.forEach((mappedLoc, mappedIdx) => {
       // Try to find matching current location
       const currentIdx = currentLocations.findIndex((currentLoc, idx) => {
         if (matchedIndices.has(idx)) return false; // Already matched
-        
+
         const nameMatch = (currentLoc.name || '').toLowerCase() === (mappedLoc.location || '').toLowerCase() ||
-                         (currentLoc.fullAddress || '').toLowerCase() === (mappedLoc.formattedAddress || '').toLowerCase();
+          (currentLoc.fullAddress || '').toLowerCase() === (mappedLoc.formattedAddress || '').toLowerCase();
         const coordMatch = currentLoc.lat === mappedLoc.lat && currentLoc.lng === mappedLoc.lng;
-        
+
         return nameMatch || coordMatch;
       });
-      
+
       if (currentIdx !== -1) {
         matchedIndices.add(currentIdx);
         const current = currentLocations[currentIdx];
         // Store mapping from mappedLocations index to original location
         changes.originalLocationMap.set(mappedIdx, current);
-        
+
         // Check if it was modified
-        const modified = 
+        const modified =
           (current.name || '') !== (mappedLoc.location || '') ||
           (current.fullAddress || '') !== (mappedLoc.formattedAddress || '') ||
           (current.time || '') !== (mappedLoc.time || '') ||
           current.lat !== mappedLoc.lat ||
           current.lng !== mappedLoc.lng;
-        
+
         if (modified) {
           changes.modified.push(mappedIdx);
         }
@@ -4436,7 +4451,7 @@ export default function ResultsPage() {
         changes.added.push(mappedIdx);
       }
     });
-    
+
     // Find removals (current locations not in mapped)
     currentLocations.forEach((currentLoc, idx) => {
       if (!matchedIndices.has(idx)) {
@@ -4444,7 +4459,7 @@ export default function ResultsPage() {
         changes.removed.push({ index: idx, location: currentLoc });
       }
     });
-    
+
     return changes;
   };
 
@@ -4466,14 +4481,14 @@ export default function ResultsPage() {
     try {
       // PRE-PROCESSING: Strip email headers to prevent false positives
       const cleanedText = stripEmailMetadata(updateText);
-      
+
       // Step 1: Extract updates from text
       console.log('🔄 Step 1: Extracting updates from text...');
-      
+
       const extractResponse = await fetch('/api/extract-trip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           text: cleanedText,  // Use cleaned text without email headers
           tripDestination: tripDestination || undefined // Pass current trip destination for proper geocoding
         }),
@@ -4498,7 +4513,7 @@ export default function ResultsPage() {
       if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
         console.log(`🗑️ [REMOVAL] Detected ${extractedData.removedLocations.length} location(s) to remove:`, extractedData.removedLocations);
       }
-      
+
       // POST-PROCESSING: Log insertion operations if detected
       if (extractedData.locations && extractedData.locations.length > 0) {
         extractedData.locations.forEach((loc: any, idx: number) => {
@@ -4509,13 +4524,13 @@ export default function ResultsPage() {
           }
         });
       }
-      
+
       // POST-PROCESSING: Validate and override fields based on "same" language
       const unchangedFields = detectUnchangedFields(updateText);
-      
+
       if (unchangedFields.size > 0) {
         console.log(`🔧 [POST-PROCESSING] Found ${unchangedFields.size} field(s) that should be unchanged:`, Array.from(unchangedFields));
-        
+
         if (unchangedFields.has('vehicle') && extractedData.vehicleInfo) {
           console.log(`   → Ignoring extracted vehicle: "${extractedData.vehicleInfo}"`);
           extractedData.vehicleInfo = null;
@@ -4530,21 +4545,21 @@ export default function ResultsPage() {
           extractedData.date = null;
         }
       }
-      
+
       // POST-PROCESSING: Validate date makes sense (not email send date)
       if (extractedData.date && tripData) {
         const extractedDate = new Date(extractedData.date);
         const currentTripDate = new Date(tripData.tripDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // If extracted date is before current trip date, likely email metadata
         if (extractedDate < currentTripDate) {
           console.warn(`⚠️ [VALIDATION] Extracted date ${extractedData.date} is BEFORE trip date ${tripData.tripDate}`);
           console.warn(`   This is likely email send date (metadata), not a trip date change. Ignoring.`);
           extractedData.date = null;
         }
-        
+
         // If extracted date matches today, might be email send date
         const extractedDateOnly = extractedData.date;
         const todayStr = today.toISOString().split('T')[0];
@@ -4556,25 +4571,25 @@ export default function ResultsPage() {
 
       console.log('✅ Step 1 complete: Extracted data successfully');
       setExtractedUpdates(extractedData);
-      
+
       // Step 2: Map extracted data to manual form format (replacing comparison step)
       if (tripData) {
         setUpdateProgress({ step: 'Mapping updates to trip format', error: null, canRetry: false });
         console.log('🔄 [UPDATE] Step 2: Mapping extracted data to manual form format...');
         console.log('📍 [UPDATE] Current:', tripData.locations.length, 'locations');
         console.log('📍 [UPDATE] Extracted:', extractedData.locations?.length || 0, 'locations');
-        
+
         try {
           // Map extracted data to manual form format
           const mappedLocations = mapExtractedToManualForm(tripData.locations, extractedData);
-          
+
           // Calculate changes for preview
           const changes = calculateChanges(tripData.locations, mappedLocations);
-          
+
           // Update trip notes if changed
           const newDriverNotes = extractedData.driverNotes || driverNotes;
           const notesChanged = extractedData.driverNotes && extractedData.driverNotes !== driverNotes;
-          
+
           console.log('✅ [UPDATE] Step 2: Mapping successful');
           console.log('📊 [UPDATE] Changes:', {
             removed: changes.removed.length,
@@ -4582,7 +4597,7 @@ export default function ResultsPage() {
             added: changes.added.length,
             notesChanged: notesChanged
           });
-          
+
           // Store original values from tripData BEFORE updating state
           const originalValuesData = {
             leadPassengerName: leadPassengerName,
@@ -4592,7 +4607,7 @@ export default function ResultsPage() {
             driverNotes: driverNotes,
           };
           setOriginalValues(originalValuesData);
-          
+
           // Track non-location field changes (compare against original values)
           const nonLocationChanges: any = {};
           if (extractedData.leadPassengerName && extractedData.leadPassengerName !== originalValuesData.leadPassengerName) {
@@ -4607,13 +4622,13 @@ export default function ResultsPage() {
           if (extractedData.tripDestination && extractedData.tripDestination !== originalValuesData.tripDestination) {
             nonLocationChanges.tripDestination = extractedData.tripDestination;
           }
-          
+
           // Set preview data
           setPreviewLocations(mappedLocations);
           setPreviewChanges(changes);
           setPreviewDriverNotes(newDriverNotes);
           setPreviewNonLocationFields(nonLocationChanges);
-        
+
           // Update other fields if changed (for immediate state update)
           if (extractedData.leadPassengerName) {
             setLeadPassengerName(extractedData.leadPassengerName);
@@ -4627,11 +4642,11 @@ export default function ResultsPage() {
           if (extractedData.tripDestination) {
             setTripDestination(extractedData.tripDestination);
           }
-          
+
           // Show preview modal (regeneration modal will show when user accepts)
           setIsExtracting(false);
           setShowPreviewModal(true);
-          
+
         } catch (mapError) {
           console.error('❌ [UPDATE] Mapping failed:', mapError);
           setError(mapError instanceof Error ? mapError.message : 'Failed to map updates');
@@ -4662,7 +4677,7 @@ export default function ResultsPage() {
     console.log(`   - Current trip has ${tripData?.locations?.length || 0} locations`);
     console.log(`   - Comparison has ${comparison.locations?.length || 0} location changes`);
     console.log(`   - Trip destination: "${tripDestination}"`);
-    
+
     const diff: any = {
       tripDateChanged: comparison.tripDateChanged || false,
       locations: [],
@@ -4677,7 +4692,7 @@ export default function ResultsPage() {
 
     // Transform location changes - first collect all, then sort by index for final locations
     const finalLocationsMap: { [key: number]: any } = {};
-    
+
     // If comparison doesn't return locations or they're all unchanged, ensure all current locations are preserved
     if (!comparison.locations || !Array.isArray(comparison.locations) || comparison.locations.length === 0) {
       // No location changes - preserve all current locations as unchanged
@@ -4703,12 +4718,12 @@ export default function ResultsPage() {
           console.warn('⚠️ Skipping invalid location change (not an object):', locChange);
           return;
         }
-        
+
         if (!locChange.action) {
           console.warn('⚠️ Skipping location change without action:', locChange);
           return;
         }
-        
+
         if (locChange.action === 'removed') {
           console.log(`🗑️ [REMOVAL-DIAG] Removing location at index ${locChange.currentIndex}: "${locChange.currentLocation?.name || locChange.currentLocation?.address || 'Unknown'}"`);
           console.log(`   - fullAddress: "${locChange.currentLocation?.fullAddress || 'MISSING'}"`);
@@ -4724,7 +4739,7 @@ export default function ResultsPage() {
           // Check if this is an insertion (has insertPosition) or append
           const isInsertion = !!(locChange as any).insertPosition;
           const insertPos = (locChange as any).insertPosition;
-          
+
           diff.locations.push({
             type: 'added',
             index: isInsertion ? insertPos?.referenceIndex : locChange.extractedIndex,
@@ -4732,29 +4747,29 @@ export default function ResultsPage() {
             newTime: locChange.extractedLocation?.time || '',
             newPurpose: locChange.extractedLocation?.purpose || '',
           });
-          
+
           // Handle insertion vs append
           if (locChange.finalLocation) {
             const finalLoc = locChange.finalLocation;
-            
+
             // GUARD: Validate finalLocation is a proper object with required fields
             if (!finalLoc || typeof finalLoc !== 'object') {
               console.error('❌ Invalid finalLocation for added action (not an object):', finalLoc);
               return; // Skip this location
             }
-            
+
             // GUARD: Ensure lat/lng exist and are numbers (allow 0 for now, existing logic handles it)
             if (finalLoc.lat === undefined || finalLoc.lng === undefined) {
               console.error('❌ Invalid finalLocation for added action (missing lat/lng):', finalLoc);
               return; // Skip this location
             }
-            
+
             // FIX: Validate and fix ID for added locations
             if (!finalLoc.id || finalLoc.id === 'currentLocation.id' || finalLoc.id === 'extractedLocation.id' || finalLoc.id.includes('Location.id')) {
               console.warn(`⚠️ [FIX] AI returned invalid ID for added location: "${finalLoc.id}", generating new one`);
               finalLoc.id = `location-added-${locChange.extractedIndex}-${Date.now()}`;
             }
-            
+
             // Ensure finalLocation has valid coordinates
             if ((!finalLoc.lat || finalLoc.lat === 0) && locChange.extractedLocation?.lat && locChange.extractedLocation.lat !== 0) {
               finalLoc.lat = locChange.extractedLocation.lat;
@@ -4769,21 +4784,21 @@ export default function ResultsPage() {
             if ((!finalLoc.lng || finalLoc.lng === 0) && tripData?.locations[locChange.extractedIndex]?.lng) {
               finalLoc.lng = tripData.locations[locChange.extractedIndex].lng;
             }
-            
+
             // CRITICAL FIX: Ensure fullAddress and formattedAddress are set from extractedLocation for proper display
             if (!finalLoc.fullAddress && locChange.extractedLocation) {
-              finalLoc.fullAddress = locChange.extractedLocation.formattedAddress || 
-                                     locChange.extractedLocation.location || 
-                                     finalLoc.address || 
-                                     finalLoc.name;
+              finalLoc.fullAddress = locChange.extractedLocation.formattedAddress ||
+                locChange.extractedLocation.location ||
+                finalLoc.address ||
+                finalLoc.name;
             }
             if (!finalLoc.formattedAddress && locChange.extractedLocation) {
-              finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress || 
-                                     locChange.extractedLocation.location || 
-                                     finalLoc.address || 
-                                     finalLoc.name;
+              finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress ||
+                locChange.extractedLocation.location ||
+                finalLoc.address ||
+                finalLoc.name;
             }
-            
+
             // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
             // Format: "Purpose, Formatted Address" so that .split(',')[0] shows the purpose
             if (finalLoc.purpose && finalLoc.formattedAddress && finalLoc.purpose !== finalLoc.formattedAddress) {
@@ -4793,13 +4808,13 @@ export default function ResultsPage() {
             } else {
               finalLoc.name = finalLoc.purpose || finalLoc.name || finalLoc.fullAddress || finalLoc.address;
             }
-            
+
             // Handle insertion logic
             if (isInsertion && insertPos) {
               console.log(`📌 [INSERT] Adding location ${insertPos.type} reference index ${insertPos.referenceIndex} (${insertPos.referenceName})`);
-              
+
               const insertAtIndex = insertPos.type === 'after' ? insertPos.referenceIndex + 1 : insertPos.referenceIndex;
-              
+
               // Shift all locations at insertAtIndex and beyond up by 1
               const shiftedMap: { [key: number]: any } = {};
               Object.keys(finalLocationsMap).forEach(key => {
@@ -4810,18 +4825,18 @@ export default function ResultsPage() {
                   shiftedMap[idx] = finalLocationsMap[idx];
                 }
               });
-              
+
               // Insert new location at the calculated position
               shiftedMap[insertAtIndex] = finalLoc;
-              
+
               // Replace finalLocationsMap with shifted version
               Object.keys(finalLocationsMap).forEach(key => delete (finalLocationsMap as any)[key]);
               Object.assign(finalLocationsMap, shiftedMap);
-              
+
               console.log(`✅ [INSERT] Location inserted at index ${insertAtIndex}`);
             } else {
               // Regular append at extracted index
-            finalLocationsMap[locChange.extractedIndex] = finalLoc;
+              finalLocationsMap[locChange.extractedIndex] = finalLoc;
             }
           }
         } else if (locChange.action === 'modified') {
@@ -4842,7 +4857,7 @@ export default function ResultsPage() {
           if (locChange.finalLocation) {
             const finalLoc = locChange.finalLocation;
             const currentLoc = tripData?.locations[locChange.currentIndex];
-            
+
             // GUARD: Validate finalLocation is a proper object with required fields
             if (!finalLoc || typeof finalLoc !== 'object') {
               console.error('❌ Invalid finalLocation for modified action (not an object):', finalLoc);
@@ -4853,7 +4868,7 @@ export default function ResultsPage() {
               }
               return; // Skip to next location
             }
-            
+
             // GUARD: Ensure lat/lng exist (allow 0 for now, existing logic handles it)
             if (finalLoc.lat === undefined || finalLoc.lng === undefined) {
               console.error('❌ Invalid finalLocation for modified action (missing lat/lng):', finalLoc);
@@ -4864,13 +4879,13 @@ export default function ResultsPage() {
               }
               return; // Skip to next location
             }
-            
+
             // FIX: Validate and fix ID if AI returned literal string instead of actual value
             if (!finalLoc.id || finalLoc.id === 'currentLocation.id' || finalLoc.id === 'extractedLocation.id' || finalLoc.id.includes('Location.id')) {
               console.warn(`⚠️ [FIX] AI returned invalid ID: "${finalLoc.id}", using fallback`);
               finalLoc.id = currentLoc?.id || `location-${locChange.currentIndex}-${Date.now()}`;
             }
-            
+
             // FIX: Preserve address fields for time-only changes (prevent address corruption)
             if (locChange.changes?.timeChanged && !locChange.changes?.addressChanged && currentLoc) {
               console.log(`🔧 [FIX] Time-only change detected, preserving address fields from current location`);
@@ -4882,7 +4897,7 @@ export default function ResultsPage() {
                 finalLoc.name = `${finalLoc.purpose}, ${(currentLoc as any).fullAddress}`;
               }
             }
-            
+
             // Ensure finalLocation has valid coordinates
             if ((!finalLoc.lat || finalLoc.lat === 0) && locChange.extractedLocation?.lat && locChange.extractedLocation.lat !== 0) {
               finalLoc.lat = locChange.extractedLocation.lat;
@@ -4897,14 +4912,14 @@ export default function ResultsPage() {
             if ((!finalLoc.lng || finalLoc.lng === 0) && currentLoc?.lng && currentLoc.lng !== 0) {
               finalLoc.lng = currentLoc.lng;
             }
-            
+
             // CRITICAL FIX: Ensure fullAddress and formattedAddress are set from extractedLocation for proper display
             if (!finalLoc.fullAddress && locChange.extractedLocation) {
               const beforeFullAddress = finalLoc.fullAddress;
-              finalLoc.fullAddress = locChange.extractedLocation.formattedAddress || 
-                                     locChange.extractedLocation.location || 
-                                     finalLoc.address || 
-                                     finalLoc.name;
+              finalLoc.fullAddress = locChange.extractedLocation.formattedAddress ||
+                locChange.extractedLocation.location ||
+                finalLoc.address ||
+                finalLoc.name;
               if (finalLoc.fullAddress !== beforeFullAddress) {
                 console.log(`🔍 [ADDRESS-DIAG] Location ${locChange.currentIndex} fullAddress set: "${beforeFullAddress}" → "${finalLoc.fullAddress}" (source: ${locChange.extractedLocation.formattedAddress ? 'formattedAddress' : locChange.extractedLocation.location ? 'location' : finalLoc.address ? 'address' : 'name'})`);
                 // Check if address is just city name
@@ -4915,10 +4930,10 @@ export default function ResultsPage() {
             }
             if (!finalLoc.formattedAddress && locChange.extractedLocation) {
               const beforeFormattedAddress = finalLoc.formattedAddress;
-              finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress || 
-                                     locChange.extractedLocation.location || 
-                                     finalLoc.address || 
-                                     finalLoc.name;
+              finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress ||
+                locChange.extractedLocation.location ||
+                finalLoc.address ||
+                finalLoc.name;
               if (finalLoc.formattedAddress !== beforeFormattedAddress) {
                 console.log(`🔍 [ADDRESS-DIAG] Location ${locChange.currentIndex} formattedAddress set: "${beforeFormattedAddress}" → "${finalLoc.formattedAddress}"`);
                 if (finalLoc.formattedAddress && finalLoc.formattedAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
@@ -4926,7 +4941,7 @@ export default function ResultsPage() {
                 }
               }
             }
-            
+
             // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
             // Format: "Purpose, Formatted Address" so that .split(',')[0] shows the purpose
             // ALSO: If addressChanged, force name reconstruction (handles AI missing it)
@@ -4938,38 +4953,38 @@ export default function ResultsPage() {
             } else {
               finalLoc.name = finalLoc.purpose || finalLoc.name || finalLoc.fullAddress || finalLoc.address;
             }
-            
+
             finalLocationsMap[locChange.currentIndex] = finalLoc;
           } else if (locChange.currentLocation && locChange.extractedLocation) {
             // Build final location from current + extracted
             const currentLoc = tripData?.locations[locChange.currentIndex];
-            
+
             // FIX: Validate ID first
             let locationId = currentLoc?.id || (locChange.currentIndex + 1).toString();
             if (locationId === 'currentLocation.id' || locationId === 'extractedLocation.id' || locationId.includes('Location.id')) {
               console.warn(`⚠️ [FIX] Invalid ID detected: "${locationId}", generating new one`);
               locationId = `location-${locChange.currentIndex}-${Date.now()}`;
             }
-            
+
             // Prioritize extracted coordinates, fallback to current, ensure we never use 0
-            let lat = locChange.extractedLocation.lat && locChange.extractedLocation.lat !== 0 
-              ? locChange.extractedLocation.lat 
+            let lat = locChange.extractedLocation.lat && locChange.extractedLocation.lat !== 0
+              ? locChange.extractedLocation.lat
               : (currentLoc?.lat && currentLoc.lat !== 0 ? currentLoc.lat : 0);
-            let lng = locChange.extractedLocation.lng && locChange.extractedLocation.lng !== 0 
-              ? locChange.extractedLocation.lng 
+            let lng = locChange.extractedLocation.lng && locChange.extractedLocation.lng !== 0
+              ? locChange.extractedLocation.lng
               : (currentLoc?.lng && currentLoc.lng !== 0 ? currentLoc.lng : 0);
-            
+
             // CRITICAL FIX: Ensure fullAddress is properly set for display
             // For time-only changes, preserve the original fullAddress from currentLoc
             const timeOnlyChange = locChange.changes?.timeChanged && !locChange.changes?.addressChanged;
             const currentFullAddress = (currentLoc as any)?.fullAddress;
             const fullAddress = timeOnlyChange && currentFullAddress
               ? currentFullAddress
-              : (locChange.extractedLocation.formattedAddress || 
-                 locChange.extractedLocation.location || 
-                 locChange.currentLocation.address ||
-                 currentFullAddress ||
-                 locChange.currentLocation.name);
+              : (locChange.extractedLocation.formattedAddress ||
+                locChange.extractedLocation.location ||
+                locChange.currentLocation.address ||
+                currentFullAddress ||
+                locChange.currentLocation.name);
             // Diagnostic logging for address assignment
             if (fullAddress && fullAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
               console.warn(`⚠️ [ADDRESS-DIAG] Location ${locChange.currentIndex} fullAddress resolved to just city name "${fullAddress}"`);
@@ -4979,10 +4994,10 @@ export default function ResultsPage() {
               console.warn(`   - currentLocation.address: "${locChange.currentLocation.address}"`);
               console.warn(`   - currentLocation.name: "${locChange.currentLocation.name}"`);
             }
-            
+
             const purpose = locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name;
             const formattedAddress = fullAddress;
-            
+
             // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
             // Force reconstruction if address changed (handles AI not reconstructing name)
             const addressChanged = locChange.changes?.addressChanged;
@@ -4992,7 +5007,7 @@ export default function ResultsPage() {
             } else if (formattedAddress) {
               displayName = formattedAddress;
             }
-            
+
             finalLocationsMap[locChange.currentIndex] = {
               id: locationId,
               name: displayName,
@@ -5007,18 +5022,18 @@ export default function ResultsPage() {
           }
         } else if (locChange.action === 'unchanged') {
           // Add unchanged location to final locations - ALWAYS preserve from current trip data
-            const currentLoc = tripData?.locations[locChange.currentIndex];
-            if (currentLoc) {
+          const currentLoc = tripData?.locations[locChange.currentIndex];
+          if (currentLoc) {
             // Always use current location data for unchanged locations to preserve coordinates
-              finalLocationsMap[locChange.currentIndex] = {
-                id: currentLoc.id,
-                name: currentLoc.name,
-                formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || currentLoc.name,
-                address: currentLoc.name,
-                time: currentLoc.time,
-                purpose: currentLoc.name,
-                lat: currentLoc.lat,
-                lng: currentLoc.lng,
+            finalLocationsMap[locChange.currentIndex] = {
+              id: currentLoc.id,
+              name: currentLoc.name,
+              formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || currentLoc.name,
+              address: currentLoc.name,
+              time: currentLoc.time,
+              purpose: currentLoc.name,
+              lat: currentLoc.lat,
+              lng: currentLoc.lng,
               fullAddress: (currentLoc as any).fullAddress || currentLoc.name,
             };
           } else if (locChange.finalLocation) {
@@ -5054,7 +5069,7 @@ export default function ResultsPage() {
           console.log(`⛔ [REMOVAL] Skipping removed location ${idx}: ${currentLoc.name}`);
           return;
         }
-        
+
         // If this location index doesn't exist in finalLocationsMap yet, add it
         if (finalLocationsMap[idx] === undefined) {
           console.log(`🔄 Preserving missing location at index ${idx}: ${currentLoc.name}`);
@@ -5090,7 +5105,7 @@ export default function ResultsPage() {
       .map(k => parseInt(k))
       .filter(idx => !isNaN(idx))
       .sort((a, b) => a - b);
-    
+
     console.log(`🔍 [FINAL-LOCATIONS-DIAG] Building final locations array from ${sortedIndices.length} indices`);
     diff.finalLocations = sortedIndices.map(idx => {
       const loc = finalLocationsMap[idx];
@@ -5105,7 +5120,7 @@ export default function ResultsPage() {
       }
       return loc;
     });
-    
+
     // FIX: Ensure unique IDs in final locations array (prevent React duplicate key errors)
     const usedIds = new Set<string>();
     diff.finalLocations = diff.finalLocations.map((loc: any, idx: number) => {
@@ -5162,7 +5177,7 @@ export default function ResultsPage() {
 
     try {
       const tripDateStr = tripDateObj.toISOString().split('T')[0];
-      
+
       console.log(`\n${'='.repeat(80)}`);
       console.log(`🔄 Regenerating Trip Analysis - Version ${(currentVersion || 1) + 1}`);
       console.log(`🗓️  Trip Date: ${tripDateStr}`);
@@ -5182,7 +5197,7 @@ export default function ResultsPage() {
       const results = await Promise.all(
         validLocations.map(async (location) => {
           console.log(`\n🔍 Fetching data for Location ${numberToLetter(validLocations.indexOf(location) + 1)}: ${location.name} at ${location.time}`);
-          
+
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
           // Universal APIs (always called)
@@ -5211,7 +5226,7 @@ export default function ResultsPage() {
           if (cityConfig.isLondon) {
             const responses = [crimeResponse, disruptionsResponse, weatherResponse, parkingResponse];
             const responseNames = ['crime', 'disruptions', 'weather', 'parking'];
-            
+
             for (let i = 0; i < responses.length; i++) {
               if (!responses[i].ok) {
                 const errorText = await responses[i].text();
@@ -5298,9 +5313,9 @@ export default function ResultsPage() {
       // Get traffic predictions
       setRegenerationProgress(70);
       setRegenerationStep('Calculating traffic predictions...');
-      setRegenerationSteps(prev => prev.map(s => 
+      setRegenerationSteps(prev => prev.map(s =>
         s.id === '4' ? { ...s, status: 'completed' as const } :
-        s.id === '5' ? { ...s, status: 'loading' as const } : s
+          s.id === '5' ? { ...s, status: 'loading' as const } : s
       ));
       console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
@@ -5317,13 +5332,13 @@ export default function ResultsPage() {
       // Generate executive report
       setRegenerationProgress(80);
       setRegenerationStep('Generating executive report...');
-      setRegenerationSteps(prev => prev.map(s => 
+      setRegenerationSteps(prev => prev.map(s =>
         s.id === '5' ? { ...s, status: 'completed' as const } :
-        s.id === '6' ? { ...s, status: 'loading' as const } : s
+          s.id === '6' ? { ...s, status: 'loading' as const } : s
       ));
       console.log('🤖 Generating Executive Peace of Mind Report...');
       let executiveReportData = null;
-      
+
       try {
         const reportData = results.map(r => ({
           locationName: r.locationName,
@@ -5356,7 +5371,7 @@ export default function ResultsPage() {
         });
 
         const reportResult = await reportResponse.json();
-        
+
         if (reportResult.success) {
           executiveReportData = reportResult.data;
           console.log('✅ Executive Report Generated!');
@@ -5433,12 +5448,12 @@ export default function ResultsPage() {
       // Update trip in database
       setRegenerationProgress(90);
       setRegenerationStep('Saving updated report...');
-      setRegenerationSteps(prev => prev.map(s => 
+      setRegenerationSteps(prev => prev.map(s =>
         s.id === '6' ? { ...s, status: 'completed' as const } :
-        s.id === '7' ? { ...s, status: 'loading' as const } : s
+          s.id === '7' ? { ...s, status: 'loading' as const } : s
       ));
       console.log(`💾 Updating trip ${tripId} with version ${updateData.version}...`);
-      const { data: updatedTrip, error: updateError} = await supabase
+      const { data: updatedTrip, error: updateError } = await supabase
         .from('trips')
         .update(updateData)
         .eq('id', tripId)
@@ -5467,7 +5482,7 @@ export default function ResultsPage() {
       // Small delay to show completion, then handle next steps
       setTimeout(() => {
         setIsRegenerating(false);
-        
+
         // Show notification modal if driver is set
         if (driverEmail) {
           console.log('🔔 [DEBUG] Driver assigned, showing notification modal');
@@ -5503,11 +5518,11 @@ export default function ResultsPage() {
     try {
       // Use finalLocations from AI comparison (already merged intelligently)
       const finalLocations = comparisonDiff.finalLocations || [];
-      
+
       // Convert final locations to format expected by performTripAnalysis
       // Log for debugging
       console.log('🔍 [DEBUG] Final locations before validation:', JSON.stringify(finalLocations, null, 2));
-      
+
       // Filter out locations with invalid coordinates (lat === 0 && lng === 0)
       console.log(`🔍 [VALIDATION-DIAG] Starting validation with ${finalLocations.length} locations`);
       const validLocations = finalLocations
@@ -5521,14 +5536,14 @@ export default function ResultsPage() {
             fullAddress: loc.fullAddress || loc.address || loc.name || '',
             purpose: loc.purpose || loc.name || '',
           };
-          
+
           // Log locations with invalid coordinates
           if (location.lat === 0 && location.lng === 0) {
             console.warn(`⚠️ [VALIDATION-DIAG] Location ${idx + 1} (${location.name}) has invalid coordinates (0, 0)`);
             console.warn(`   - fullAddress: "${location.fullAddress}"`);
             console.warn(`   - Original loc data:`, JSON.stringify(loc, null, 2));
           }
-          
+
           return location;
         })
         .filter((loc: any) => {
@@ -5539,12 +5554,12 @@ export default function ResultsPage() {
           }
           return isValid;
         });
-      
+
       console.log(`✅ [DEBUG] Valid locations after filtering: ${validLocations.length}`);
       validLocations.forEach((loc: any, idx: number) => {
         console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
       });
-      
+
       // Validate that we have at least 2 valid locations for traffic predictions
       if (validLocations.length < 2) {
         console.error('❌ Need at least 2 locations with valid coordinates for traffic predictions');
@@ -5557,30 +5572,30 @@ export default function ResultsPage() {
 
       // VALIDATION: Check for coordinate/address mismatches BEFORE geocoding decision
       console.log('🔍 [VALIDATION] Checking coordinate/address consistency...');
-      const inconsistentLocations: Array<{loc: any, index: number, reason: string}> = [];
-      
+      const inconsistentLocations: Array<{ loc: any, index: number, reason: string }> = [];
+
       validLocations.forEach((loc: any, i: number) => {
         if (loc.lat && loc.lng && loc.lat !== 0 && loc.lng !== 0 && loc.fullAddress) {
           const addressLower = loc.fullAddress.toLowerCase();
-          
+
           // Check 1: Airport address but central London coordinates
-          const isAirportAddress = addressLower.includes('airport') || 
-                                  addressLower.includes('gatwick') || 
-                                  addressLower.includes('heathrow') ||
-                                  addressLower.includes('stansted') ||
-                                  addressLower.includes('luton');
-          
+          const isAirportAddress = addressLower.includes('airport') ||
+            addressLower.includes('gatwick') ||
+            addressLower.includes('heathrow') ||
+            addressLower.includes('stansted') ||
+            addressLower.includes('luton');
+
           // Central London bounds: ~51.49-51.53 lat, -0.14 to -0.07 lng
-          const inCentralLondon = (loc.lat > 51.49 && loc.lat < 51.53) && 
-                                 (loc.lng > -0.14 && loc.lng < -0.07);
-          
+          const inCentralLondon = (loc.lat > 51.49 && loc.lat < 51.53) &&
+            (loc.lng > -0.14 && loc.lng < -0.07);
+
           if (isAirportAddress && inCentralLondon) {
             console.error(`❌ [VALIDATION] Location ${i} has AIRPORT address but CENTRAL LONDON coords!`);
             console.error(`   Address: ${loc.fullAddress}`);
             console.error(`   Coords: ${loc.lat}, ${loc.lng}`);
             inconsistentLocations.push({ loc, index: i, reason: 'airport-central-mismatch' });
           }
-          
+
           // Check 2: Gatwick address but coords far from Gatwick
           if (addressLower.includes('gatwick')) {
             // Gatwick coords: ~51.1537, -0.1821
@@ -5588,7 +5603,7 @@ export default function ResultsPage() {
               Math.pow((loc.lat - 51.1537) * 111, 2) + // rough km conversion
               Math.pow((loc.lng - (-0.1821)) * 111 * Math.cos(loc.lat * Math.PI / 180), 2)
             );
-            
+
             if (distanceFromGatwick > 5) {
               console.error(`❌ [VALIDATION] Gatwick address but coords are ${distanceFromGatwick.toFixed(1)}km away!`);
               console.error(`   Address: ${loc.fullAddress}`);
@@ -5596,7 +5611,7 @@ export default function ResultsPage() {
               inconsistentLocations.push({ loc, index: i, reason: 'gatwick-distance-mismatch' });
             }
           }
-          
+
           // Check 3: Generic "London, UK" address (likely geocoding fallback)
           if (loc.fullAddress === 'London, UK' || loc.fullAddress.length < 15) {
             console.warn(`⚠️ [VALIDATION] Location ${i} has generic address: "${loc.fullAddress}"`);
@@ -5604,16 +5619,16 @@ export default function ResultsPage() {
           }
         }
       });
-      
+
       // Re-geocode inconsistent locations
       if (inconsistentLocations.length > 0) {
         console.log(`🔧 [FIX] Re-geocoding ${inconsistentLocations.length} inconsistent locations...`);
-        
+
         for (const inconsistent of inconsistentLocations) {
           try {
             const geocoder = new google.maps.Geocoder();
             const query = inconsistent.loc.fullAddress;
-            
+
             const result = await new Promise<any>((resolve) => {
               geocoder.geocode(
                 { address: query, region: getCityConfig(tripDestination).geocodingRegion },
@@ -5626,7 +5641,7 @@ export default function ResultsPage() {
                 }
               );
             });
-            
+
             if (result) {
               validLocations[inconsistent.index].lat = result.geometry.location.lat();
               validLocations[inconsistent.index].lng = result.geometry.location.lng();
@@ -5646,26 +5661,26 @@ export default function ResultsPage() {
       const needsGeocoding = (loc: any): boolean => {
         // No coordinates = definitely needs geocoding
         if (loc.lat === 0 && loc.lng === 0) return true;
-        
+
         // Has coordinates but missing/incomplete address = needs geocoding
         const fullAddr = loc.fullAddress || '';
         const hasIncompleteAddress = fullAddr.length < 20 || !fullAddr.includes(',');
-        
+
         if (hasIncompleteAddress) {
           console.log(`   ⚠️ Location "${loc.name}" has incomplete address: "${fullAddr}" (needs geocoding)`);
         }
-        
+
         return hasIncompleteAddress;
       };
-      
+
       const locationsNeedingGeocoding = validLocations.filter(needsGeocoding);
       const locationsWithValidData = validLocations.filter((loc: any) => !needsGeocoding(loc));
-      
+
       console.log(`🗺️ [OPTIMIZATION] Geocoding: ${locationsNeedingGeocoding.length} locations need geocoding, ${locationsWithValidData.length} already have valid data`);
       setRegenerationProgress(35);
       setRegenerationStep(`Geocoding ${locationsNeedingGeocoding.length} location(s)...`);
       // Step 3 is already set to loading from handleExtractUpdates
-      
+
       // Only geocode locations that actually need it
       let geocodedLocations: any[] = [];
       if (locationsNeedingGeocoding.length > 0) {
@@ -5673,16 +5688,16 @@ export default function ResultsPage() {
         // Get city configuration for geocoding
         const cityConfig = getCityConfig(tripDestination);
         console.log(`🌍 [GEOCODING] Using city context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias})`);
-        
+
         geocodedLocations = await Promise.all(
           locationsNeedingGeocoding.map(async (loc: any) => {
             try {
               console.log(`   Geocoding: ${loc.name || loc.fullAddress || loc.address || 'Unknown location'}`);
-              
+
               // Use Google Maps Geocoding API
               const geocoder = new google.maps.Geocoder();
               const query = loc.fullAddress || loc.address || loc.name || '';
-              
+
               // Diagnostic: Check if query is just city name
               if (query && query.toLowerCase() === (tripDestination || '').toLowerCase()) {
                 console.warn(`⚠️ [GEOCODE-DIAG] WARNING: Geocoding query is just city name "${query}" - this might cause address replacement!`);
@@ -5690,7 +5705,7 @@ export default function ResultsPage() {
                 console.warn(`   - loc.address: "${loc.address}"`);
                 console.warn(`   - loc.name: "${loc.name}"`);
               }
-              
+
               return new Promise<typeof loc>((resolve) => {
                 const geocodeQuery = `${query}, ${cityConfig.geocodingBias}`;
                 console.log(`🔍 [GEOCODE-DIAG] Geocoding query: "${geocodeQuery}"`);
@@ -5753,14 +5768,14 @@ export default function ResultsPage() {
       });
       setRegenerationProgress(45);
       setRegenerationStep('Fetching updated data for all locations...');
-      setRegenerationSteps(prev => prev.map(s => 
+      setRegenerationSteps(prev => prev.map(s =>
         s.id === '3' ? { ...s, status: 'completed' as const } :
-        s.id === '4' ? { ...s, status: 'loading' as const } : s
+          s.id === '4' ? { ...s, status: 'loading' as const } : s
       ));
 
       // Get updated trip date (from AI comparison or use current)
       const comparisonData = comparisonDiff.comparisonData;
-      const updatedTripDate = comparisonData?.tripDateNew || 
+      const updatedTripDate = comparisonData?.tripDateNew ||
         (comparisonData?.tripDateChanged ? extractedUpdates.date : tripData.tripDate) ||
         tripData.tripDate;
 
@@ -5768,7 +5783,7 @@ export default function ResultsPage() {
       const mergedNotes = comparisonDiff.mergedNotes || driverNotes;
 
       // Get updated passenger info (from AI comparison)
-      const updatedPassengerName = comparisonData?.passengerInfoNew || 
+      const updatedPassengerName = comparisonData?.passengerInfoNew ||
         (comparisonData?.passengerInfoChanged ? (extractedUpdates.leadPassengerName || extractedUpdates.passengerNames?.join(', ')) : leadPassengerName) ||
         leadPassengerName;
 
@@ -5820,17 +5835,16 @@ export default function ResultsPage() {
       <div className="min-h-screen bg-background">
         {/* Show sticky quote form even during loading if ownership is checked and user is not owner (but not for guest creators or guest-created trips) */}
         {ownershipChecked && !isOwner && !isGuestCreator && !isGuestCreatedTrip && (
-          <div 
-            className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
-              scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
-            }`}
+          <div
+            className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
+              }`}
           >
             <div className="container mx-auto px-4 pt-8 pb-3">
               <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
                 <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">
                   {myQuotes.length > 0 ? 'Your quote' : 'Submit quote'}
                 </label>
-                
+
                 {quoteSuccess && (
                   <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
                     <p className="text-sm text-[#3ea34b]">
@@ -5884,80 +5898,80 @@ export default function ResultsPage() {
                   </div>
                 ) : (
                   // Show submit quote form when no quote exists
-                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                  <div className="flex-1">
-                    <Input
-                      id="quote-email-loading"
-                      type="email"
-                      value={quoteEmail}
+                  <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                    <div className="flex-1">
+                      <Input
+                        id="quote-email-loading"
+                        type="email"
+                        value={quoteEmail}
                         onChange={(e) => {
                           if (!isEmailFromUrl) {
                             setQuoteEmail(e.target.value);
                           }
                         }}
-                      placeholder="your.email@company.com"
+                        placeholder="your.email@company.com"
                         disabled={submittingQuote || isEmailFromUrl}
                         readOnly={isEmailFromUrl}
                         className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                    />
-                    {quoteEmailError && (
-                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                    )}
-                  </div>
+                      />
+                      {quoteEmailError && (
+                        <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                      )}
+                    </div>
 
-                  <div className="w-[140px]">
-                    <Input
-                      id="quote-price-loading"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quotePrice}
-                      onChange={(e) => setQuotePrice(e.target.value)}
-                      placeholder="100.00"
-                      disabled={submittingQuote}
-                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                    />
-                    {quotePriceError && (
-                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                    )}
-                  </div>
+                    <div className="w-[140px]">
+                      <Input
+                        id="quote-price-loading"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={quotePrice}
+                        onChange={(e) => setQuotePrice(e.target.value)}
+                        placeholder="100.00"
+                        disabled={submittingQuote}
+                        className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                      />
+                      {quotePriceError && (
+                        <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                      )}
+                    </div>
 
-                  <div className="w-[100px]">
-                    <select
-                      id="quote-currency-loading"
-                      value={quoteCurrency}
-                      onChange={(e) => setQuoteCurrency(e.target.value)}
-                      disabled={submittingQuote}
-                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                    <div className="w-[100px]">
+                      <select
+                        id="quote-currency-loading"
+                        value={quoteCurrency}
+                        onChange={(e) => setQuoteCurrency(e.target.value)}
+                        disabled={submittingQuote}
+                        className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                        <option value="CAD">CAD</option>
+                        <option value="AUD">AUD</option>
+                        <option value="CHF">CHF</option>
+                      </select>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={submittingQuote || !quoteEmail || !quotePrice}
+                      className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
                     >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
-                      <option value="CAD">CAD</option>
-                      <option value="AUD">AUD</option>
-                      <option value="CHF">CHF</option>
-                    </select>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={submittingQuote || !quoteEmail || !quotePrice}
-                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-                  >
-                    {submittingQuote ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Submitting...
-                      </>
-                    ) : (
-                      'Submit quote'
-                    )}
-                  </Button>
-                </form>
+                      {submittingQuote ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit quote'
+                      )}
+                    </Button>
+                  </form>
                 )}
               </div>
             </div>
@@ -5988,18 +6002,18 @@ export default function ResultsPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full shadow-xl">
           <CardContent className="p-8 text-center">
-          <h2 className="text-2xl font-bold text-card-foreground mb-4">
-            Trip Not Found
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            {error || 'This trip analysis could not be found. It may have been deleted or the link is incorrect.'}
-          </p>
-          <Button
-            onClick={() => router.push('/')}
-            size="lg"
-          >
-            Go to Home
-          </Button>
+            <h2 className="text-2xl font-bold text-card-foreground mb-4">
+              Trip Not Found
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              {error || 'This trip analysis could not be found. It may have been deleted or the link is incorrect.'}
+            </p>
+            <Button
+              onClick={() => router.push('/')}
+              size="lg"
+            >
+              Go to Home
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -6016,17 +6030,16 @@ export default function ResultsPage() {
           2. Assigned drivers (with or without magic link)
           3. Any non-owner viewer (but not guest creators or guest-created trips) */}
       {!isOwner && !isGuestCreator && !isGuestCreatedTrip && (
-        <div 
-          className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
-            scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
-          }`}
+        <div
+          className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
+            }`}
         >
           <div className="container mx-auto px-4 pt-8 pb-3">
             <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
               <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">
                 {myQuotes.length > 0 ? 'Your quote' : 'Submit quote'}
               </label>
-              
+
               {quoteSuccess && (
                 <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
                   <p className="text-sm text-[#3ea34b]">
@@ -6080,84 +6093,84 @@ export default function ResultsPage() {
                 </div>
               ) : (
                 // Show submit quote form when no quote exists
-              <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                <div className="flex-1">
-                  <Input
-                    id="quote-email"
-                    type="email"
-                    value={quoteEmail}
+                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <Input
+                      id="quote-email"
+                      type="email"
+                      value={quoteEmail}
                       onChange={(e) => {
                         if (!isEmailFromUrl) {
                           setQuoteEmail(e.target.value);
                         }
                       }}
-                    placeholder="your.email@company.com"
+                      placeholder="your.email@company.com"
                       disabled={submittingQuote || isEmailFromUrl}
                       readOnly={isEmailFromUrl}
                       className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                  />
-                  {quoteEmailError && (
-                    <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                  )}
-                </div>
+                    />
+                    {quoteEmailError && (
+                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                    )}
+                  </div>
 
-                <div className="w-[140px]">
-                  <Input
-                    id="quote-price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={quotePrice}
-                    onChange={(e) => setQuotePrice(e.target.value)}
-                    placeholder="100.00"
-                    disabled={submittingQuote}
-                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                  />
-                  {quotePriceError && (
-                    <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                  )}
-                </div>
+                  <div className="w-[140px]">
+                    <Input
+                      id="quote-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={quotePrice}
+                      onChange={(e) => setQuotePrice(e.target.value)}
+                      placeholder="100.00"
+                      disabled={submittingQuote}
+                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
+                    />
+                    {quotePriceError && (
+                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                    )}
+                  </div>
 
-                <div className="w-[100px]">
-                  <select
-                    id="quote-currency"
-                    value={quoteCurrency}
-                    onChange={(e) => setQuoteCurrency(e.target.value)}
-                    disabled={submittingQuote}
-                    className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                  <div className="w-[100px]">
+                    <select
+                      id="quote-currency"
+                      value={quoteCurrency}
+                      onChange={(e) => setQuoteCurrency(e.target.value)}
+                      disabled={submittingQuote}
+                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="JPY">JPY</option>
+                      <option value="CAD">CAD</option>
+                      <option value="AUD">AUD</option>
+                      <option value="CHF">CHF</option>
+                    </select>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={submittingQuote || !quoteEmail || !quotePrice}
+                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
                   >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
-                    <option value="CAD">CAD</option>
-                    <option value="AUD">AUD</option>
-                    <option value="CHF">CHF</option>
-                  </select>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={submittingQuote || !quoteEmail || !quotePrice}
-                  className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-                >
-                  {submittingQuote ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit quote'
-                  )}
-                </Button>
-              </form>
+                    {submittingQuote ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      'Submit quote'
+                    )}
+                  </Button>
+                </form>
               )}
-                        </div>
-                        </div>
-                      </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Update Quote Modal */}
@@ -6178,7 +6191,7 @@ export default function ResultsPage() {
                     <p className="text-sm font-medium">
                       {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
                     </p>
-                </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="update-quote-price" className="text-sm font-medium">
@@ -6197,17 +6210,17 @@ export default function ResultsPage() {
                   />
                   {updateQuotePriceError && (
                     <p className="text-xs text-destructive">{updateQuotePriceError}</p>
-              )}
-            </div>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Currency</label>
                   <div className="px-3 py-2 rounded-md border border-border bg-muted/50">
                     <p className="text-sm font-medium">{myQuotes[0].currency}</p>
                     <p className="text-xs text-muted-foreground mt-1">Currency cannot be changed</p>
-          </div>
-        </div>
+                  </div>
+                </div>
               </>
-      )}
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -6243,14 +6256,13 @@ export default function ResultsPage() {
       </Dialog>
 
       {/* Update Trip Section - Sticky Bar - Only show for owners */}
-        {isOwner && !isLiveMode && !isRegenerating && (
-        <div 
-          className={`fixed left-0 right-0 bg-background transition-all duration-300 ${
-            scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
-          }`}
+      {isOwner && !isLiveMode && !isRegenerating && (
+        <div
+          className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
+            }`}
         >
           <div className="container mx-auto px-4 pt-8 pb-3">
-            
+
             <div className="rounded-md px-6 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
               <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Trip update</label>
               <div className="flex gap-4 items-start">
@@ -6258,66 +6270,66 @@ export default function ResultsPage() {
                   <textarea
                     ref={updateTextareaRef}
                     id="update-text"
-                  value={updateText}
-                  onChange={(e) => setUpdateText(e.target.value)}
-                  placeholder={isExtracting && updateProgress.step && !updateProgress.error ? `${updateProgress.step}...` : "Any changes to this trip?"}
-                  className="w-full min-h-[51px] h-[51px] px-3 py-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
-                  disabled={isExtracting || isRegenerating}
+                    value={updateText}
+                    onChange={(e) => setUpdateText(e.target.value)}
+                    placeholder={isExtracting && updateProgress.step && !updateProgress.error ? `${updateProgress.step}...` : "Any changes to this trip? Tell updates to the AI planner to paste your email here."}
+                    className="w-full min-h-[51px] h-[51px] px-3 py-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
+                    disabled={isExtracting || isRegenerating}
                   />
                 </div>
-                
-                <div className="flex items-center gap-3 flex-shrink-0">
-                {/* Update Trip Button */}
-                <Button
-                  variant="default"
-                  className="flex items-center gap-2 h-[51px] bg-[#E5E7EF] text-[#05060A] hover:bg-[#E5E7EF]/90"
-                  onClick={handleExtractUpdates}
-                  disabled={!updateText.trim() || isExtracting || isRegenerating}
-                >
-                  {isExtracting ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Updating...
-                    </>
-                  ) : (
-                    'Update'
-                  )}
-                </Button>
-                </div>
-                </div>
 
-                {/* Enhanced Error Display with Step Information */}
-                {updateProgress.error && (
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {/* Update Trip Button */}
+                  <Button
+                    variant="default"
+                    className="flex items-center gap-2 h-[51px] bg-[#E5E7EF] text-[#05060A] hover:bg-[#E5E7EF]/90"
+                    onClick={handleExtractUpdates}
+                    disabled={!updateText.trim() || isExtracting || isRegenerating}
+                  >
+                    {isExtracting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Updating...
+                      </>
+                    ) : (
+                      'Update'
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Enhanced Error Display with Step Information */}
+              {updateProgress.error && (
                 <Alert variant="destructive" className="mt-2">
-                    <AlertDescription>
-                      <div className="space-y-2">
-                        <p className="font-semibold">
-                          ❌ Failed at: {updateProgress.step}
-                        </p>
-                        <p className="text-sm">
-                          {updateProgress.error}
-                        </p>
-                        {updateProgress.canRetry && (
-                          <Button
-                            onClick={handleExtractUpdates}
-                            variant="outline"
-                            size="sm"
-                            className="mt-2"
-                          >
-                            🔄 Retry
-                          </Button>
-                        )}
-                      </div>
-                    </AlertDescription>
-                  </Alert>
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <p className="font-semibold">
+                        ❌ Failed at: {updateProgress.step}
+                      </p>
+                      <p className="text-sm">
+                        {updateProgress.error}
+                      </p>
+                      {updateProgress.canRetry && (
+                        <Button
+                          onClick={handleExtractUpdates}
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                        >
+                          🔄 Retry
+                        </Button>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
           </div>
         </div>
-        )}
+      )}
 
       {/* Main Content */}
       <div className={`container mx-auto px-4 ${(isOwner && !isLiveMode) || !isOwner ? 'pt-32 pb-8' : 'py-8'}`}>
@@ -6390,24 +6402,24 @@ export default function ResultsPage() {
                         const isActive = step.status === 'loading';
                         const isCompleted = step.status === 'completed';
                         const isPending = step.status === 'pending';
-                        
+
                         // Calculate position relative to active step
                         const activeIndex = regenerationSteps.findIndex(s => s.status === 'loading');
-                        
+
                         // If no active step (all completed), don't render any steps
                         if (activeIndex === -1) {
                           return null;
                         }
-                        
+
                         const position = index - activeIndex;
-                        
+
                         // Determine visibility and styling
                         let transform = '';
                         let opacity = 0;
                         let scale = 0.85;
                         let zIndex = 0;
                         let blur = 'blur(4px)';
-                        
+
                         if (position === 0) {
                           // Active step - center
                           transform = 'translateY(0)';
@@ -6440,7 +6452,7 @@ export default function ResultsPage() {
                           scale = 0.85;
                           zIndex = 10;
                         }
-                        
+
                         return (
                           <div
                             key={step.id}
@@ -6453,13 +6465,12 @@ export default function ResultsPage() {
                             }}
                           >
                             <div
-                              className={`flex items-start gap-4 p-4 rounded-lg border ${
-                                isActive 
-                                  ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10' 
-                                  : isCompleted
-                                    ? 'border-green-500/30 bg-green-500/5'
-                                    : 'border-border bg-muted/30'
-                              }`}
+                              className={`flex items-start gap-4 p-4 rounded-lg border ${isActive
+                                ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10'
+                                : isCompleted
+                                  ? 'border-green-500/30 bg-green-500/5'
+                                  : 'border-border bg-muted/30'
+                                }`}
                             >
                               {/* Status Icon */}
                               <div className="flex-shrink-0 mt-0.5" style={{ isolation: 'isolate' }}>
@@ -6467,7 +6478,7 @@ export default function ResultsPage() {
                                   <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
                                 )}
                                 {isActive && (
-                                  <div 
+                                  <div
                                     className="w-6 h-6 rounded-full border-2 border-[#05060A] border-t-transparent"
                                     style={{
                                       animation: 'spin 1s linear infinite',
@@ -6483,7 +6494,7 @@ export default function ResultsPage() {
                                   </div>
                                 )}
                               </div>
-                              
+
                               {/* Step Content */}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2 mb-2">
@@ -6542,363 +6553,375 @@ export default function ResultsPage() {
 
           {/* Service Introduction */}
           {!isLiveMode && (
-              <div className="mb-6 mt-[25px]">
-                {/* Trip Summary Box */}
-                <div className="mb-6 bg-card rounded-lg p-8 shadow-none">
-                    <div className="flex items-start justify-between gap-6">
-                      <div className="flex-1 min-w-0">
-                        <h2 className="text-5xl font-normal text-card-foreground mb-5 leading-tight">
-                          {leadPassengerName || 'Passenger'} (x{passengerCount || 1}) {(() => {
-                            if (locations && locations.length >= 2) {
-                              const pickupTime = parseInt(locations[0]?.time) || 0;
-                              const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
-                              const duration = dropoffTime - pickupTime;
-                              
-                              if (duration > 0) {
-                                const hours = Math.floor(duration);
-                                return `${hours}h`;
-                              }
-                              return '0h';
-                            }
-                            return '0h';
-                          })()} in {tripDestination || 'London'}
-                        </h2>
-                        <div className="flex items-center gap-3 mb-3">
-                          <svg className="w-5 h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <span className="text-sm font-normal text-card-foreground">
-                            Trip Date{' '}
-                            <span className="text-xl font-semibold ml-2">
-                              {new Date(tripDate).toLocaleDateString('en-US', { 
-                                weekday: 'long', 
-                                day: 'numeric', 
-                                month: 'long', 
-                                year: 'numeric' 
-                              })}
-                            </span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <svg className="w-5 h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
-                          <span className="text-sm font-normal text-card-foreground">
-                            Number of Passengers{' '}
-                            <span className="text-xl font-semibold ml-2">
-                              {passengerCount || 1}
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0">
-                        {(() => {
-                          // Determine if there was any activity (driver assigned, quotes requested, or quotes received)
-                          // Check both current state and original data to ensure we catch activity even if state changes
-                          const hasDriverInState = !!driverEmail;
-                          const hasDriverInOriginalData = !!originalDriverEmailRef.current;
-                          const hasQuotes = quotes.length > 0;
-                          const hasSentEmails = sentDriverEmails.length > 0;
-                          // Activity exists if driver was ever assigned OR quotes were requested/received
-                          const hasActivity = hasDriverInState || hasDriverInOriginalData || hasQuotes || hasSentEmails;
-                          
-                          // Determine variant based on status and activity
-                          const getButtonVariant = () => {
-                            if (tripStatus === 'cancelled' && hasActivity) {
-                              return 'cancelled'; // Red, disabled
-                            }
-                            if (tripStatus === 'not confirmed' || (tripStatus === 'cancelled' && !hasActivity)) {
-                              return 'request-quote-style'; // Match request quote button colors/frame
-                            }
-                            // All other statuses use existing variants
-                            return tripStatus === 'rejected' ? 'rejected' : 
-                            tripStatus === 'confirmed' ? 'confirmed' : 
-                                   driverEmail ? 'pending' : 'not-confirmed';
-                          };
-                          
-                          const buttonVariant = getButtonVariant();
-                          const isCancelledWithActivity = tripStatus === 'cancelled' && hasActivity;
-                          const buttonText = isCancelledWithActivity ? 'Cancelled' : 
-                                           tripStatus === 'rejected' ? 'Rejected' : 
-                                           tripStatus === 'confirmed' ? 'Confirmed' : 
-                                           driverEmail ? 'Pending' : 'Not confirmed';
-                          
-                          return (
-                            <FlowHoverButton
-                              variant={buttonVariant}
+            <div className="mb-6 mt-[25px]">
+              {/* Trip Summary Box */}
+              <div className="mb-6 bg-card rounded-lg p-8 shadow-none">
+                <div className="flex items-start justify-between gap-6">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-5xl font-normal text-card-foreground mb-5 leading-tight">
+                      {leadPassengerName || 'Passenger'} (x{passengerCount || 1}) {(() => {
+                        if (locations && locations.length >= 2) {
+                          const pickupTime = parseInt(locations[0]?.time) || 0;
+                          const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                          const duration = dropoffTime - pickupTime;
+
+                          if (duration > 0) {
+                            const hours = Math.floor(duration);
+                            return `${hours}h`;
+                          }
+                          return '0h';
+                        }
+                        return '0h';
+                      })()} in {tripDestination || 'London'}
+                    </h2>
+                    <div className="flex items-center gap-3 mb-3">
+                      <svg className="w-5 h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-sm font-normal text-card-foreground">
+                        Trip Date{' '}
+                        <span className="text-xl font-semibold ml-2">
+                          {new Date(tripDate).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span className="text-sm font-normal text-card-foreground">
+                        Number of Passengers{' '}
+                        <span className="text-xl font-semibold ml-2">
+                          {passengerCount || 1}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    {(() => {
+                      // Determine if there was any activity (driver assigned, quotes requested, or quotes received)
+                      // Check both current state and original data to ensure we catch activity even if state changes
+                      const hasDriverInState = !!driverEmail;
+                      const hasDriverInOriginalData = !!originalDriverEmailRef.current;
+                      const hasQuotes = quotes.length > 0;
+                      const hasSentEmails = sentDriverEmails.length > 0;
+                      // Activity exists if driver was ever assigned OR quotes were requested/received
+                      const hasActivity = hasDriverInState || hasDriverInOriginalData || hasQuotes || hasSentEmails;
+
+                      // Determine variant based on status and activity
+                      const getButtonVariant = () => {
+                        if (tripStatus === 'cancelled' && hasActivity) {
+                          return 'cancelled'; // Red, disabled
+                        }
+                        if (tripStatus === 'not confirmed' || (tripStatus === 'cancelled' && !hasActivity)) {
+                          return 'request-quote-style'; // Match request quote button colors/frame
+                        }
+                        // All other statuses use existing variants
+                        return tripStatus === 'rejected' ? 'rejected' :
+                          tripStatus === 'confirmed' ? 'confirmed' :
+                            driverEmail ? 'pending' : 'not-confirmed';
+                      };
+
+                      const buttonVariant = getButtonVariant();
+                      const isCancelledWithActivity = tripStatus === 'cancelled' && hasActivity;
+                      const buttonText = isCancelledWithActivity ? 'Cancelled' :
+                        tripStatus === 'rejected' ? 'Rejected' :
+                          tripStatus === 'confirmed' ? 'Confirmed' :
+                            driverEmail ? 'Pending' : 'Not confirmed';
+
+                      return (
+                        <FlowHoverButton
+                          variant={buttonVariant}
                           onClick={handleStatusToggle}
-                              disabled={updatingStatus || isCancelledWithActivity}
+                          disabled={updatingStatus || isCancelledWithActivity}
                           icon={
-                                isCancelledWithActivity ? undefined : // No icon for cancelled
-                                tripStatus === 'rejected' ? (
-                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                            ) : tripStatus === 'confirmed' ? (
-                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : undefined
+                            isCancelledWithActivity ? undefined : // No icon for cancelled
+                              tripStatus === 'rejected' ? (
+                                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                              ) : tripStatus === 'confirmed' ? (
+                                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : undefined
                           }
                         >
-                              {buttonText}
+                          {buttonText}
                         </FlowHoverButton>
-                          );
-                        })()}
-                      </div>
-                    </div>
+                      );
+                    })()}
+                  </div>
                 </div>
+              </div>
 
-                {/* Vehicle Image - Show for sedan or SUV services */}
-                {(() => {
-                  const numberOfPassengers = passengerCount || 1;
-                  const extractCarInfo = (text: string | null): string | null => {
-                    if (!text) return null;
-                    const carPatterns = [
-                      /(?:Mercedes|Merc)\s*(?:E|S)[\s-]*Class/i,
-                      /(?:Mercedes|Merc)\s*Maybach\s*S/i,
-                      /BMW\s*(?:5|7)\s*Series/i,
-                      /Audi\s*(?:A6|A8)/i,
-                      /Lincoln\s*(?:Continental|MKS)/i,
-                      /Lexus\s*(?:E350|LS\s*500)/i,
-                      /Volvo\s*S90/i,
-                      /Cadillac\s*XTS/i,
-                      /\bBusiness\s+Sedan\b/i,
-                    ];
-                    
-                    for (const pattern of carPatterns) {
-                      if (pattern.test(text)) {
-                        return text.match(pattern)?.[0] || null;
-                      }
+              {/* Vehicle Image - Show for sedan or SUV services */}
+              {(() => {
+                const numberOfPassengers = passengerCount || 1;
+                const extractCarInfo = (text: string | null): string | null => {
+                  if (!text) return null;
+                  const carPatterns = [
+                    /(?:Mercedes|Merc)\s*(?:E|S)[\s-]*Class/i,
+                    /(?:Mercedes|Merc)\s*Maybach\s*S/i,
+                    /BMW\s*(?:5|7)\s*Series/i,
+                    /Audi\s*(?:A6|A8)/i,
+                    /Lincoln\s*(?:Continental|MKS)/i,
+                    /Lexus\s*(?:E350|LS\s*500)/i,
+                    /Volvo\s*S90/i,
+                    /Cadillac\s*XTS/i,
+                    /\bBusiness\s+Sedan\b/i,
+                  ];
+
+                  for (const pattern of carPatterns) {
+                    if (pattern.test(text)) {
+                      return text.match(pattern)?.[0] || null;
                     }
-                    return null;
-                  };
-                  
-                  const extractSUVInfo = (text: string | null): boolean => {
-                    if (!text) return false;
-                    const suvPatterns = [
-                      /\bSUV\b/i,
-                      /\b(?:sport\s*utility|sport\s*ute)\b/i,
-                      /(?:Mercedes|Merc)\s*(?:GLS|GLE|GL|GLC|G[\s-]*Class)/i,
-                      /BMW\s*(?:X[1-9]|XM)/i,
-                      /Audi\s*(?:Q[3-9]|Q8)/i,
-                      /Range\s*Rover/i,
-                      /Cadillac\s*(?:Escalade|XT[4-6])/i,
-                      /Lincoln\s*(?:Navigator|Aviator)/i,
-                      /Lexus\s*(?:LX|GX|RX|NX)/i,
-                      /Porsche\s*(?:Cayenne|Macan)/i,
-                      /Volvo\s*(?:XC[4-9][0-9]?)/i,
-                      /\bBusiness\s+SUV\b/i,
-                    ];
-                    
-                    return suvPatterns.some(pattern => pattern.test(text));
-                  };
-                  
-                  // Check for SUV first (priority) - check text patterns regardless of passenger count
-                  const hasSUVPattern = extractSUVInfo(vehicleInfo || '') || extractSUVInfo(driverNotes || '');
-                  
-                  // Check for sedan patterns
-                  const hasSedanPattern = extractCarInfo(vehicleInfo || '') || extractCarInfo(driverNotes || '');
-                  
-                  // Check if any vehicle info exists (brand/model/type)
-                  const hasAnyVehicleInfo = !!(vehicleInfo && vehicleInfo.trim()) || hasSUVPattern || hasSedanPattern;
-                  
-                  // Determine vehicle type: SUV takes priority if patterns match
-                  // Otherwise use passenger count as fallback
-                  // Default to sedan for < 3 passengers when no vehicle specified
-                  let vehicleType: 'suv' | 'sedan' | null = null;
-                  
-                  if (hasSUVPattern) {
+                  }
+                  return null;
+                };
+
+                const extractSUVInfo = (text: string | null): boolean => {
+                  if (!text) return false;
+                  const suvPatterns = [
+                    /\bSUV\b/i,
+                    /\b(?:sport\s*utility|sport\s*ute)\b/i,
+                    /(?:Mercedes|Merc)\s*(?:GLS|GLE|GL|GLC|G[\s-]*Class)/i,
+                    /BMW\s*(?:X[1-9]|XM)/i,
+                    /Audi\s*(?:Q[3-9]|Q8)/i,
+                    /Range\s*Rover/i,
+                    /Cadillac\s*(?:Escalade|XT[4-6])/i,
+                    /Lincoln\s*(?:Navigator|Aviator)/i,
+                    /Lexus\s*(?:LX|GX|RX|NX)/i,
+                    /Porsche\s*(?:Cayenne|Macan)/i,
+                    /Volvo\s*(?:XC[4-9][0-9]?)/i,
+                    /\bBusiness\s+SUV\b/i,
+                  ];
+
+                  return suvPatterns.some(pattern => pattern.test(text));
+                };
+
+                // Check for SUV first (priority) - check text patterns regardless of passenger count
+                const hasSUVPattern = extractSUVInfo(vehicleInfo || '') || extractSUVInfo(driverNotes || '');
+
+                // Check for sedan patterns
+                const hasSedanPattern = extractCarInfo(vehicleInfo || '') || extractCarInfo(driverNotes || '');
+
+                // Check if any vehicle info exists (brand/model/type)
+                const hasAnyVehicleInfo = !!(vehicleInfo && vehicleInfo.trim()) || hasSUVPattern || hasSedanPattern;
+
+                // Determine vehicle type: SUV takes priority if patterns match
+                // Otherwise use passenger count as fallback
+                // Default to sedan for < 3 passengers when no vehicle specified
+                let vehicleType: 'suv' | 'sedan' | null = null;
+
+                if (hasSUVPattern) {
+                  vehicleType = 'suv';
+                } else if (hasSedanPattern) {
+                  vehicleType = 'sedan';
+                } else {
+                  // Fallback to passenger count
+                  if (numberOfPassengers > 3 && numberOfPassengers <= 7) {
                     vehicleType = 'suv';
-                  } else if (hasSedanPattern) {
-                    vehicleType = 'sedan';
-                  } else {
-                    // Fallback to passenger count
-                    if (numberOfPassengers > 3 && numberOfPassengers <= 7) {
-                      vehicleType = 'suv';
-                    } else if (numberOfPassengers <= 3) {
-                      vehicleType = 'sedan';
-                    }
-                  }
-                  
-                  // Default to sedan for <= 3 passengers when no vehicle info is provided
-                  if (!hasAnyVehicleInfo && numberOfPassengers <= 3) {
+                  } else if (numberOfPassengers <= 3) {
                     vehicleType = 'sedan';
                   }
-                  
-                  return vehicleType ? (
-                    <Card className="mb-6 shadow-none">
-                      <CardContent className="p-5 relative">
-                        {/* Assign Driver button - Top Right */}
-                        {isOwner && (
-                          <div className="absolute top-3 right-5">
-                            <div className="relative inline-block">
-                              <Button
-                                variant="outline"
-                                className={`flex items-center gap-2 h-10 ${
-                                  tripStatus === 'cancelled' 
-                                    ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                                    : tripStatus === 'confirmed' && driverEmail 
-                                    ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10' 
-                                    : driverEmail 
-                                    ? 'border !border-[#e77500] hover:bg-[#e77500]/10' 
+                }
+
+                // Default to sedan for <= 3 passengers when no vehicle info is provided
+                if (!hasAnyVehicleInfo && numberOfPassengers <= 3) {
+                  vehicleType = 'sedan';
+                }
+
+                return vehicleType ? (
+                  <Card className="mb-6 shadow-none">
+                    <CardContent className="p-5 relative">
+                      {/* Assign Driver button - Top Right */}
+                      {isOwner && (
+                        <div className="absolute top-3 right-5">
+                          <div className="relative inline-block">
+                            <Button
+                              variant="outline"
+                              className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
+                                ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                                : tripStatus === 'confirmed' && driverEmail
+                                  ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                                  : driverEmail
+                                    ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
                                     : ''
                                 }`}
-                                onClick={() => {
-                                  if (tripStatus === 'cancelled') {
-                                    alert('This trip has been cancelled. Please create a new trip instead.');
-                                    return;
-                                  }
-                                  setShowDriverModal(true);
-                                }}
-                                disabled={tripStatus === 'cancelled'}
-                              >
-                                {mounted && driverEmail && (
-                                  <img 
-                                    src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                    alt="Driver" 
-                                    className="w-4 h-4"
-                                  />
-                                )}
-                                {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
-                              </Button>
-                              {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
-                                <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
-                                  {quotes.length}
-                                </span>
+                              onClick={() => {
+                                if (tripStatus === 'cancelled') {
+                                  alert('This trip has been cancelled. Please create a new trip instead.');
+                                  return;
+                                }
+                                setShowDriverModal(true);
+                              }}
+                              disabled={tripStatus === 'cancelled'}
+                            >
+                              {mounted && driverEmail && (
+                                <img
+                                  src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                  alt="Driver"
+                                  className="w-4 h-4"
+                                />
                               )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Vehicle Image and Info - Bottom */}
-                        <div className="flex gap-6 items-center mt-8 -mb-2">
-                          {/* Vehicle Image on the left */}
-                          <img 
-                            src={vehicleType === 'suv' ? "/suv-driverbrief.webp" : "/sedan-driverbrief.webp"} 
-                            alt={vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"} 
-                            className="h-32 w-auto flex-shrink-0"
-                          />
-                          
-                          {/* Vehicle Info on the right */}
-                          <div className="flex flex-col flex-1 min-w-0 pb-0">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                                  <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
-                                </div>
-                                <p className="text-3xl font-semibold text-card-foreground break-words">
-                                  {(() => {
-                                    // First, try to get vehicle from vehicleInfo field or driverNotes
-                                    const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
-                                    
-                                    // Use the helper to determine what to display:
-                                    // - If vehicle is empty or not in whitelist, show auto-selected vehicle
-                                    // - If vehicle is in whitelist, show that vehicle
-                                    return getDisplayVehicle(requestedVehicle, numberOfPassengers);
-                                  })()}
-                                </p>
+                              {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
+                            </Button>
+                            {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
+                              <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                                {quotes.length}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ) : null;
-                })()}
+                      )}
 
-                {/* Trip Details Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      {/* Vehicle Image and Info - Bottom */}
+                      <div className="flex gap-6 items-center mt-8 -mb-2">
+                        {/* Vehicle Image on the left */}
+                        <img
+                          src={vehicleType === 'suv' ? "/suv-driverbrief.webp" : "/sedan-driverbrief.webp"}
+                          alt={vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"}
+                          className="h-32 w-auto flex-shrink-0"
+                        />
+
+                        {/* Vehicle Info on the right */}
+                        <div className="flex flex-col flex-1 min-w-0 pb-0">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
+                          </div>
+                          <p className="text-3xl font-semibold text-card-foreground break-words">
+                            {(() => {
+                              // First, try to get vehicle from vehicleInfo field or driverNotes
+                              const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
+
+                              // Use the helper to determine what to display:
+                              // - If vehicle is empty or not in whitelist, show auto-selected vehicle
+                              // - If vehicle is in whitelist, show that vehicle
+                              return getDisplayVehicle(requestedVehicle, numberOfPassengers);
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null;
+              })()}
+
+              {/* Trip Details Cards - 2 Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-[30%_1fr] gap-6 mb-6 lg:auto-rows-fr">
+                {/* Left Column - Stacked Cards */}
+                <div className="flex flex-col gap-4">
                   {/* Pickup Time Card */}
                   <Card className="shadow-none">
-                    <CardContent className="p-5 h-full flex flex-col">
+                    <CardContent className="p-5 flex flex-col">
                       <div className="flex items-center gap-3 mb-2">
                         <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                         <span className="text-sm text-muted-foreground font-medium">Pickup Time</span>
-                </div>
+                      </div>
                       <p className="text-4xl font-semibold text-card-foreground">
-                    {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
-                  </p>
-                </CardContent>
-              </Card>
+                        {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
+                      </p>
+                    </CardContent>
+                  </Card>
 
                   {/* Trip Duration Card */}
                   <Card className="shadow-none">
-                    <CardContent className="p-5 h-full flex flex-col">
+                    <CardContent className="p-5 flex flex-col">
                       <div className="flex items-center gap-3 mb-2">
                         <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
                         <span className="text-sm text-muted-foreground font-medium">Trip Duration</span>
-                </div>
+                      </div>
                       <p className="text-4xl font-semibold text-card-foreground">
-                    {(() => {
-                      if (locations && locations.length >= 2) {
-                        const pickupTime = parseInt(locations[0]?.time) || 0;
-                        const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
-                        const duration = dropoffTime - pickupTime;
-                        
-                        if (duration > 0) {
-                          const hours = Math.floor(duration);
-                          const minutes = Math.round((duration - hours) * 60);
-                          return `${hours}h ${minutes}m`;
-                        } else {
-                          return 'Same day';
-                        }
-                      }
-                      return 'N/A';
-                    })()}
-                  </p>
-                </CardContent>
-              </Card>
+                        {(() => {
+                          if (locations && locations.length >= 2) {
+                            const pickupTime = parseInt(locations[0]?.time) || 0;
+                            const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                            const duration = dropoffTime - pickupTime;
 
-              {/* Estimated Distance */}
-              <Card className="shadow-none">
-                <CardContent className="p-5 h-full flex flex-col">
-                  <div className="flex items-center gap-3 mb-2">
-                    <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                    <span className="text-sm text-muted-foreground font-medium">Estimated Distance</span>
-                </div>
-                  <p className="text-4xl font-semibold text-card-foreground">
-                    {(() => {
-                      // Check if traffic predictions exist and have the correct structure
-                      if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
-                        // Calculate total distance from traffic predictions
-                        const totalKm = trafficPredictions.data.reduce((total: number, route: any) => {
-                          if (route.distance) {
-                            // Parse distance (format: "5.2 km" or just number)
-                            const distanceStr = typeof route.distance === 'string' ? route.distance : String(route.distance);
-                            const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
-                            return total + (isNaN(distanceKm) ? 0 : distanceKm);
+                            if (duration > 0) {
+                              const hours = Math.floor(duration);
+                              const minutes = Math.round((duration - hours) * 60);
+                              return `${hours}h ${minutes}m`;
+                            } else {
+                              return 'Same day';
+                            }
                           }
-                          return total;
-                        }, 0);
-                        
-                        // Convert km to miles (1 km = 0.621371 miles)
-                        const totalMiles = totalKm * 0.621371;
-                        return totalMiles > 0 ? totalMiles.toFixed(1) + ' miles' : 'Calculating...';
-                      }
-                      
-                      // Fallback: try to use totalDistance from trafficPredictions if available
-                      if (trafficPredictions?.totalDistance) {
-                        const distanceStr = trafficPredictions.totalDistance;
-                        const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
-                        if (!isNaN(distanceKm) && distanceKm > 0) {
-                          const totalMiles = distanceKm * 0.621371;
-                          return totalMiles.toFixed(1) + ' miles';
-                        }
-                      }
-                      
-                      return 'Calculating...';
-                    })()}
-                  </p>
-                </CardContent>
-              </Card>
+                          return 'N/A';
+                        })()}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Estimated Distance */}
+                  <Card className="shadow-none">
+                    <CardContent className="p-5 flex flex-col">
+                      <div className="flex items-center gap-3 mb-2">
+                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span className="text-sm text-muted-foreground font-medium">Estimated Distance</span>
+                      </div>
+                      <p className="text-4xl font-semibold text-card-foreground">
+                        {(() => {
+                          // Check if traffic predictions exist and have the correct structure
+                          if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
+                            // Calculate total distance from traffic predictions
+                            const totalKm = trafficPredictions.data.reduce((total: number, route: any) => {
+                              if (route.distance) {
+                                // Parse distance (format: "5.2 km" or just number)
+                                const distanceStr = typeof route.distance === 'string' ? route.distance : String(route.distance);
+                                const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
+                                return total + (isNaN(distanceKm) ? 0 : distanceKm);
+                              }
+                              return total;
+                            }, 0);
+
+                            // Convert km to miles (1 km = 0.621371 miles)
+                            const totalMiles = totalKm * 0.621371;
+                            return totalMiles > 0 ? totalMiles.toFixed(1) + ' miles' : 'Calculating...';
+                          }
+
+                          // Fallback: try to use totalDistance from trafficPredictions if available
+                          if (trafficPredictions?.totalDistance) {
+                            const distanceStr = trafficPredictions.totalDistance;
+                            const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
+                            if (!isNaN(distanceKm) && distanceKm > 0) {
+                              const totalMiles = distanceKm * 0.621371;
+                              return totalMiles.toFixed(1) + ' miles';
+                            }
+                          }
+
+                          return 'Calculating...';
+                        })()}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
 
+                {/* Right Column - Map View */}
+                <div className="hidden lg:block min-h-[500px]">
+                  <GoogleTripMap
+                    locations={mapLocations}
+                    height="100%"
+                    compact={false}
+                    tripDestination={tripDestination}
+                  />
+                </div>
               </div>
+
+            </div>
           )}
 
           {/* Trip Locations */}
@@ -6912,14 +6935,13 @@ export default function ResultsPage() {
                     const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
                     const isLiveTripActive = now >= oneHourBefore;
                     const tripCompleted = isTripCompleted();
-                    
+
                     return (
-                      <h3 
-                        className={`text-xl font-semibold text-card-foreground ${
-                          tripCompleted 
-                            ? 'opacity-50 cursor-not-allowed' 
-                            : 'cursor-pointer hover:text-primary transition-colors'
-                        }`}
+                      <h3
+                        className={`text-xl font-semibold text-card-foreground ${tripCompleted
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'cursor-pointer hover:text-primary transition-colors'
+                          }`}
                         onClick={() => {
                           if (tripCompleted) return;
                           if (isLiveMode) {
@@ -6933,7 +6955,7 @@ export default function ResultsPage() {
                       </h3>
                     );
                   })()}
-                  
+
                   {/* Action Buttons - Right Side */}
                   <div className="flex items-center gap-2">
                     {/* Trip Breakdown Button - Only show when live */}
@@ -6943,19 +6965,18 @@ export default function ResultsPage() {
                       const oneHourBefore = new Date(tripDateTime.getTime() - 60 * 60 * 1000);
                       const isLiveTripActive = now >= oneHourBefore;
                       const tripCompleted = isTripCompleted();
-                      
+
                       return (
                         <Button
                           variant={tripCompleted ? "outline" : (isLiveTripActive ? "default" : "outline")}
                           size="sm"
                           disabled={tripCompleted}
-                          className={`flex items-center gap-2 ${
-                            tripCompleted
-                              ? 'opacity-50 cursor-not-allowed'
-                              : isLiveTripActive 
-                                ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]' 
-                                : ''
-                          }`}
+                          className={`flex items-center gap-2 ${tripCompleted
+                            ? 'opacity-50 cursor-not-allowed'
+                            : isLiveTripActive
+                              ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]'
+                              : ''
+                            }`}
                           onClick={() => {
                             if (tripCompleted) return;
                             if (isLiveMode) {
@@ -6975,19 +6996,19 @@ export default function ResultsPage() {
                               <span>
                                 {isLiveMode ? 'Stop Live Trip' : 'Live Trip'}
                               </span>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                            </svg>
-                            Trip Breakdown
-                          </>
-                        )}
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                              </svg>
+                              Trip Breakdown
+                            </>
+                          )}
                         </Button>
                       );
                     })()}
-                    
+
                     {/* Edit trip Button */}
                     <Button
                       variant="outline"
@@ -7019,8 +7040,8 @@ export default function ResultsPage() {
                           }
                         }
                         // Ensure passenger count is initialized from current trip data (default to 1 if not set)
-                        const initialPassengerCount = tripData?.passengerCount !== undefined && tripData.passengerCount !== null 
-                          ? tripData.passengerCount 
+                        const initialPassengerCount = tripData?.passengerCount !== undefined && tripData.passengerCount !== null
+                          ? tripData.passengerCount
                           : (passengerCount > 0 ? passengerCount : 1);
                         setPassengerCount(initialPassengerCount);
                         // Ensure trip destination is set for display
@@ -7033,7 +7054,7 @@ export default function ResultsPage() {
                     >
                       Edit trip
                     </Button>
-                    
+
                     {/* View Map Button */}
                     <Button
                       variant="outline"
@@ -7047,168 +7068,165 @@ export default function ResultsPage() {
                     </Button>
                   </div>
                 </div>
-            <div className="relative">
-              {/* Connecting Line */}
-              <div 
-                className="absolute w-px bg-primary/30"
-                style={{ 
-                  height: `${(locations.length - 1) * 4.5}rem - 1.5rem`,
-                  left: '0.75rem',
-                  top: '0.75rem'
-                }}
-              ></div>
-              
-              {/* Transparent Line After Drop-off */}
-              <div 
-                className="absolute w-px bg-transparent"
-                style={{ 
-                  height: '1.5rem',
-                  left: '0.75rem',
-                  top: `${(locations.length - 1) * 4.5}rem`
-                }}
-              ></div>
-              
-              <div className="space-y-3">
-                {(() => {
-                  // Calculate timeline realism once for all legs
-                  const timelineRealism = calculateTimelineRealism(locations, trafficPredictions, tripDate);
-                  
-                  return locations.map((location: any, index: number) => {
-                    // Find realism data for this leg
-                    const legRealism = timelineRealism.find(r => r.legIndex === index);
-                  
-                  return (
-                    <div key={location.id || index}>
-                      <div id={`location-${index}`} className="flex items-start gap-3 relative z-10">
-                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
-                      !isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index))
-                        ? 'animate-live-pulse text-white' 
-                        : 'bg-primary text-primary-foreground'
-                    }`}>
-                      {String.fromCharCode(65 + index)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start">
-                        <div className="w-32 flex-shrink-0">
-                          <div className="text-sm font-medium text-muted-foreground mb-1">
-                            {index === 0 ? 'Pickup' : 
-                             index === locations.length - 1 ? 'Drop-off' : 
-                             'Resume at'}
-                            {!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
-                              <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                LIVE
-                              </span>
+                <div className="relative">
+                  {/* Connecting Line */}
+                  <div
+                    className="absolute w-px bg-primary/30"
+                    style={{
+                      height: `${(locations.length - 1) * 4.5}rem - 1.5rem`,
+                      left: '0.75rem',
+                      top: '0.75rem'
+                    }}
+                  ></div>
+
+                  {/* Transparent Line After Drop-off */}
+                  <div
+                    className="absolute w-px bg-transparent"
+                    style={{
+                      height: '1.5rem',
+                      left: '0.75rem',
+                      top: `${(locations.length - 1) * 4.5}rem`
+                    }}
+                  ></div>
+
+                  <div className="space-y-3">
+                    {(() => {
+                      // Calculate timeline realism once for all legs
+                      const timelineRealism = calculateTimelineRealism(locations, trafficPredictions, tripDate);
+
+                      return locations.map((location: any, index: number) => {
+                        // Find realism data for this leg
+                        const legRealism = timelineRealism.find(r => r.legIndex === index);
+
+                        return (
+                          <div key={location.id || index}>
+                            <div id={`location-${index}`} className="flex items-start gap-3 relative z-10">
+                              <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index))
+                                ? 'animate-live-pulse text-white'
+                                : 'bg-primary text-primary-foreground'
+                                }`}>
+                                {String.fromCharCode(65 + index)}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-start">
+                                  <div className="w-32 flex-shrink-0">
+                                    <div className="text-sm font-medium text-muted-foreground mb-1">
+                                      {index === 0 ? 'Pickup' :
+                                        index === locations.length - 1 ? 'Drop-off' :
+                                          'Resume at'}
+                                      {!isTripCompleted() && ((isLiveMode && activeLocationIndex === index) || (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index)) && (
+                                        <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                          LIVE
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {getLondonLocalTime(location.time)}
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 ml-12">
+                                    <button
+                                      onClick={() => {
+                                        const address = location.formattedAddress || location.fullAddress || location.address || location.name;
+                                        const encodedAddress = encodeURIComponent(address);
+                                        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+
+                                        // Calculate center position for popup
+                                        const width = 800;
+                                        const height = 600;
+                                        const left = (screen.width - width) / 2;
+                                        const top = (screen.height - height) / 2;
+
+                                        window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+                                      }}
+                                      className="text-left hover:text-primary transition-colors cursor-pointer block w-full"
+                                      title={location.formattedAddress || location.fullAddress || location.address || location.name}
+                                    >
+                                      {(() => {
+                                        const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
+                                        const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                                        const flightMap = extractFlightNumbers(driverNotes);
+
+                                        // Check if this location is an airport and has flight numbers
+                                        const isAirport = businessName.toLowerCase().includes('airport') ||
+                                          businessName.toLowerCase().includes('heathrow') ||
+                                          businessName.toLowerCase().includes('gatwick') ||
+                                          businessName.toLowerCase().includes('stansted') ||
+                                          businessName.toLowerCase().includes('luton');
+
+                                        let displayBusinessName = businessName;
+
+                                        if (isAirport && Object.keys(flightMap).length > 0) {
+                                          // Find matching airport in flight map
+                                          const matchingAirport = Object.keys(flightMap).find(airport =>
+                                            businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                                          );
+
+                                          if (matchingAirport && flightMap[matchingAirport].length > 0) {
+                                            const flights = flightMap[matchingAirport].join(', ');
+                                            displayBusinessName = `${businessName} for flight ${flights}`;
+                                          }
+                                        }
+
+                                        return (
+                                          <div>
+                                            <div className="text-lg font-semibold text-card-foreground">
+                                              {displayBusinessName}
+                                              {location.purpose && (
+                                                <span> - {location.purpose}</span>
+                                              )}
+                                            </div>
+                                            {restOfAddress && (
+                                              <div className="text-sm text-muted-foreground mt-0.5">
+                                                {restOfAddress}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Timeline Realism Comparison - Show between locations (only for tight/unrealistic) */}
+                            {index < locations.length - 1 && legRealism && legRealism.realismLevel !== 'realistic' && (
+                              <div className="ml-9 mt-2 mb-1">
+                                <div
+                                  className={`rounded-md p-3 border-l-4 cursor-pointer hover:opacity-80 transition-opacity ${legRealism.realismLevel === 'tight'
+                                    ? 'bg-[#db7304]/10 border-[#db7304]'
+                                    : 'bg-[#9e201b]/10 border-[#9e201b]'
+                                    }`}
+                                  onClick={() => {
+                                    if (!isTripCompleted()) {
+                                      startLiveTrip();
+                                      // Scroll to trip breakdown section after a short delay to allow state update
+                                      setTimeout(() => {
+                                        const breakdownElement = document.getElementById('trip-breakdown-0');
+                                        if (breakdownElement) {
+                                          breakdownElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        }
+                                      }, 100);
+                                    }
+                                  }}
+                                  title="Click to view trip breakdown"
+                                >
+                                  <div className={`text-sm font-medium ${legRealism.realismLevel === 'tight'
+                                    ? 'text-[#db7304]'
+                                    : 'text-[#9e201b]'
+                                    }`}>
+                                    {legRealism.message}
+                                  </div>
+                                </div>
+                              </div>
                             )}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {getLondonLocalTime(location.time)}
-                          </div>
-                        </div>
-                        <div className="flex-1 ml-12">
-                          <button 
-                            onClick={() => {
-                              const address = location.formattedAddress || location.fullAddress || location.address || location.name;
-                              const encodedAddress = encodeURIComponent(address);
-                              const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-                              
-                              // Calculate center position for popup
-                              const width = 800;
-                              const height = 600;
-                              const left = (screen.width - width) / 2;
-                              const top = (screen.height - height) / 2;
-                              
-                              window.open(mapsUrl, '_blank', `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`);
-                            }}
-                            className="text-left hover:text-primary transition-colors cursor-pointer block w-full"
-                            title={location.formattedAddress || location.fullAddress || location.address || location.name}
-                          >
-                            {(() => {
-                              const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
-                              const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
-                              const flightMap = extractFlightNumbers(driverNotes);
-                              
-                              // Check if this location is an airport and has flight numbers
-                              const isAirport = businessName.toLowerCase().includes('airport') || 
-                                              businessName.toLowerCase().includes('heathrow') ||
-                                              businessName.toLowerCase().includes('gatwick') ||
-                                              businessName.toLowerCase().includes('stansted') ||
-                                              businessName.toLowerCase().includes('luton');
-                              
-                              let displayBusinessName = businessName;
-                              
-                              if (isAirport && Object.keys(flightMap).length > 0) {
-                                // Find matching airport in flight map
-                                const matchingAirport = Object.keys(flightMap).find(airport => 
-                                  businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
-                                );
-                                
-                                if (matchingAirport && flightMap[matchingAirport].length > 0) {
-                                  const flights = flightMap[matchingAirport].join(', ');
-                                  displayBusinessName = `${businessName} for flight ${flights}`;
-                                }
-                              }
-                              
-                              return (
-                                <div>
-                                  <div className="text-lg font-semibold text-card-foreground">
-                                    {displayBusinessName}
-                                    {location.purpose && (
-                                      <span> - {location.purpose}</span>
-                                    )}
-                                  </div>
-                                  {restOfAddress && (
-                                    <div className="text-sm text-muted-foreground mt-0.5">
-                                      {restOfAddress}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                        );
+                      });
+                    })()}
                   </div>
-                      
-                      {/* Timeline Realism Comparison - Show between locations (only for tight/unrealistic) */}
-                      {index < locations.length - 1 && legRealism && legRealism.realismLevel !== 'realistic' && (
-                        <div className="ml-9 mt-2 mb-1">
-                          <div 
-                            className={`rounded-md p-3 border-l-4 cursor-pointer hover:opacity-80 transition-opacity ${
-                              legRealism.realismLevel === 'tight'
-                                ? 'bg-[#db7304]/10 border-[#db7304]'
-                                : 'bg-[#9e201b]/10 border-[#9e201b]'
-                            }`}
-                            onClick={() => {
-                              if (!isTripCompleted()) {
-                                startLiveTrip();
-                                // Scroll to trip breakdown section after a short delay to allow state update
-                                setTimeout(() => {
-                                  const breakdownElement = document.getElementById('trip-breakdown-0');
-                                  if (breakdownElement) {
-                                    breakdownElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                  }
-                                }, 100);
-                              }
-                            }}
-                            title="Click to view trip breakdown"
-                          >
-                            <div className={`text-sm font-medium ${
-                              legRealism.realismLevel === 'tight'
-                                ? 'text-[#db7304]'
-                                : 'text-[#9e201b]'
-                            }`}>
-                              {legRealism.message}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                });
-                })()}
-              </div>
-            </div>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -7231,23 +7249,23 @@ export default function ResultsPage() {
                     const notes = executiveReport.importantInformation || '';
                     // First, try splitting by newlines (most common)
                     let points = notes.split(/\n+/);
-                    
+
                     // If no newlines found, try splitting by semicolons
                     if (points.length === 1 && notes.includes(';')) {
                       points = notes.split(/;+/);
                     }
-                    
+
                     // If still single item, try splitting by periods followed by space (sentence boundaries)
                     if (points.length === 1 && notes.includes('. ')) {
                       points = notes.split(/\.\s+/).filter((p: string) => p.length > 0);
                     }
-                    
+
                     // Clean up each point: trim, remove leading bullets, and filter empty
                     const cleanedPoints = points
                       .map((point: string) => point.trim())
                       .map((point: string) => point.replace(/^[-•*]\s*/, ''))
                       .filter((point: string) => point.length > 0);
-                    
+
                     return cleanedPoints.map((point: string, index: number) => (
                       <div key={index} className="flex items-start gap-2 mb-0.5">
                         <span className="text-muted-foreground mt-0.5">·</span>
@@ -7263,129 +7281,129 @@ export default function ResultsPage() {
           {/* Exceptional Information */}
           {!isLiveMode && executiveReport?.exceptionalInformation && (
             <Card className="mb-6 shadow-none bg-[#9e2622] dark:bg-[#9e2622] border-[#9e2622] dark:border-[#9e2622]">
-                <CardContent className="px-3 py-1 pl-6">
-                  <div className="mb-3">
-                    <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="#f60000">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      Important remarks
-                    </h3>
-                  </div>
-                  <div className="text-lg leading-snug text-white/95">
-                    {(() => {
-                      // Split by multiple delimiters: newlines, semicolons, periods followed by space, or bullet points
-                      const notes = executiveReport.exceptionalInformation || '';
-                      // First, try splitting by newlines (most common)
-                      let points = notes.split(/\n+/);
-                      
-                      // If no newlines found, try splitting by semicolons
-                      if (points.length === 1 && notes.includes(';')) {
-                        points = notes.split(/;+/);
-                      }
-                      
-                      // If still single item, try splitting by periods followed by space (sentence boundaries)
-                      if (points.length === 1 && notes.includes('. ')) {
-                        points = notes.split(/\.\s+/).filter((p: string) => p.length > 0);
-                      }
-                      
-                      // Clean up each point: trim, remove leading bullets, and filter empty
-                      const cleanedPoints = points
-                        .map((point: string) => point.trim())
-                        .map((point: string) => point.replace(/^[-•*]\s*/, ''))
-                        .filter((point: string) => point.length > 0);
-                      
-                      return cleanedPoints.map((point: string, index: number) => (
-                        <div key={index} className="flex items-start gap-2 mb-0.5">
-                          <span className="text-white mt-0.5">·</span>
-                          <span>{point}</span>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </CardContent>
-              </Card>
+              <CardContent className="px-3 py-1 pl-6">
+                <div className="mb-3">
+                  <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="#f60000">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    Important remarks
+                  </h3>
+                </div>
+                <div className="text-lg leading-snug text-white/95">
+                  {(() => {
+                    // Split by multiple delimiters: newlines, semicolons, periods followed by space, or bullet points
+                    const notes = executiveReport.exceptionalInformation || '';
+                    // First, try splitting by newlines (most common)
+                    let points = notes.split(/\n+/);
+
+                    // If no newlines found, try splitting by semicolons
+                    if (points.length === 1 && notes.includes(';')) {
+                      points = notes.split(/;+/);
+                    }
+
+                    // If still single item, try splitting by periods followed by space (sentence boundaries)
+                    if (points.length === 1 && notes.includes('. ')) {
+                      points = notes.split(/\.\s+/).filter((p: string) => p.length > 0);
+                    }
+
+                    // Clean up each point: trim, remove leading bullets, and filter empty
+                    const cleanedPoints = points
+                      .map((point: string) => point.trim())
+                      .map((point: string) => point.replace(/^[-•*]\s*/, ''))
+                      .filter((point: string) => point.length > 0);
+
+                    return cleanedPoints.map((point: string, index: number) => (
+                      <div key={index} className="flex items-start gap-2 mb-0.5">
+                        <span className="text-white mt-0.5">·</span>
+                        <span>{point}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Risk Score and Recommendations */}
           {!isLiveMode && executiveReport && (
             <div className="space-y-4 mb-6">
-                    {/* Top row: Risk Score (33%) and Top Disruptor (66%) */}
-                    <div className="flex gap-4">
-                      {/* Risk Score - 33% width */}
-                      <Card className="bg-primary dark:bg-[#1f1f21] w-1/3 flex-shrink-0">
-                        <CardContent className="px-3 py-1 pl-6">
-                          <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-2">
-                            Risk score
-                          </h4>
-                          <div className="bg-card border border-border rounded-md p-3 text-center">
-                            <div 
-                              className="text-5xl font-bold mb-1"
-                              style={{
-                                color: (() => {
-                                  const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                                  if (riskScore <= 3) return '#3ea34b';
-                                  if (riskScore <= 6) return '#db7304';
-                                  return '#9e201b';
-                                })()
-                              }}
-                            >
-                              {Math.max(0, executiveReport.tripRiskScore)}
-                            </div>
-                            <div className="text-sm text-muted-foreground font-medium mb-2">
-                              out of 10
-                            </div>
-                            <div 
-                              className="text-sm font-semibold tracking-wide px-3 py-1 rounded"
-                              style={{
-                                backgroundColor: (() => {
-                                  const riskScore = Math.max(0, executiveReport.tripRiskScore);
-                                  if (riskScore <= 3) return '#3ea34b';
-                                  if (riskScore <= 6) return '#db7304';
-                                  return '#9e201b';
-                                })(),
-                                color: '#FFFFFF'
-                              }}
-                            >
-                              {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
-                               Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
-                               Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Top Disruptor - fills remaining space */}
-                      <Card className="bg-primary dark:bg-[#1f1f21] flex-1">
-                        <CardContent className="px-3 py-1 pl-6">
-                          <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-3">
-                            Top Disruptor
-                          </h4>
-                          <p className="text-lg text-primary-foreground/80 dark:text-muted-foreground leading-snug">
-                            {executiveReport.topDisruptor}
-                          </p>
-                        </CardContent>
-                      </Card>
+              {/* Top row: Risk Score (33%) and Top Disruptor (66%) */}
+              <div className="flex gap-4">
+                {/* Risk Score - 33% width */}
+                <Card className="bg-primary dark:bg-[#1f1f21] w-1/3 flex-shrink-0">
+                  <CardContent className="px-3 py-1 pl-6">
+                    <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-2">
+                      Risk score
+                    </h4>
+                    <div className="bg-card border border-border rounded-md p-3 text-center">
+                      <div
+                        className="text-5xl font-bold mb-1"
+                        style={{
+                          color: (() => {
+                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                            if (riskScore <= 3) return '#3ea34b';
+                            if (riskScore <= 6) return '#db7304';
+                            return '#9e201b';
+                          })()
+                        }}
+                      >
+                        {Math.max(0, executiveReport.tripRiskScore)}
+                      </div>
+                      <div className="text-sm text-muted-foreground font-medium mb-2">
+                        out of 10
+                      </div>
+                      <div
+                        className="text-sm font-semibold tracking-wide px-3 py-1 rounded"
+                        style={{
+                          backgroundColor: (() => {
+                            const riskScore = Math.max(0, executiveReport.tripRiskScore);
+                            if (riskScore <= 3) return '#3ea34b';
+                            if (riskScore <= 6) return '#db7304';
+                            return '#9e201b';
+                          })(),
+                          color: '#FFFFFF'
+                        }}
+                      >
+                        {Math.max(0, executiveReport.tripRiskScore) <= 3 ? 'LOW RISK' :
+                          Math.max(0, executiveReport.tripRiskScore) <= 6 ? 'MODERATE RISK' :
+                            Math.max(0, executiveReport.tripRiskScore) <= 8 ? 'HIGH RISK' : 'CRITICAL RISK'}
+                      </div>
                     </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Bottom row: Recommendations for the Driver - full width */}
-                    <Card className="shadow-none">
-                      <CardContent className="px-3 py-1 pl-6">
-                        <div className="mb-3">
-                          <h4 className="text-xl font-semibold text-card-foreground">Recommendations for the Driver</h4>
-                        </div>
-                        <div className="text-lg leading-snug">
-                          {executiveReport.recommendations.map((rec: string, idx: number) => (
-                            <div key={idx} className="flex items-start gap-2 mb-0.5">
-                              <svg className="w-4 h-4 text-card-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                              </svg>
-                              <span>{rec}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
+                {/* Top Disruptor - fills remaining space */}
+                <Card className="bg-primary dark:bg-[#1f1f21] flex-1">
+                  <CardContent className="px-3 py-1 pl-6">
+                    <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-3">
+                      Top Disruptor
+                    </h4>
+                    <p className="text-lg text-primary-foreground/80 dark:text-muted-foreground leading-snug">
+                      {executiveReport.topDisruptor}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Bottom row: Recommendations for the Driver - full width */}
+              <Card className="shadow-none">
+                <CardContent className="px-3 py-1 pl-6">
+                  <div className="mb-3">
+                    <h4 className="text-xl font-semibold text-card-foreground">Recommendations for the Driver</h4>
+                  </div>
+                  <div className="text-lg leading-snug">
+                    {executiveReport.recommendations.map((rec: string, idx: number) => (
+                      <div key={idx} className="flex items-start gap-2 mb-0.5">
+                        <svg className="w-4 h-4 text-card-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        <span>{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -7408,1495 +7426,808 @@ export default function ResultsPage() {
           {/* Chronological Journey Flow */}
           {isLiveMode && (
             <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
-            {/* Back Button - Top Right */}
-            <div className="sticky top-20 mb-6 flex justify-end z-20">
-              <Button
-                onClick={stopLiveTrip}
-                size="lg"
-                className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back
-              </Button>
-            </div>
-            {/* Connecting Line */}
-            <div className="absolute left-6 w-0.5 bg-border" style={{ top: '4rem', bottom: 0 }}></div>
-            {tripResults.map((result, index) => (
-              <React.Fragment key={result.locationId}>
-                {/* Location Hour Display */}
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-32 text-right relative">
-                    {/* Timeline Dot for Location */}
-                    <div className={`absolute left-2 top-0 w-8 h-8 rounded-full border-2 border-background flex items-center justify-center z-10 ${
-                      isLiveMode && activeLocationIndex === index 
-                        ? 'animate-live-pulse text-white' 
+              {/* Back Button - Top Right */}
+              <div className="sticky top-20 mb-6 flex justify-end z-20">
+                <Button
+                  onClick={stopLiveTrip}
+                  size="lg"
+                  className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Back
+                </Button>
+              </div>
+              {/* Connecting Line */}
+              <div className="absolute left-6 w-0.5 bg-border" style={{ top: '4rem', bottom: 0 }}></div>
+              {tripResults.map((result, index) => (
+                <React.Fragment key={result.locationId}>
+                  {/* Location Hour Display */}
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-32 text-right relative">
+                      {/* Timeline Dot for Location */}
+                      <div className={`absolute left-2 top-0 w-8 h-8 rounded-full border-2 border-background flex items-center justify-center z-10 ${isLiveMode && activeLocationIndex === index
+                        ? 'animate-live-pulse text-white'
                         : 'bg-primary text-primary-foreground'
-                    }`}>
-                      <span className="text-base font-bold">{numberToLetter(index + 1)}</span>
-                    </div>
-                    <div className="text-base font-bold text-foreground ml-6">
-                      {getLondonLocalTime(result.time)}
-                    </div>
-                    <div className="text-sm text-muted-foreground ml-2">
-                      {index === 0 ? 'Pick up' : index === tripResults.length - 1 ? 'Drop off' : 'Resume'}
-                      {isLiveMode && activeLocationIndex === index && (
-                        <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded bg-[#3ea34b]">
-                          LIVE
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                <div className="flex-1">
-              <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border border-border bg-background dark:bg-[#363636] text-foreground">
-                {/* Header with Full Address */}
-                <div className="flex items-center justify-between mb-2 pb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="relative" style={{ width: '30px', height: '35px' }}>
-                      <svg 
-                        viewBox="0 0 24 24" 
-                        className="fill-foreground stroke-background"
-                        strokeWidth="1.5"
-                        style={{ width: '100%', height: '100%' }}
-                      >
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '4px' }}>
-                        <span className="font-bold text-xs text-background">
-                          {numberToLetter(index + 1)}
-                        </span>
+                        }`}>
+                        <span className="text-base font-bold">{numberToLetter(index + 1)}</span>
+                      </div>
+                      <div className="text-base font-bold text-foreground ml-6">
+                        {getLondonLocalTime(result.time)}
+                      </div>
+                      <div className="text-sm text-muted-foreground ml-2">
+                        {index === 0 ? 'Pick up' : index === tripResults.length - 1 ? 'Drop off' : 'Resume'}
+                        {isLiveMode && activeLocationIndex === index && (
+                          <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded bg-[#3ea34b]">
+                            LIVE
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex-1">
-                      
-                       {/* Editable Location Name - Only for owners */}
-                      {isOwner && editingLocationId === result.locationId ? (
-                        <Input
-                          ref={inputRef}
-                          value={editingLocationName}
-                          onChange={(e) => setEditingLocationName(e.target.value)}
-                          onKeyDown={(e) => handleKeyPress(e, result.locationId)}
-                          onBlur={() => handleSaveLocationName(result.locationId)}
-                           className="text-base font-semibold bg-background/20 border-primary-foreground/30 text-primary-foreground mt-1 mb-1"
-                           placeholder="Enter location name"
-                          autoFocus
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 mt-1">
-                           <p className="text-base font-semibold text-foreground">
-                             {locationDisplayNames[result.locationId] || `Stop ${index + 1}`}
-                          </p>
-                          {/* Only show edit button for owners */}
-                          {isOwner && (
+                      <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border border-border bg-background dark:bg-[#363636] text-foreground">
+                        {/* Header with Full Address */}
+                        <div className="flex items-center justify-between mb-2 pb-2">
+                          <div className="flex items-center gap-3">
+                            <div className="relative" style={{ width: '30px', height: '35px' }}>
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="fill-foreground stroke-background"
+                                strokeWidth="1.5"
+                                style={{ width: '100%', height: '100%' }}
+                              >
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                              </svg>
+                              <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '4px' }}>
+                                <span className="font-bold text-xs text-background">
+                                  {numberToLetter(index + 1)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+
+                              {/* Editable Location Name - Only for owners */}
+                              {isOwner && editingLocationId === result.locationId ? (
+                                <Input
+                                  ref={inputRef}
+                                  value={editingLocationName}
+                                  onChange={(e) => setEditingLocationName(e.target.value)}
+                                  onKeyDown={(e) => handleKeyPress(e, result.locationId)}
+                                  onBlur={() => handleSaveLocationName(result.locationId)}
+                                  className="text-base font-semibold bg-background/20 border-primary-foreground/30 text-primary-foreground mt-1 mb-1"
+                                  placeholder="Enter location name"
+                                  autoFocus
+                                />
+                              ) : (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <p className="text-base font-semibold text-foreground">
+                                    {locationDisplayNames[result.locationId] || `Stop ${index + 1}`}
+                                  </p>
+                                  {/* Only show edit button for owners */}
+                                  {isOwner && (
+                                    <button
+                                      onClick={() => handleEditLocationName(result.locationId, `Stop ${index + 1}`)}
+                                      className="p-1 hover:bg-muted rounded transition-colors"
+                                      title="Edit location name"
+                                    >
+                                      <svg className="w-4 h-4 text-muted-foreground hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Full Address with Flight Info - Formatted */}
+                              <div className="mt-1">
+                                {(() => {
+                                  const fullAddr = result.fullAddress || result.locationName;
+                                  const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                                  const flightMap = extractFlightNumbers(driverNotes);
+
+                                  // Check if this location is an airport and has flight numbers
+                                  const isAirport = businessName.toLowerCase().includes('airport') ||
+                                    businessName.toLowerCase().includes('heathrow') ||
+                                    businessName.toLowerCase().includes('gatwick') ||
+                                    businessName.toLowerCase().includes('stansted') ||
+                                    businessName.toLowerCase().includes('luton');
+
+                                  let displayBusinessName = businessName;
+
+                                  if (isAirport && Object.keys(flightMap).length > 0) {
+                                    // Find matching airport in flight map
+                                    const matchingAirport = Object.keys(flightMap).find(airport =>
+                                      businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
+                                    );
+
+                                    if (matchingAirport && flightMap[matchingAirport].length > 0) {
+                                      const flights = flightMap[matchingAirport].join(', ');
+                                      displayBusinessName = `${businessName} for flight ${flights}`;
+                                    }
+                                  }
+
+                                  return (
+                                    <>
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {displayBusinessName}
+                                      </p>
+                                      {restOfAddress && (
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                          {restOfAddress}
+                                        </p>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            {/* Safety, Cafes, Parking Info */}
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-[#3ea34b]"></span>
+                                <span>Safety: {result.data.crime.safetyScore}/100</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                <span>{result.data.cafes?.summary.total || 0} Cafes</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                                <span>{result.data.parking?.carParks?.length || 0} Parking</span>
+                              </div>
+                            </div>
+
+                            {/* Expand/Collapse Button */}
                             <button
-                               onClick={() => handleEditLocationName(result.locationId, `Stop ${index + 1}`)}
-                              className="p-1 hover:bg-muted rounded transition-colors"
-                               title="Edit location name"
+                              onClick={() => toggleLocationExpansion(result.locationId)}
+                              className="p-2 hover:bg-muted rounded transition-colors"
+                              title={expandedLocations[result.locationId] ? "Collapse details" : "Expand details"}
                             >
-                              <svg className="w-4 h-4 text-muted-foreground hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              <svg
+                                className={`w-5 h-5 text-foreground transition-transform ${expandedLocations[result.locationId] ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                               </svg>
                             </button>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Full Address with Flight Info - Formatted */}
-                      <div className="mt-1">
-                        {(() => {
-                          const fullAddr = result.fullAddress || result.locationName;
-                          const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
-                          const flightMap = extractFlightNumbers(driverNotes);
-                          
-                          // Check if this location is an airport and has flight numbers
-                          const isAirport = businessName.toLowerCase().includes('airport') || 
-                                          businessName.toLowerCase().includes('heathrow') ||
-                                          businessName.toLowerCase().includes('gatwick') ||
-                                          businessName.toLowerCase().includes('stansted') ||
-                                          businessName.toLowerCase().includes('luton');
-                          
-                          let displayBusinessName = businessName;
-                          
-                          if (isAirport && Object.keys(flightMap).length > 0) {
-                            // Find matching airport in flight map
-                            const matchingAirport = Object.keys(flightMap).find(airport => 
-                              businessName.toLowerCase().includes(airport.toLowerCase().replace(' airport', ''))
-                            );
-                            
-                            if (matchingAirport && flightMap[matchingAirport].length > 0) {
-                              const flights = flightMap[matchingAirport].join(', ');
-                              displayBusinessName = `${businessName} for flight ${flights}`;
-                            }
-                          }
-                          
-                          return (
-                            <>
-                              <p className="text-sm font-semibold text-foreground">
-                                {displayBusinessName}
-                              </p>
-                              {restOfAddress && (
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {restOfAddress}
-                                </p>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    {/* Safety, Cafes, Parking Info */}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-[#3ea34b]"></span>
-                        <span>Safety: {result.data.crime.safetyScore}/100</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        <span>{result.data.cafes?.summary.total || 0} Cafes</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                        <span>{result.data.parking?.carParks?.length || 0} Parking</span>
-                      </div>
-                    </div>
-                    
-                    {/* Expand/Collapse Button */}
-                    <button
-                      onClick={() => toggleLocationExpansion(result.locationId)}
-                      className="p-2 hover:bg-muted rounded transition-colors"
-                      title={expandedLocations[result.locationId] ? "Collapse details" : "Expand details"}
-                    >
-                      <svg 
-                        className={`w-5 h-5 text-foreground transition-transform ${expandedLocations[result.locationId] ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-
-                {/* All Information Cards - Single Row - Only when expanded */}
-                <div 
-                  className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                    expandedLocations[result.locationId] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-                  }`}
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
-                  {/* Traveller Safety */}
-                  <div 
-                    className="border border-border/40 rounded-md p-3"
-                      style={{
-                        backgroundColor: (() => {
-                          const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#3ea34b'; // Success green ([#3ea34b])
-                          if (safetyScore >= 40) return '#db7304'; // Warning orange
-                          return '#9e201b'; // Error red
-                        })(),
-                        borderColor: (() => {
-                          const safetyScore = result.data.crime.safetyScore;
-                          if (safetyScore >= 60) return '#3ea34b'; // Green-500
-                          if (safetyScore >= 40) return '#db7304'; // Orange
-                          return '#9e201b'; // Error red
-                        })()
-                      }}
-                  >
-                    <h4 className="font-bold text-foreground mb-2">Traveller Safety</h4>
-                    <div className="flex items-center gap-2 mb-2">
-                      {(() => {
-                        const safetyScore = result.data.crime.safetyScore;
-                        if (safetyScore >= 80) {
-                          return (
-                            <>
-                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <div>
-                                <div className="text-sm font-semibold text-foreground">Very Safe</div>
-                                <div className="text-xs text-muted-foreground">Low crime area with excellent safety record</div>
-                              </div>
-                            </>
-                          );
-                        } else if (safetyScore >= 60) {
-                          return (
-                            <>
-                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <div>
-                                <div className="text-sm font-semibold text-foreground">Safe</div>
-                                <div className="text-xs text-muted-foreground">Generally safe with minimal concerns</div>
-                              </div>
-                            </>
-                          );
-                        } else if (safetyScore >= 40) {
-                          return (
-                            <>
-                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                              </svg>
-                              <div>
-                                <div className="text-sm font-semibold text-foreground">Moderate</div>
-                                <div className="text-xs text-muted-foreground">Mixed safety profile, stay aware</div>
-                              </div>
-                            </>
-                          );
-                        } else if (safetyScore >= 20) {
-                          return (
-                            <>
-                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                              </svg>
-                              <div>
-                                <div className="text-sm font-semibold text-foreground">Caution Advised</div>
-                                <div className="text-xs text-muted-foreground">Higher crime area, extra caution needed</div>
-                              </div>
-                            </>
-                          );
-                        } else {
-                          return (
-                            <>
-                              <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <div>
-                                <div className="text-sm font-semibold text-foreground">High Alert</div>
-                                <div className="text-xs text-muted-foreground">High crime area, avoid if possible</div>
-                              </div>
-                            </>
-                          );
-                        }
-                      })()}
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground font-medium mb-1">
-                        These are the 3 most common crimes in this area. Be aware.
-                      </div>
-                      {result.data.crime.summary.topCategories
-                        .filter(cat => !cat.category.toLowerCase().includes('other'))
-                        .slice(0, 3)
-                        .map((cat, idx) => (
-                          <div key={idx} className="text-xs text-muted-foreground">
-                            {(() => {
-                              const category = cat.category.toLowerCase();
-                              if (category.includes('violence')) return 'Violence and assault incidents';
-                              if (category.includes('theft')) return 'Theft and burglary cases';
-                              if (category.includes('robbery')) return 'Robbery and street crime';
-                              if (category.includes('vehicle')) return 'Vehicle-related crimes';
-                              if (category.includes('drug')) return 'Drug-related offenses';
-                              if (category.includes('criminal damage')) return 'Criminal damage and vandalism';
-                              if (category.includes('public order')) return 'Public order disturbances';
-                              if (category.includes('burglary')) return 'Burglary and break-ins';
-                              if (category.includes('shoplifting')) return 'Shoplifting incidents';
-                              if (category.includes('anti-social')) return 'Anti-social behavior';
-                              return cat.category;
-                            })()}
                           </div>
-                        ))}
-                    </div>
-                    
-                    {/* Emergency Services Links */}
-                    <div className="mt-3 pt-3 border-t border-primary-foreground/20 space-y-2">
-                      {result.data.emergencyServices?.policeStation ? (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.policeStation.name)}&query_place_id=${result.data.emergencyServices.policeStation.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-foreground hover:underline"
-                        >
-                          <div>
-                            <div className="font-medium">Closest Police Station</div>
-                            <div className="text-muted-foreground">{Math.round(result.data.emergencyServices.policeStation.distance)}m away</div>
-                          </div>
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
-                      ) : (
-                        <a
-                          href={`https://www.google.com/maps/search/police+station+near+${encodeURIComponent(result.locationName)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-foreground hover:underline"
-                        >
-                          <span className="font-medium">Closest Police Station</span>
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
-                      )}
-
-                      {result.data.emergencyServices?.hospital ? (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.hospital.name)}&query_place_id=${result.data.emergencyServices.hospital.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-foreground hover:underline"
-                        >
-                          <div>
-                            <div className="font-medium">Closest Hospital</div>
-                            <div className="text-muted-foreground">{Math.round(result.data.emergencyServices.hospital.distance)}m away</div>
-                          </div>
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
-                      ) : (
-                        <a
-                          href={`https://www.google.com/maps/search/hospital+near+${encodeURIComponent(result.locationName)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between text-xs text-foreground hover:underline"
-                        >
-                          <span className="font-medium">Closest Hospital</span>
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Potential Disruptive Events */}
-                  <div className="bg-muted/30 border border-border rounded-md p-3">
-                    <h4 className="font-bold text-foreground mb-3">Potential Disruptive Events</h4>
-                    {result.data.events.events.length > 0 ? (
-                      <>
-                        <div className="space-y-2 mb-3">
-                          {result.data.events.events.slice(0, 3).map((event: any, idx: number) => (
-                            <div key={idx} className="text-xs text-muted-foreground">
-                              • {event.title}
-                            </div>
-                          ))}
                         </div>
-                        <div className="text-xs text-muted-foreground italic pt-2 border-t border-border">
-                          {result.data.events.summary.total === 1 
-                            ? 'This event will be in the area. It might affect the trip. Be aware.'
-                            : `These ${result.data.events.summary.total} events will be in the area. They might affect the trip. Be aware.`}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">No events found</div>
-                    )}
-                  </div>
 
-                  {/* Nearby Cafes & Parking */}
-                  <div className="bg-muted/30 border border-border rounded-md p-3">
-                    <h4 className="font-bold text-foreground mb-3">Nearby Cafes & Parking</h4>
-                    
-                    {/* Cafes Section */}
-                    <div className="mb-4">
-                      <h5 className="text-sm font-semibold text-foreground mb-2">Cafes</h5>
-                    <div className="space-y-2">
-                      {result.data.cafes?.cafes && result.data.cafes.cafes.length > 0 ? (
-                        result.data.cafes.cafes
-                          .filter((cafe: any) => {
-                            // Calculate if cafe is open (location time - 20 minutes)
-                            const locationTime = new Date(`${tripDate} ${result.time}`);
-                            const checkTime = new Date(locationTime.getTime() - 20 * 60000); // Subtract 20 minutes
-                            const currentHour = checkTime.getHours();
-                            const currentMinute = checkTime.getMinutes();
-                            const currentTimeMinutes = currentHour * 60 + currentMinute;
-                            
-                            // Simple business hours check (assuming 7 AM - 10 PM)
-                            return currentTimeMinutes >= 420 && currentTimeMinutes <= 1320; // 7 AM to 10 PM
-                          })
-                            .slice(0, 2)
-                          .map((cafe: any, idx: number) => {
-                            return (
-                              <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <a 
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cafe.name + ' ' + result.locationName.split(',')[0])}`}
+
+                        {/* All Information Cards - Single Row - Only when expanded */}
+                        <div
+                          className={`overflow-hidden transition-all duration-500 ease-in-out ${expandedLocations[result.locationId] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                            }`}
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                            {/* Traveller Safety */}
+                            <div
+                              className="border border-border/40 rounded-md p-3"
+                              style={{
+                                backgroundColor: (() => {
+                                  const safetyScore = result.data.crime.safetyScore;
+                                  if (safetyScore >= 60) return '#3ea34b'; // Success green ([#3ea34b])
+                                  if (safetyScore >= 40) return '#db7304'; // Warning orange
+                                  return '#9e201b'; // Error red
+                                })(),
+                                borderColor: (() => {
+                                  const safetyScore = result.data.crime.safetyScore;
+                                  if (safetyScore >= 60) return '#3ea34b'; // Green-500
+                                  if (safetyScore >= 40) return '#db7304'; // Orange
+                                  return '#9e201b'; // Error red
+                                })()
+                              }}
+                            >
+                              <h4 className="font-bold text-foreground mb-2">Traveller Safety</h4>
+                              <div className="flex items-center gap-2 mb-2">
+                                {(() => {
+                                  const safetyScore = result.data.crime.safetyScore;
+                                  if (safetyScore >= 80) {
+                                    return (
+                                      <>
+                                        <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <div>
+                                          <div className="text-sm font-semibold text-foreground">Very Safe</div>
+                                          <div className="text-xs text-muted-foreground">Low crime area with excellent safety record</div>
+                                        </div>
+                                      </>
+                                    );
+                                  } else if (safetyScore >= 60) {
+                                    return (
+                                      <>
+                                        <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <div>
+                                          <div className="text-sm font-semibold text-foreground">Safe</div>
+                                          <div className="text-xs text-muted-foreground">Generally safe with minimal concerns</div>
+                                        </div>
+                                      </>
+                                    );
+                                  } else if (safetyScore >= 40) {
+                                    return (
+                                      <>
+                                        <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                        <div>
+                                          <div className="text-sm font-semibold text-foreground">Moderate</div>
+                                          <div className="text-xs text-muted-foreground">Mixed safety profile, stay aware</div>
+                                        </div>
+                                      </>
+                                    );
+                                  } else if (safetyScore >= 20) {
+                                    return (
+                                      <>
+                                        <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                        <div>
+                                          <div className="text-sm font-semibold text-foreground">Caution Advised</div>
+                                          <div className="text-xs text-muted-foreground">Higher crime area, extra caution needed</div>
+                                        </div>
+                                      </>
+                                    );
+                                  } else {
+                                    return (
+                                      <>
+                                        <svg className="w-5 h-5 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <div>
+                                          <div className="text-sm font-semibold text-foreground">High Alert</div>
+                                          <div className="text-xs text-muted-foreground">High crime area, avoid if possible</div>
+                                        </div>
+                                      </>
+                                    );
+                                  }
+                                })()}
+                              </div>
+                              <div className="space-y-1">
+                                <div className="text-xs text-muted-foreground font-medium mb-1">
+                                  These are the 3 most common crimes in this area. Be aware.
+                                </div>
+                                {result.data.crime.summary.topCategories
+                                  .filter(cat => !cat.category.toLowerCase().includes('other'))
+                                  .slice(0, 3)
+                                  .map((cat, idx) => (
+                                    <div key={idx} className="text-xs text-muted-foreground">
+                                      {(() => {
+                                        const category = cat.category.toLowerCase();
+                                        if (category.includes('violence')) return 'Violence and assault incidents';
+                                        if (category.includes('theft')) return 'Theft and burglary cases';
+                                        if (category.includes('robbery')) return 'Robbery and street crime';
+                                        if (category.includes('vehicle')) return 'Vehicle-related crimes';
+                                        if (category.includes('drug')) return 'Drug-related offenses';
+                                        if (category.includes('criminal damage')) return 'Criminal damage and vandalism';
+                                        if (category.includes('public order')) return 'Public order disturbances';
+                                        if (category.includes('burglary')) return 'Burglary and break-ins';
+                                        if (category.includes('shoplifting')) return 'Shoplifting incidents';
+                                        if (category.includes('anti-social')) return 'Anti-social behavior';
+                                        return cat.category;
+                                      })()}
+                                    </div>
+                                  ))}
+                              </div>
+
+                              {/* Emergency Services Links */}
+                              <div className="mt-3 pt-3 border-t border-primary-foreground/20 space-y-2">
+                                {result.data.emergencyServices?.policeStation ? (
+                                  <a
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.policeStation.name)}&query_place_id=${result.data.emergencyServices.policeStation.id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
+                                    className="flex items-center justify-between text-xs text-foreground hover:underline"
                                   >
-                                    {cafe.name.length > 20 ? cafe.name.substring(0, 20) + '...' : cafe.name}
-                                  </a>
-                                  <div className="text-xs font-medium text-[#3ea34b]">
-                                    Open
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-ring">★</span>
-                                    <span>{cafe.rating}/5</span>
-                                    <span className="text-primary-foreground/60">({cafe.userRatingsTotal})</span>
-                                  </div>
-                                  <div className="text-xs text-primary-foreground/60">
-                                  {Math.round(cafe.distance)}m away
+                                    <div>
+                                      <div className="font-medium">Closest Police Station</div>
+                                      <div className="text-muted-foreground">{Math.round(result.data.emergencyServices.policeStation.distance)}m away</div>
                                     </div>
-                                </div>
-                              </div>
-                            );
-                          })
-                      ) : (
-                        <div className="text-xs text-primary-foreground/70">No cafes found</div>
-                      )}
-                    </div>
-                  </div>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </a>
+                                ) : (
+                                  <a
+                                    href={`https://www.google.com/maps/search/police+station+near+${encodeURIComponent(result.locationName)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between text-xs text-foreground hover:underline"
+                                  >
+                                    <span className="font-medium">Closest Police Station</span>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </a>
+                                )}
 
-                    {/* Parking Section */}
-                    <div>
-                      <h5 className="text-sm font-semibold text-primary-foreground mb-2">Parking</h5>
-                      <div className="text-xs text-primary-foreground/80 mb-2">
-                      {result.data.parking?.cpzInfo?.inCPZ ? 'CPZ Zone - Charges Apply' :
-                       (result.data.parking?.parkingRiskScore || 5) >= 7 ? 'Limited Street Parking' : 'Good Parking Options'}
-                    </div>
-                    <div className="space-y-2">
-                      {result.data.parking?.carParks && result.data.parking.carParks.length > 0 ? (
-                          result.data.parking.carParks.slice(0, 2).map((carPark: any, idx: number) => (
-                          <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <a 
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(carPark.name + ' ' + result.locationName.split(',')[0])}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
-                              >
-                                {carPark.name.length > 20 ? carPark.name.substring(0, 20) + '...' : carPark.name}
-                              </a>
-                              <div className="text-xs text-primary-foreground/60">
-                                {Math.round(carPark.distance)}m
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1">
-                                <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
-                                <span>{carPark.operatingHours || '24/7'}</span>
-                                {carPark.totalSpaces && (
-                                  <span className="text-primary-foreground/60">({carPark.totalSpaces} spaces)</span>
+                                {result.data.emergencyServices?.hospital ? (
+                                  <a
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.data.emergencyServices.hospital.name)}&query_place_id=${result.data.emergencyServices.hospital.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between text-xs text-foreground hover:underline"
+                                  >
+                                    <div>
+                                      <div className="font-medium">Closest Hospital</div>
+                                      <div className="text-muted-foreground">{Math.round(result.data.emergencyServices.hospital.distance)}m away</div>
+                                    </div>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </a>
+                                ) : (
+                                  <a
+                                    href={`https://www.google.com/maps/search/hospital+near+${encodeURIComponent(result.locationName)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between text-xs text-foreground hover:underline"
+                                  >
+                                    <span className="font-medium">Closest Hospital</span>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </a>
                                 )}
                               </div>
-                              <div className="text-xs text-primary-foreground/60 text-right">
-                                {carPark.facilities && carPark.facilities.length > 0 
-                                  ? carPark.facilities.slice(0, 2).join(', ')
-                                  : 'Standard'}
+                            </div>
+
+                            {/* Potential Disruptive Events */}
+                            <div className="bg-muted/30 border border-border rounded-md p-3">
+                              <h4 className="font-bold text-foreground mb-3">Potential Disruptive Events</h4>
+                              {result.data.events.events.length > 0 ? (
+                                <>
+                                  <div className="space-y-2 mb-3">
+                                    {result.data.events.events.slice(0, 3).map((event: any, idx: number) => (
+                                      <div key={idx} className="text-xs text-muted-foreground">
+                                        • {event.title}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground italic pt-2 border-t border-border">
+                                    {result.data.events.summary.total === 1
+                                      ? 'This event will be in the area. It might affect the trip. Be aware.'
+                                      : `These ${result.data.events.summary.total} events will be in the area. They might affect the trip. Be aware.`}
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="text-xs text-muted-foreground">No events found</div>
+                              )}
+                            </div>
+
+                            {/* Nearby Cafes & Parking */}
+                            <div className="bg-muted/30 border border-border rounded-md p-3">
+                              <h4 className="font-bold text-foreground mb-3">Nearby Cafes & Parking</h4>
+
+                              {/* Cafes Section */}
+                              <div className="mb-4">
+                                <h5 className="text-sm font-semibold text-foreground mb-2">Cafes</h5>
+                                <div className="space-y-2">
+                                  {result.data.cafes?.cafes && result.data.cafes.cafes.length > 0 ? (
+                                    result.data.cafes.cafes
+                                      .filter((cafe: any) => {
+                                        // Calculate if cafe is open (location time - 20 minutes)
+                                        const locationTime = new Date(`${tripDate} ${result.time}`);
+                                        const checkTime = new Date(locationTime.getTime() - 20 * 60000); // Subtract 20 minutes
+                                        const currentHour = checkTime.getHours();
+                                        const currentMinute = checkTime.getMinutes();
+                                        const currentTimeMinutes = currentHour * 60 + currentMinute;
+
+                                        // Simple business hours check (assuming 7 AM - 10 PM)
+                                        return currentTimeMinutes >= 420 && currentTimeMinutes <= 1320; // 7 AM to 10 PM
+                                      })
+                                      .slice(0, 2)
+                                      .map((cafe: any, idx: number) => {
+                                        return (
+                                          <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                              <a
+                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cafe.name + ' ' + result.locationName.split(',')[0])}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
+                                              >
+                                                {cafe.name.length > 20 ? cafe.name.substring(0, 20) + '...' : cafe.name}
+                                              </a>
+                                              <div className="text-xs font-medium text-[#3ea34b]">
+                                                Open
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-1">
+                                                <span className="text-ring">★</span>
+                                                <span>{cafe.rating}/5</span>
+                                                <span className="text-primary-foreground/60">({cafe.userRatingsTotal})</span>
+                                              </div>
+                                              <div className="text-xs text-primary-foreground/60">
+                                                {Math.round(cafe.distance)}m away
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })
+                                  ) : (
+                                    <div className="text-xs text-primary-foreground/70">No cafes found</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Parking Section */}
+                              <div>
+                                <h5 className="text-sm font-semibold text-primary-foreground mb-2">Parking</h5>
+                                <div className="text-xs text-primary-foreground/80 mb-2">
+                                  {result.data.parking?.cpzInfo?.inCPZ ? 'CPZ Zone - Charges Apply' :
+                                    (result.data.parking?.parkingRiskScore || 5) >= 7 ? 'Limited Street Parking' : 'Good Parking Options'}
+                                </div>
+                                <div className="space-y-2">
+                                  {result.data.parking?.carParks && result.data.parking.carParks.length > 0 ? (
+                                    result.data.parking.carParks.slice(0, 2).map((carPark: any, idx: number) => (
+                                      <div key={idx} className="text-xs text-primary-foreground/70 border-b border-background/20 pb-1 last:border-b-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(carPark.name + ' ' + result.locationName.split(',')[0])}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="font-semibold text-primary-foreground hover:text-ring transition-colors truncate"
+                                          >
+                                            {carPark.name.length > 20 ? carPark.name.substring(0, 20) + '...' : carPark.name}
+                                          </a>
+                                          <div className="text-xs text-primary-foreground/60">
+                                            {Math.round(carPark.distance)}m
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-1">
+                                            <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                            </svg>
+                                            <span>{carPark.operatingHours || '24/7'}</span>
+                                            {carPark.totalSpaces && (
+                                              <span className="text-primary-foreground/60">({carPark.totalSpaces} spaces)</span>
+                                            )}
+                                          </div>
+                                          <div className="text-xs text-primary-foreground/60 text-right">
+                                            {carPark.facilities && carPark.facilities.length > 0
+                                              ? carPark.facilities.slice(0, 2).join(', ')
+                                              : 'Standard'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="text-xs text-primary-foreground/70">No parking data available</div>
+                                  )}
+                                  {result.data.parking?.cpzInfo?.inCPZ && (
+                                    <div className="text-xs text-destructive-foreground border-t border-background/20 pt-1 mt-1">
+                                      <div className="font-semibold">CPZ: {result.data.parking.cpzInfo.zoneName || 'Controlled Zone'}</div>
+                                      <div>{result.data.parking.cpzInfo.operatingHours || 'Mon-Sat 8:30am-6:30pm'}</div>
+                                      {result.data.parking.cpzInfo.chargeInfo && (
+                                        <div>{result.data.parking.cpzInfo.chargeInfo}</div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Route Card (after each location except the last) */}
+                  {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data[index] && (() => {
+                    // Calculate timeline realism for this route leg
+                    const legLocations = [
+                      { time: tripResults[index].time },
+                      { time: tripResults[index + 1].time }
+                    ];
+                    const timelineRealism = calculateTimelineRealism(legLocations, trafficPredictions, tripDate);
+                    const legRealism = timelineRealism.find(r => r.legIndex === index);
+
+                    // Calculate traffic delay
+                    const leg = trafficPredictions.data[index];
+                    const trafficDelay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
+
+                    // Calculate combined schedule risk
+                    const combinedRisk = calculateCombinedScheduleRisk(
+                      trafficDelay,
+                      legRealism?.realismLevel || null,
+                      legRealism?.userExpectedMinutes || 0,
+                      leg.minutes || 0
+                    );
+
+                    return (
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-32 text-right relative">
+                          {/* Timeline Dot for Route */}
+                          <div className="absolute left-2 top-0 w-8 h-8 rounded-full bg-card border-2 border-border flex items-center justify-center z-10">
+                            <span className="text-base font-bold text-card-foreground">→</span>
+                          </div>
+                          <div className="text-base font-bold text-foreground ml-6">
+                            {getLondonLocalTime(result.time)}
+                          </div>
+                          <div className="text-sm text-muted-foreground ml-2">
+                            Route
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div
+                            className="bg-card rounded-md p-8 border border-border/40"
+                          >
+                            {/* Route Header */}
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center gap-3">
+                                <div className="text-2xl font-bold text-card-foreground flex items-center gap-2">
+                                  <span>Route: {numberToLetter(index + 1)}</span>
+                                  <span
+                                    className="inline-block text-lg"
+                                  >
+                                    →
+                                  </span>
+                                  <span>{numberToLetter(index + 2)}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div
+                                  className="px-4 py-2 rounded-lg font-semibold"
+                                  style={{
+                                    backgroundColor: combinedRisk.color,
+                                    color: '#FFFFFF'
+                                  }}
+                                  title={combinedRisk.reason}
+                                >
+                                  {combinedRisk.label}
+                                </div>
+
+                                {/* Expand/Collapse Button */}
+                                <button
+                                  onClick={() => toggleRouteExpansion(`route-${index}`)}
+                                  className="p-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] rounded transition-colors"
+                                  title={expandedRoutes[`route-${index}`] ? "Collapse details" : "Expand details"}
+                                >
+                                  <svg
+                                    className={`w-5 h-5 text-card-foreground transition-transform ${expandedRoutes[`route-${index}`] ? 'rotate-180' : ''}`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Collapsed Summary */}
+                            <div
+                              className={`overflow-hidden transition-all duration-500 ease-in-out ${!expandedRoutes[`route-${index}`] ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'
+                                }`}
+                            >
+                              <div className="flex items-center justify-between text-sm text-muted-foreground py-3">
+                                <div className="flex items-center gap-4">
+                                  {trafficPredictions.data[index] && (
+                                    <>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-card-foreground font-medium">Time:</span>
+                                        <span>{trafficPredictions.data[index].minutes || 0} min</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-card-foreground font-medium">Distance:</span>
+                                        <span>{trafficPredictions.data[index].distance || 'N/A'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-card-foreground font-medium">Delay:</span>
+                                        <span>-{Math.max(0, (trafficPredictions.data[index].minutes || 0) - (trafficPredictions.data[index].minutesNoTraffic || 0))} min</span>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground/60">
+                                  Click to expand
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Expanded Details */}
+                            <div
+                              className={`overflow-hidden transition-all duration-500 ease-in-out ${expandedRoutes[`route-${index}`] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                                }`}
+                            >
+                              <div className="pt-2">
+
+                                {/* Route Details */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                  {/* Left Column - Google Maps Route Preview */}
+                                  <div className="rounded-lg overflow-hidden h-[200px] border border-border">
+                                    <GoogleTripMap
+                                      height="200px"
+                                      compact={true}
+                                      tripDestination={tripDestination}
+                                      locations={[
+                                        {
+                                          id: tripResults[index].locationId,
+                                          name: tripResults[index].locationName,
+                                          // Use weather coordinates (universal) instead of crime (London-only, 0,0 for other cities)
+                                          lat: result.data.weather.coordinates.lat,
+                                          lng: result.data.weather.coordinates.lng,
+                                          time: tripResults[index].time,
+                                          safetyScore: result.data.crime.safetyScore,
+                                        },
+                                        {
+                                          id: tripResults[index + 1].locationId,
+                                          name: tripResults[index + 1].locationName,
+                                          // Use weather coordinates (universal) instead of crime (London-only, 0,0 for other cities)
+                                          lat: tripResults[index + 1].data.weather.coordinates.lat,
+                                          lng: tripResults[index + 1].data.weather.coordinates.lng,
+                                          time: tripResults[index + 1].time,
+                                          safetyScore: tripResults[index + 1].data.crime.safetyScore,
+                                        }
+                                      ]}
+                                    />
+                                  </div>
+
+                                  {/* Right Column - Address Details */}
+                                  <div>
+                                    <div className="space-y-2">
+                                      <div className="text-sm">
+                                        <span className="font-semibold text-muted-foreground">From: </span>
+                                        <span className="text-card-foreground">{tripResults[index].locationName}</span>
+                                      </div>
+                                      <div className="text-sm">
+                                        <span className="font-semibold text-muted-foreground">To: </span>
+                                        <span className="text-card-foreground">{tripResults[index + 1].locationName}</span>
+                                      </div>
+                                    </div>
+                                    {legRealism && legRealism.realismLevel !== 'realistic' && (
+                                      <div className={`mt-3 pt-3 border-t border-border/30 ${legRealism.realismLevel === 'unrealistic'
+                                        ? 'text-[#9e201b]'
+                                        : 'text-[#db7304]'
+                                        }`}>
+                                        <div className="text-sm font-medium mb-1">
+                                          {legRealism.message}
+                                        </div>
+                                        <div className="text-xs opacity-80">
+                                          Your timeline: {legRealism.userExpectedMinutes} min • Estimated travel: {legRealism.googleCalculatedMinutes} min
+                                          {legRealism.differenceMinutes < 0 && (
+                                            <span> • Gap: {Math.abs(legRealism.differenceMinutes)} min short</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {trafficPredictions?.data?.[index]?.busyMinutes && (
+                                      <div className="text-sm text-destructive mt-3 pt-3 border-t border-border/30">
+                                        Busy traffic expected: -{Math.max(0, (trafficPredictions.data[index].busyMinutes || 0) - (trafficPredictions.data[index].minutesNoTraffic || 0))} min additional delay
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Route Stats */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                                  <div
+                                    className="rounded-lg p-4"
+                                    style={{
+                                      backgroundColor: (() => {
+                                        const leg = trafficPredictions?.data?.[index];
+                                        if (!leg) return 'rgba(128, 128, 128, 0.2)'; // Gray if no data
+                                        const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
+                                        if (delay < 5) return 'rgba(62, 163, 75, 0.2)'; // Green-500 with opacity
+                                        if (delay < 10) return 'rgba(219, 115, 4, 0.2)'; // Orange #db7304 with opacity
+                                        return 'rgba(158, 32, 27, 0.2)'; // Red #9e201b with opacity
+                                      })()
+                                    }}
+                                  >
+                                    <div
+                                      className="text-sm mb-1"
+                                      style={{
+                                        color: (() => {
+                                          const leg = trafficPredictions?.data?.[index];
+                                          if (!leg) return '#808080'; // Gray if no data
+                                          const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
+                                          if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
+                                          if (delay < 10) return '#db7304'; // Warning orange
+                                          return '#9e201b'; // Error red - light bg
+                                        })()
+                                      }}
+                                    >
+                                      Traffic Delay
+                                    </div>
+                                    <div
+                                      className="text-2xl font-bold"
+                                      style={{
+                                        color: (() => {
+                                          const leg = trafficPredictions?.data?.[index];
+                                          if (!leg) return '#808080'; // Gray if no data
+                                          const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
+                                          if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
+                                          if (delay < 10) return '#db7304'; // Warning orange
+                                          return '#9e201b'; // Error red - light bg
+                                        })()
+                                      }}
+                                    >
+                                      -{(() => {
+                                        const leg = trafficPredictions?.data?.[index];
+                                        if (!leg) return '0';
+                                        return Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
+                                      })()} min
+                                    </div>
+                                  </div>
+                                  <div className="bg-secondary/50 rounded-lg p-4">
+                                    <div className="text-sm text-muted-foreground mb-1">Travel Time</div>
+                                    <div className="text-2xl font-bold text-card-foreground">
+                                      {trafficPredictions?.data?.[index]?.minutes || 0} min
+                                    </div>
+                                  </div>
+                                  <div className="bg-secondary/50 rounded-lg p-4">
+                                    <div className="text-sm text-muted-foreground mb-1">Distance</div>
+                                    <div className="text-2xl font-bold text-card-foreground">
+                                      {trafficPredictions?.data?.[index]?.distance || 'N/A'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Road Closures */}
+                                {result.data.disruptions.disruptions.length > 0 && (
+                                  <div className="bg-secondary/30 rounded-lg p-4 mt-4">
+                                    <div className="text-sm font-semibold mb-3 text-card-foreground">Road Closures</div>
+                                    <div className="space-y-2 mb-3">
+                                      {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
+                                        <div key={idx} className="text-xs">
+                                          <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(disruption.location)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="font-semibold text-card-foreground hover:underline flex items-center gap-1"
+                                          >
+                                            {disruption.location}
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                          </a>
+                                          <div className="text-destructive mt-1">{disruption.severity}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground italic pt-2 border-t border-border/30">
+                                      Data from Transport for London
+                                    </div>
+                                  </div>
+                                )}
+
                               </div>
                             </div>
                           </div>
-                        ))
-                      ) : (
-                          <div className="text-xs text-primary-foreground/70">No parking data available</div>
-                      )}
-                      {result.data.parking?.cpzInfo?.inCPZ && (
-                        <div className="text-xs text-destructive-foreground border-t border-background/20 pt-1 mt-1">
-                          <div className="font-semibold">CPZ: {result.data.parking.cpzInfo.zoneName || 'Controlled Zone'}</div>
-                          <div>{result.data.parking.cpzInfo.operatingHours || 'Mon-Sat 8:30am-6:30pm'}</div>
-                          {result.data.parking.cpzInfo.chargeInfo && (
-                            <div>{result.data.parking.cpzInfo.chargeInfo}</div>
-                          )}
-                        </div>
-                      )}
-                      </div>
-                    </div>
-                  </div>
-
-                  </div>
-                </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Route Card (after each location except the last) */}
-              {index < tripResults.length - 1 && trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data[index] && (() => {
-                // Calculate timeline realism for this route leg
-                const legLocations = [
-                  { time: tripResults[index].time },
-                  { time: tripResults[index + 1].time }
-                ];
-                const timelineRealism = calculateTimelineRealism(legLocations, trafficPredictions, tripDate);
-                const legRealism = timelineRealism.find(r => r.legIndex === index);
-                
-                // Calculate traffic delay
-                const leg = trafficPredictions.data[index];
-                const trafficDelay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                
-                // Calculate combined schedule risk
-                const combinedRisk = calculateCombinedScheduleRisk(
-                  trafficDelay,
-                  legRealism?.realismLevel || null,
-                  legRealism?.userExpectedMinutes || 0,
-                  leg.minutes || 0
-                );
-                
-                return (
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-32 text-right relative">
-                    {/* Timeline Dot for Route */}
-                    <div className="absolute left-2 top-0 w-8 h-8 rounded-full bg-card border-2 border-border flex items-center justify-center z-10">
-                      <span className="text-base font-bold text-card-foreground">→</span>
-                    </div>
-                    <div className="text-base font-bold text-foreground ml-6">
-                      {getLondonLocalTime(result.time)}
-                    </div>
-                    <div className="text-sm text-muted-foreground ml-2">
-                      Route
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                <div 
-                  className="bg-card rounded-md p-8 border border-border/40"
-                >
-                  {/* Route Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="text-2xl font-bold text-card-foreground flex items-center gap-2">
-                        <span>Route: {numberToLetter(index + 1)}</span>
-                        <span 
-                          className="inline-block text-lg"
-                        >
-                          →
-                        </span>
-                        <span>{numberToLetter(index + 2)}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div 
-                        className="px-4 py-2 rounded-lg font-semibold"
-                        style={{
-                          backgroundColor: combinedRisk.color,
-                          color: '#FFFFFF'
-                        }}
-                        title={combinedRisk.reason}
-                      >
-                        {combinedRisk.label}
-                      </div>
-                      
-                      {/* Expand/Collapse Button */}
-                      <button
-                        onClick={() => toggleRouteExpansion(`route-${index}`)}
-                        className="p-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] rounded transition-colors"
-                        title={expandedRoutes[`route-${index}`] ? "Collapse details" : "Expand details"}
-                      >
-                        <svg 
-                          className={`w-5 h-5 text-card-foreground transition-transform ${expandedRoutes[`route-${index}`] ? 'rotate-180' : ''}`} 
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Collapsed Summary */}
-                  <div 
-                      className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                        !expandedRoutes[`route-${index}`] ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between text-sm text-muted-foreground py-3">
-                      <div className="flex items-center gap-4">
-                        {trafficPredictions.data[index] && (
-                          <>
-                            <div className="flex items-center gap-1">
-                              <span className="text-card-foreground font-medium">Time:</span>
-                              <span>{trafficPredictions.data[index].minutes || 0} min</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-card-foreground font-medium">Distance:</span>
-                              <span>{trafficPredictions.data[index].distance || 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-card-foreground font-medium">Delay:</span>
-                              <span>-{Math.max(0, (trafficPredictions.data[index].minutes || 0) - (trafficPredictions.data[index].minutesNoTraffic || 0))} min</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground/60">
-                        Click to expand
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Expanded Details */}
-                  <div 
-                    className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                      expandedRoutes[`route-${index}`] ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-                    }`}
-                  >
-                    <div className="pt-2">
-
-                  {/* Route Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {/* Left Column - Google Maps Route Preview */}
-                    <div className="rounded-lg overflow-hidden h-[200px] border border-border">
-                      <GoogleTripMap 
-                        height="200px"
-                        compact={true}
-                        tripDestination={tripDestination}
-                        locations={[
-                          {
-                            id: tripResults[index].locationId,
-                            name: tripResults[index].locationName,
-                            // Use weather coordinates (universal) instead of crime (London-only, 0,0 for other cities)
-                            lat: result.data.weather.coordinates.lat,
-                            lng: result.data.weather.coordinates.lng,
-                            time: tripResults[index].time,
-                            safetyScore: result.data.crime.safetyScore,
-                          },
-                          {
-                            id: tripResults[index + 1].locationId,
-                            name: tripResults[index + 1].locationName,
-                            // Use weather coordinates (universal) instead of crime (London-only, 0,0 for other cities)
-                            lat: tripResults[index + 1].data.weather.coordinates.lat,
-                            lng: tripResults[index + 1].data.weather.coordinates.lng,
-                            time: tripResults[index + 1].time,
-                            safetyScore: tripResults[index + 1].data.crime.safetyScore,
-                          }
-                        ]}
-                      />
-                    </div>
-                    
-                    {/* Right Column - Address Details */}
-                    <div>
-                      <div className="space-y-2">
-                        <div className="text-sm">
-                          <span className="font-semibold text-muted-foreground">From: </span>
-                          <span className="text-card-foreground">{tripResults[index].locationName}</span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-semibold text-muted-foreground">To: </span>
-                          <span className="text-card-foreground">{tripResults[index + 1].locationName}</span>
                         </div>
                       </div>
-                      {legRealism && legRealism.realismLevel !== 'realistic' && (
-                        <div className={`mt-3 pt-3 border-t border-border/30 ${
-                          legRealism.realismLevel === 'unrealistic' 
-                            ? 'text-[#9e201b]' 
-                            : 'text-[#db7304]'
-                        }`}>
-                          <div className="text-sm font-medium mb-1">
-                            {legRealism.message}
-                          </div>
-                          <div className="text-xs opacity-80">
-                            Your timeline: {legRealism.userExpectedMinutes} min • Estimated travel: {legRealism.googleCalculatedMinutes} min
-                            {legRealism.differenceMinutes < 0 && (
-                              <span> • Gap: {Math.abs(legRealism.differenceMinutes)} min short</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      {trafficPredictions?.data?.[index]?.busyMinutes && (
-                        <div className="text-sm text-destructive mt-3 pt-3 border-t border-border/30">
-                          Busy traffic expected: -{Math.max(0, (trafficPredictions.data[index].busyMinutes || 0) - (trafficPredictions.data[index].minutesNoTraffic || 0))} min additional delay
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Route Stats */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    <div 
-                      className="rounded-lg p-4"
-                      style={{
-                        backgroundColor: (() => {
-                          const leg = trafficPredictions?.data?.[index];
-                          if (!leg) return 'rgba(128, 128, 128, 0.2)'; // Gray if no data
-                          const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                          if (delay < 5) return 'rgba(62, 163, 75, 0.2)'; // Green-500 with opacity
-                          if (delay < 10) return 'rgba(219, 115, 4, 0.2)'; // Orange #db7304 with opacity
-                          return 'rgba(158, 32, 27, 0.2)'; // Red #9e201b with opacity
-                        })()
-                      }}
-                    >
-                      <div 
-                        className="text-sm mb-1"
-                        style={{
-                          color: (() => {
-                            const leg = trafficPredictions?.data?.[index];
-                            if (!leg) return '#808080'; // Gray if no data
-                            const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
-                            if (delay < 10) return '#db7304'; // Warning orange
-                            return '#9e201b'; // Error red - light bg
-                          })()
-                        }}
-                      >
-                        Traffic Delay
-                      </div>
-                      <div 
-                        className="text-2xl font-bold"
-                        style={{
-                          color: (() => {
-                            const leg = trafficPredictions?.data?.[index];
-                            if (!leg) return '#808080'; // Gray if no data
-                            const delay = Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                            if (delay < 5) return '#3ea34b'; // Success green ([#3ea34b])
-                            if (delay < 10) return '#db7304'; // Warning orange
-                            return '#9e201b'; // Error red - light bg
-                          })()
-                        }}
-                      >
-                        -{(() => {
-                          const leg = trafficPredictions?.data?.[index];
-                          if (!leg) return '0';
-                          return Math.max(0, (leg.minutes || 0) - (leg.minutesNoTraffic || 0));
-                        })()} min
-                      </div>
-                    </div>
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="text-sm text-muted-foreground mb-1">Travel Time</div>
-                      <div className="text-2xl font-bold text-card-foreground">
-                        {trafficPredictions?.data?.[index]?.minutes || 0} min
-                      </div>
-                    </div>
-                    <div className="bg-secondary/50 rounded-lg p-4">
-                      <div className="text-sm text-muted-foreground mb-1">Distance</div>
-                      <div className="text-2xl font-bold text-card-foreground">
-                        {trafficPredictions?.data?.[index]?.distance || 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Road Closures */}
-                  {result.data.disruptions.disruptions.length > 0 && (
-                    <div className="bg-secondary/30 rounded-lg p-4 mt-4">
-                      <div className="text-sm font-semibold mb-3 text-card-foreground">Road Closures</div>
-                      <div className="space-y-2 mb-3">
-                        {result.data.disruptions.disruptions.slice(0, 2).map((disruption: any, idx: number) => (
-                          <div key={idx} className="text-xs">
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(disruption.location)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-semibold text-card-foreground hover:underline flex items-center gap-1"
-                            >
-                              {disruption.location}
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                            </a>
-                            <div className="text-destructive mt-1">{disruption.severity}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-xs text-muted-foreground italic pt-2 border-t border-border/30">
-                        Data from Transport for London
-                      </div>
-                    </div>
-                  )}
-                  
-                    </div>
-                  </div>
-                    </div>
-                  </div>
-                </div>
-                );
-              })()}
-              </React.Fragment>
-            ))}
-          </div>
+                    );
+                  })()}
+                </React.Fragment>
+              ))}
+            </div>
           )}
 
         </div>
 
         {/* Request Quotes from Drivers - Now only in modal */}
-        {false && (
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Request Quotes from Drivers</h2>
-              
-              <p className="text-muted-foreground mb-6">
-                Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details.
-              </p>
-              
-              {quoteRequestSuccess && (
-                <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-                  <AlertDescription className="text-[#3ea34b]">
-                    ✅ {quoteRequestSuccess}
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {quoteRequestError && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{quoteRequestError}</AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label htmlFor="allocate-driver-email" className="block text-sm font-medium mb-2">
-                      Driver Email Address
-                    </label>
-                    <Input
-                      id="allocate-driver-email"
-                      type="email"
-                      value={allocateDriverEmail}
-                      onChange={(e) => setAllocateDriverEmail(e.target.value)}
-                      placeholder="driver@company.com"
-                      disabled={sendingQuoteRequest}
-                      className={allocateDriverEmailError ? 'border-destructive' : ''}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && allocateDriverEmail && !sendingQuoteRequest) {
-                          handleSendQuoteRequest();
-                        }
-                      }}
-                    />
-                    {allocateDriverEmailError && (
-                      <p className="text-sm text-destructive mt-1">{allocateDriverEmailError}</p>
-                    )}
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      onClick={() => handleSendQuoteRequest(allocateDriverEmail)}
-                      disabled={sendingQuoteRequest || !allocateDriverEmail}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                    >
-                      {sendingQuoteRequest ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Sending...
-                        </>
-                      ) : (
-                        'Request Quote'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* List of sent invitations */}
-                {sentDriverEmails.length > 0 && (
-                  <div className="mt-6 pt-6 border-t">
-                    <h3 className="text-sm font-semibold mb-3">Sent ({sentDriverEmails.length})</h3>
-                    <div className="space-y-2">
-                      {sentDriverEmails.map((sent, index) => {
-                        const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
-                        return (
-                          <div 
-                            key={index} 
-                            className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
-                          >
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{sent.email}</p>
-                            </div>
-                            <div className="text-right flex-shrink-0 ml-4">
-                              <p className="text-xs text-muted-foreground">
-                                Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
-                              </p>
-                            </div>
-                            {hasQuote && (
-                              <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                QUOTE RECEIVED
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {
+          false && (
+            <Card className="mb-8">
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Request Quotes from Drivers</h2>
 
-        {/* Quotes Table - Now only in modal */}
-        {false && (
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Received Quotes</h2>
-              {loadingQuotes ? (
-                <div className="flex items-center justify-center py-8">
-                  <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span className="ml-2 text-muted-foreground">Loading quotes...</span>
-                </div>
-              ) : quotes.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b">
-                      <tr>
-                        <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
-                        <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
-                        <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
-                        <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
-                        <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quotes.map((quote) => {
-                        const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
-                        return (
-                          <tr 
-                            key={quote.id} 
-                            className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${
-                              isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
-                            }`}
-                          >
-                            <td className="py-3 px-4 text-sm">
-                              {quote.email}
-                              {isDriver && (
-                                <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                  DRIVER
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm text-right font-medium">
-                              {quote.price.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-4 text-sm">{quote.currency}</td>
-                            <td className="py-3 px-4 text-sm text-muted-foreground">
-                              {new Date(quote.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <Button
-                                size="sm"
-                                variant={isDriver ? "outline" : "default"}
-                                onClick={() => handleSetDriver(quote.email)}
-                                disabled={settingDriver}
-                                className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
-                              >
-                                {settingDriver ? (
-                                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                  </svg>
-                                ) : isDriver ? (
-                                  '✓ Assigned'
-                                ) : (
-                                  'Assign Driver'
-                                )}
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              
-              {/* Manual Driver Form - shown always for owners */}
-              <div className="mt-6 pt-6 border-t">
-                <h3 className="text-lg font-semibold mb-4">Add Driver Manually</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Set a driver email address manually. Personal emails (Gmail, Yahoo, etc.) are accepted.
+                <p className="text-muted-foreground mb-6">
+                  Invite drivers to submit quotes for this trip. Each driver will receive an email with the trip details.
                 </p>
-                
-                {manualDriverError && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertDescription>{manualDriverError}</AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      type="email"
-                      value={manualDriverEmail}
-                      onChange={(e) => handleManualDriverInputChange(e.target.value)}
-                      onFocus={handleManualDriverInputFocus}
-                      onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
-                      placeholder="driver@gmail.com or driver@company.com"
-                      disabled={settingDriver}
-                      className={manualDriverError ? 'border-destructive' : ''}
-                    />
-                    
-                    {/* Autocomplete Dropdown */}
-                    {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                        {filteredDriverSuggestions.map((driver, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => handleSelectDriverSuggestion(driver)}
-                            className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span>{driver}</span>
-                              {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
-                                <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Show message when no suggestions match */}
-                    {showDriverSuggestions && manualDriverEmail.trim().length > 0 && filteredDriverSuggestions.length === 0 && driverSuggestions.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4">
-                        <p className="text-sm text-muted-foreground">No matching drivers found</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <Button
-                    onClick={() => handleSetDriver(manualDriverEmail)}
-                    disabled={settingDriver || !manualDriverEmail.trim()}
-                    className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                  >
-                    {settingDriver ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Setting...
-                      </>
-                    ) : (
-                      'Set as Driver'
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Driver Confirmation Card - Token validation error */}
-        {!isOwner && tokenValidationError && (
-          <Card className="mb-8 border-2 border-red-500 shadow-lg">
-            <CardContent className="p-6">
-              <Alert variant="destructive" className="mb-4">
-                <AlertDescription>
-                  ⚠️ {tokenValidationError}
-                </AlertDescription>
-              </Alert>
-              <p className="text-muted-foreground">
-                This link may have expired or already been used. Please contact the trip owner if you need a new invitation.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Driver Confirmation Card - Magic Link Flow (Token-based) */}
-        {!isOwner && isDriverView && validatedDriverEmail && (
-          <Card className={`mb-8 border-2 shadow-lg ${
-            !canTakeAction ? 'border-gray-400' : 'border-[#e77500]'
-          }`}>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
-                  !canTakeAction ? 'bg-gray-100' : 'bg-[#e77500]/10'
-                }`}>
-                  <svg
-                    className={`w-6 h-6 ${!canTakeAction ? 'text-gray-500' : 'text-[#e77500]'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d={!canTakeAction ? "M5 13l4 4L19 7" : "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"}
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold">
-                    {!canTakeAction ? 'Trip status update' : 'Trip confirmation required'}
-                  </h2>
-                  <p className="text-muted-foreground">
-                    {!canTakeAction ? 'You\'ve already responded to this trip' : 'You\'ve been assigned to this trip'}
-                  </p>
-                </div>
-              </div>
-              
-              {canTakeAction ? (
-                <>
-                  <Alert className="mb-4 bg-[#e77500]/10 border-[#e77500]/30">
-                    <AlertDescription className="text-[#e77500] font-medium">
-                      ⏱️ This trip is waiting for your confirmation
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="mb-6">
-                    <p className="text-muted-foreground mb-4">
-                      Please confirm your availability for this trip. The trip owner will be notified of your decision.
-                    </p>
-                    <div className="bg-muted/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        <span className="text-muted-foreground">Assigned to:</span>
-                        <span className="font-medium">{validatedDriverEmail}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={handleDriverConfirmTrip}
-                      disabled={confirmingTrip || rejectingTrip}
-                      className="flex-1 bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
-                      size="lg"
-                    >
-                      {confirmingTrip ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Confirming...
-                        </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-5 h-5 mr-2"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          Confirm trip
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => setShowDriverRejectDialog(true)}
-                      disabled={confirmingTrip || rejectingTrip}
-                      variant="outline"
-                      className="flex-1 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                      size="lg"
-                    >
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                      Reject trip
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Alert className={`mb-4 ${
-                    tripStatus === 'confirmed' 
-                      ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' 
-                      : tripStatus === 'rejected'
-                      ? 'bg-red-500/10 border-red-500/30'
-                      : tripStatus === 'cancelled'
-                      ? 'bg-gray-500/10 border-gray-500/30'
-                      : 'bg-blue-500/10 border-blue-500/30'
-                  }`}>
-                    <AlertDescription className={`font-medium ${
-                      tripStatus === 'confirmed' 
-                        ? 'text-[#3ea34b]' 
-                        : tripStatus === 'rejected'
-                        ? 'text-red-600'
-                        : tripStatus === 'cancelled'
-                        ? 'text-gray-600'
-                        : 'text-blue-600'
-                    }`}>
-                      {tripStatus === 'confirmed' && '✅ You have confirmed this trip'}
-                      {tripStatus === 'rejected' && '❌ You have rejected this trip'}
-                      {tripStatus === 'cancelled' && '🚫 This trip has been cancelled'}
-                      {tokenMessage && !['confirmed', 'rejected', 'cancelled'].includes(tripStatus) && `ℹ️ ${tokenMessage}`}
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 text-sm mb-3">
-                      <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      <span className="text-muted-foreground">Assigned to:</span>
-                      <span className="font-medium">{validatedDriverEmail}</span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {tripStatus === 'confirmed' && 'The trip owner has been notified of your acceptance.'}
-                      {tripStatus === 'rejected' && 'The trip owner has been notified that you declined.'}
-                      {tripStatus === 'cancelled' && 'The trip owner has cancelled this trip.'}
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Driver Confirmation Card - Email-based Flow (Old flow for backward compatibility) */}
-        {!isOwner && !isDriverView && tripStatus === 'pending' && driverEmail && quoteEmail && 
-         driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim() && (
-          <Card className="mb-8 border-2 border-[#e77500] shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#e77500]/10 flex items-center justify-center">
-                  <svg
-                    className="w-6 h-6 text-[#e77500]"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold">Trip confirmation required</h2>
-                  <p className="text-muted-foreground">You've been assigned to this trip</p>
-                </div>
-              </div>
-              
-              <Alert className="mb-4 bg-[#e77500]/10 border-[#e77500]/30">
-                <AlertDescription className="text-[#e77500] font-medium">
-                  ⏱️ This trip is waiting for your confirmation
-                </AlertDescription>
-              </Alert>
-              
-              <div className="space-y-3">
-                <p className="text-muted-foreground">
-                  To confirm your availability for this trip:
-                </p>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-2">
-                  <li>Enter your email address in the form below (if you haven't already)</li>
-                  <li>Click the orange <strong className="text-[#e77500]">"Pending"</strong> button at the top of the page</li>
-                  <li>Confirm when prompted</li>
-                </ol>
-                <p className="text-sm text-muted-foreground mt-4">
-                  💡 The trip owner will be notified once you confirm.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Quote Submission Form - REMOVED - Now sticky at top for non-owners */}
-
-        {/* Guest Signup CTA - Only for guests who created this report */}
-        {isGuestCreator && !guestSignupSuccess && (
-          <Card className="mb-8 border border-primary/60 bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardContent className="p-8">
-              <div className="max-w-2xl mx-auto">
-                <h2 className="text-2xl font-bold text-center mb-3">
-                  🎉 Want to save this report and access it anytime?
-                </h2>
-                <p className="text-center text-muted-foreground mb-6">
-                  Create an account now to unlock powerful features
-                </p>
-                
-                {/* Benefits Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Edit trips anytime</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Share with links</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Get driver quotes</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Password protect</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Notify drivers</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>Save all trips</span>
-                  </div>
-                </div>
-
-                {/* Signup Form */}
-                <form onSubmit={handleGuestSignup} className="space-y-4">
-                  <div>
-                    <label htmlFor="guest-email" className="block text-sm font-medium mb-2">
-                      Email Address
-                    </label>
-                    <Input
-                      id="guest-email"
-                      type="email"
-                      value={tripData?.userEmail || ''}
-                      disabled
-                      className="bg-muted"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      We already have your email from when you created this report
-                    </p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="guest-password" className="block text-sm font-medium mb-2">
-                      Create Password
-                    </label>
-                    <Input
-                      id="guest-password"
-                      type="password"
-                      value={guestSignupPassword}
-                      onChange={(e) => setGuestSignupPassword(e.target.value)}
-                      placeholder="At least 6 characters"
-                      disabled={guestSignupLoading}
-                      className={guestSignupError ? 'border-destructive' : ''}
-                    />
-                    {guestSignupError && (
-                      <p className="text-sm text-destructive mt-1">{guestSignupError}</p>
-                    )}
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full text-lg py-6 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                    disabled={guestSignupLoading || !guestSignupPassword}
-                  >
-                    {guestSignupLoading ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Creating Account...
-                      </>
-                    ) : (
-                      <>
-                        🚀 Create Account & Save Report
-                      </>
-                    )}
-                  </Button>
-                </form>
-
-                <p className="text-xs text-center text-muted-foreground mt-4">
-                  Already have an account? <a href="/login" className="text-primary hover:underline">Log in here</a>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Success message after signup */}
-        {guestSignupSuccess && (
-          <Alert className="mb-8 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-            <AlertDescription className="text-[#3ea34b] text-center">
-              ✅ Account created successfully! This trip is now saved to your account. Refreshing...
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Footer Navigation */}
-        <div className="py-8">
-          <div className="flex flex-wrap justify-start gap-3">
-            <Button
-              onClick={handlePlanNewTrip}
-              variant="default"
-              size="lg"
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-            >
-              Plan new trip
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Driver & Quotes Modal */}
-      {showDriverModal && (
-        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="p-6 pb-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold text-card-foreground">
-                  {assignOnlyMode ? 'Assign driver' : 'Get driver quotes'}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowDriverModal(false);
-                    setAssignOnlyMode(false); // Reset assign-only mode
-                  }}
-                  className="p-2 hover:bg-secondary/50 rounded-md transition-colors"
-                  aria-label="Close"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            {/* Modal Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {/* Cancelled Trip Warning */}
-              {tripStatus === 'cancelled' && (
-                <Alert variant="destructive" className="mb-6">
-                  <AlertDescription className="flex items-center gap-2">
-                    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div>
-                      <p className="font-semibold">This trip has been cancelled</p>
-                      <p className="text-sm mt-1">You cannot assign drivers or request quotes for a cancelled trip. Please create a new trip instead.</p>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Driver Management Section - Unified */}
-              <div className="mb-8">
-                {!assignOnlyMode && (
-                  <p className="text-muted-foreground mb-6">
-                    Request quotes from drivers. After receiving a quote, you can assign that driver to your trip.
-                  </p>
-                )}
-                
-                {assignOnlyMode && (
-                  <p className="text-muted-foreground mb-6">
-                    Assign a driver to confirm this trip
-                  </p>
-                )}
-                
-                {/* Success Messages */}
                 {quoteRequestSuccess && (
                   <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
                     <AlertDescription className="text-[#3ea34b]">
@@ -8904,131 +8235,68 @@ export default function ResultsPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                
-                {/* Error Messages */}
-                {(quoteRequestError || manualDriverError) && (
+
+                {quoteRequestError && (
                   <Alert variant="destructive" className="mb-4">
-                    <AlertDescription>{quoteRequestError || manualDriverError}</AlertDescription>
+                    <AlertDescription>{quoteRequestError}</AlertDescription>
                   </Alert>
                 )}
-                
-                {/* Unified Email Input with Two Buttons */}
+
                 <div className="space-y-4">
-                  <div className="flex gap-3 items-center">
-                    <div className="relative flex-1">
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label htmlFor="allocate-driver-email" className="block text-sm font-medium mb-2">
+                        Driver Email Address
+                      </label>
                       <Input
-                        id="driver-email-unified"
+                        id="allocate-driver-email"
                         type="email"
-                        value={manualDriverEmail}
-                        onChange={(e) => handleManualDriverInputChange(e.target.value)}
-                        onFocus={handleManualDriverInputFocus}
-                        onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
-                        placeholder="Enter driver email"
-                        disabled={settingDriver || sendingQuoteRequest}
-                        className={(manualDriverError || allocateDriverEmailError) ? 'border-destructive' : ''}
+                        value={allocateDriverEmail}
+                        onChange={(e) => setAllocateDriverEmail(e.target.value)}
+                        placeholder="driver@company.com"
+                        disabled={sendingQuoteRequest}
+                        className={allocateDriverEmailError ? 'border-destructive' : ''}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && allocateDriverEmail && !sendingQuoteRequest) {
+                            handleSendQuoteRequest();
+                          }
+                        }}
                       />
-                      
-                      {/* Autocomplete Dropdown */}
-                      {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
-                        <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                          {filteredDriverSuggestions.map((driver, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => handleSelectDriverSuggestion(driver)}
-                              className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span>{driver}</span>
-                                {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
-                                  <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
-                                    Current
-                                  </span>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Show message when no suggestions match */}
-                      {showDriverSuggestions && manualDriverEmail.trim().length > 0 && filteredDriverSuggestions.length === 0 && driverSuggestions.length > 0 && (
-                        <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4">
-                          <p className="text-sm text-muted-foreground">No matching drivers found</p>
-                        </div>
+                      {allocateDriverEmailError && (
+                        <p className="text-sm text-destructive mt-1">{allocateDriverEmailError}</p>
                       )}
                     </div>
-                    
-                      <div className="flex gap-2">
-                        {/* Request Quote - Hide in assign-only mode */}
-                        {!assignOnlyMode && (
-                        <Button
-                          onClick={() => handleSendQuoteRequest(manualDriverEmail)}
-                          disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver || tripStatus === 'cancelled'}
-                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                        >
-                          {sendingQuoteRequest ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Sending...
-                            </>
-                          ) : (
-                              'Request quote'
-                          )}
-                        </Button>
+                    <div className="flex items-end">
+                      <Button
+                        onClick={() => handleSendQuoteRequest(allocateDriverEmail)}
+                        disabled={sendingQuoteRequest || !allocateDriverEmail}
+                        className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                      >
+                        {sendingQuoteRequest ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Sending...
+                          </>
+                        ) : (
+                          'Request Quote'
                         )}
-                        
-                        
-                        {/* Assign Driver - Only show in assign-only mode (Flow B) */}
-                        {assignOnlyMode && (
-                        <Button
-                            onClick={() => {
-                              // Flow B: Show confirmation modal before assigning
-                              if (!manualDriverEmail.trim()) return;
-                              if (tripStatus === 'cancelled') {
-                                alert('This trip has been cancelled. Please create a new trip instead.');
-                                return;
-                              }
-                              setDirectAssignDriver(manualDriverEmail);
-                              setShowFlowBModal(true);
-                            }}
-                          disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest || tripStatus === 'cancelled'}
-                          className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                        >
-                          {settingDriver ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Assigning...
-                            </>
-                          ) : (
-                              'Assign driver & request acceptance'
-                          )}
-                        </Button>
-                        )}
-                      </div>
+                      </Button>
+                    </div>
                   </div>
-                  
-                  {/* Error message below the input row */}
-                  {(manualDriverError || allocateDriverEmailError) && (
-                    <p className="text-sm text-destructive">{manualDriverError || allocateDriverEmailError}</p>
-                  )}
-                  
-                  {/* List of sent invitations - Hide in assign-only mode */}
-                  {!assignOnlyMode && sentDriverEmails.length > 0 && (
+
+                  {/* List of sent invitations */}
+                  {sentDriverEmails.length > 0 && (
                     <div className="mt-6 pt-6 border-t">
                       <h3 className="text-sm font-semibold mb-3">Sent ({sentDriverEmails.length})</h3>
                       <div className="space-y-2">
                         {sentDriverEmails.map((sent, index) => {
                           const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
                           return (
-                            <div 
-                              key={index} 
+                            <div
+                              key={index}
                               className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
                             >
                               <div className="flex-1">
@@ -9051,12 +8319,17 @@ export default function ResultsPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          )
+        }
 
-              {/* Received Quotes Section - Hide in assign-only mode */}
-              {!assignOnlyMode && (
-              <div className="mb-8">
-                <h3 className="text-xl font-semibold mb-4">Received</h3>
+        {/* Quotes Table - Now only in modal */}
+        {
+          false && (
+            <Card className="mb-8">
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold mb-4">Received Quotes</h2>
                 {loadingQuotes ? (
                   <div className="flex items-center justify-center py-8">
                     <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
@@ -9083,11 +8356,10 @@ export default function ResultsPage() {
                         {quotes.map((quote) => {
                           const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
                           return (
-                            <tr 
-                              key={quote.id} 
-                              className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${
-                                isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
-                              }`}
+                            <tr
+                              key={quote.id}
+                              className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
+                                }`}
                             >
                               <td className="py-3 px-4 text-sm">
                                 {quote.email}
@@ -9108,16 +8380,8 @@ export default function ResultsPage() {
                                 <Button
                                   size="sm"
                                   variant={isDriver ? "outline" : "default"}
-                                  onClick={() => {
-                                    // Flow A: Show confirmation modal before assigning from quote
-                                    if (tripStatus === 'cancelled') {
-                                      alert('This trip has been cancelled. Please create a new trip instead.');
-                                      return;
-                                    }
-                                    setSelectedQuoteDriver(quote.email);
-                                    setShowFlowAModal(true);
-                                  }}
-                                  disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
+                                  onClick={() => handleSetDriver(quote.email)}
+                                  disabled={settingDriver}
                                   className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
                                 >
                                   {settingDriver ? (
@@ -9126,9 +8390,9 @@ export default function ResultsPage() {
                                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                     </svg>
                                   ) : isDriver ? (
-                                    '✓ Driver'
+                                    '✓ Assigned'
                                   ) : (
-                                    'Select driver'
+                                    'Assign Driver'
                                   )}
                                 </Button>
                               </td>
@@ -9139,185 +8403,944 @@ export default function ResultsPage() {
                     </table>
                   </div>
                 )}
-              </div>
-              )}
 
-              {/* Drivania Quotes Section */}
-              {isOwner && !assignOnlyMode && (
-              <div className="mb-8">
-                
-                {drivaniaError && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertDescription>{drivaniaError}</AlertDescription>
-                  </Alert>
-                )}
+                {/* Manual Driver Form - shown always for owners */}
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="text-lg font-semibold mb-4">Add Driver Manually</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Set a driver email address manually. Personal emails (Gmail, Yahoo, etc.) are accepted.
+                  </p>
 
-                {complexRouteDetails && (
-                  <Alert className="mb-4 border-orange-500/50 bg-orange-500/10">
-                    <AlertDescription>
-                      <div className="space-y-3">
-                        <div className="font-semibold text-orange-600 dark:text-orange-400">
-                          Complex route detected - manual quote required
-            </div>
-                        <div className="text-sm text-muted-foreground">
-                          {complexRouteDetails.reason}
-          </div>
-                        <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-orange-500/20">
-                          <div>Total route distance: {complexRouteDetails.totalRouteDistanceMiles} miles ({complexRouteDetails.totalRouteDistanceKm} km)</div>
-                          <div>Trip duration: {complexRouteDetails.durationHours} hours</div>
-                          <div>Average miles per hour: {complexRouteDetails.averageMilesPerHour}</div>
+                  {manualDriverError && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertDescription>{manualDriverError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type="email"
+                        value={manualDriverEmail}
+                        onChange={(e) => handleManualDriverInputChange(e.target.value)}
+                        onFocus={handleManualDriverInputFocus}
+                        onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
+                        placeholder="driver@gmail.com or driver@company.com"
+                        disabled={settingDriver}
+                        className={manualDriverError ? 'border-destructive' : ''}
+                      />
+
+                      {/* Autocomplete Dropdown */}
+                      {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                          {filteredDriverSuggestions.map((driver, index) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => handleSelectDriverSuggestion(driver)}
+                              className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span>{driver}</span>
+                                {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
+                                  <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
+                                    Current
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
                         </div>
+                      )}
+
+                      {/* Show message when no suggestions match */}
+                      {showDriverSuggestions && manualDriverEmail.trim().length > 0 && filteredDriverSuggestions.length === 0 && driverSuggestions.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4">
+                          <p className="text-sm text-muted-foreground">No matching drivers found</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={() => handleSetDriver(manualDriverEmail)}
+                      disabled={settingDriver || !manualDriverEmail.trim()}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                    >
+                      {settingDriver ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Setting...
+                        </>
+                      ) : (
+                        'Set as Driver'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        }
+
+        {/* Driver Confirmation Card - Token validation error */}
+        {
+          !isOwner && tokenValidationError && (
+            <Card className="mb-8 border-2 border-red-500 shadow-lg">
+              <CardContent className="p-6">
+                <Alert variant="destructive" className="mb-4">
+                  <AlertDescription>
+                    ⚠️ {tokenValidationError}
+                  </AlertDescription>
+                </Alert>
+                <p className="text-muted-foreground">
+                  This link may have expired or already been used. Please contact the trip owner if you need a new invitation.
+                </p>
+              </CardContent>
+            </Card>
+          )
+        }
+
+        {/* Driver Confirmation Card - Magic Link Flow (Token-based) */}
+        {
+          !isOwner && isDriverView && validatedDriverEmail && (
+            <Card className={`mb-8 border-2 shadow-lg ${!canTakeAction ? 'border-gray-400' : 'border-[#e77500]'
+              }`}>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${!canTakeAction ? 'bg-gray-100' : 'bg-[#e77500]/10'
+                    }`}>
+                    <svg
+                      className={`w-6 h-6 ${!canTakeAction ? 'text-gray-500' : 'text-[#e77500]'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={!canTakeAction ? "M5 13l4 4L19 7" : "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"}
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold">
+                      {!canTakeAction ? 'Trip status update' : 'Trip confirmation required'}
+                    </h2>
+                    <p className="text-muted-foreground">
+                      {!canTakeAction ? 'You\'ve already responded to this trip' : 'You\'ve been assigned to this trip'}
+                    </p>
+                  </div>
+                </div>
+
+                {canTakeAction ? (
+                  <>
+                    <Alert className="mb-4 bg-[#e77500]/10 border-[#e77500]/30">
+                      <AlertDescription className="text-[#e77500] font-medium">
+                        ⏱️ This trip is waiting for your confirmation
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="mb-6">
+                      <p className="text-muted-foreground mb-4">
+                        Please confirm your availability for this trip. The trip owner will be notified of your decision.
+                      </p>
+                      <div className="bg-muted/50 rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-sm">
+                          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="text-muted-foreground">Assigned to:</span>
+                          <span className="font-medium">{validatedDriverEmail}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleDriverConfirmTrip}
+                        disabled={confirmingTrip || rejectingTrip}
+                        className="flex-1 bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
+                        size="lg"
+                      >
+                        {confirmingTrip ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Confirming...
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              className="w-5 h-5 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            Confirm trip
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => setShowDriverRejectDialog(true)}
+                        disabled={confirmingTrip || rejectingTrip}
+                        variant="outline"
+                        className="flex-1 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                        size="lg"
+                      >
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                        Reject trip
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Alert className={`mb-4 ${tripStatus === 'confirmed'
+                      ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30'
+                      : tripStatus === 'rejected'
+                        ? 'bg-red-500/10 border-red-500/30'
+                        : tripStatus === 'cancelled'
+                          ? 'bg-gray-500/10 border-gray-500/30'
+                          : 'bg-blue-500/10 border-blue-500/30'
+                      }`}>
+                      <AlertDescription className={`font-medium ${tripStatus === 'confirmed'
+                        ? 'text-[#3ea34b]'
+                        : tripStatus === 'rejected'
+                          ? 'text-red-600'
+                          : tripStatus === 'cancelled'
+                            ? 'text-gray-600'
+                            : 'text-blue-600'
+                        }`}>
+                        {tripStatus === 'confirmed' && '✅ You have confirmed this trip'}
+                        {tripStatus === 'rejected' && '❌ You have rejected this trip'}
+                        {tripStatus === 'cancelled' && '🚫 This trip has been cancelled'}
+                        {tokenMessage && !['confirmed', 'rejected', 'cancelled'].includes(tripStatus) && `ℹ️ ${tokenMessage}`}
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="bg-muted/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-sm mb-3">
+                        <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span className="text-muted-foreground">Assigned to:</span>
+                        <span className="font-medium">{validatedDriverEmail}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {tripStatus === 'confirmed' && 'The trip owner has been notified of your acceptance.'}
+                        {tripStatus === 'rejected' && 'The trip owner has been notified that you declined.'}
+                        {tripStatus === 'cancelled' && 'The trip owner has cancelled this trip.'}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )
+        }
+
+        {/* Driver Confirmation Card - Email-based Flow (Old flow for backward compatibility) */}
+        {
+          !isOwner && !isDriverView && tripStatus === 'pending' && driverEmail && quoteEmail &&
+          driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim() && (
+            <Card className="mb-8 border-2 border-[#e77500] shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#e77500]/10 flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-[#e77500]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold">Trip confirmation required</h2>
+                    <p className="text-muted-foreground">You've been assigned to this trip</p>
+                  </div>
+                </div>
+
+                <Alert className="mb-4 bg-[#e77500]/10 border-[#e77500]/30">
+                  <AlertDescription className="text-[#e77500] font-medium">
+                    ⏱️ This trip is waiting for your confirmation
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-3">
+                  <p className="text-muted-foreground">
+                    To confirm your availability for this trip:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground ml-2">
+                    <li>Enter your email address in the form below (if you haven't already)</li>
+                    <li>Click the orange <strong className="text-[#e77500]">"Pending"</strong> button at the top of the page</li>
+                    <li>Confirm when prompted</li>
+                  </ol>
+                  <p className="text-sm text-muted-foreground mt-4">
+                    💡 The trip owner will be notified once you confirm.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        }
+
+        {/* Quote Submission Form - REMOVED - Now sticky at top for non-owners */}
+
+        {/* Guest Signup CTA - Only for guests who created this report */}
+        {
+          isGuestCreator && !guestSignupSuccess && (
+            <Card className="mb-8 border border-primary/60 bg-gradient-to-br from-primary/5 to-primary/10">
+              <CardContent className="p-8">
+                <div className="max-w-2xl mx-auto">
+                  <h2 className="text-2xl font-bold text-center mb-3">
+                    🎉 Want to save this report and access it anytime?
+                  </h2>
+                  <p className="text-center text-muted-foreground mb-6">
+                    Create an account now to unlock powerful features
+                  </p>
+
+                  {/* Benefits Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Edit trips anytime</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Share with links</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Get driver quotes</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Password protect</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Notify drivers</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Save all trips</span>
+                    </div>
+                  </div>
+
+                  {/* Signup Form */}
+                  <form onSubmit={handleGuestSignup} className="space-y-4">
+                    <div>
+                      <label htmlFor="guest-email" className="block text-sm font-medium mb-2">
+                        Email Address
+                      </label>
+                      <Input
+                        id="guest-email"
+                        type="email"
+                        value={tripData?.userEmail || ''}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        We already have your email from when you created this report
+                      </p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="guest-password" className="block text-sm font-medium mb-2">
+                        Create Password
+                      </label>
+                      <Input
+                        id="guest-password"
+                        type="password"
+                        value={guestSignupPassword}
+                        onChange={(e) => setGuestSignupPassword(e.target.value)}
+                        placeholder="At least 6 characters"
+                        disabled={guestSignupLoading}
+                        className={guestSignupError ? 'border-destructive' : ''}
+                      />
+                      {guestSignupError && (
+                        <p className="text-sm text-destructive mt-1">{guestSignupError}</p>
+                      )}
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full text-lg py-6 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                      disabled={guestSignupLoading || !guestSignupPassword}
+                    >
+                      {guestSignupLoading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Creating Account...
+                        </>
+                      ) : (
+                        <>
+                          🚀 Create Account & Save Report
+                        </>
+                      )}
+                    </Button>
+                  </form>
+
+                  <p className="text-xs text-center text-muted-foreground mt-4">
+                    Already have an account? <a href="/login" className="text-primary hover:underline">Log in here</a>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        }
+
+        {/* Success message after signup */}
+        {
+          guestSignupSuccess && (
+            <Alert className="mb-8 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+              <AlertDescription className="text-[#3ea34b] text-center">
+                ✅ Account created successfully! This trip is now saved to your account. Refreshing...
+              </AlertDescription>
+            </Alert>
+          )
+        }
+
+        {/* Footer Navigation */}
+        <div className="py-8">
+          <div className="flex flex-wrap justify-start gap-3">
+            <Button
+              onClick={handlePlanNewTrip}
+              variant="default"
+              size="lg"
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+            >
+              Plan new trip
+            </Button>
+          </div>
+        </div>
+      </div >
+
+      {/* Driver & Quotes Modal */}
+      {
+        showDriverModal && (
+          <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-background rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Modal Header */}
+              <div className="p-6 pb-4 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold text-card-foreground">
+                    {assignOnlyMode ? 'Assign driver' : 'Get driver quotes'}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowDriverModal(false);
+                      setAssignOnlyMode(false); // Reset assign-only mode
+                    }}
+                    className="p-2 hover:bg-secondary/50 rounded-md transition-colors"
+                    aria-label="Close"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content - Scrollable */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {/* Cancelled Trip Warning */}
+                {tripStatus === 'cancelled' && (
+                  <Alert variant="destructive" className="mb-6">
+                    <AlertDescription className="flex items-center gap-2">
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div>
+                        <p className="font-semibold">This trip has been cancelled</p>
+                        <p className="text-sm mt-1">You cannot assign drivers or request quotes for a cancelled trip. Please create a new trip instead.</p>
                       </div>
                     </AlertDescription>
                   </Alert>
                 )}
 
-                {loadingDrivaniaQuote ? (
-                  <div className="flex items-center justify-center py-8">
-                    <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span className="ml-2 text-muted-foreground">Loading Drivania quotes...</span>
-                  </div>
-                ) : drivaniaQuotes && drivaniaQuotes.quotes?.vehicles ? (
-                  <div className="space-y-4">
-                    {drivaniaServiceType && (
-                      <div className="mb-4">
-                        <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">
-                          Service type: {drivaniaServiceType === 'one-way' ? 'One-way (mileage-based)' : 'Hourly (time-based)'}
-                        </span>
-                        {drivaniaQuotes.distance && (
-                          <span className="ml-3 text-sm text-muted-foreground">
-                            Distance: {drivaniaQuotes.distance.quantity} {drivaniaQuotes.distance.uom}
-                          </span>
-                        )}
-                        {drivaniaQuotes.drive_time && (
-                          <span className="ml-3 text-sm text-muted-foreground">
-                            Drive time: {drivaniaQuotes.drive_time}
-                          </span>
-                        )}
-                        {drivaniaQuotes.currency_code && (
-                          <span className="ml-3 text-sm text-muted-foreground">
-                            Currency: {drivaniaQuotes.currency_code}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {drivaniaQuotes.quotes.vehicles.map((vehicle: any, index: number) => (
-                        <Card key={vehicle.vehicle_id || index} className="shadow-none">
-                          <CardContent className="p-5">
-                            {vehicle.vehicle_image && (
-                              <div className="mb-4">
-                                <img 
-                                  src={vehicle.vehicle_image} 
-                                  alt={vehicle.vehicle_type}
-                                  className="w-full h-32 object-cover rounded-md"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                              </div>
-                            )}
-                            
-                            <div className="space-y-3">
-                              <div>
-                                <h4 className="text-lg font-semibold text-card-foreground">
-                                  {vehicle.vehicle_type}
-                                </h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {vehicle.level_of_service}
-                                </p>
-                              </div>
+                {/* Driver Management Section - Unified */}
+                <div className="mb-8">
+                  {!assignOnlyMode && (
+                    <p className="text-muted-foreground mb-6">
+                      Request quotes from drivers. After receiving a quote, you can assign that driver to your trip.
+                    </p>
+                  )}
 
-                              <div className="pt-2 border-t">
-                                <div className="flex items-baseline gap-2">
-                                  <span className="text-3xl font-bold text-card-foreground">
-                                    {vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
-                                  </span>
-                                  {drivaniaQuotes.currency_code && (
-                                    <span className="text-sm text-muted-foreground">
-                                      {drivaniaQuotes.currency_code}
+                  {assignOnlyMode && (
+                    <p className="text-muted-foreground mb-6">
+                      Assign a driver to confirm this trip
+                    </p>
+                  )}
+
+                  {/* Success Messages */}
+                  {quoteRequestSuccess && (
+                    <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+                      <AlertDescription className="text-[#3ea34b]">
+                        ✅ {quoteRequestSuccess}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Error Messages */}
+                  {(quoteRequestError || manualDriverError) && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertDescription>{quoteRequestError || manualDriverError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Unified Email Input with Two Buttons */}
+                  <div className="space-y-4">
+                    <div className="flex gap-3 items-center">
+                      <div className="relative flex-1">
+                        <Input
+                          id="driver-email-unified"
+                          type="email"
+                          value={manualDriverEmail}
+                          onChange={(e) => handleManualDriverInputChange(e.target.value)}
+                          onFocus={handleManualDriverInputFocus}
+                          onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
+                          placeholder="Enter driver email"
+                          disabled={settingDriver || sendingQuoteRequest}
+                          className={(manualDriverError || allocateDriverEmailError) ? 'border-destructive' : ''}
+                        />
+
+                        {/* Autocomplete Dropdown */}
+                        {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                            {filteredDriverSuggestions.map((driver, index) => (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => handleSelectDriverSuggestion(driver)}
+                                className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span>{driver}</span>
+                                  {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
+                                    <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
+                                      Current
                                     </span>
                                   )}
                                 </div>
-                              </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
-                              <div className="space-y-2 text-sm">
-                                <div>
-                                  <span className="text-muted-foreground">Examples: </span>
-                                  <span className="text-card-foreground">{vehicle.vehicle_examples}</span>
-                                </div>
-                                
-                                <div className="flex gap-4">
-                                  <div>
-                                    <span className="text-muted-foreground">Seating: </span>
-                                    <span className="text-card-foreground font-medium">{vehicle.max_seating_capacity}</span>
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Cargo: </span>
-                                    <span className="text-card-foreground font-medium">{vehicle.max_cargo_capacity}</span>
-                                  </div>
-                                </div>
+                        {/* Show message when no suggestions match */}
+                        {showDriverSuggestions && manualDriverEmail.trim().length > 0 && filteredDriverSuggestions.length === 0 && driverSuggestions.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4">
+                            <p className="text-sm text-muted-foreground">No matching drivers found</p>
+                          </div>
+                        )}
+                      </div>
 
-                                {vehicle.extra_hour && (
-                                  <div>
-                                    <span className="text-muted-foreground">Extra hour: </span>
-                                    <span className="text-card-foreground font-medium">
-                                      {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
-                                    </span>
-                                  </div>
-                                )}
+                      <div className="flex gap-2">
+                        {/* Request Quote - Hide in assign-only mode */}
+                        {!assignOnlyMode && (
+                          <Button
+                            onClick={() => handleSendQuoteRequest(manualDriverEmail)}
+                            disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver || tripStatus === 'cancelled'}
+                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                          >
+                            {sendingQuoteRequest ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Sending...
+                              </>
+                            ) : (
+                              'Request quote'
+                            )}
+                          </Button>
+                        )}
 
-                                {vehicle.pickup_instructions && (
-                                  <div className="pt-2 border-t">
-                                    <p className="text-xs text-muted-foreground whitespace-pre-line">
-                                      {vehicle.pickup_instructions}
-                                    </p>
-                                  </div>
-                                )}
 
-                                {vehicle.cancellation_policy && (
-                                  <div className="pt-2 border-t">
-                                    <p className="text-xs text-muted-foreground whitespace-pre-line">
-                                      <span className="font-medium">Cancellation: </span>
-                                      {vehicle.cancellation_policy.replace(/\\n/g, '\n')}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                        {/* Assign Driver - Only show in assign-only mode (Flow B) */}
+                        {assignOnlyMode && (
+                          <Button
+                            onClick={() => {
+                              // Flow B: Show confirmation modal before assigning
+                              if (!manualDriverEmail.trim()) return;
+                              if (tripStatus === 'cancelled') {
+                                alert('This trip has been cancelled. Please create a new trip instead.');
+                                return;
+                              }
+                              setDirectAssignDriver(manualDriverEmail);
+                              setShowFlowBModal(true);
+                            }}
+                            disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest || tripStatus === 'cancelled'}
+                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                          >
+                            {settingDriver ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Assigning...
+                              </>
+                            ) : (
+                              'Assign driver & request acceptance'
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
-                    {drivaniaQuotes.service_id && (
-                      <div className="mt-4 text-xs text-muted-foreground">
-                        Service ID: {drivaniaQuotes.service_id}
-                        {drivaniaQuotes.expiration && (
-                          <span className="ml-4">
-                            Expires: {new Date(drivaniaQuotes.expiration).toLocaleString()}
-                          </span>
-                        )}
+                    {/* Error message below the input row */}
+                    {(manualDriverError || allocateDriverEmailError) && (
+                      <p className="text-sm text-destructive">{manualDriverError || allocateDriverEmailError}</p>
+                    )}
+
+                    {/* List of sent invitations - Hide in assign-only mode */}
+                    {!assignOnlyMode && sentDriverEmails.length > 0 && (
+                      <div className="mt-6 pt-6 border-t">
+                        <h3 className="text-sm font-semibold mb-3">Sent ({sentDriverEmails.length})</h3>
+                        <div className="space-y-2">
+                          {sentDriverEmails.map((sent, index) => {
+                            const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
+                              >
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium">{sent.email}</p>
+                                </div>
+                                <div className="text-right flex-shrink-0 ml-4">
+                                  <p className="text-xs text-muted-foreground">
+                                    Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
+                                  </p>
+                                </div>
+                                {hasQuote && (
+                                  <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                    QUOTE RECEIVED
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
-                ) : drivaniaQuotes && drivaniaQuotes.quotes?.unavailable_reason ? (
-                  <Alert className="mb-4">
-                    <AlertDescription>
-                      Quote unavailable: {drivaniaQuotes.quotes.unavailable_reason}
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
+                </div>
+
+                {/* Received Quotes Section - Hide in assign-only mode */}
+                {!assignOnlyMode && (
+                  <div className="mb-8">
+                    <h3 className="text-xl font-semibold mb-4">Received</h3>
+                    {loadingQuotes ? (
+                      <div className="flex items-center justify-center py-8">
+                        <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span className="ml-2 text-muted-foreground">Loading quotes...</span>
+                      </div>
+                    ) : quotes.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="border-b">
+                            <tr>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
+                              <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
+                              <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {quotes.map((quote) => {
+                              const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
+                              return (
+                                <tr
+                                  key={quote.id}
+                                  className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
+                                    }`}
+                                >
+                                  <td className="py-3 px-4 text-sm">
+                                    {quote.email}
+                                    {isDriver && (
+                                      <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                        DRIVER
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-right font-medium">
+                                    {quote.price.toFixed(2)}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">{quote.currency}</td>
+                                  <td className="py-3 px-4 text-sm text-muted-foreground">
+                                    {new Date(quote.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <Button
+                                      size="sm"
+                                      variant={isDriver ? "outline" : "default"}
+                                      onClick={() => {
+                                        // Flow A: Show confirmation modal before assigning from quote
+                                        if (tripStatus === 'cancelled') {
+                                          alert('This trip has been cancelled. Please create a new trip instead.');
+                                          return;
+                                        }
+                                        setSelectedQuoteDriver(quote.email);
+                                        setShowFlowAModal(true);
+                                      }}
+                                      disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
+                                      className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
+                                    >
+                                      {settingDriver ? (
+                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                      ) : isDriver ? (
+                                        '✓ Driver'
+                                      ) : (
+                                        'Select driver'
+                                      )}
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Drivania Quotes Section */}
+                {isOwner && !assignOnlyMode && (
+                  <div className="mb-8">
+
+                    {drivaniaError && (
+                      <Alert variant="destructive" className="mb-4">
+                        <AlertDescription>{drivaniaError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {complexRouteDetails && (
+                      <Alert className="mb-4 border-orange-500/50 bg-orange-500/10">
+                        <AlertDescription>
+                          <div className="space-y-3">
+                            <div className="font-semibold text-orange-600 dark:text-orange-400">
+                              Complex route detected - manual quote required
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {complexRouteDetails.reason}
+                            </div>
+                            <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-orange-500/20">
+                              <div>Total route distance: {complexRouteDetails.totalRouteDistanceMiles} miles ({complexRouteDetails.totalRouteDistanceKm} km)</div>
+                              <div>Trip duration: {complexRouteDetails.durationHours} hours</div>
+                              <div>Average miles per hour: {complexRouteDetails.averageMilesPerHour}</div>
+                            </div>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {loadingDrivaniaQuote ? (
+                      <div className="flex items-center justify-center py-8">
+                        <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span className="ml-2 text-muted-foreground">Loading Drivania quotes...</span>
+                      </div>
+                    ) : drivaniaQuotes && drivaniaQuotes.quotes?.vehicles ? (
+                      <div className="space-y-4">
+                        {drivaniaServiceType && (
+                          <div className="mb-4">
+                            <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">
+                              Service type: {drivaniaServiceType === 'one-way' ? 'One-way (mileage-based)' : 'Hourly (time-based)'}
+                            </span>
+                            {drivaniaQuotes.distance && (
+                              <span className="ml-3 text-sm text-muted-foreground">
+                                Distance: {drivaniaQuotes.distance.quantity} {drivaniaQuotes.distance.uom}
+                              </span>
+                            )}
+                            {drivaniaQuotes.drive_time && (
+                              <span className="ml-3 text-sm text-muted-foreground">
+                                Drive time: {drivaniaQuotes.drive_time}
+                              </span>
+                            )}
+                            {drivaniaQuotes.currency_code && (
+                              <span className="ml-3 text-sm text-muted-foreground">
+                                Currency: {drivaniaQuotes.currency_code}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {drivaniaQuotes.quotes.vehicles.map((vehicle: any, index: number) => (
+                            <Card key={vehicle.vehicle_id || index} className="shadow-none">
+                              <CardContent className="p-5">
+                                {vehicle.vehicle_image && (
+                                  <div className="mb-4">
+                                    <img
+                                      src={vehicle.vehicle_image}
+                                      alt={vehicle.vehicle_type}
+                                      className="w-full h-32 object-cover rounded-md"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="space-y-3">
+                                  <div>
+                                    <h4 className="text-lg font-semibold text-card-foreground">
+                                      {vehicle.vehicle_type}
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {vehicle.level_of_service}
+                                    </p>
+                                  </div>
+
+                                  <div className="pt-2 border-t">
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="text-3xl font-bold text-card-foreground">
+                                        {vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
+                                      </span>
+                                      {drivaniaQuotes.currency_code && (
+                                        <span className="text-sm text-muted-foreground">
+                                          {drivaniaQuotes.currency_code}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2 text-sm">
+                                    <div>
+                                      <span className="text-muted-foreground">Examples: </span>
+                                      <span className="text-card-foreground">{vehicle.vehicle_examples}</span>
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                      <div>
+                                        <span className="text-muted-foreground">Seating: </span>
+                                        <span className="text-card-foreground font-medium">{vehicle.max_seating_capacity}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-muted-foreground">Cargo: </span>
+                                        <span className="text-card-foreground font-medium">{vehicle.max_cargo_capacity}</span>
+                                      </div>
+                                    </div>
+
+                                    {vehicle.extra_hour && (
+                                      <div>
+                                        <span className="text-muted-foreground">Extra hour: </span>
+                                        <span className="text-card-foreground font-medium">
+                                          {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {vehicle.pickup_instructions && (
+                                      <div className="pt-2 border-t">
+                                        <p className="text-xs text-muted-foreground whitespace-pre-line">
+                                          {vehicle.pickup_instructions}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {vehicle.cancellation_policy && (
+                                      <div className="pt-2 border-t">
+                                        <p className="text-xs text-muted-foreground whitespace-pre-line">
+                                          <span className="font-medium">Cancellation: </span>
+                                          {vehicle.cancellation_policy.replace(/\\n/g, '\n')}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+
+                        {drivaniaQuotes.service_id && (
+                          <div className="mt-4 text-xs text-muted-foreground">
+                            Service ID: {drivaniaQuotes.service_id}
+                            {drivaniaQuotes.expiration && (
+                              <span className="ml-4">
+                                Expires: {new Date(drivaniaQuotes.expiration).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : drivaniaQuotes && drivaniaQuotes.quotes?.unavailable_reason ? (
+                      <Alert className="mb-4">
+                        <AlertDescription>
+                          Quote unavailable: {drivaniaQuotes.quotes.unavailable_reason}
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+                  </div>
+                )}
               </div>
-              )}
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Status Change Confirmation Modal */}
       <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
@@ -9325,8 +9348,8 @@ export default function ResultsPage() {
           <DialogHeader>
             <DialogTitle>
               {/* Show "Trip actions" for pending state OR when unconfirming */}
-              {driverEmail 
-                ? 'Trip actions' 
+              {driverEmail
+                ? 'Trip actions'
                 : 'Driver not allocated'}
             </DialogTitle>
             <DialogDescription>
@@ -9353,30 +9376,30 @@ export default function ResultsPage() {
           <DialogFooter>
             {/* Show success close button */}
             {statusModalSuccess ? (
-                    <Button
-                      onClick={() => {
-                        setShowStatusModal(false);
-                        setPendingStatus(null);
+              <Button
+                onClick={() => {
+                  setShowStatusModal(false);
+                  setPendingStatus(null);
                   setStatusModalSuccess(null);
                   setResendingConfirmation(false);
                   setCancellingTrip(false);
-                      }}
+                }}
                 className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                    >
+              >
                 Close
-                    </Button>
+              </Button>
             ) : driverEmail ? (
               <>
-                    <Button
+                <Button
                   variant="outline"
                   onClick={async () => {
                     // Keep modal open, show loading and then success
                     setResendingConfirmation(true);
-                    
+
                     try {
                       const { data: { session } } = await supabase.auth.getSession();
                       if (!session) return;
-                      
+
                       // If status is "not confirmed", upgrade to "confirmed"
                       if (tripStatus === 'not confirmed') {
                         const statusResponse = await fetch('/api/update-trip-status', {
@@ -9387,18 +9410,18 @@ export default function ResultsPage() {
                             status: 'confirmed',
                           }),
                         });
-                        
+
                         const statusResult = await statusResponse.json();
                         if (statusResult.success) {
                           setTripStatus('confirmed');
                           console.log('✅ Trip confirmed');
                         }
                       }
-                      
+
                       // Send notification to driver with trip details
                       const notifyResponse = await fetch('/api/notify-status-change', {
                         method: 'POST',
-                        headers: { 
+                        headers: {
                           'Content-Type': 'application/json',
                           'Authorization': `Bearer ${session.access_token}`,
                         },
@@ -9410,10 +9433,10 @@ export default function ResultsPage() {
                           leadPassengerName: leadPassengerName,
                         }),
                       });
-                      
+
                       const notifyResult = await notifyResponse.json();
                       console.log('✅ Confirmation notification response:', notifyResult);
-                      
+
                       // Show success message
                       setStatusModalSuccess('Confirmation sent to driver successfully!');
                     } catch (err) {
@@ -9427,53 +9450,53 @@ export default function ResultsPage() {
                   className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
                 >
                   {resendingConfirmation ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
                       Sending...
-                        </>
-                      ) : (
+                    </>
+                  ) : (
                     'Resend confirmation to the driver'
-                      )}
-                    </Button>
-                    <Button
+                  )}
+                </Button>
+                <Button
                   onClick={async () => {
                     // Cancel trip and notify driver
                     setCancellingTrip(true);
-                    
+
                     try {
                       const { data: { session } } = await supabase.auth.getSession();
                       if (!session) return;
-                      
+
                       // Capture driver email BEFORE any operations
                       const driverToNotify = driverEmail;
                       console.log('📧 Preparing to notify driver of cancellation');
-                      
+
                       // STEP 1: Send cancellation notification to driver FIRST (before DB changes)
                       if (driverToNotify) {
                         console.log(`📧 Sending cancellation email to driver`);
                         const notifyResponse = await fetch('/api/notify-status-change', {
                           method: 'POST',
-                          headers: { 
+                          headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${session.access_token}`,
                           },
-                        body: JSON.stringify({
-                          tripId: tripId,
-                          newStatus: 'cancelled',
-                          driverEmail: driverToNotify, // Use captured email, not the cleared one
-                          message: 'Trip cancelled',
-                          tripDate: tripDate,
-                          leadPassengerName: leadPassengerName,
-                        }),
+                          body: JSON.stringify({
+                            tripId: tripId,
+                            newStatus: 'cancelled',
+                            driverEmail: driverToNotify, // Use captured email, not the cleared one
+                            message: 'Trip cancelled',
+                            tripDate: tripDate,
+                            leadPassengerName: leadPassengerName,
+                          }),
                         });
-                        
+
                         const notifyResult = await notifyResponse.json();
                         console.log('✅ Cancellation notification response:', notifyResult);
                       }
-                      
+
                       // STEP 2: Now update trip status to cancelled (clears driver in DB)
                       const statusResponse = await fetch('/api/update-trip-status', {
                         method: 'POST',
@@ -9483,15 +9506,15 @@ export default function ResultsPage() {
                           status: 'cancelled',
                         }),
                       });
-                      
+
                       const statusResult = await statusResponse.json();
                       console.log('📊 Status update response:', statusResult);
-                      
+
                       if (statusResult.success) {
                         setTripStatus('cancelled');
                         setDriverEmail(null); // Clear driver assignment in UI
                         console.log('✅ Trip cancelled - status set to cancelled, driver cleared');
-                        
+
                         // Show success message
                         if (driverToNotify) {
                           setStatusModalSuccess('Service cancelled successfully. Driver has been notified.');
@@ -9515,20 +9538,20 @@ export default function ResultsPage() {
                   variant="destructive"
                 >
                   {cancellingTrip ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
                       Cancelling...
-                        </>
-                      ) : (
+                    </>
+                  ) : (
                     'Cancel this trip'
-                      )}
-                    </Button>
+                  )}
+                </Button>
               </>
             ) : (
-                    <Button
+              <Button
                 onClick={() => {
                   setShowStatusModal(false);
                   setPendingStatus(null);
@@ -9536,8 +9559,8 @@ export default function ResultsPage() {
                   setResendingConfirmation(false);
                   setCancellingTrip(false);
                 }}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                    >
+                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+              >
                 OK
               </Button>
             )}
@@ -9568,9 +9591,9 @@ export default function ResultsPage() {
             <Button
               onClick={async () => {
                 if (!selectedQuoteDriver) return;
-                
+
                 setSettingDriver(true);
-                
+
                 try {
                   const { data: { session } } = await supabase.auth.getSession();
                   if (!session) {
@@ -9581,7 +9604,7 @@ export default function ResultsPage() {
                   // Assign driver
                   const response = await fetch('/api/set-driver', {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${session.access_token}`,
                     },
@@ -9596,7 +9619,7 @@ export default function ResultsPage() {
                   if (result.success) {
                     setDriverEmail(selectedQuoteDriver.toLowerCase());
                     console.log(`✅ [FLOW A] Driver selected from quotes`);
-                    
+
                     // Update status to pending (waiting for driver acceptance)
                     const statusResponse = await fetch('/api/update-trip-status', {
                       method: 'POST',
@@ -9606,17 +9629,17 @@ export default function ResultsPage() {
                         status: 'pending',
                       }),
                     });
-                    
+
                     const statusResult = await statusResponse.json();
                     if (statusResult.success) {
                       setTripStatus('pending');
                       console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
                     }
-                    
+
                     // Send magic link email to driver
                     const notifyResponse = await fetch('/api/notify-driver-assignment', {
                       method: 'POST',
-                      headers: { 
+                      headers: {
                         'Content-Type': 'application/json',
                       },
                       body: JSON.stringify({
@@ -9627,14 +9650,14 @@ export default function ResultsPage() {
                         tripDestination: tripDestination,
                       }),
                     });
-                    
+
                     const notifyResult = await notifyResponse.json();
                     if (notifyResult.success) {
                       console.log('✅ [FLOW A] Magic link email sent to driver');
                     } else {
                       console.error('❌ [FLOW A] Failed to send magic link email:', notifyResult.error);
                     }
-                    
+
                     // Close both modals
                     setShowFlowAModal(false);
                     setShowDriverModal(false);
@@ -9653,17 +9676,17 @@ export default function ResultsPage() {
               className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
             >
               {settingDriver ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
+                  </svg>
                   Confirming...
-                        </>
-                      ) : (
+                </>
+              ) : (
                 'Confirm trip'
-                      )}
-                    </Button>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -9678,12 +9701,12 @@ export default function ResultsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="justify-start">
-              <Button
+            <Button
               variant="outline"
-                onClick={() => {
+              onClick={() => {
                 setShowFlowBModal(false);
                 setDirectAssignDriver(null);
-                }}
+              }}
               disabled={settingDriver}
             >
               Dismiss
@@ -9691,9 +9714,9 @@ export default function ResultsPage() {
             <Button
               onClick={async () => {
                 if (!directAssignDriver) return;
-                
+
                 setSettingDriver(true);
-                
+
                 try {
                   const { data: { session } } = await supabase.auth.getSession();
                   if (!session) {
@@ -9704,7 +9727,7 @@ export default function ResultsPage() {
                   // Assign driver
                   const response = await fetch('/api/set-driver', {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${session.access_token}`,
                     },
@@ -9719,7 +9742,7 @@ export default function ResultsPage() {
                   if (result.success) {
                     setDriverEmail(directAssignDriver.toLowerCase());
                     console.log(`✅ [FLOW B] Driver assigned successfully`);
-                    
+
                     // Update status to pending (waiting for driver acceptance)
                     const statusResponse = await fetch('/api/update-trip-status', {
                       method: 'POST',
@@ -9729,17 +9752,17 @@ export default function ResultsPage() {
                         status: 'pending',
                       }),
                     });
-                    
+
                     const statusResult = await statusResponse.json();
                     if (statusResult.success) {
                       setTripStatus('pending');
                       console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
                     }
-                    
+
                     // Send magic link email to driver
                     const notifyResponse = await fetch('/api/notify-driver-assignment', {
                       method: 'POST',
-                      headers: { 
+                      headers: {
                         'Content-Type': 'application/json',
                       },
                       body: JSON.stringify({
@@ -9750,14 +9773,14 @@ export default function ResultsPage() {
                         tripDestination: tripDestination,
                       }),
                     });
-                    
+
                     const notifyResult = await notifyResponse.json();
                     if (notifyResult.success) {
                       console.log('✅ [FLOW B] Magic link email sent to driver');
                     } else {
                       console.error('❌ [FLOW B] Failed to send magic link email:', notifyResult.error);
                     }
-                    
+
                     // Close both modals
                     setShowFlowBModal(false);
                     setShowDriverModal(false);
@@ -9928,45 +9951,39 @@ export default function ResultsPage() {
       </Dialog>
 
       {/* Route View Map Modal */}
-      {showMapModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
-          <div className="bg-card dark:bg-[#1f1f21] rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col border border-border/40">
-            <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-              <div>
-                <h3 className="text-lg font-semibold">Route View</h3>
-                <p className="text-sm text-muted-foreground">View your trip route on the map</p>
+      {
+        showMapModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
+            <div className="bg-card dark:bg-[#1f1f21] rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col border border-border/40">
+              <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
+                <div>
+                  <h3 className="text-lg font-semibold">Route View</h3>
+                  <p className="text-sm text-muted-foreground">View your trip route on the map</p>
+                </div>
+                <Button
+                  onClick={() => setShowMapModal(false)}
+                  variant="ghost"
+                  size="sm"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
               </div>
-              <Button
-                onClick={() => setShowMapModal(false)}
-                variant="ghost"
-                size="sm"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </Button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <div className="w-full h-full">
-                <GoogleTripMap 
-                  locations={tripResults.map((result, index) => ({
-                    id: result.locationId,
-                    name: result.locationName,
-                    // Use weather coordinates (universal, works for all cities)
-                    lat: result.data.weather.coordinates.lat,
-                    lng: result.data.weather.coordinates.lng,
-                    time: result.time,
-                    safetyScore: result.data.crime.safetyScore || undefined,
-                  }))}
-                  height="100%"
-                  compact={false}
-                  tripDestination={tripDestination}
-                />
+              <div className="flex-1 overflow-hidden">
+                <div className="w-full h-full">
+                  <GoogleTripMap
+                    locations={mapLocations}
+                    height="100%"
+                    compact={false}
+                    tripDestination={tripDestination}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Trip Update Notification Modal */}
       <Dialog open={showUpdateNotificationModal} onOpenChange={setShowUpdateNotificationModal}>
@@ -10023,7 +10040,7 @@ export default function ResultsPage() {
               </Button>
             </div>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Trip Details - Passenger Name, Number of Passengers, Vehicle, Trip Destination */}
             <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
@@ -10049,8 +10066,8 @@ export default function ResultsPage() {
                         {editingTripDate ? format(editingTripDate, "PPP") : <span>Pick a date</span>}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent 
-                      className="w-auto p-0 z-[100]" 
+                    <PopoverContent
+                      className="w-auto p-0 z-[100]"
                       align="start"
                       sideOffset={4}
                     >
@@ -10168,7 +10185,7 @@ export default function ResultsPage() {
                 </div>
               </SortableContext>
             </DndContext>
-            
+
             {/* Add Location Button */}
             <div className="mt-4">
               <Button
@@ -10196,16 +10213,16 @@ export default function ResultsPage() {
               />
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowEditRouteModal(false)}
               disabled={isRegenerating}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={() => handleSaveRouteEdits()}
               disabled={isRegenerating || editingLocations.length === 0}
               className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
@@ -10235,7 +10252,7 @@ export default function ResultsPage() {
               Review the changes extracted from your update. You can apply them, edit manually, or cancel.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6 mt-4">
             {/* Removed Locations */}
             {previewChanges.removed.length > 0 && (
@@ -10270,15 +10287,15 @@ export default function ResultsPage() {
                 {previewLocations.map((loc, idx) => {
                   const isModified = previewChanges.modified.includes(idx);
                   const isAdded = previewChanges.added.includes(idx);
-                  
+
                   // Only show modified or added locations
                   if (!isModified && !isAdded) {
                     return null;
                   }
-                  
+
                   // Find original location for comparison using the mapping from calculateChanges
                   const originalLoc = previewChanges.originalLocationMap?.get(idx);
-                  
+
                   return (
                     <div
                       key={idx}
@@ -10301,7 +10318,7 @@ export default function ResultsPage() {
                               </span>
                             )}
                           </div>
-                          
+
                           <div className="space-y-2">
                             {/* Location Name/Address */}
                             <div>
@@ -10318,7 +10335,7 @@ export default function ResultsPage() {
                                 <div className="text-xs text-muted-foreground mt-1">{loc.formattedAddress}</div>
                               )}
                             </div>
-                            
+
                             {/* Time */}
                             <div>
                               <div className="text-xs font-medium text-muted-foreground mb-1">Time:</div>
@@ -10331,7 +10348,7 @@ export default function ResultsPage() {
                                 <div className="text-sm font-medium text-foreground">{loc.time}</div>
                               )}
                             </div>
-                            
+
                             {/* Address details if location changed */}
                             {isModified && originalLoc && (
                               (originalLoc.name || originalLoc.displayName) !== (loc.formattedAddress || loc.location || loc.purpose) && (
@@ -10354,52 +10371,52 @@ export default function ResultsPage() {
             )}
 
             {/* Non-Location Field Changes */}
-            {(previewNonLocationFields.leadPassengerName || 
-              previewNonLocationFields.vehicleInfo || 
-              previewNonLocationFields.passengerCount || 
+            {(previewNonLocationFields.leadPassengerName ||
+              previewNonLocationFields.vehicleInfo ||
+              previewNonLocationFields.passengerCount ||
               previewNonLocationFields.tripDestination) && (
-              <div className="p-4 bg-muted/30 border border-border rounded-md">
-                <div className="text-sm font-semibold text-foreground mb-3">Trip details updated</div>
-                <div className="space-y-2 text-sm">
-                  {previewNonLocationFields.leadPassengerName && (
-                    <div className="flex items-start gap-2">
-                      <span className="font-medium text-foreground min-w-[140px]">Passenger name:</span>
-                      <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{originalValues.leadPassengerName || '(empty)'}</div>
-                        <div className="text-foreground font-medium">{previewNonLocationFields.leadPassengerName}</div>
+                <div className="p-4 bg-muted/30 border border-border rounded-md">
+                  <div className="text-sm font-semibold text-foreground mb-3">Trip details updated</div>
+                  <div className="space-y-2 text-sm">
+                    {previewNonLocationFields.leadPassengerName && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-medium text-foreground min-w-[140px]">Passenger name:</span>
+                        <div className="flex-1">
+                          <div className="text-muted-foreground line-through">{originalValues.leadPassengerName || '(empty)'}</div>
+                          <div className="text-foreground font-medium">{previewNonLocationFields.leadPassengerName}</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {previewNonLocationFields.passengerCount && (
-                    <div className="flex items-start gap-2">
-                      <span className="font-medium text-foreground min-w-[140px]">Passenger count:</span>
-                      <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{originalValues.passengerCount || 1}</div>
-                        <div className="text-foreground font-medium">{previewNonLocationFields.passengerCount}</div>
+                    )}
+                    {previewNonLocationFields.passengerCount && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-medium text-foreground min-w-[140px]">Passenger count:</span>
+                        <div className="flex-1">
+                          <div className="text-muted-foreground line-through">{originalValues.passengerCount || 1}</div>
+                          <div className="text-foreground font-medium">{previewNonLocationFields.passengerCount}</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {previewNonLocationFields.vehicleInfo && (
-                    <div className="flex items-start gap-2">
-                      <span className="font-medium text-foreground min-w-[140px]">Vehicle:</span>
-                      <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{originalValues.vehicleInfo || '(empty)'}</div>
-                        <div className="text-foreground font-medium">{previewNonLocationFields.vehicleInfo}</div>
+                    )}
+                    {previewNonLocationFields.vehicleInfo && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-medium text-foreground min-w-[140px]">Vehicle:</span>
+                        <div className="flex-1">
+                          <div className="text-muted-foreground line-through">{originalValues.vehicleInfo || '(empty)'}</div>
+                          <div className="text-foreground font-medium">{previewNonLocationFields.vehicleInfo}</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {previewNonLocationFields.tripDestination && (
-                    <div className="flex items-start gap-2">
-                      <span className="font-medium text-foreground min-w-[140px]">Trip destination:</span>
-                      <div className="flex-1">
-                        <div className="text-muted-foreground line-through">{originalValues.tripDestination || '(empty)'}</div>
-                        <div className="text-foreground font-medium">{previewNonLocationFields.tripDestination}</div>
+                    )}
+                    {previewNonLocationFields.tripDestination && (
+                      <div className="flex items-start gap-2">
+                        <span className="font-medium text-foreground min-w-[140px]">Trip destination:</span>
+                        <div className="flex-1">
+                          <div className="text-muted-foreground line-through">{originalValues.tripDestination || '(empty)'}</div>
+                          <div className="text-foreground font-medium">{previewNonLocationFields.tripDestination}</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Trip Notes Changes */}
             {previewDriverNotes && previewDriverNotes !== originalValues.driverNotes && (
@@ -10441,7 +10458,7 @@ export default function ResultsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }
 
