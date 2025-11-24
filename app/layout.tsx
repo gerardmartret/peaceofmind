@@ -50,6 +50,17 @@ export default function RootLayout({
               <div className="pt-20">
                 {children}
               </div>
+              <footer className="py-6 text-center text-sm text-muted-foreground border-t border-border bg-background">
+                <div className="container mx-auto px-4">
+                  <span>© Chauffs 2025</span>
+                  <span className="mx-2">·</span>
+                  <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+                  <span className="mx-2">·</span>
+                  <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
+                  <span className="mx-2">·</span>
+                  <a href="#" className="hover:text-foreground transition-colors">Contact</a>
+                </div>
+              </footer>
             </HomepageProvider>
           </AuthProvider>
         </ThemeProvider>
