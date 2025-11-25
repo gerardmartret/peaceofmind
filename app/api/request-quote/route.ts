@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Send email
     const { data, error } = await resend.emails.send({
-      from: 'DriverBrief <info@trips.driverbrief.com>',
+      from: 'DriverBrief <info@trips.chauffs.com>',
       to: [driverEmail.trim()],
       subject: `Quote Request - Trip on ${tripDate}`,
       html: `

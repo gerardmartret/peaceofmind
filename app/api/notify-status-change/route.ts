@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     // Send email
     const { data, error } = await resend.emails.send({
-      from: 'DriverBrief <info@trips.driverbrief.com>',
+      from: 'DriverBrief <info@trips.chauffs.com>',
       to: [driverEmail],
       subject: emailSubject,
       html: `

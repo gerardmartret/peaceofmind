@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         const tripLink = `${baseUrl}/results/${tripId}`;
 
         await resend.emails.send({
-          from: 'DriverBrief <info@trips.driverbrief.com>',
+          from: 'DriverBrief <info@trips.chauffs.com>',
           to: [normalizedDriverEmail],
           subject: `Trip confirmed - ${tripDate}`,
           html: `
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         // Also send notification to trip owner
         if (trip.user_email) {
           await resend.emails.send({
-            from: 'DriverBrief <info@trips.driverbrief.com>',
+            from: 'DriverBrief <info@trips.chauffs.com>',
             to: [trip.user_email],
             subject: `Driver confirmed trip - ${tripDate}`,
             html: `

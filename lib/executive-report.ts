@@ -136,6 +136,11 @@ export async function generateExecutiveReport(
       return base;
     });
 
+    // Count trip notes bullet points for validation
+    const tripNotesBulletCount = driverNotes 
+      ? driverNotes.split('\n').map(line => line.trim()).filter(line => line.length > 0).length 
+      : 0;
+
     const prompt = `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in ${cityConfig.cityName}.
 
 PASSENGER INFORMATION:
@@ -162,12 +167,17 @@ ${(() => {
           passengerInfo += `Vehicle: ${vehicleInfo}\n`;
         }
 
-        if (driverNotes) {
-          passengerInfo += `Trip Notes: ${driverNotes}\n`;
-        }
-
         return passengerInfo || 'Passenger information not available';
       })()}
+
+${driverNotes ? `TRIP NOTES (${tripNotesBulletCount} items - EXTRACT ALL):
+${driverNotes}
+
+⚠️ CRITICAL RULES:
+1. Extract and categorize ALL ${tripNotesBulletCount} items above into Exceptional or Important sections
+2. Extract ONLY what is explicitly stated - DO NOT add items not in the trip notes above
+3. Format each item on a separate line (one per line, not combined)
+` : ''}
 
 ${emailContent ? `
 EMAIL CONTEXT:
@@ -250,260 +260,239 @@ Return JSON:
   "routeDisruptions": {"drivingRisks": ["str"], "externalDisruptions": ["str"]},
   "recommendations": ["Data-driven only: traffic timing, parking strategies, crime precautions, weather prep"],
   "highlights": [{"type": "danger|warning|info|success", "message": "str"}],
-  "exceptionalInformation": "Safety-critical and urgent items from trip notes ONLY. Extract ONLY what is explicitly stated in trip notes. If NO exceptional items found in trip notes, return empty string ''",
-  "importantInformation": "Contextual and operational items from trip notes ONLY. Extract ONLY what is explicitly stated in trip notes. If NO important items found in trip notes, return empty string ''"
+  "exceptionalInformation": "Safety-critical and urgent items from trip notes ONLY. Extract ONLY what is explicitly stated in trip notes. Format: one actionable statement per line (use \\n). DO NOT add items not in trip notes. If NO exceptional items found, return empty string ''",
+  "importantInformation": "Contextual and operational items from trip notes ONLY. Extract ONLY what is explicitly stated in trip notes. Format: one actionable statement per line (use \\n). DO NOT add items not in trip notes. If NO important items found, return empty string ''"
 }
 
-TRIP NOTES → EXCEPTIONAL & IMPORTANT (actionable statements):
+${driverNotes ? `TRIP NOTES EXTRACTION REQUIREMENTS:
 
-⚠️ CRITICAL RULE - ZERO SKIPPING:
-1. COUNT bullet points in trip notes
-2. Extract EVERY SINGLE bullet point - NO EXCEPTIONS
-3. Categorize each into Exceptional OR Important
-4. If unsure where to categorize → put in Important Information (default)
-5. NEVER skip, combine, or omit any bullet point
-6. Total extracted items MUST EQUAL total input bullet points
+1. EXTRACT ALL ${tripNotesBulletCount} ITEMS: Every non-empty line from trip notes above must be extracted. Count: ${tripNotesBulletCount} input = (Exceptional items + Important items).
 
-EXTRACTION PROCESS:
-- Split trip notes by newlines
-- Each non-empty line = 1 bullet point to extract
-- Extract literal content only - NEVER invent or add items from examples
-- If trip notes empty → return empty strings '' for both fields
+2. ⚠️ CRITICAL - NO HALLUCINATION: Extract ONLY items explicitly stated in trip notes above. DO NOT add, invent, or assume any items that are not in the trip notes. If an item is not mentioned, do not include it.
 
-CATEGORIZATION RULES:
-EXCEPTIONAL (safety-critical, urgent):
-  - Food restrictions/allergies ("no X", "allergy", "cannot have")
-  - Dress codes ("suit", "uniform", "plain black")
-  - Driver behavior ("silent", "quiet", "no talking", "maintain discretion")
-  - Signs to hold (name signs for pickup)
-  - Security codes
-  - Urgent operations (monitor flight, hide car, confirm immediately)
+3. CATEGORIZE EACH ITEM:
+   EXCEPTIONAL (safety-critical, urgent): allergies/food restrictions, dress codes, driver behavior (silent/quiet), signs to hold, urgent operations
+   IMPORTANT (operational, contextual): contacts, vehicle specs, food/drinks, luggage, flights, parking, quotes, meetings, schedules
+   DEFAULT: If unsure → put in Important Information (never skip)
 
-IMPORTANT (operational, contextual):
-  - Contacts (names, phone numbers, emails)
-  - Vehicle specs (WiFi, chargers, privacy glass, temperature, etc.)
-  - Newspapers (FT, WSJ, etc)
-  - Food/drinks to provide (water, sparkling, snacks, champagne)
-  - Luggage/bags help
-  - Flight numbers to track
-  - Parking instructions
-  - Quotes, billing, invoicing
-  - Waiting time
+4. FORMAT as professional actionable statements - ONE PER LINE:
+   - Each extracted item must be on its own separate line (use \\n for newlines)
+   - Use verbs: "Ensure", "Confirm", "Verify", "Maintain", "Stock", "Monitor", "Assist"
+   - For compound items, preserve all parts: "WiFi and chargers" → mention both
+   - Example format: "Ensure vehicle completely nut-free (safety critical)\\nConfirm driver wears dark suit\\nMaintain driver silence"
+   - DO NOT combine multiple items into one long sentence - each item = one line
 
-FALLBACK RULE:
-If you cannot determine whether an item is Exceptional or Important:
-→ Put it in Important Information
-→ NEVER skip the item
+5. VALIDATION: Count extracted items (by counting lines). Total must equal ${tripNotesBulletCount}. If not equal, extraction is incomplete.
 
-STEP 3 - FORMAT as actionable statements with verbs:
-- Use action verbs: "Ensure", "Confirm", "Verify", "Maintain", "Stock", "Keep", "Prepare", "Monitor", "Assist"
-- Include context in parentheses if helpful
-- For food restrictions, always mark as safety-critical: "no nuts" → "Ensure vehicle completely nut-free and verify all snacks comply (safety critical)"
-- For compound items, mention ALL parts: "WiFi and chargers" → "Confirm fast WiFi and multiple charging ports..."
-- Examples: "Ensure vehicle completely nut-free (passenger has severe allergy)", "Stock vehicle with both still water and sparkling water"
-
-API DATA → RECOMMENDATIONS (data-driven insights ONLY):
+` : ''}API DATA → RECOMMENDATIONS (data-driven insights ONLY):
 - Generate 5-8 insights from location data analysis (NOT from trip notes)
 - Traffic: timing strategies, route adjustments, delay warnings
 - Crime: safety precautions, locking protocols, area cautions
 - Weather: preparation needs, vehicle pre-conditioning
-- Parking: CPZ restrictions, car park locations, cost info
-
-CRITICAL VALIDATION (ENFORCE STRICTLY):
-1. COUNT FIRST: Trip note lines = Items in (Exceptional + Important) - MUST BE EQUAL OR REPORT FAILS
-2. Check every line extracted: food restrictions/allergies, signs, dress codes, newspapers, privacy glass, quiet driver, bags, water, WiFi, chargers, contacts, quotes
-3. Recommendations contain ZERO trip note items (only data-driven insights)
-4. All three sections use same actionable verb style
-5. Compound items (X and Y) preserve both X AND Y
-6. COMMON FAILURES: Missing food restrictions ("no X", allergies), missing signs to hold, missing dress codes, missing newspapers, missing privacy glass, missing quiet driver - these are UNACCEPTABLE
-
-⚠️ EXAMPLES BELOW ARE FOR REFERENCE ONLY - DO NOT COPY THEM ⚠️
-These examples show the FORMAT and STYLE, but you must ONLY extract what is actually in the trip notes provided above.
-
-EXAMPLES (REFERENCE ONLY - DO NOT COPY):
-
-Example 1 (10 lines):
-Trip notes: "Contact Emily +44 7911 223344" / "Driver: dark suit" / "Help with bags" / "Wi-Fi and chargers" / "Water and sparkling" / "No nuts" / "FT newspaper" / "Privacy glass up" / "Quiet driver" / "Quote ASAP"
-Exceptional (4): "- Ensure vehicle nut-free (safety critical)\n- Confirm driver wears dark suit\n- Maintain driver silence\n- Maintain privacy glass raised"
-Important (6): "- Keep Emily (+44 7911 223344) informed\n- Assist with luggage\n- Confirm WiFi and chargers operational\n- Stock still and sparkling water\n- Ensure FT newspaper available\n- Prepare comprehensive quote"
-COUNT: 10 = 4 + 6 ✓
-
-Example 2 (3 lines) - Simpler trip:
-Trip notes: "Driver: suit, silent" / "Contact Eleanor +44 20 7946 0012" / "Track flight VS026"
-Exceptional (2): "- Confirm driver wears suit as specified\n- Maintain driver silence throughout journey"
-Important (1): "- Keep Eleanor (+44 20 7946 0012) informed of any delays"
-COUNT: 3 = 2 + 1 ✓
-
-KEY: "Driver: suit, silent" = TWO exceptional items (suit=dress code, silent=behavior), NOT one
-
-Recommendations (data-driven ONLY, not from trip notes):
-   "Monitor real-time traffic to adjust for predicted 8-min delay on route to Canary Wharf"
-   "Exercise caution in high crime area (78 crimes reported); keep doors locked when stationary"
-   "Rain expected at 15:00; ensure umbrella available and pre-warm vehicle 10 minutes before departure"
-   "CPZ Zone active until 18:30; use nearby NCP car park at £4.50/hr to avoid penalties"
-   "Limited parking availability at destination; arrive 10 minutes early to secure spot"`;
+- Parking: CPZ restrictions, car park locations, cost info`;
 
     // Use GPT-4o-mini for comprehensive executive analysis (proven working, 90% cost reduction)
     console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
     console.log(`📏 Prompt length: ${prompt.length} characters`);
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 4000, // Increased to accommodate 10-15 recommendations + detailed extraction
-      temperature: 0.3, // Lower temperature for more focused analysis
-    });
+    
+    // Retry logic for incomplete extraction
+    const maxRetries = 3;
+    let report!: ExecutiveReport; // Definite assignment assertion - will be assigned in loop or error thrown
+    let attempt = 0;
+    
+    while (attempt < maxRetries) {
+      attempt++;
+      if (attempt > 1) {
+        console.log(`\n🔄 Retry attempt ${attempt}/${maxRetries} - Previous extraction was incomplete`);
+      }
+      
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4000, // Increased to accommodate 10-15 recommendations + detailed extraction
+        temperature: 0.3, // Lower temperature for more focused analysis
+      });
 
-    const responseText = completion.choices[0]?.message?.content || '';
+      const responseText = completion.choices[0]?.message?.content || '';
 
-    console.log(`\n🔧 Model: ${completion.model}`);
-    console.log(`📊 Tokens: ${completion.usage?.total_tokens} (prompt: ${completion.usage?.prompt_tokens}, completion: ${completion.usage?.completion_tokens})`);
-    console.log(`💰 Estimated cost: $${((completion.usage?.prompt_tokens || 0) * 0.15 / 1000000 + (completion.usage?.completion_tokens || 0) * 0.60 / 1000000).toFixed(6)}`);
-    console.log(`📏 Response length: ${responseText.length} characters`);
-    console.log(`\n📝 GPT-4o-mini Response (first 500 chars):`);
-    console.log(responseText.substring(0, 500));
-    console.log('...');
-    console.log(`📝 GPT-4o-mini Response (last 200 chars):`);
-    console.log('...' + responseText.substring(Math.max(0, responseText.length - 200)));
-    console.log('\n');
+      console.log(`\n🔧 Model: ${completion.model}`);
+      console.log(`📊 Tokens: ${completion.usage?.total_tokens} (prompt: ${completion.usage?.prompt_tokens}, completion: ${completion.usage?.completion_tokens})`);
+      console.log(`💰 Estimated cost: $${((completion.usage?.prompt_tokens || 0) * 0.15 / 1000000 + (completion.usage?.completion_tokens || 0) * 0.60 / 1000000).toFixed(6)}`);
+      console.log(`📏 Response length: ${responseText.length} characters`);
+      console.log(`\n📝 GPT-4o-mini Response (first 500 chars):`);
+      console.log(responseText.substring(0, 500));
+      console.log('...');
+      console.log(`📝 GPT-4o-mini Response (last 200 chars):`);
+      console.log('...' + responseText.substring(Math.max(0, responseText.length - 200)));
+      console.log('\n');
 
-    // Check if response was truncated
-    if (completion.choices[0]?.finish_reason === 'length') {
-      console.warn('⚠️ WARNING: Response was truncated due to max_tokens limit!');
-      console.warn('   This may result in incomplete JSON. Consider increasing max_tokens.');
-    }
+      // Check if response was truncated
+      if (completion.choices[0]?.finish_reason === 'length') {
+        console.warn('⚠️ WARNING: Response was truncated due to max_tokens limit!');
+        console.warn('   This may result in incomplete JSON. Consider increasing max_tokens.');
+      }
 
-    /**
-     * Clean JSON string to fix common issues from GPT responses
-     */
-    function cleanJsonString(json: string): string {
-      // Remove trailing commas before closing braces/brackets
-      // Match: ,\s*} or ,\s*]
-      json = json.replace(/,(\s*[}\]])/g, '$1');
+      /**
+       * Clean JSON string to fix common issues from GPT responses
+       */
+      function cleanJsonString(json: string): string {
+        // Remove trailing commas before closing braces/brackets
+        // Match: ,\s*} or ,\s*]
+        json = json.replace(/,(\s*[}\]])/g, '$1');
 
-      // Remove trailing commas in arrays/objects (more aggressive)
-      // This handles cases like: "key": "value",} or "key": "value",]
-      json = json.replace(/,(\s*[}\]])/g, '$1');
+        // Remove trailing commas in arrays/objects (more aggressive)
+        // This handles cases like: "key": "value",} or "key": "value",]
+        json = json.replace(/,(\s*[}\]])/g, '$1');
 
-      // Remove comments (single line and multi-line)
-      json = json.replace(/\/\/.*$/gm, '');
-      json = json.replace(/\/\*[\s\S]*?\*\//g, '');
+        // Remove comments (single line and multi-line)
+        json = json.replace(/\/\/.*$/gm, '');
+        json = json.replace(/\/\*[\s\S]*?\*\//g, '');
 
-      return json.trim();
-    }
+        return json.trim();
+      }
 
-    // Extract JSON from response - GPT-4o-mini may wrap in markdown
-    let jsonText = responseText;
+      // Extract JSON from response - GPT-4o-mini may wrap in markdown
+      let jsonText = responseText;
 
-    // Remove markdown code blocks
-    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      // Remove markdown code blocks
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
 
-    // Try to find complete JSON object
-    let jsonMatch = jsonText.match(/\{[\s\S]*"tripRiskScore"[\s\S]*\}/);
+      // Try to find complete JSON object
+      let jsonMatch = jsonText.match(/\{[\s\S]*"tripRiskScore"[\s\S]*\}/);
 
-    if (!jsonMatch) {
-      console.error('❌ No JSON found in response');
-      console.error('❌ Full response:', responseText);
-      console.error('❌ Response was likely truncated or malformed');
-      throw new Error('No JSON found in GPT response - response may have been truncated');
-    }
+      if (!jsonMatch) {
+        console.error('❌ No JSON found in response');
+        console.error('❌ Full response:', responseText);
+        console.error('❌ Response was likely truncated or malformed');
+        if (attempt < maxRetries) {
+          console.log(`\n🔄 Will retry...`);
+          continue;
+        }
+        throw new Error('No JSON found in GPT response - response may have been truncated');
+      }
 
-    // Ensure complete JSON by balancing braces
-    let startIndex = jsonMatch.index!;
-    let braceCount = 0;
-    let endIndex = startIndex;
+      // Ensure complete JSON by balancing braces
+      let startIndex = jsonMatch.index!;
+      let braceCount = 0;
+      let endIndex = startIndex;
 
-    for (let i = startIndex; i < jsonText.length; i++) {
-      if (jsonText[i] === '{') braceCount++;
-      if (jsonText[i] === '}') {
-        braceCount--;
-        if (braceCount === 0) {
-          endIndex = i + 1;
-          break;
+      for (let i = startIndex; i < jsonText.length; i++) {
+        if (jsonText[i] === '{') braceCount++;
+        if (jsonText[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i + 1;
+            break;
+          }
         }
       }
-    }
 
-    let jsonString = jsonText.substring(startIndex, endIndex);
-    console.log('✅ JSON extracted successfully');
-    console.log(`📏 JSON length: ${jsonString.length} characters`);
+      let jsonString = jsonText.substring(startIndex, endIndex);
+      console.log('✅ JSON extracted successfully');
+      console.log(`📏 JSON length: ${jsonString.length} characters`);
 
-    // Clean up common JSON issues from GPT responses
-    jsonString = cleanJsonString(jsonString);
+      // Clean up common JSON issues from GPT responses
+      jsonString = cleanJsonString(jsonString);
 
-    let report: ExecutiveReport;
-    try {
-      report = JSON.parse(jsonString);
-    } catch (parseError) {
-      console.error('❌ JSON parse error:', parseError);
-      console.error('❌ JSON string (first 500 chars):', jsonString.substring(0, 500));
-      console.error('❌ JSON string (last 500 chars):', jsonString.substring(Math.max(0, jsonString.length - 500)));
-      throw new Error(`Failed to parse JSON from GPT response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
-    }
+      try {
+        report = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        console.error('❌ JSON string (first 500 chars):', jsonString.substring(0, 500));
+        console.error('❌ JSON string (last 500 chars):', jsonString.substring(Math.max(0, jsonString.length - 500)));
+        if (attempt < maxRetries) {
+          console.log(`\n🔄 Will retry...`);
+          continue;
+        }
+        throw new Error(`Failed to parse JSON from GPT response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
 
-    // Extract bullet points ending with * from driverNotes and add to exceptional information
-    if (driverNotes) {
-      const exceptionalFromAsterisk = extractExceptionalFromAsterisk(driverNotes);
-      if (exceptionalFromAsterisk) {
-        console.log('⭐ Found bullet points ending with *:', exceptionalFromAsterisk);
-        // Merge with existing exceptional information
-        if (report.exceptionalInformation && report.exceptionalInformation.trim()) {
-          report.exceptionalInformation = `${report.exceptionalInformation}\n${exceptionalFromAsterisk}`;
+      // Extract bullet points ending with * from driverNotes and add to exceptional information
+      if (driverNotes) {
+        const exceptionalFromAsterisk = extractExceptionalFromAsterisk(driverNotes);
+        if (exceptionalFromAsterisk) {
+          console.log('⭐ Found bullet points ending with *:', exceptionalFromAsterisk);
+          // Merge with existing exceptional information
+          if (report.exceptionalInformation && report.exceptionalInformation.trim()) {
+            report.exceptionalInformation = `${report.exceptionalInformation}\n${exceptionalFromAsterisk}`;
+          } else {
+            report.exceptionalInformation = exceptionalFromAsterisk;
+          }
+          console.log('✅ Added asterisk-marked items to exceptional information');
+        }
+      }
+
+      // VALIDATION: Check if importantInformation is an object instead of string
+      if (report.importantInformation && typeof report.importantInformation === 'object') {
+        console.error('❌ ERROR: importantInformation is an object, expected string!');
+        console.error('   Value:', JSON.stringify(report.importantInformation, null, 2));
+        // Convert object to string format
+        const infoObj = report.importantInformation as any;
+        const sections = Object.entries(infoObj).map(([key, value]) => `${key}:\n- ${value}`).join('\n\n');
+        report.importantInformation = sections;
+        console.log('✅ Converted importantInformation to string format');
+      }
+
+      // VALIDATION: Ensure all trip notes bullet points were extracted
+      let extractionComplete = true;
+      if (driverNotes && driverNotes.trim()) {
+        const inputBullets = driverNotes
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+
+        const exceptionalBullets = (report.exceptionalInformation || '')
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+
+        const importantBullets = (report.importantInformation || '')
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+
+        const totalExtracted = exceptionalBullets.length + importantBullets.length;
+
+        // Check for suspiciously long lines that might indicate combined items
+        const allExtracted = [...exceptionalBullets, ...importantBullets];
+        const longLines = allExtracted.filter(line => line.length > 200);
+        if (longLines.length > 0) {
+          console.warn(`\n⚠️ WARNING: Found ${longLines.length} suspiciously long line(s) that may contain combined items:`);
+          longLines.forEach((line, idx) => console.warn(`   ${idx + 1}. ${line.substring(0, 100)}...`));
+        }
+
+        console.log(`\n📊 TRIP NOTES EXTRACTION VALIDATION (Attempt ${attempt}):`);
+        console.log(`   Input bullet points: ${inputBullets.length}`);
+        console.log(`   Exceptional items: ${exceptionalBullets.length}`);
+        console.log(`   Important items: ${importantBullets.length}`);
+        console.log(`   Total extracted: ${totalExtracted}`);
+
+        if (totalExtracted !== inputBullets.length) {
+          extractionComplete = false;
+          console.error(`\n❌ EXTRACTION INCOMPLETE!`);
+          console.error(`   Expected ${inputBullets.length} items, got ${totalExtracted} items`);
+          console.error(`   Missing: ${inputBullets.length - totalExtracted} items`);
+          console.error(`\n   Input bullets:`);
+          inputBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+          console.error(`\n   Exceptional output:`);
+          exceptionalBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+          console.error(`\n   Important output:`);
+          importantBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+          
+          if (attempt < maxRetries) {
+            console.log(`\n🔄 Will retry extraction...`);
+            continue; // Retry the loop
+          } else {
+            console.error(`\n⚠️ WARNING: Maximum retries reached. Proceeding with incomplete extraction.`);
+          }
         } else {
-          report.exceptionalInformation = exceptionalFromAsterisk;
+          console.log(`✅ All ${inputBullets.length} bullet points successfully extracted and categorized`);
         }
-        console.log('✅ Added asterisk-marked items to exceptional information');
       }
-    }
-
-    // VALIDATION: Check if importantInformation is an object instead of string
-    if (report.importantInformation && typeof report.importantInformation === 'object') {
-      console.error('❌ ERROR: importantInformation is an object, expected string!');
-      console.error('   Value:', JSON.stringify(report.importantInformation, null, 2));
-      // Convert object to string format
-      const infoObj = report.importantInformation as any;
-      const sections = Object.entries(infoObj).map(([key, value]) => `${key}:\n- ${value}`).join('\n\n');
-      report.importantInformation = sections;
-      console.log('✅ Converted importantInformation to string format');
-    }
-
-    // VALIDATION: Ensure all trip notes bullet points were extracted
-    if (driverNotes && driverNotes.trim()) {
-      const inputBullets = driverNotes
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
-      const exceptionalBullets = (report.exceptionalInformation || '')
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
-      const importantBullets = (report.importantInformation || '')
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
-      const totalExtracted = exceptionalBullets.length + importantBullets.length;
-
-      console.log(`\n📊 TRIP NOTES EXTRACTION VALIDATION:`);
-      console.log(`   Input bullet points: ${inputBullets.length}`);
-      console.log(`   Exceptional items: ${exceptionalBullets.length}`);
-      console.log(`   Important items: ${importantBullets.length}`);
-      console.log(`   Total extracted: ${totalExtracted}`);
-
-      if (totalExtracted !== inputBullets.length) {
-        console.error(`\n❌ EXTRACTION MISMATCH DETECTED!`);
-        console.error(`   Expected ${inputBullets.length} items, got ${totalExtracted} items`);
-        console.error(`   Difference: ${inputBullets.length - totalExtracted} items`);
-        console.error(`\n   Input bullets:`);
-        inputBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
-        console.error(`\n   Exceptional output:`);
-        exceptionalBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
-        console.error(`\n   Important output:`);
-        importantBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
-        console.error(`\n⚠️ WARNING: Some trip notes may have been lost or combined!`);
-      } else {
-        console.log(`✅ All ${inputBullets.length} bullet points successfully extracted and categorized`);
+      
+      // If extraction is complete or max retries reached, break out of retry loop
+      if (extractionComplete || attempt >= maxRetries) {
+        break;
       }
     }
 

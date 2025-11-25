@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
       : `Trip Update - ${tripDate}`;
 
     const { data, error } = await resend.emails.send({
-      from: 'DriverBrief <info@trips.driverbrief.com>',
+      from: 'DriverBrief <info@trips.chauffs.com>',
       to: [trip.driver],
       subject: emailSubject,
       html: `

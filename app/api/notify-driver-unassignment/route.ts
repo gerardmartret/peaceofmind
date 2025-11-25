@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       });
 
       await resend.emails.send({
-        from: 'DriverBrief <info@trips.driverbrief.com>',
+        from: 'DriverBrief <info@trips.chauffs.com>',
         to: [driverEmail],
         subject: `Trip assignment cancelled - ${formattedDate}`,
         html: `
