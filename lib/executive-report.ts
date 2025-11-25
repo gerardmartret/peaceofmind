@@ -272,7 +272,8 @@ ${driverNotes ? `TRIP NOTES EXTRACTION REQUIREMENTS:
 
 3. CATEGORIZE EACH ITEM:
    EXCEPTIONAL (safety-critical, urgent): allergies/food restrictions, dress codes, driver behavior (silent/quiet), signs to hold (look for "sign", "board", "hold"), urgent operations (look for "send", "immediately", "ASAP", "next X mins", "urgent")
-   IMPORTANT (operational, contextual): contacts, vehicle specs, food/drinks, luggage/bags (look for "carry-on", "briefcase", "coat", "scarf", "bag", "luggage"), flights, parking, quotes, meetings, schedules
+   IMPORTANT (operational, contextual): contacts, vehicle specs, food/drinks, luggage/bags (look for "carry-on", "briefcase", "coat", "scarf", "bag", "luggage"), flights, parking, quotes
+   EXCLUDE FROM IMPORTANT: Schedule/meeting times (e.g., "14:30-15:45 Goldman Sachs") - these are already captured in trip locations breakdown, do not duplicate
    DEFAULT: If unsure → put in Important Information (NEVER skip - better to categorize incorrectly than to miss an item)
    FALLBACK: If you cannot determine category OR if extraction is unclear → put in Important Information
    ZERO TOLERANCE: Every single bullet point MUST appear in either Exceptional OR Important - no exceptions
