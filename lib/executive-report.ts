@@ -271,14 +271,25 @@ ${driverNotes ? `TRIP NOTES EXTRACTION REQUIREMENTS:
 2. ⚠️ CRITICAL - NO HALLUCINATION: Extract ONLY items explicitly stated in trip notes above. DO NOT add, invent, or assume any items that are not in the trip notes. If an item is not mentioned, do not include it.
 
 3. CATEGORIZE EACH ITEM:
-   EXCEPTIONAL (safety-critical, urgent): allergies/food restrictions, dress codes, driver behavior (silent/quiet), signs to hold, urgent operations
-   IMPORTANT (operational, contextual): contacts, vehicle specs, food/drinks, luggage, flights, parking, quotes, meetings, schedules
-   DEFAULT: If unsure → put in Important Information (never skip)
+   EXCEPTIONAL (safety-critical, urgent): allergies/food restrictions, dress codes, driver behavior (silent/quiet), signs to hold (look for "sign", "board", "hold"), urgent operations (look for "send", "immediately", "ASAP", "next X mins", "urgent")
+   IMPORTANT (operational, contextual): contacts, vehicle specs, food/drinks, luggage/bags (look for "carry-on", "briefcase", "coat", "scarf", "bag", "luggage"), flights, parking, quotes, meetings, schedules
+   DEFAULT: If unsure → put in Important Information (NEVER skip - better to categorize incorrectly than to miss an item)
+   FALLBACK: If you cannot determine category OR if extraction is unclear → put in Important Information
+   ZERO TOLERANCE: Every single bullet point MUST appear in either Exceptional OR Important - no exceptions
 
 4. FORMAT as professional actionable statements - ONE PER LINE:
    - Each extracted item must be on its own separate line (use \\n for newlines)
    - Use verbs: "Ensure", "Confirm", "Verify", "Maintain", "Stock", "Monitor", "Assist"
-   - For compound items, preserve all parts: "WiFi and chargers" → mention both
+   - For compound items, preserve ALL parts: "WiFi and chargers" → mention both
+   - CRITICAL: Items with semicolons (;) or dashes (–) contain MULTIPLE instructions - extract EACH part separately
+   - Example: "Zero cigarette smell; ozone the vehicle tonight" → TWO items: "Ensure zero cigarette smell\\nOzone the vehicle tonight"
+   - Example: "Deadly allergy – 2 EpiPens in bag" → TWO items: "Ensure vehicle nut-free (safety critical)\\nConfirm 2 EpiPens available in passenger bag"
+   - Signs: If trip notes mention "sign", "board", or "hold" with a name → extract as separate Exceptional item
+   - Example: "Driver meet at Starbucks, sign 'MR A VOSS'" → TWO items: "Meet at Starbucks right after customs" (Important) + "Hold sign 'MR A VOSS' at pickup" (Exceptional)
+   - Urgent operations: Look for time-sensitive keywords: "send", "immediately", "ASAP", "next X mins", "urgent", "now"
+   - Example: "Send driver name + cell + plate in the next 10 mins" → Exceptional: "Send driver name, cell phone, and license plate immediately (within 10 minutes)"
+   - Luggage: Look for luggage keywords: "carry-on", "briefcase", "coat", "scarf", "bag", "luggage", "suitcase"
+   - Example: "Only black Tumi carry-on + silver Rimowa briefcase, navy coat, light blue scarf" → Important: "Assist with luggage: black Tumi carry-on, silver Rimowa briefcase, navy coat, and light blue scarf"
    - Example format: "Ensure vehicle completely nut-free (safety critical)\\nConfirm driver wears dark suit\\nMaintain driver silence"
    - DO NOT combine multiple items into one long sentence - each item = one line
 
