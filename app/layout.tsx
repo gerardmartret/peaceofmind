@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { HomepageProvider } from "@/lib/homepage-context";
@@ -54,11 +55,9 @@ export default function RootLayout({
                 <div className="container mx-auto px-4">
                   <span>© Chauffs 2025</span>
                   <span className="mx-2">·</span>
-                  <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+                  <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
                   <span className="mx-2">·</span>
-                  <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-                  <span className="mx-2">·</span>
-                  <a href="#" className="hover:text-foreground transition-colors">Contact</a>
+                  <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
                 </div>
               </footer>
             </HomepageProvider>
