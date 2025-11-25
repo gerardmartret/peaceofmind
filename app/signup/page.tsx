@@ -108,7 +108,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-md">
         <img 
           src="/chauffs-logo-neutral.png" 
-          alt="Driverbrief" 
+          alt="Chauffs" 
           className="mx-auto h-6 w-auto mb-8"
         />
         <Card className="w-full">

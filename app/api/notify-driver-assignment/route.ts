@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       });
 
       await resend.emails.send({
-        from: 'DriverBrief <info@trips.chauffs.com>',
+        from: 'Chauffs <info@trips.chauffs.com>',
         to: [driverEmail],
         subject: `You've been assigned to a trip - ${formattedDate}`,
         html: `

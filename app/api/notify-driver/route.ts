@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
       : `Trip Update - ${tripDate}`;
 
     const { data, error } = await resend.emails.send({
-      from: 'DriverBrief <info@trips.chauffs.com>',
+      from: 'Chauffs <info@trips.chauffs.com>',
       to: [trip.driver],
       subject: emailSubject,
       html: `
@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
                   <!-- Footer -->
                   <tr>
                     <td align="center" style="padding: 20px 0;">
-                      <p style="margin: 0; font-size: 12px; color: #999999;">This is an automated notification from DriverBrief</p>
+                      <p style="margin: 0; font-size: 12px; color: #999999;">This is an automated notification from Chauffs</p>
                     </td>
                   </tr>
                 </table>

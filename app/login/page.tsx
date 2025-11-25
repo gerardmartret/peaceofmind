@@ -58,7 +58,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <img 
           src="/chauffs-logo-neutral.png" 
-          alt="Driverbrief" 
+          alt="Chauffs" 
           className="mx-auto h-6 w-auto mb-12"
         />
         <Card className="w-full">

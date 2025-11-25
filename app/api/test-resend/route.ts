@@ -71,13 +71,13 @@ export async function POST(request: NextRequest) {
 
     // Send test email
     const { data, error } = await resend.emails.send({
-      from: 'DriverBrief <onboarding@resend.dev>', // Using Resend's test domain
+      from: 'Chauffs <onboarding@resend.dev>', // Using Resend's test domain
       to: [to],
-      subject: '✅ Resend Integration Test - DriverBrief',
+      subject: '✅ Resend Integration Test - Chauffs',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #05060A;">🎉 Resend Connection Successful!</h2>
-          <p>This is a test email from your DriverBrief application.</p>
+          <p>This is a test email from your Chauffs application.</p>
           <p>Your Resend integration is working correctly and ready to send driver notifications.</p>
           
           <div style="background-color: #f0f0f0; padding: 15px; border-radius: 8px; margin: 20px 0;">

@@ -6354,7 +6354,7 @@ export default function ResultsPage() {
         {/* Footer Navigation */}
         <div className="text-center py-8">
           <p className="text-lg font-medium text-foreground mb-4">
-            Driverbrief wishes you a nice trip
+            Chauffs wishes you a nice trip
           </p>
           <div className="flex flex-wrap justify-center gap-3 mb-4">
             <Button
