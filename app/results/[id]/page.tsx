@@ -749,6 +749,10 @@ export default function ResultsPage() {
   };
   type BookingPreviewFieldKey = keyof typeof bookingPreviewInitialState;
   const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
+  const [missingFields, setMissingFields] = useState<Set<BookingPreviewFieldKey>>(new Set());
+  const [bookingSubmissionState, setBookingSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [bookingSubmissionMessage, setBookingSubmissionMessage] = useState<string>('');
+  const [processingTimer, setProcessingTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Guest signup state
   const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
@@ -790,7 +794,8 @@ export default function ResultsPage() {
     setMounted(true);
   }, []);
 
-  const highlightMissing = (value: any) => (!value ? 'border-destructive/70 bg-destructive/10 text-destructive' : '');
+  const highlightMissing = (field: BookingPreviewFieldKey) =>
+    missingFields.has(field) ? 'border-destructive/70 bg-destructive/10 text-destructive' : '';
 
   const normalizeVehicleText = (text?: string): string =>
     (text || '')
@@ -801,6 +806,18 @@ export default function ResultsPage() {
   const preferredVehicleHint = React.useMemo(() => {
     return vehicleInfo?.trim() || driverNotes?.trim() || '';
   }, [vehicleInfo, driverNotes]);
+
+  const requiredFields: BookingPreviewFieldKey[] = [
+    'passengerName',
+    'contactEmail',
+    'flightDirection',
+    'pickupTime',
+    'dropoffTime',
+    'cardName',
+    'cardNumber',
+    'cardExpiry',
+    'cardCVC',
+  ];
 
   const matchesPreferredVehicle = React.useCallback((vehicle: any): boolean => {
     if (!preferredVehicleHint) return false;
@@ -824,6 +841,14 @@ export default function ResultsPage() {
 
     return hintWords.every((word) => vehicleText.includes(word));
   }, [preferredVehicleHint]);
+
+  useEffect(() => {
+    return () => {
+      if (processingTimer) {
+        clearTimeout(processingTimer);
+      }
+    };
+  }, [processingTimer]);
 
   const preferredVehicles = React.useMemo(() => {
     if (!drivaniaQuotes?.quotes?.vehicles || !preferredVehicleHint) {
@@ -875,6 +900,9 @@ export default function ResultsPage() {
       dropoffTime: dropoff?.time || '',
       notes: editedDriverNotes || driverNotes || '',
     }));
+    setMissingFields(new Set());
+    setBookingSubmissionState('idle');
+    setBookingSubmissionMessage('');
     setShowBookingPreview(true);
   };
   const handleBookingFieldChange = (field: BookingPreviewFieldKey, value: string | number) => {
@@ -882,13 +910,97 @@ export default function ResultsPage() {
       ...prev,
       [field]: value,
     }));
+    if (missingFields.has(field)) {
+      setMissingFields((prev) => {
+        const next = new Set(prev);
+        next.delete(field);
+        return next;
+      });
+    }
   };
-  const handlePayNow = () => {
-    console.log('📦 Booking preview submitted', {
-      vehicle: selectedDrivaniaVehicle,
-      fields: bookingPreviewFields,
-    });
+  const handleReturnToReport = () => {
+    if (processingTimer) {
+      clearTimeout(processingTimer);
+      setProcessingTimer(null);
+    }
     setShowBookingPreview(false);
+    setShowDriverModal(false);
+  };
+  const handlePayNow = async () => {
+    if (!selectedDrivaniaVehicle) return;
+    const missing = requiredFields.filter((field) => {
+      const value = bookingPreviewFields[field];
+      if (typeof value === 'number') {
+        return value === null || value === undefined;
+      }
+      return !value || value.toString().trim() === '';
+    });
+
+    if (missing.length > 0) {
+      setMissingFields(new Set(missing));
+      return;
+    }
+
+    setBookingSubmissionState('loading');
+    setBookingSubmissionMessage('We are processing your payment');
+
+    const payload = {
+      service_id: drivaniaQuotes?.service_id,
+      service_type: drivaniaServiceType,
+      preferred_vehicle: selectedDrivaniaVehicle,
+      tripDate: tripData?.tripDate,
+      pickup: tripData?.locations?.[0],
+      dropoff: tripData?.locations?.[tripData.locations?.length - 1],
+      passenger_name: bookingPreviewFields.passengerName,
+      passenger_count: bookingPreviewFields.passengerCount,
+      child_seats: bookingPreviewFields.childSeats,
+      flight_number: bookingPreviewFields.flightNumber,
+      flight_direction: bookingPreviewFields.flightDirection,
+      pickup_time: bookingPreviewFields.pickupTime,
+      dropoff_time: bookingPreviewFields.dropoffTime,
+      vehicle_notes: bookingPreviewFields.notes,
+      payment: {
+        card_name: bookingPreviewFields.cardName,
+        card_number: bookingPreviewFields.cardNumber,
+        card_expiry: bookingPreviewFields.cardExpiry,
+        card_cvc: bookingPreviewFields.cardCVC,
+      },
+      client_email: bookingPreviewFields.contactEmail,
+      contact_phone: bookingPreviewFields.contactPhone,
+      trip_destination: tripDestination,
+    };
+
+    console.log('📡 Sending mock Drivania booking payload:', payload);
+
+    if (processingTimer) {
+      clearTimeout(processingTimer);
+    }
+
+    try {
+      const response = await fetch('/api/mock-drivania-service', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        setBookingSubmissionMessage('Your booking is confirmed, check your inbox.');
+        setMissingFields(new Set());
+        const timer = setTimeout(() => {
+          setBookingSubmissionState('success');
+          setProcessingTimer(null);
+        }, 5000);
+        setProcessingTimer(timer);
+      } else {
+        setBookingSubmissionState('idle');
+        setBookingSubmissionMessage(result.error || 'Failed to create booking');
+      }
+    } catch (err) {
+      console.error('❌ Booking creation error', err);
+      setBookingSubmissionState('idle');
+      setBookingSubmissionMessage('Failed to create booking');
+    }
   };
 
   const renderVehicleCard = (vehicle: any, index: number) => (
@@ -3738,6 +3850,13 @@ export default function ResultsPage() {
       setLoadingDrivaniaQuote(false);
     }
   };
+
+  useEffect(() => {
+    if (showDriverModal && !loadingDrivaniaQuote && !drivaniaQuotes) {
+      handleDrivaniaQuote();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDriverModal, loadingDrivaniaQuote, drivaniaQuotes]);
 
   const handleModifyTrip = () => {
     // For now, just redirect to home
@@ -10034,163 +10153,193 @@ export default function ResultsPage() {
 
           <div className="space-y-5 py-4 flex flex-col max-h-[calc(90vh-140px)]">
             <div className="space-y-5 flex-1 overflow-y-auto pr-2">
-              {selectedDrivaniaVehicle && (
-                <div className="rounded-md border border-border bg-muted/40 p-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <div>
-                      <p className="text-sm text-muted-foreground uppercase tracking-wide">Selected vehicle</p>
-                      <p className="text-lg font-semibold text-card-foreground">{selectedDrivaniaVehicle.vehicle_type}</p>
-                      {selectedDrivaniaVehicle.level_of_service && (
-                        <p className="text-xs text-muted-foreground">{selectedDrivaniaVehicle.level_of_service}</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Estimated fare</p>
-                      <p className="text-2xl font-bold text-card-foreground">
-                        {drivaniaQuotes?.currency_code
-                          ? `${drivaniaQuotes.currency_code} ${selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
-                          : selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
+              {bookingSubmissionState === 'loading' && (
+                <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  We are processing your payment
                 </div>
               )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Passenger name
-                  <Input
-                    className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.passengerName)}`}
-                    value={bookingPreviewFields.passengerName}
-                    onChange={(e) => handleBookingFieldChange('passengerName', e.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Contact email
-                  <Input
-                    className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.contactEmail)}`}
-                    value={bookingPreviewFields.contactEmail}
-                    onChange={(e) => handleBookingFieldChange('contactEmail', e.target.value)}
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Contact phone
-                  <Input
-                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                    value={bookingPreviewFields.contactPhone}
-                    onChange={(e) => handleBookingFieldChange('contactPhone', e.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Flight number
-                  <Input
-                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                    value={bookingPreviewFields.flightNumber}
-                    onChange={(e) => handleBookingFieldChange('flightNumber', e.target.value)}
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Flight direction
-                  <Input
-                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                    value={bookingPreviewFields.flightDirection}
-                    onChange={(e) => handleBookingFieldChange('flightDirection', e.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Passenger count
-                  <Input
-                    type="number"
-                    min={1}
-                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                    value={bookingPreviewFields.passengerCount}
-                    onChange={(e) => handleBookingFieldChange('passengerCount', Number(e.target.value))}
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">
-                  Child seats
-                  <Input
-                    type="number"
-                    min={0}
-                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                    value={bookingPreviewFields.childSeats}
-                    onChange={(e) => handleBookingFieldChange('childSeats', Number(e.target.value))}
-                  />
-                </label>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Pickup time
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.pickupTime)}`}
-                      value={bookingPreviewFields.pickupTime}
-                      onChange={(e) => handleBookingFieldChange('pickupTime', e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Dropoff time
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.dropoffTime)}`}
-                      value={bookingPreviewFields.dropoffTime}
-                      onChange={(e) => handleBookingFieldChange('dropoffTime', e.target.value)}
-                    />
-                  </label>
+              {bookingSubmissionState === 'success' && (
+                <div className="flex flex-col gap-2 rounded-md border border-green-200 bg-green-500/10 px-3 py-2 text-sm text-green-700 sm:flex-row sm:items-center sm:justify-between">
+                  <span>{bookingSubmissionMessage}</span>
+                  <Button
+                    variant="outline"
+                    className="text-green-700 border-green-200 hover:border-green-400 hover:text-green-800"
+                    onClick={handleReturnToReport}
+                  >
+                    Return to report
+                  </Button>
                 </div>
-              </div>
+              )}
+              {bookingSubmissionState === 'idle' && bookingSubmissionMessage && (
+                <div className="rounded-md border border-destructive/70 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {bookingSubmissionMessage}
+                </div>
+              )}
+              {bookingSubmissionState === 'idle' && (
+                <>
+                  {selectedDrivaniaVehicle && (
+                    <div className="rounded-md border border-border bg-muted/40 p-4">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                        <div>
+                          <p className="text-sm text-muted-foreground uppercase tracking-wide">Selected vehicle</p>
+                          <p className="text-lg font-semibold text-card-foreground">{selectedDrivaniaVehicle.vehicle_type}</p>
+                          {selectedDrivaniaVehicle.level_of_service && (
+                            <p className="text-xs text-muted-foreground">{selectedDrivaniaVehicle.level_of_service}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Estimated fare</p>
+                          <p className="text-2xl font-bold text-card-foreground">
+                            {drivaniaQuotes?.currency_code
+                              ? `${drivaniaQuotes.currency_code} ${selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
+                              : selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase text-muted-foreground">Notes</label>
-                <textarea
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  rows={3}
-                  value={bookingPreviewFields.notes}
-                  onChange={(e) => handleBookingFieldChange('notes', e.target.value)}
-                />
-              </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Passenger name
+                      <Input
+                        className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('passengerName')}`}
+                        value={bookingPreviewFields.passengerName}
+                        onChange={(e) => handleBookingFieldChange('passengerName', e.target.value)}
+                      />
+                    </label>
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Contact email
+                      <Input
+                        className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('contactEmail')}`}
+                        value={bookingPreviewFields.contactEmail}
+                        onChange={(e) => handleBookingFieldChange('contactEmail', e.target.value)}
+                      />
+                    </label>
+                  </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Payment</p>
-              <Input
-                placeholder="Cardholder name"
-                className="w-full border border-border rounded-md px-3 py-2 text-sm"
-                value={bookingPreviewFields.cardName}
-                onChange={(e) => handleBookingFieldChange('cardName', e.target.value)}
-              />
-              <Input
-                placeholder="Card number (e.g. 4242 4242 4242 4242)"
-                className="w-full border border-border rounded-md px-3 py-2 text-sm"
-                value={bookingPreviewFields.cardNumber}
-                onChange={(e) => handleBookingFieldChange('cardNumber', e.target.value)}
-              />
-              <div className="grid gap-4 md:grid-cols-2">
-                <Input
-                  placeholder="MM/YY"
-                  className="w-full border border-border rounded-md px-3 py-2 text-sm"
-                  value={bookingPreviewFields.cardExpiry}
-                  onChange={(e) => handleBookingFieldChange('cardExpiry', e.target.value)}
-                />
-                <Input
-                  placeholder="CVC"
-                  className="w-full border border-border rounded-md px-3 py-2 text-sm"
-                  value={bookingPreviewFields.cardCVC}
-                  onChange={(e) => handleBookingFieldChange('cardCVC', e.target.value)}
-                />
-              </div>
-              <Button
-                onClick={handlePayNow}
-                className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-              >
-                Pay now
-              </Button>
-            </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Contact phone
+                      <Input
+                        className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                        value={bookingPreviewFields.contactPhone}
+                        onChange={(e) => handleBookingFieldChange('contactPhone', e.target.value)}
+                      />
+                    </label>
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Flight number
+                      <Input
+                        className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                        value={bookingPreviewFields.flightNumber}
+                        onChange={(e) => handleBookingFieldChange('flightNumber', e.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Flight direction
+                      <Input
+                        className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('flightDirection')}`}
+                        value={bookingPreviewFields.flightDirection}
+                        onChange={(e) => handleBookingFieldChange('flightDirection', e.target.value)}
+                      />
+                    </label>
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Passenger count
+                      <Input
+                        type="number"
+                        min={1}
+                        className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                        value={bookingPreviewFields.passengerCount}
+                        onChange={(e) => handleBookingFieldChange('passengerCount', Number(e.target.value))}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">
+                      Child seats
+                      <Input
+                        type="number"
+                        min={0}
+                        className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                        value={bookingPreviewFields.childSeats}
+                        onChange={(e) => handleBookingFieldChange('childSeats', Number(e.target.value))}
+                      />
+                    </label>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Pickup time
+                        <Input
+                          className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('pickupTime')}`}
+                          value={bookingPreviewFields.pickupTime}
+                          onChange={(e) => handleBookingFieldChange('pickupTime', e.target.value)}
+                        />
+                      </label>
+                      <label className="text-xs font-semibold uppercase text-muted-foreground">
+                        Dropoff time
+                        <Input
+                          className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('dropoffTime')}`}
+                          value={bookingPreviewFields.dropoffTime}
+                          onChange={(e) => handleBookingFieldChange('dropoffTime', e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold uppercase text-muted-foreground">Notes</label>
+                    <textarea
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      rows={3}
+                      value={bookingPreviewFields.notes}
+                      onChange={(e) => handleBookingFieldChange('notes', e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Payment</p>
+                    <Input
+                      placeholder="Cardholder name"
+                      className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardName')}`}
+                      value={bookingPreviewFields.cardName}
+                      onChange={(e) => handleBookingFieldChange('cardName', e.target.value)}
+                    />
+                    <Input
+                      placeholder="Card number (e.g. 4242 4242 4242 4242)"
+                      className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardNumber')}`}
+                      value={bookingPreviewFields.cardNumber}
+                      onChange={(e) => handleBookingFieldChange('cardNumber', e.target.value)}
+                    />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Input
+                        placeholder="MM/YY"
+                        className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardExpiry')}`}
+                        value={bookingPreviewFields.cardExpiry}
+                        onChange={(e) => handleBookingFieldChange('cardExpiry', e.target.value)}
+                      />
+                      <Input
+                        placeholder="CVC"
+                        className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardCVC')}`}
+                        value={bookingPreviewFields.cardCVC}
+                        onChange={(e) => handleBookingFieldChange('cardCVC', e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      onClick={handlePayNow}
+                      className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] transition-transform duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-lg"
+                    >
+                      Pay now
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
