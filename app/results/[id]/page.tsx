@@ -310,7 +310,7 @@ function SortableEditLocationItem({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
-        )}
+          )}
       </div>
     </div>
   );
@@ -6754,13 +6754,14 @@ export default function ResultsPage() {
                                     ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
                                     : ''
                                 }`}
-                              onClick={() => {
-                                if (tripStatus === 'cancelled') {
-                                  alert('This trip has been cancelled. Please create a new trip instead.');
-                                  return;
-                                }
-                                setShowDriverModal(true);
-                              }}
+                            onClick={() => {
+                              if (tripStatus === 'cancelled') {
+                                alert('This trip has been cancelled. Please create a new trip instead.');
+                                return;
+                              }
+                              handleDrivaniaQuote();
+                              setShowDriverModal(true);
+                            }}
                               disabled={tripStatus === 'cancelled'}
                             >
                               {mounted && driverEmail && (
@@ -9204,47 +9205,26 @@ export default function ResultsPage() {
                       </div>
                     ) : drivaniaQuotes && drivaniaQuotes.quotes?.vehicles ? (
                       <div className="space-y-4">
-                        {drivaniaServiceType && (
-                          <div className="mb-4">
-                            <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-primary/10 text-primary">
-                              Service type: {drivaniaServiceType === 'one-way' ? 'One-way (mileage-based)' : 'Hourly (time-based)'}
-                            </span>
-                            {drivaniaQuotes.distance && (
-                              <span className="ml-3 text-sm text-muted-foreground">
-                                Distance: {drivaniaQuotes.distance.quantity} {drivaniaQuotes.distance.uom}
-                              </span>
-                            )}
-                            {drivaniaQuotes.drive_time && (
-                              <span className="ml-3 text-sm text-muted-foreground">
-                                Drive time: {drivaniaQuotes.drive_time}
-                              </span>
-                            )}
-                            {drivaniaQuotes.currency_code && (
-                              <span className="ml-3 text-sm text-muted-foreground">
-                                Currency: {drivaniaQuotes.currency_code}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="text-lg font-semibold text-card-foreground">
+                          Exclusive rates from Drivania
+                        </div>
+                        <div className="space-y-4">
                           {drivaniaQuotes.quotes.vehicles.map((vehicle: any, index: number) => (
-                            <Card key={vehicle.vehicle_id || index} className="shadow-none">
-                              <CardContent className="p-5">
+                            <Card key={vehicle.vehicle_id || index} className="shadow-none w-full">
+                              <CardContent className="p-5 flex gap-4">
                                 {vehicle.vehicle_image && (
-                                  <div className="mb-4">
+                                  <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60">
                                     <img
                                       src={vehicle.vehicle_image}
                                       alt={vehicle.vehicle_type}
-                                      className="w-full h-32 object-cover rounded-md"
+                                      className="h-full w-full object-cover"
                                       onError={(e) => {
                                         (e.target as HTMLImageElement).style.display = 'none';
                                       }}
                                     />
                                   </div>
                                 )}
-
-                                <div className="space-y-3">
+                                <div className="flex flex-1 flex-col gap-3">
                                   <div>
                                     <h4 className="text-lg font-semibold text-card-foreground">
                                       {vehicle.vehicle_type}
@@ -9253,63 +9233,49 @@ export default function ResultsPage() {
                                       {vehicle.level_of_service}
                                     </p>
                                   </div>
-
-                                  <div className="pt-2 border-t">
-                                    <div className="flex items-baseline gap-2">
-                                      <span className="text-3xl font-bold text-card-foreground">
-                                        {vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
-                                      </span>
-                                      {drivaniaQuotes.currency_code && (
-                                        <span className="text-sm text-muted-foreground">
-                                          {drivaniaQuotes.currency_code}
-                                        </span>
-                                      )}
-                                    </div>
+                                <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                                  <div className="flex items-center justify-between text-card-foreground font-semibold">
+                                    <span>Fare</span>
+                                    <span className="text-lg">
+                                      {drivaniaQuotes.currency_code
+                                        ? `${drivaniaQuotes.currency_code} ${vehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
+                                        : vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
+                                    </span>
                                   </div>
-
-                                  <div className="space-y-2 text-sm">
-                                    <div>
-                                      <span className="text-muted-foreground">Examples: </span>
-                                      <span className="text-card-foreground">{vehicle.vehicle_examples}</span>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                      <div>
-                                        <span className="text-muted-foreground">Seating: </span>
-                                        <span className="text-card-foreground font-medium">{vehicle.max_seating_capacity}</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-muted-foreground">Cargo: </span>
-                                        <span className="text-card-foreground font-medium">{vehicle.max_cargo_capacity}</span>
-                                      </div>
-                                    </div>
-
-                                    {vehicle.extra_hour && (
-                                      <div>
-                                        <span className="text-muted-foreground">Extra hour: </span>
-                                        <span className="text-card-foreground font-medium">
-                                          {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
-                                        </span>
-                                      </div>
+                                  <Button
+                                    size="sm"
+                                    type="button"
+                                    className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                                  >
+                                    Reserve
+                                  </Button>
+                                  <div className="flex gap-4 text-xs">
+                                    {vehicle.max_seating_capacity != null && (
+                                      <span>Seats: {vehicle.max_seating_capacity}</span>
                                     )}
-
-                                    {vehicle.pickup_instructions && (
-                                      <div className="pt-2 border-t">
-                                        <p className="text-xs text-muted-foreground whitespace-pre-line">
-                                          {vehicle.pickup_instructions}
-                                        </p>
-                                      </div>
+                                    {vehicle.max_cargo_capacity != null && (
+                                      <span>Cargo: {vehicle.max_cargo_capacity}</span>
                                     )}
-
-                                    {vehicle.cancellation_policy && (
-                                      <div className="pt-2 border-t">
-                                        <p className="text-xs text-muted-foreground whitespace-pre-line">
+                                  </div>
+                                  {vehicle.extra_hour && (
+                                    <span>
+                                      Extra hour: {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
+                                    </span>
+                                  )}
+                                </div>
+                                  {(vehicle.pickup_instructions || vehicle.cancellation_policy) && (
+                                    <div className="text-xs text-muted-foreground">
+                                      {vehicle.pickup_instructions && (
+                                        <p className="whitespace-pre-line">{vehicle.pickup_instructions}</p>
+                                      )}
+                                      {vehicle.cancellation_policy && (
+                                        <p className="pt-2 whitespace-pre-line">
                                           <span className="font-medium">Cancellation: </span>
                                           {vehicle.cancellation_policy.replace(/\\n/g, '\n')}
                                         </p>
-                                      </div>
-                                    )}
-                                  </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </CardContent>
                             </Card>
@@ -9577,6 +9543,91 @@ export default function ResultsPage() {
               Assigning this driver will set the trip to pending status and send them an acceptance request email.
             </DialogDescription>
           </DialogHeader>
+          {drivaniaQuotes && (
+          <div className="space-y-4 py-4 border-t border-dashed border-border">
+            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground">
+              <span>Latest Drivania quote</span>
+              {drivaniaQuotes.service_id && (
+                <span className="text-[10px] font-semibold text-foreground/70">
+                  Service ID: {drivaniaQuotes.service_id}
+                </span>
+              )}
+            </div>
+
+            {drivaniaServiceType && (
+              <div className="text-sm text-muted-foreground">
+                Service type:&nbsp;
+                <span className="text-foreground">
+                  {drivaniaServiceType === 'one-way' ? 'One-way (mileage-based)' : 'Hourly (time-based)'}
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+              {drivaniaQuotes.distance && (
+                <span>
+                  Distance: {drivaniaQuotes.distance.quantity} {drivaniaQuotes.distance.uom}
+                </span>
+              )}
+              {drivaniaQuotes.drive_time && <span>Drive time: {drivaniaQuotes.drive_time}</span>}
+              {drivaniaQuotes.currency_code && <span>Currency: {drivaniaQuotes.currency_code}</span>}
+            </div>
+
+            <div className="space-y-2">
+              {drivaniaQuotes.quotes?.vehicles?.map((vehicle: any, index: number) => {
+                const price = vehicle.sale_price?.price;
+                const formattedPrice =
+                  typeof price === 'number'
+                    ? price.toFixed(2)
+                    : price ?? 'N/A';
+                return (
+                  <div
+                    key={vehicle.vehicle_id || index}
+                    className="rounded-lg border border-border bg-muted/30 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-card-foreground">{vehicle.vehicle_type}</p>
+                        {vehicle.level_of_service && (
+                          <p className="text-xs text-muted-foreground">{vehicle.level_of_service}</p>
+                        )}
+                      </div>
+                      <div className="text-right text-sm font-semibold text-card-foreground">
+                        {drivaniaQuotes.currency_code
+                          ? `${drivaniaQuotes.currency_code} ${formattedPrice}`
+                          : formattedPrice}
+                        <p className="text-[10px] text-muted-foreground">
+                          {vehicle.fare_type || 'Estimated fare'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                      {vehicle.max_seating_capacity != null && (
+                        <span>Seats: {vehicle.max_seating_capacity}</span>
+                      )}
+                      {vehicle.max_cargo_capacity != null && (
+                        <span>Cargo: {vehicle.max_cargo_capacity}</span>
+                      )}
+                      {typeof vehicle.extra_hour === 'number' && (
+                        <span>
+                          Extra hour: {vehicle.extra_hour.toFixed(2)}{' '}
+                          {drivaniaQuotes.currency_code || ''}
+                        </span>
+                      )}
+                    </div>
+
+                    {vehicle.pickup_instructions && (
+                      <div className="mt-3 rounded border border-border/60 bg-background/60 p-2 text-[11px] text-muted-foreground">
+                        {vehicle.pickup_instructions}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
           <DialogFooter className="justify-start">
             <Button
               variant="outline"
