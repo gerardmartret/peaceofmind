@@ -728,6 +728,27 @@ export default function ResultsPage() {
   const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
   const [drivaniaServiceType, setDrivaniaServiceType] = useState<'one-way' | 'hourly' | null>(null);
   const [complexRouteDetails, setComplexRouteDetails] = useState<any>(null);
+  const [showOtherVehicles, setShowOtherVehicles] = useState<boolean>(false);
+  const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
+  const [showBookingPreview, setShowBookingPreview] = useState<boolean>(false);
+  const bookingPreviewInitialState = {
+    passengerName: '',
+    contactEmail: '',
+    contactPhone: '',
+    flightNumber: '',
+    flightDirection: '',
+    passengerCount: 1,
+    childSeats: 0,
+    pickupTime: '',
+    dropoffTime: '',
+    notes: '',
+    cardName: '',
+    cardNumber: '',
+    cardExpiry: '',
+    cardCVC: '',
+  };
+  type BookingPreviewFieldKey = keyof typeof bookingPreviewInitialState;
+  const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
 
   // Guest signup state
   const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
@@ -768,6 +789,180 @@ export default function ResultsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const highlightMissing = (value: any) => (!value ? 'border-destructive/70 bg-destructive/10 text-destructive' : '');
+
+  const normalizeVehicleText = (text?: string): string =>
+    (text || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const preferredVehicleHint = React.useMemo(() => {
+    return vehicleInfo?.trim() || driverNotes?.trim() || '';
+  }, [vehicleInfo, driverNotes]);
+
+  const matchesPreferredVehicle = React.useCallback((vehicle: any): boolean => {
+    if (!preferredVehicleHint) return false;
+    const hintNormalized = normalizeVehicleText(preferredVehicleHint);
+    const hintWords = hintNormalized.split(/\s+/).filter(Boolean);
+    const vehicleText = [
+      vehicle.vehicle_type,
+      vehicle.level_of_service,
+      vehicle.vehicle_examples,
+    ]
+      .map(normalizeVehicleText)
+      .join(' ');
+
+    if (!vehicleText) {
+      return false;
+    }
+
+    if (hintWords.length === 0) {
+      return vehicleText.includes(hintNormalized);
+    }
+
+    return hintWords.every((word) => vehicleText.includes(word));
+  }, [preferredVehicleHint]);
+
+  const preferredVehicles = React.useMemo(() => {
+    if (!drivaniaQuotes?.quotes?.vehicles || !preferredVehicleHint) {
+      return [];
+    }
+    return drivaniaQuotes.quotes.vehicles.filter(matchesPreferredVehicle);
+  }, [drivaniaQuotes, preferredVehicleHint, matchesPreferredVehicle]);
+
+  const displayVehicles = React.useMemo(() => {
+    if (preferredVehicles.length > 0) {
+      return preferredVehicles;
+    }
+    return drivaniaQuotes?.quotes?.vehicles || [];
+  }, [preferredVehicles, drivaniaQuotes]);
+
+  const vehicleKey = (vehicle: any) =>
+    vehicle.vehicle_id ||
+    `${vehicle.vehicle_type}-${vehicle.level_of_service || 'unknown'}-${vehicle.sale_price?.price || '0'}`;
+
+  const otherVehicles = React.useMemo(() => {
+    if (!drivaniaQuotes?.quotes?.vehicles || preferredVehicles.length === 0) {
+      return [];
+    }
+    const preferredKeys = new Set(preferredVehicles.map((vehicle: any) => vehicleKey(vehicle)));
+    return drivaniaQuotes.quotes.vehicles.filter(
+      (vehicle: any) => !preferredKeys.has(vehicleKey(vehicle))
+    );
+  }, [drivaniaQuotes, preferredVehicles]);
+
+  useEffect(() => {
+    setShowOtherVehicles(false);
+  }, [preferredVehicles]);
+
+  const openBookingPreview = (vehicle: any) => {
+    const locations = tripData?.locations || [];
+    const pickup = locations[0];
+    const dropoff = locations[locations.length - 1];
+
+    setSelectedDrivaniaVehicle(vehicle);
+    setBookingPreviewFields(prev => ({
+      ...prev,
+      passengerName: leadPassengerName || '',
+      contactEmail: tripData?.userEmail || '',
+      contactPhone: prev.contactPhone,
+      flightNumber: pickup?.flightNumber || '',
+      flightDirection: tripDestination || pickup?.flightDirection || '',
+      passengerCount: passengerCount || 1,
+      pickupTime: pickup?.time || '',
+      dropoffTime: dropoff?.time || '',
+      notes: editedDriverNotes || driverNotes || '',
+    }));
+    setShowBookingPreview(true);
+  };
+  const handleBookingFieldChange = (field: BookingPreviewFieldKey, value: string | number) => {
+    setBookingPreviewFields(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+  const handlePayNow = () => {
+    console.log('📦 Booking preview submitted', {
+      vehicle: selectedDrivaniaVehicle,
+      fields: bookingPreviewFields,
+    });
+    setShowBookingPreview(false);
+  };
+
+  const renderVehicleCard = (vehicle: any, index: number) => (
+    <Card key={vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`} className="shadow-none w-full">
+      <CardContent className="p-5 flex gap-4">
+        {vehicle.vehicle_image && (
+          <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60">
+            <img
+              src={vehicle.vehicle_image}
+              alt={vehicle.vehicle_type}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+        <div className="flex flex-1 flex-col gap-3">
+          <div>
+            <h4 className="text-lg font-semibold text-card-foreground">
+              {vehicle.vehicle_type}
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              {vehicle.level_of_service}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between text-card-foreground font-semibold">
+              <span>Fare</span>
+              <span className="text-lg">
+                {drivaniaQuotes.currency_code
+                  ? `${drivaniaQuotes.currency_code} ${vehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
+                  : vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              type="button"
+              className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+              onClick={() => openBookingPreview(vehicle)}
+            >
+              Reserve
+            </Button>
+            <div className="flex gap-4 text-xs">
+              {vehicle.max_seating_capacity != null && (
+                <span>Seats: {vehicle.max_seating_capacity}</span>
+              )}
+              {vehicle.max_cargo_capacity != null && (
+                <span>Cargo: {vehicle.max_cargo_capacity}</span>
+              )}
+            </div>
+            {vehicle.extra_hour && (
+              <span>
+                Extra hour: {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
+              </span>
+            )}
+          </div>
+          {(vehicle.pickup_instructions || vehicle.cancellation_policy) && (
+            <div className="text-xs text-muted-foreground">
+              {vehicle.pickup_instructions && (
+                <p className="whitespace-pre-line">{vehicle.pickup_instructions}</p>
+              )}
+              {vehicle.cancellation_policy && (
+                <p className="pt-2 whitespace-pre-line">
+                  <span className="font-medium">Cancellation: </span>
+                  {vehicle.cancellation_policy.replace(/\\n/g, '\n')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   // Track scroll position for sticky update bar
   useEffect(() => {
@@ -9208,80 +9403,29 @@ export default function ResultsPage() {
                         <div className="text-lg font-semibold text-card-foreground">
                           Exclusive rates from Drivania
                         </div>
+                        {preferredVehicleHint && !preferredVehicles.length && (
+                          <p className="text-sm text-muted-foreground">
+                            Preferred vehicle (“{preferredVehicleHint}”) not found; showing all available options.
+                          </p>
+                        )}
                         <div className="space-y-4">
-                          {drivaniaQuotes.quotes.vehicles.map((vehicle: any, index: number) => (
-                            <Card key={vehicle.vehicle_id || index} className="shadow-none w-full">
-                              <CardContent className="p-5 flex gap-4">
-                                {vehicle.vehicle_image && (
-                                  <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60">
-                                    <img
-                                      src={vehicle.vehicle_image}
-                                      alt={vehicle.vehicle_type}
-                                      className="h-full w-full object-cover"
-                                      onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                                <div className="flex flex-1 flex-col gap-3">
-                                  <div>
-                                    <h4 className="text-lg font-semibold text-card-foreground">
-                                      {vehicle.vehicle_type}
-                                    </h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {vehicle.level_of_service}
-                                    </p>
-                                  </div>
-                                <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-                                  <div className="flex items-center justify-between text-card-foreground font-semibold">
-                                    <span>Fare</span>
-                                    <span className="text-lg">
-                                      {drivaniaQuotes.currency_code
-                                        ? `${drivaniaQuotes.currency_code} ${vehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
-                                        : vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
-                                    </span>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    type="button"
-                                    className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                                  >
-                                    Reserve
-                                  </Button>
-                                  <div className="flex gap-4 text-xs">
-                                    {vehicle.max_seating_capacity != null && (
-                                      <span>Seats: {vehicle.max_seating_capacity}</span>
-                                    )}
-                                    {vehicle.max_cargo_capacity != null && (
-                                      <span>Cargo: {vehicle.max_cargo_capacity}</span>
-                                    )}
-                                  </div>
-                                  {vehicle.extra_hour && (
-                                    <span>
-                                      Extra hour: {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
-                                    </span>
-                                  )}
-                                </div>
-                                  {(vehicle.pickup_instructions || vehicle.cancellation_policy) && (
-                                    <div className="text-xs text-muted-foreground">
-                                      {vehicle.pickup_instructions && (
-                                        <p className="whitespace-pre-line">{vehicle.pickup_instructions}</p>
-                                      )}
-                                      {vehicle.cancellation_policy && (
-                                        <p className="pt-2 whitespace-pre-line">
-                                          <span className="font-medium">Cancellation: </span>
-                                          {vehicle.cancellation_policy.replace(/\\n/g, '\n')}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
+                          {displayVehicles.map(renderVehicleCard)}
                         </div>
-
+                        {preferredVehicles.length > 0 && otherVehicles.length > 0 && (
+                          <div className="space-y-3">
+                            <Button
+                              variant="outline"
+                              onClick={() => setShowOtherVehicles(prev => !prev)}
+                            >
+                              {showOtherVehicles ? 'Hide other vehicles' : 'Show other vehicles'}
+                            </Button>
+                            {showOtherVehicles && (
+                              <div className="space-y-4">
+                                {otherVehicles.map(renderVehicleCard)}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {drivaniaQuotes.service_id && (
                           <div className="mt-4 text-xs text-muted-foreground">
                             Service ID: {drivaniaQuotes.service_id}
@@ -9863,6 +10007,195 @@ export default function ResultsPage() {
                 'Yes, confirm'
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Booking Preview Modal */}
+      <Dialog open={showBookingPreview} onOpenChange={setShowBookingPreview}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh]">
+        <DialogHeader className="pb-1">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <DialogTitle>Drivania reservation preview</DialogTitle>
+              <DialogDescription>
+                Review the required booking details before confirming the reservation.
+              </DialogDescription>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => setShowBookingPreview(false)}
+              className="text-muted-foreground hover:text-card-foreground"
+            >
+              Back to vehicles
+            </Button>
+          </div>
+        </DialogHeader>
+
+          <div className="space-y-5 py-4 flex flex-col max-h-[calc(90vh-140px)]">
+            <div className="space-y-5 flex-1 overflow-y-auto pr-2">
+              {selectedDrivaniaVehicle && (
+                <div className="rounded-md border border-border bg-muted/40 p-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div>
+                      <p className="text-sm text-muted-foreground uppercase tracking-wide">Selected vehicle</p>
+                      <p className="text-lg font-semibold text-card-foreground">{selectedDrivaniaVehicle.vehicle_type}</p>
+                      {selectedDrivaniaVehicle.level_of_service && (
+                        <p className="text-xs text-muted-foreground">{selectedDrivaniaVehicle.level_of_service}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Estimated fare</p>
+                      <p className="text-2xl font-bold text-card-foreground">
+                        {drivaniaQuotes?.currency_code
+                          ? `${drivaniaQuotes.currency_code} ${selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
+                          : selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Passenger name
+                  <Input
+                    className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.passengerName)}`}
+                    value={bookingPreviewFields.passengerName}
+                    onChange={(e) => handleBookingFieldChange('passengerName', e.target.value)}
+                  />
+                </label>
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Contact email
+                  <Input
+                    className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.contactEmail)}`}
+                    value={bookingPreviewFields.contactEmail}
+                    onChange={(e) => handleBookingFieldChange('contactEmail', e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Contact phone
+                  <Input
+                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                    value={bookingPreviewFields.contactPhone}
+                    onChange={(e) => handleBookingFieldChange('contactPhone', e.target.value)}
+                  />
+                </label>
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Flight number
+                  <Input
+                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                    value={bookingPreviewFields.flightNumber}
+                    onChange={(e) => handleBookingFieldChange('flightNumber', e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Flight direction
+                  <Input
+                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                    value={bookingPreviewFields.flightDirection}
+                    onChange={(e) => handleBookingFieldChange('flightDirection', e.target.value)}
+                  />
+                </label>
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Passenger count
+                  <Input
+                    type="number"
+                    min={1}
+                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                    value={bookingPreviewFields.passengerCount}
+                    onChange={(e) => handleBookingFieldChange('passengerCount', Number(e.target.value))}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">
+                  Child seats
+                  <Input
+                    type="number"
+                    min={0}
+                    className="mt-2 w-full border border-border rounded-md px-3 py-2"
+                    value={bookingPreviewFields.childSeats}
+                    onChange={(e) => handleBookingFieldChange('childSeats', Number(e.target.value))}
+                  />
+                </label>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Pickup time
+                    <Input
+                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.pickupTime)}`}
+                      value={bookingPreviewFields.pickupTime}
+                      onChange={(e) => handleBookingFieldChange('pickupTime', e.target.value)}
+                    />
+                  </label>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Dropoff time
+                    <Input
+                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing(bookingPreviewFields.dropoffTime)}`}
+                      value={bookingPreviewFields.dropoffTime}
+                      onChange={(e) => handleBookingFieldChange('dropoffTime', e.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Notes</label>
+                <textarea
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={3}
+                  value={bookingPreviewFields.notes}
+                  onChange={(e) => handleBookingFieldChange('notes', e.target.value)}
+                />
+              </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Payment</p>
+              <Input
+                placeholder="Cardholder name"
+                className="w-full border border-border rounded-md px-3 py-2 text-sm"
+                value={bookingPreviewFields.cardName}
+                onChange={(e) => handleBookingFieldChange('cardName', e.target.value)}
+              />
+              <Input
+                placeholder="Card number (e.g. 4242 4242 4242 4242)"
+                className="w-full border border-border rounded-md px-3 py-2 text-sm"
+                value={bookingPreviewFields.cardNumber}
+                onChange={(e) => handleBookingFieldChange('cardNumber', e.target.value)}
+              />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  placeholder="MM/YY"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm"
+                  value={bookingPreviewFields.cardExpiry}
+                  onChange={(e) => handleBookingFieldChange('cardExpiry', e.target.value)}
+                />
+                <Input
+                  placeholder="CVC"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm"
+                  value={bookingPreviewFields.cardCVC}
+                  onChange={(e) => handleBookingFieldChange('cardCVC', e.target.value)}
+                />
+              </div>
+              <Button
+                onClick={handlePayNow}
+                className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+              >
+                Pay now
+              </Button>
+            </div>
+            </div>
+          </div>
+
+          <DialogFooter className="justify-end w-full">
+            <span className="hidden" aria-hidden />
           </DialogFooter>
         </DialogContent>
       </Dialog>
