@@ -8,6 +8,7 @@ import TripRiskBreakdown from '@/components/TripRiskBreakdown';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
+import type { Database } from '@/lib/database.types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
@@ -503,6 +504,8 @@ interface TripData {
   status?: string;
 }
 
+type DriverRecord = Database['public']['Tables']['drivers']['Row'];
+
 const normalizeTripLocations = (
   rawLocations?: TripData['locations'] | string | null | unknown,
 ): TripData['locations'] => {
@@ -788,6 +791,9 @@ export default function ResultsPage() {
   const [showOtherVehicles, setShowOtherVehicles] = useState<boolean>(false);
   const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
   const [showBookingPreview, setShowBookingPreview] = useState<boolean>(false);
+  const [matchingDrivers, setMatchingDrivers] = useState<DriverRecord[]>([]);
+  const [loadingMatchingDrivers, setLoadingMatchingDrivers] = useState<boolean>(false);
+  const [matchingDriversError, setMatchingDriversError] = useState<string | null>(null);
   const bookingPreviewInitialState = {
     passengerName: '',
     contactEmail: '',
@@ -876,6 +882,9 @@ export default function ResultsPage() {
     'cardCVC',
   ];
 
+  const normalizeMatchKey = (value?: string | null): string =>
+    (value || '').trim().toLowerCase();
+
   const matchesPreferredVehicle = React.useCallback((vehicle: any): boolean => {
     if (!preferredVehicleHint) return false;
     const hintNormalized = normalizeVehicleText(preferredVehicleHint);
@@ -934,6 +943,72 @@ export default function ResultsPage() {
       (vehicle: any) => !preferredKeys.has(vehicleKey(vehicle))
     );
   }, [drivaniaQuotes, preferredVehicles]);
+
+  const driverDestinationForDrivers = React.useMemo(() => {
+    return (tripDestination || tripData?.tripDestination || '').trim();
+  }, [tripDestination, tripData?.tripDestination]);
+
+  const vehicleTypeDisplayLabels = React.useMemo(() => {
+    const vehicles = drivaniaQuotes?.quotes?.vehicles || [];
+    const labelMap = new Map<string, string>();
+    vehicles.forEach((vehicle: any) => {
+      const key = normalizeMatchKey(vehicle?.vehicle_type);
+      if (key && vehicle?.vehicle_type && !labelMap.has(key)) {
+        labelMap.set(key, vehicle.vehicle_type.trim());
+      }
+    });
+    return Array.from(labelMap.values());
+  }, [drivaniaQuotes]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!driverDestinationForDrivers) {
+      setMatchingDrivers([]);
+      setMatchingDriversError(null);
+      setLoadingMatchingDrivers(false);
+      return;
+    }
+
+    const sanitizedDestination = driverDestinationForDrivers.replace(/[%_]/g, '').trim();
+    const destinationPattern = `%${sanitizedDestination}%`;
+
+    const fetchDrivers = async () => {
+      setLoadingMatchingDrivers(true);
+      setMatchingDriversError(null);
+
+      try {
+        const { data, error } = await supabase
+          .from('drivers')
+          .select('*')
+          .ilike('destination', destinationPattern);
+
+        if (!active) return;
+
+        if (error) {
+          throw error;
+        }
+
+        setMatchingDrivers(data || []);
+      } catch (err) {
+        console.error('❌ Error fetching matching drivers:', err);
+        if (active) {
+          setMatchingDrivers([]);
+          setMatchingDriversError('Unable to load available drivers.');
+        }
+      } finally {
+        if (active) {
+          setLoadingMatchingDrivers(false);
+        }
+      }
+    };
+
+    fetchDrivers();
+
+    return () => {
+      active = false;
+    };
+  }, [driverDestinationForDrivers]);
 
   useEffect(() => {
     setShowOtherVehicles(false);
@@ -9597,6 +9672,89 @@ export default function ResultsPage() {
                             )}
                           </div>
                         )}
+                        <div className="rounded-lg border border-border/60 bg-background/70 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-card-foreground">
+                                Supabase drivers for this route
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {driverDestinationForDrivers
+                                  ? `Destination: ${driverDestinationForDrivers}`
+                                  : 'Destination not set yet'}
+                                {vehicleTypeDisplayLabels.length > 0 && (
+                                  <>
+                                    {' • '}
+                                    Vehicles: {vehicleTypeDisplayLabels.join(', ')}
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                            {matchingDrivers.length > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {matchingDrivers.length} driver{matchingDrivers.length === 1 ? '' : 's'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-3 space-y-2 text-sm">
+                            {matchingDriversError && (
+                              <p className="text-destructive">{matchingDriversError}</p>
+                            )}
+                            {!driverDestinationForDrivers && (
+                              <p className="text-muted-foreground">
+                                Set the trip destination so we can filter drivers by city.
+                              </p>
+                            )}
+                        {driverDestinationForDrivers && (
+                          <>
+                            {loadingMatchingDrivers ? (
+                              <p className="text-muted-foreground">Loading drivers...</p>
+                            ) : matchingDrivers.length === 0 ? (
+                              <p className="text-muted-foreground">
+                                No drivers found that match this destination yet.
+                              </p>
+                            ) : (
+                              <div className="grid gap-3">
+                                {matchingDrivers.map((driver) => (
+                                  <div
+                                    key={driver.id}
+                                    className="flex items-center gap-3 rounded-md border border-border/50 bg-muted/30 p-3"
+                                  >
+                                    <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-muted/50">
+                                      {driver.imageUrl ? (
+                                        <img
+                                          src={driver.imageUrl}
+                                          alt={driver.full_name}
+                                          className="h-full w-full object-cover"
+                                          loading="lazy"
+                                          onError={(event) => {
+                                            (event.target as HTMLImageElement).style.display = 'none';
+                                          }}
+                                        />
+                                      ) : (
+                                        <span className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-muted-foreground">
+                                          ?
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-card-foreground truncate">
+                                        {driver.full_name}
+                                      </p>
+                                      <p className="text-[11px] text-muted-foreground truncate">
+                                        {driver.vehicle_type}
+                                        {driver.vehicle_type && driver.destination ? ' • ' : ''}
+                                        {driver.destination}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                          </div>
+                        </div>
                         {drivaniaQuotes.service_id && (
                           <div className="mt-4 text-xs text-muted-foreground">
                             Service ID: {drivaniaQuotes.service_id}
