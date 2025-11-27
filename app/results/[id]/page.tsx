@@ -504,7 +504,9 @@ interface TripData {
   status?: string;
 }
 
-type DriverRecord = Database['public']['Tables']['drivers']['Row'];
+type DriverRecord = Database['public']['Tables']['drivers']['Row'] & {
+  level_of_service?: string | null;
+};
 
 const normalizeTripLocations = (
   rawLocations?: TripData['locations'] | string | null | unknown,
@@ -885,11 +887,27 @@ export default function ResultsPage() {
   const normalizeMatchKey = (value?: string | null): string =>
     (value || '').trim().toLowerCase();
 
-  const matchesDriverToVehicle = (driverType: string | null | undefined, vehicleType: string | null | undefined) => {
+  const matchesDriverToVehicle = (
+    driverType: string | null | undefined,
+    driverLevel: string | null | undefined,
+    vehicleType: string | null | undefined,
+    vehicleLevel: string | null | undefined,
+  ) => {
     const normalizedDriver = normalizeMatchKey(driverType);
     const normalizedVehicle = normalizeMatchKey(vehicleType);
+    const normalizedDriverLevel = normalizeMatchKey(driverLevel);
+    const normalizedVehicleLevel = normalizeMatchKey(vehicleLevel);
+
     if (!normalizedDriver || !normalizedVehicle) return false;
-    return normalizedDriver.includes(normalizedVehicle) || normalizedVehicle.includes(normalizedDriver);
+
+    const vehicleMatches =
+      normalizedDriver.includes(normalizedVehicle) || normalizedVehicle.includes(normalizedDriver);
+
+    const levelMatches = normalizedVehicleLevel
+      ? normalizedDriverLevel.includes(normalizedVehicleLevel)
+      : true;
+
+    return vehicleMatches && levelMatches;
   };
 
   const matchesPreferredVehicle = React.useCallback((vehicle: any): boolean => {
@@ -1133,7 +1151,12 @@ export default function ResultsPage() {
     const normalizedVehicleType = normalizeMatchKey(vehicle.vehicle_type);
     const vehicleDrivers = normalizedVehicleType
       ? matchingDrivers.filter((driver) =>
-          matchesDriverToVehicle(driver.vehicle_type, vehicle.vehicle_type)
+          matchesDriverToVehicle(
+            driver.vehicle_type,
+            driver.level_of_service,
+            vehicle.vehicle_type,
+            vehicle.level_of_service,
+          )
         )
       : [];
 

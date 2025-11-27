@@ -68,6 +68,7 @@ export type Database = {
           full_name: string
           id: string
           imageUrl: string | null
+        level_of_service: string | null
           vehicle_type: Database["public"]["Enums"]["drivers_vehicle_type"]
         }
         Insert: {
@@ -75,6 +76,7 @@ export type Database = {
           full_name: string
           id?: string
           imageUrl?: string | null
+        level_of_service?: string | null
           vehicle_type: Database["public"]["Enums"]["drivers_vehicle_type"]
         }
         Update: {
@@ -82,6 +84,7 @@ export type Database = {
           full_name?: string
           id?: string
           imageUrl?: string | null
+        level_of_service?: string | null
           vehicle_type?: Database["public"]["Enums"]["drivers_vehicle_type"]
         }
         Relationships: []
