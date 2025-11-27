@@ -3899,6 +3899,12 @@ export default function ResultsPage() {
   };
 
   useEffect(() => {
+    if (!isOwner || !tripId || drivaniaQuotes || loadingDrivaniaQuote) return;
+    handleDrivaniaQuote();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOwner, tripId, drivaniaQuotes, loadingDrivaniaQuote]);
+
+  useEffect(() => {
     if (showDriverModal && !loadingDrivaniaQuote && !drivaniaQuotes) {
       handleDrivaniaQuote();
     }
@@ -7105,26 +7111,25 @@ export default function ResultsPage() {
                       {isOwner && (
                         <div className="absolute top-3 right-5">
                           <div className="relative inline-block">
-                            <Button
-                              variant="outline"
-                              className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
-                                ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                                : tripStatus === 'confirmed' && driverEmail
-                                  ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
-                                  : driverEmail
-                                    ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
-                                    : ''
-                                }`}
-                            onClick={() => {
-                              if (tripStatus === 'cancelled') {
-                                alert('This trip has been cancelled. Please create a new trip instead.');
-                                return;
-                              }
-                              handleDrivaniaQuote();
-                              setShowDriverModal(true);
-                            }}
-                              disabled={tripStatus === 'cancelled'}
-                            >
+                        <Button
+                          variant="outline"
+                          className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
+                            ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                            : tripStatus === 'confirmed' && driverEmail
+                              ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                              : driverEmail
+                                ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
+                                : ''
+                              }`}
+                          onClick={() => {
+                            if (tripStatus === 'cancelled') {
+                              alert('This trip has been cancelled. Please create a new trip instead.');
+                              return;
+                            }
+                            setShowDriverModal(true);
+                          }}
+                          disabled={tripStatus === 'cancelled'}
+                        >
                               {mounted && driverEmail && (
                                 <img
                                   src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
