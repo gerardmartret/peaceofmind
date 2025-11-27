@@ -503,6 +503,31 @@ interface TripData {
   status?: string;
 }
 
+const normalizeTripLocations = (
+  rawLocations?: TripData['locations'] | string | null,
+): TripData['locations'] => {
+  if (!rawLocations) {
+    return [];
+  }
+
+  if (Array.isArray(rawLocations)) {
+    return rawLocations;
+  }
+
+  if (typeof rawLocations === 'string') {
+    try {
+      const parsed = JSON.parse(rawLocations);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (error) {
+      console.error('❌ Failed to parse trip locations JSON:', error);
+    }
+  }
+
+  return [];
+};
+
 export default function ResultsPage() {
   const router = useRouter();
   const params = useParams();
@@ -513,6 +538,7 @@ export default function ResultsPage() {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [tripData, setTripData] = useState<TripData | null>(null);
+  const locations = React.useMemo(() => normalizeTripLocations(tripData?.locations), [tripData?.locations]);
 
   // Helper function to safely parse JSON responses
   const safeJsonParse = async (response: Response) => {
@@ -883,7 +909,6 @@ export default function ResultsPage() {
   }, [preferredVehicles]);
 
   const openBookingPreview = (vehicle: any) => {
-    const locations = tripData?.locations || [];
     const pickup = locations[0];
     const dropoff = locations[locations.length - 1];
 
@@ -949,8 +974,8 @@ export default function ResultsPage() {
       service_type: drivaniaServiceType,
       preferred_vehicle: selectedDrivaniaVehicle,
       tripDate: tripData?.tripDate,
-      pickup: tripData?.locations?.[0],
-      dropoff: tripData?.locations?.[tripData.locations?.length - 1],
+      pickup: locations[0],
+      dropoff: locations[locations.length - 1],
       passenger_name: bookingPreviewFields.passengerName,
       passenger_count: bookingPreviewFields.passengerCount,
       child_seats: bookingPreviewFields.childSeats,
@@ -6335,7 +6360,7 @@ export default function ResultsPage() {
   }
 
 
-  const { tripDate, locations, tripResults, trafficPredictions, executiveReport } = tripData;
+  const { tripDate, tripResults, trafficPredictions, executiveReport } = tripData;
 
   return (
     <div className="min-h-screen bg-background">

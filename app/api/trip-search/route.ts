@@ -27,6 +27,25 @@ function normalizeString(value?: string | null): string {
   return value?.toLowerCase().trim() || '';
 }
 
+function parseTripLocations(raw: unknown): Array<{ name?: string }> {
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      console.warn('Unable to parse saved trip locations JSON');
+    }
+  }
+
+  return [];
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null);
@@ -121,9 +140,16 @@ export async function POST(request: Request) {
           + ' '
           + normalizeString(trip.trip_notes);
 
-        const locationsString = Array.isArray(trip.locations)
-          ? trip.locations.map((loc) => normalizeString(loc?.name)).join(' ')
-          : normalizeString(JSON.stringify(trip.locations));
+        const parsedLocations = parseTripLocations(trip.locations);
+        const locationsString = parsedLocations
+          .map((loc) => {
+            if (loc && typeof loc === 'object') {
+              return normalizeString((loc as any).name);
+            }
+            return normalizeString(String(loc));
+          })
+          .filter(Boolean)
+          .join(' ');
 
         matched = matched && (locationCandidate.includes(normalizedLocation) || locationsString.includes(normalizedLocation));
       }
