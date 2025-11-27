@@ -504,25 +504,56 @@ interface TripData {
 }
 
 const normalizeTripLocations = (
-  rawLocations?: TripData['locations'] | string | null,
+  rawLocations?: TripData['locations'] | string | null | unknown,
 ): TripData['locations'] => {
-  if (!rawLocations) {
-    return [];
-  }
+  if (!rawLocations) return [];
 
-  if (Array.isArray(rawLocations)) {
-    return rawLocations;
-  }
+  if (Array.isArray(rawLocations)) return rawLocations;
 
   if (typeof rawLocations === 'string') {
-    try {
-      const parsed = JSON.parse(rawLocations);
-      if (Array.isArray(parsed)) {
-        return parsed;
+    const tryParse = (value: string) => {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch (error) {
+        // swallow
       }
-    } catch (error) {
-      console.error('❌ Failed to parse trip locations JSON:', error);
-    }
+      return null;
+    };
+
+    const direct = tryParse(rawLocations);
+    if (direct) return direct;
+
+    const relaxed = rawLocations
+      .replace(/'/g, '"')
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*\]/g, ']');
+
+    const parsedRelaxed = tryParse(relaxed);
+    if (parsedRelaxed) return parsedRelaxed;
+
+    const jsonLike = `[${rawLocations
+      .replace(/[\[\]]/g, '')
+      .split(/[,;]+/)
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map(part => {
+        try {
+          const one = JSON.parse(part);
+          return one;
+        } catch {
+          return part;
+        }
+      })
+      .map(part => (typeof part === 'string' ? part : JSON.stringify(part)))
+      .join(',')}]`;
+
+    const fallback = tryParse(jsonLike);
+    if (fallback) return fallback;
+
+    console.warn('⚠️ Unable to parse trip locations JSON, returning empty array');
   }
 
   return [];
@@ -2605,22 +2636,13 @@ export default function ResultsPage() {
         // FIX: Validate and fix location IDs when loading from database
         const usedIds = new Set<string>();
 
-        // Parse locations if they're stored as JSON string
-        let locationsArray = data.locations;
-        if (typeof locationsArray === 'string') {
-          try {
-            locationsArray = JSON.parse(locationsArray);
-          } catch (e) {
-            console.error('❌ Failed to parse locations JSON:', e);
-            locationsArray = [];
-          }
+        const normalizedLocations = normalizeTripLocations(data.locations);
+
+        if (normalizedLocations.length === 0 && data.locations) {
+          console.warn('⚠️ Locations normalized to empty array:', data.locations);
         }
 
-        // Ensure locationsArray is actually an array
-        if (!Array.isArray(locationsArray)) {
-          console.error('❌ Locations is not an array after parsing:', typeof locationsArray, locationsArray);
-          locationsArray = [];
-        }
+        const locationsArray = normalizedLocations;
 
         const locationsWithValidIds = locationsArray.map((loc: any, idx: number) => {
           // Check if ID is invalid (literal string from AI bug)

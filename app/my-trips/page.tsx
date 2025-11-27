@@ -22,6 +22,25 @@ interface Trip {
   trip_notes: string | null;
 }
 
+const normalizeTripLocations = (rawLocations: any): any[] => {
+  if (!rawLocations) return [];
+
+  if (Array.isArray(rawLocations)) {
+    return rawLocations;
+  }
+
+  if (typeof rawLocations === 'string') {
+    try {
+      const parsed = JSON.parse(rawLocations);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (error) {
+      console.error('❌ Failed to parse trip locations JSON:', error);
+    }
+  }
+
+  return [];
+};
+
 type SearchCriteria = {
   passengerName?: string;
   tripDate?: string;
@@ -65,7 +84,11 @@ export default function MyTripsPage() {
           console.error('Error fetching trips:', error);
           setError('Failed to load trips. Please try again.');
         } else {
-          setTrips(data || []);
+          const normalizedData = (data || []).map((trip) => ({
+            ...trip,
+            locations: normalizeTripLocations(trip.locations),
+          }));
+          setTrips(normalizedData);
         }
       } catch (err) {
         console.error('Unexpected error:', err);
