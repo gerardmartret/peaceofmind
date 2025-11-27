@@ -885,6 +885,13 @@ export default function ResultsPage() {
   const normalizeMatchKey = (value?: string | null): string =>
     (value || '').trim().toLowerCase();
 
+  const matchesDriverToVehicle = (driverType: string | null | undefined, vehicleType: string | null | undefined) => {
+    const normalizedDriver = normalizeMatchKey(driverType);
+    const normalizedVehicle = normalizeMatchKey(vehicleType);
+    if (!normalizedDriver || !normalizedVehicle) return false;
+    return normalizedDriver.includes(normalizedVehicle) || normalizedVehicle.includes(normalizedDriver);
+  };
+
   const matchesPreferredVehicle = React.useCallback((vehicle: any): boolean => {
     if (!preferredVehicleHint) return false;
     const hintNormalized = normalizeVehicleText(preferredVehicleHint);
@@ -947,18 +954,6 @@ export default function ResultsPage() {
   const driverDestinationForDrivers = React.useMemo(() => {
     return (tripDestination || tripData?.tripDestination || '').trim();
   }, [tripDestination, tripData?.tripDestination]);
-
-  const vehicleTypeDisplayLabels = React.useMemo(() => {
-    const vehicles = drivaniaQuotes?.quotes?.vehicles || [];
-    const labelMap = new Map<string, string>();
-    vehicles.forEach((vehicle: any) => {
-      const key = normalizeMatchKey(vehicle?.vehicle_type);
-      if (key && vehicle?.vehicle_type && !labelMap.has(key)) {
-        labelMap.set(key, vehicle.vehicle_type.trim());
-      }
-    });
-    return Array.from(labelMap.values());
-  }, [drivaniaQuotes]);
 
   useEffect(() => {
     let active = true;
@@ -1134,8 +1129,16 @@ export default function ResultsPage() {
     }
   };
 
-  const renderVehicleCard = (vehicle: any, index: number) => (
-    <Card key={vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`} className="shadow-none w-full">
+  const renderVehicleCard = (vehicle: any, index: number) => {
+    const normalizedVehicleType = normalizeMatchKey(vehicle.vehicle_type);
+    const vehicleDrivers = normalizedVehicleType
+      ? matchingDrivers.filter((driver) =>
+          matchesDriverToVehicle(driver.vehicle_type, vehicle.vehicle_type)
+        )
+      : [];
+
+    return (
+      <Card key={vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`} className="shadow-none w-full">
       <CardContent className="p-5 flex gap-4">
         {vehicle.vehicle_image && (
           <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60">
@@ -1202,10 +1205,57 @@ export default function ResultsPage() {
               )}
             </div>
           )}
+          {vehicleDrivers.length > 0 && (
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p className="uppercase tracking-wider text-[10px] font-semibold text-muted-foreground/80">
+                Drivers matching this vehicle
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {vehicleDrivers.map((driver) => (
+                  <div
+                    key={driver.id}
+                    className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/60 px-3 py-2"
+                  >
+                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-muted/70">
+                      {driver.imageUrl ? (
+                        <img
+                          src={driver.imageUrl}
+                          alt={driver.full_name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          onError={(event) => {
+                            (event.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-muted-foreground">
+                          ?
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 text-[11px] text-muted-foreground">
+                      <p className="text-sm font-semibold text-card-foreground truncate">
+                        {driver.full_name}
+                      </p>
+                      <p className="truncate">
+                        {driver.vehicle_type || 'Vehicle'}
+                        {driver.vehicle_type && driver.destination ? ' • ' : ''}
+                        {driver.destination}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground/60">
+                        Supabase driver
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
   );
+  };
 
   // Track scroll position for sticky update bar
   useEffect(() => {
@@ -9672,89 +9722,6 @@ export default function ResultsPage() {
                             )}
                           </div>
                         )}
-                        <div className="rounded-lg border border-border/60 bg-background/70 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-card-foreground">
-                                Supabase drivers for this route
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {driverDestinationForDrivers
-                                  ? `Destination: ${driverDestinationForDrivers}`
-                                  : 'Destination not set yet'}
-                                {vehicleTypeDisplayLabels.length > 0 && (
-                                  <>
-                                    {' • '}
-                                    Vehicles: {vehicleTypeDisplayLabels.join(', ')}
-                                  </>
-                                )}
-                              </p>
-                            </div>
-                            {matchingDrivers.length > 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                {matchingDrivers.length} driver{matchingDrivers.length === 1 ? '' : 's'}
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-3 space-y-2 text-sm">
-                            {matchingDriversError && (
-                              <p className="text-destructive">{matchingDriversError}</p>
-                            )}
-                            {!driverDestinationForDrivers && (
-                              <p className="text-muted-foreground">
-                                Set the trip destination so we can filter drivers by city.
-                              </p>
-                            )}
-                        {driverDestinationForDrivers && (
-                          <>
-                            {loadingMatchingDrivers ? (
-                              <p className="text-muted-foreground">Loading drivers...</p>
-                            ) : matchingDrivers.length === 0 ? (
-                              <p className="text-muted-foreground">
-                                No drivers found that match this destination yet.
-                              </p>
-                            ) : (
-                              <div className="grid gap-3">
-                                {matchingDrivers.map((driver) => (
-                                  <div
-                                    key={driver.id}
-                                    className="flex items-center gap-3 rounded-md border border-border/50 bg-muted/30 p-3"
-                                  >
-                                    <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-muted/50">
-                                      {driver.imageUrl ? (
-                                        <img
-                                          src={driver.imageUrl}
-                                          alt={driver.full_name}
-                                          className="h-full w-full object-cover"
-                                          loading="lazy"
-                                          onError={(event) => {
-                                            (event.target as HTMLImageElement).style.display = 'none';
-                                          }}
-                                        />
-                                      ) : (
-                                        <span className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-muted-foreground">
-                                          ?
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold text-card-foreground truncate">
-                                        {driver.full_name}
-                                      </p>
-                                      <p className="text-[11px] text-muted-foreground truncate">
-                                        {driver.vehicle_type}
-                                        {driver.vehicle_type && driver.destination ? ' • ' : ''}
-                                        {driver.destination}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        )}
-                          </div>
-                        </div>
                         {drivaniaQuotes.service_id && (
                           <div className="mt-4 text-xs text-muted-foreground">
                             Service ID: {drivaniaQuotes.service_id}
