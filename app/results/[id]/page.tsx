@@ -1118,7 +1118,7 @@ export default function ResultsPage() {
       const emailResult = await emailResponse.json();
 
       if (emailResult.success) {
-        // Update trip status to "booked"
+        // Update trip status to "booked" and assign driver to "drivania"
         try {
           const statusResponse = await fetch('/api/update-trip-status', {
             method: 'POST',
@@ -1126,6 +1126,7 @@ export default function ResultsPage() {
             body: JSON.stringify({
               tripId: tripId,
               status: 'booked',
+              driver: 'drivania',
             }),
           });
 
@@ -1133,6 +1134,8 @@ export default function ResultsPage() {
           if (statusResult.success) {
             console.log('✅ Trip status updated to "booked"');
             setTripStatus('booked');
+            setDriverEmail('drivania');
+            setValidatedDriverEmail('drivania');
           } else {
             console.error('❌ Failed to update trip status:', statusResult.error);
           }
@@ -2969,6 +2972,7 @@ export default function ResultsPage() {
         setCurrentVersion(data.version || 1); // Load current version
         setTripStatus(data.status || 'not confirmed'); // Load trip status
         setDriverEmail(data.driver || null); // Load driver email
+        setValidatedDriverEmail(data.driver || null); // Set validated driver email for display
         originalDriverEmailRef.current = data.driver || null; // Store original driver email for activity check
 
         // Populate location display names from database
@@ -3146,6 +3150,12 @@ export default function ResultsPage() {
 
     // OWNER FLOW: Block non-owners who aren't the assigned driver
     if (!isOwner) return;
+
+    // Block status toggle for Drivania bookings
+    if (driverEmail === 'drivania' && tripStatus === 'booked') {
+      console.log('🚫 Cannot change status for Drivania bookings');
+      return;
+    }
 
     // If trip is rejected, allow user to request quotes or assign driver again
     // Rejected behaves like "not confirmed" - service is not secured
@@ -7258,7 +7268,7 @@ export default function ResultsPage() {
                         <FlowHoverButton
                           variant={buttonVariant}
                           onClick={handleStatusToggle}
-                          disabled={updatingStatus || isCancelledWithActivity}
+                          disabled={updatingStatus || isCancelledWithActivity || (driverEmail === 'drivania' && tripStatus === 'booked')}
                           icon={
                             isCancelledWithActivity ? undefined : // No icon for cancelled
                               tripStatus === 'rejected' ? (
@@ -7381,7 +7391,7 @@ export default function ResultsPage() {
                             }
                             setShowDriverModal(true);
                           }}
-                          disabled={tripStatus === 'cancelled'}
+                          disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
                         >
                               {mounted && driverEmail && (
                                 <img
@@ -9269,7 +9279,7 @@ export default function ResultsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         <span className="text-muted-foreground">Assigned to:</span>
-                        <span className="font-medium">{validatedDriverEmail}</span>
+                        <span className="font-medium">{validatedDriverEmail === 'drivania' ? 'Drivania' : validatedDriverEmail}</span>
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {tripStatus === 'confirmed' && 'The trip owner has been notified of your acceptance.'}
@@ -9787,7 +9797,7 @@ export default function ResultsPage() {
                 )}
 
                 {/* Drivania Quotes Section */}
-                {isOwner && !assignOnlyMode && (
+                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
                   <div className="mb-8">
 
                     {drivaniaError && (

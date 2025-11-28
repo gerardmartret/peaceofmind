@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { tripId, status } = await request.json();
+    const { tripId, status, driver } = await request.json();
 
     // Validate input
     if (!tripId || !status) {
@@ -64,7 +64,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare update data
-    const updateData: { status: string; driver?: null } = { status };
+    const updateData: { status: string; driver?: string | null } = { status };
+
+    // Set driver when booking with Drivania
+    if (status === 'booked' && driver) {
+      updateData.driver = driver;
+      console.log(`🚗 Setting driver to: ${driver}`);
+    }
 
     // Clear driver when cancelling (setting status to cancelled)
     if (status === 'cancelled') {
