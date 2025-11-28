@@ -68,24 +68,24 @@ export type Database = {
           full_name: string
           id: string
           imageUrl: string | null
-        level_of_service: string | null
-          vehicle_type: Database["public"]["Enums"]["drivers_vehicle_type"]
+          level_of_service: string | null
+          vehicle_type: string
         }
         Insert: {
           destination: string
           full_name: string
           id?: string
           imageUrl?: string | null
-        level_of_service?: string | null
-          vehicle_type: Database["public"]["Enums"]["drivers_vehicle_type"]
+          level_of_service?: string | null
+          vehicle_type: string
         }
         Update: {
           destination?: string
           full_name?: string
           id?: string
           imageUrl?: string | null
-        level_of_service?: string | null
-          vehicle_type?: Database["public"]["Enums"]["drivers_vehicle_type"]
+          level_of_service?: string | null
+          vehicle_type?: string
         }
         Relationships: []
       }
@@ -296,11 +296,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      drivers_vehicle_type:
-        | "sedan business"
-        | "sedan business premium"
-        | "suv business"
-        | "suv business premium"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -427,13 +423,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      drivers_vehicle_type: [
-        "sedan business",
-        "sedan business premium",
-        "suv business",
-        "suv business premium",
-      ],
-    },
+    Enums: {},
   },
 } as const
