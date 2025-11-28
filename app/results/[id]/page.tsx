@@ -4564,11 +4564,11 @@ export default function ResultsPage() {
     // Step 1: Convert current locations to manual form format
     let manualLocations = currentLocations.map((loc, idx) => ({
       location: loc.name || loc.fullAddress || '',
-      formattedAddress: loc.fullAddress || loc.formattedAddress || loc.name || '',
+      formattedAddress: loc.fullAddress || loc.formattedAddress || '', // Never fall back to name (purpose)
       lat: loc.lat || 0,
       lng: loc.lng || 0,
       time: loc.time || '12:00',
-      purpose: loc.name || loc.fullAddress || '',
+      purpose: loc.name || '', // Purpose is always from name, never fall back to fullAddress
       confidence: 'high' as 'high' | 'medium' | 'low',
       verified: true,
       placeId: loc.id || `location-${idx + 1}`,
@@ -4948,11 +4948,11 @@ export default function ResultsPage() {
       // Convert tripData.locations to manual form format (same as mapExtractedToManualForm does)
       locationsToSave = tripData.locations.map((loc: any, idx: number) => ({
         location: loc.name || (loc as any).fullAddress || '',
-        formattedAddress: (loc as any).fullAddress || (loc as any).formattedAddress || loc.name || '',
+        formattedAddress: (loc as any).fullAddress || (loc as any).formattedAddress || '', // Never fall back to name (purpose)
         lat: loc.lat || 0,
         lng: loc.lng || 0,
         time: loc.time || '12:00',
-        purpose: loc.name || (loc as any).fullAddress || '',
+        purpose: loc.name || '', // Purpose is always from name, never fall back to fullAddress
         confidence: 'high' as 'high' | 'medium' | 'low',
         verified: true,
         placeId: loc.id || `location-${idx + 1}`,
@@ -5335,13 +5335,13 @@ export default function ResultsPage() {
           finalLocationsMap[idx] = {
             id: loc.id,
             name: loc.name,
-            formattedAddress: loc.formattedAddress || loc.fullAddress || loc.name,
+            formattedAddress: loc.formattedAddress || loc.fullAddress || '', // Never fall back to name (purpose)
             address: loc.name,
             time: loc.time,
             purpose: loc.name,
             lat: loc.lat,
             lng: loc.lng,
-            fullAddress: loc.fullAddress || loc.name,
+            fullAddress: loc.fullAddress || '', // Never fall back to name (purpose)
           };
         });
       }
@@ -5427,10 +5427,12 @@ export default function ResultsPage() {
                 finalLoc.name;
             }
             if (!finalLoc.formattedAddress && locChange.extractedLocation) {
+              // Always prefer fullAddress, never fall back to name (purpose)
               finalLoc.formattedAddress = locChange.extractedLocation.formattedAddress ||
                 locChange.extractedLocation.location ||
-                finalLoc.address ||
-                finalLoc.name;
+                finalLoc.fullAddress ||
+                finalLoc.address;
+              // Never use finalLoc.name as it contains purpose, not address
             }
 
             // DISPLAY FIX: Ensure name field includes both purpose and formatted address for consistent display
@@ -5662,7 +5664,7 @@ export default function ResultsPage() {
             finalLocationsMap[locChange.currentIndex] = {
               id: currentLoc.id,
               name: currentLoc.name,
-              formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || currentLoc.name,
+              formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || '', // Never fall back to name (purpose)
               address: currentLoc.name,
               time: currentLoc.time,
               purpose: currentLoc.name,
@@ -5675,7 +5677,8 @@ export default function ResultsPage() {
             const finalLoc = locChange.finalLocation;
             // Ensure formattedAddress is set for proper display
             if (!finalLoc.formattedAddress) {
-              finalLoc.formattedAddress = finalLoc.fullAddress || finalLoc.address || finalLoc.name;
+              // Always prefer fullAddress, never fall back to name (purpose)
+              finalLoc.formattedAddress = finalLoc.fullAddress || finalLoc.address;
             }
             finalLocationsMap[locChange.currentIndex] = finalLoc;
           }
@@ -7653,7 +7656,7 @@ export default function ResultsPage() {
                         // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
                         setEditingLocations(locations.map((loc, idx) => ({
                           location: (loc as any).fullAddress || loc.name,
-                          formattedAddress: (loc as any).fullAddress || loc.name,
+                          formattedAddress: (loc as any).fullAddress || (loc as any).formattedAddress || '', // Never fall back to name (purpose)
                           lat: loc.lat,
                           lng: loc.lng,
                           time: loc.time,
@@ -7778,7 +7781,17 @@ export default function ResultsPage() {
                                       title={location.formattedAddress || location.fullAddress || location.address || location.name}
                                     >
                                       {(() => {
-                                        const fullAddr = location.formattedAddress || location.fullAddress || location.address || location.name;
+                                        // Always use fullAddress for display - never fall back to name (purpose)
+                                        const fullAddr = location.formattedAddress || location.fullAddress || location.address;
+                                        if (!fullAddr) {
+                                          // Only if no address exists, show purpose as fallback
+                                          return (
+                                            <div className="text-lg font-semibold text-card-foreground">
+                                              {location.purpose || location.name || 'Unknown location'}
+                                            </div>
+                                          );
+                                        }
+                                        
                                         const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
                                         const flightMap = extractFlightNumbers(driverNotes);
 
@@ -7803,11 +7816,17 @@ export default function ResultsPage() {
                                           }
                                         }
 
+                                        // Only show purpose if it's different from the address and meaningful
+                                        const shouldShowPurpose = location.purpose && 
+                                          location.purpose.trim() !== '' &&
+                                          fullAddr.toLowerCase() !== location.purpose.toLowerCase() &&
+                                          businessName.toLowerCase() !== location.purpose.toLowerCase();
+
                                         return (
                                           <div>
                                             <div className="text-lg font-semibold text-card-foreground">
                                               {displayBusinessName}
-                                              {location.purpose && (
+                                              {shouldShowPurpose && (
                                                 <span> - {location.purpose}</span>
                                               )}
                                             </div>
