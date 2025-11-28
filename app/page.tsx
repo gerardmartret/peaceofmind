@@ -1955,15 +1955,6 @@ export default function Home() {
         const savedTripId = tripData.id;
         setTripId(savedTripId);
 
-        // Trigger async quality evaluation (fire and forget - don't await)
-        fetch('/api/evaluate-quality', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tripId: savedTripId })
-        }).catch(err => {
-          console.log('⚠️ Quality evaluation will run in background:', err.message);
-        });
-
         // For authenticated users: auto-redirect when complete
         console.log('🔐 Authenticated user - will auto-redirect when animation completes');
 

@@ -179,19 +179,12 @@ export type Database = {
           created_at: string | null
           driver: string | null
           executive_report: Json | null
-          generation_quality_breakdown: Json | null
-          generation_quality_score: number | null
           id: string
           latest_changes: Json | null
           lead_passenger_name: string | null
           locations: Json
           passenger_count: number | null
           password: string | null
-          quality_evaluated_at: string | null
-          quality_evaluation_error: string | null
-          quality_missed_opportunities: string[] | null
-          quality_strengths: string[] | null
-          quality_weaknesses: string[] | null
           status: string
           traffic_predictions: Json | null
           trip_date: string
@@ -208,19 +201,12 @@ export type Database = {
           created_at?: string | null
           driver?: string | null
           executive_report?: Json | null
-          generation_quality_breakdown?: Json | null
-          generation_quality_score?: number | null
           id?: string
           latest_changes?: Json | null
           lead_passenger_name?: string | null
           locations: Json
           passenger_count?: number | null
           password?: string | null
-          quality_evaluated_at?: string | null
-          quality_evaluation_error?: string | null
-          quality_missed_opportunities?: string[] | null
-          quality_strengths?: string[] | null
-          quality_weaknesses?: string[] | null
           status?: string
           traffic_predictions?: Json | null
           trip_date: string
@@ -237,19 +223,12 @@ export type Database = {
           created_at?: string | null
           driver?: string | null
           executive_report?: Json | null
-          generation_quality_breakdown?: Json | null
-          generation_quality_score?: number | null
           id?: string
           latest_changes?: Json | null
           lead_passenger_name?: string | null
           locations?: Json
           passenger_count?: number | null
           password?: string | null
-          quality_evaluated_at?: string | null
-          quality_evaluation_error?: string | null
-          quality_missed_opportunities?: string[] | null
-          quality_strengths?: string[] | null
-          quality_weaknesses?: string[] | null
           status?: string
           traffic_predictions?: Json | null
           trip_date?: string
