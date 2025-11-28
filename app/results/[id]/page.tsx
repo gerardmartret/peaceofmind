@@ -796,6 +796,8 @@ export default function ResultsPage() {
   const [matchingDrivers, setMatchingDrivers] = useState<DriverRecord[]>([]);
   const [loadingMatchingDrivers, setLoadingMatchingDrivers] = useState<boolean>(false);
   const [matchingDriversError, setMatchingDriversError] = useState<string | null>(null);
+  // Track selection state for each vehicle: { vehicleId: { isVehicleSelected: boolean, selectedDriverIds: string[] } }
+  const [vehicleSelections, setVehicleSelections] = useState<Record<string, { isVehicleSelected: boolean; selectedDriverIds: string[] }>>({});
   const bookingPreviewInitialState = {
     passengerName: '',
     contactEmail: '',
@@ -807,10 +809,6 @@ export default function ResultsPage() {
     pickupTime: '',
     dropoffTime: '',
     notes: '',
-    cardName: '',
-    cardNumber: '',
-    cardExpiry: '',
-    cardCVC: '',
   };
   type BookingPreviewFieldKey = keyof typeof bookingPreviewInitialState;
   const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
@@ -878,10 +876,6 @@ export default function ResultsPage() {
     'flightDirection',
     'pickupTime',
     'dropoffTime',
-    'cardName',
-    'cardNumber',
-    'cardExpiry',
-    'cardCVC',
   ];
 
   const normalizeMatchKey = (value?: string | null): string =>
@@ -1086,7 +1080,7 @@ export default function ResultsPage() {
     }
 
     setBookingSubmissionState('loading');
-    setBookingSubmissionMessage('We are processing your payment');
+    setBookingSubmissionMessage('We are processing your booking');
 
     const payload = {
       service_id: drivaniaQuotes?.service_id,
@@ -1103,33 +1097,51 @@ export default function ResultsPage() {
       pickup_time: bookingPreviewFields.pickupTime,
       dropoff_time: bookingPreviewFields.dropoffTime,
       vehicle_notes: bookingPreviewFields.notes,
-      payment: {
-        card_name: bookingPreviewFields.cardName,
-        card_number: bookingPreviewFields.cardNumber,
-        card_expiry: bookingPreviewFields.cardExpiry,
-        card_cvc: bookingPreviewFields.cardCVC,
-      },
       client_email: bookingPreviewFields.contactEmail,
       contact_phone: bookingPreviewFields.contactPhone,
       trip_destination: tripDestination,
     };
 
-    console.log('📡 Sending mock Drivania booking payload:', payload);
+    console.log('📡 Sending booking request to info@drivania.com:', payload);
 
     if (processingTimer) {
       clearTimeout(processingTimer);
     }
 
     try {
-      const response = await fetch('/api/mock-drivania-service', {
+      // Send booking request to info@drivania.com
+      const emailResponse = await fetch('/api/send-booking-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const result = await response.json();
+      const emailResult = await emailResponse.json();
 
-      if (result.success) {
-        setBookingSubmissionMessage('Your booking is confirmed, check your inbox.');
+      if (emailResult.success) {
+        // Update trip status to "booked"
+        try {
+          const statusResponse = await fetch('/api/update-trip-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tripId: tripId,
+              status: 'booked',
+            }),
+          });
+
+          const statusResult = await statusResponse.json();
+          if (statusResult.success) {
+            console.log('✅ Trip status updated to "booked"');
+            setTripStatus('booked');
+          } else {
+            console.error('❌ Failed to update trip status:', statusResult.error);
+          }
+        } catch (statusErr) {
+          console.error('❌ Error updating trip status:', statusErr);
+          // Continue even if status update fails
+        }
+
+        setBookingSubmissionMessage('Your booking request has been sent. We will contact you shortly.');
         setMissingFields(new Set());
         const timer = setTimeout(() => {
           setBookingSubmissionState('success');
@@ -1138,12 +1150,12 @@ export default function ResultsPage() {
         setProcessingTimer(timer);
       } else {
         setBookingSubmissionState('idle');
-        setBookingSubmissionMessage(result.error || 'Failed to create booking');
+        setBookingSubmissionMessage(emailResult.error || 'Failed to send booking request');
       }
     } catch (err) {
-      console.error('❌ Booking creation error', err);
+      console.error('❌ Booking submission error', err);
       setBookingSubmissionState('idle');
-      setBookingSubmissionMessage('Failed to create booking');
+      setBookingSubmissionMessage('Failed to send booking request');
     }
   };
 
@@ -1160,124 +1172,216 @@ export default function ResultsPage() {
         )
       : [];
 
+    const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
+    
+    // Initialize selection state: vehicle selected by default
+    const selection = vehicleSelections[vehicleId] || { isVehicleSelected: true, selectedDriverIds: [] };
+    
+    // Calculate pricing based on selection
+    const basePrice = vehicle.sale_price?.price || 0;
+    let extraFare = 0;
+    
+    if (selection.selectedDriverIds.length === 1) {
+      extraFare = basePrice * 0.3; // +30% for one driver
+    } else if (selection.selectedDriverIds.length >= 2) {
+      extraFare = basePrice * 0.25; // +25% for two or more drivers
+    }
+    
+    const totalPrice = basePrice + extraFare;
+
+    const handleVehicleClick = () => {
+      setVehicleSelections((prev) => ({
+        ...prev,
+        [vehicleId]: { isVehicleSelected: true, selectedDriverIds: [] },
+      }));
+    };
+
+    const handleDriverClick = (driverId: string) => {
+      setVehicleSelections((prev) => {
+        const current = prev[vehicleId] || { isVehicleSelected: false, selectedDriverIds: [] };
+        const isSelected = current.selectedDriverIds.includes(driverId);
+        
+        return {
+          ...prev,
+          [vehicleId]: {
+            isVehicleSelected: false,
+            selectedDriverIds: isSelected
+              ? current.selectedDriverIds.filter((id) => id !== driverId)
+              : [...current.selectedDriverIds, driverId],
+          },
+        };
+      });
+    };
+
     return (
       <Card key={vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`} className="shadow-none w-full">
-      <CardContent className="p-5 flex gap-4">
-        {vehicle.vehicle_image && (
-          <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60">
-            <img
-              src={vehicle.vehicle_image}
-              alt={vehicle.vehicle_type}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
+        <CardContent className="flex flex-col gap-6 py-6">
+          {/* Vehicle Section */}
+          <div
+            onClick={handleVehicleClick}
+            className={`p-5 flex gap-4 border-2 rounded-md cursor-pointer transition-all ${
+              selection.isVehicleSelected
+                ? 'border-primary bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/30 dark:ring-primary/40 shadow-md dark:shadow-primary/20'
+                : 'border-border hover:border-primary/50 dark:hover:border-primary/40'
+            }`}
+          >
+            {vehicle.vehicle_image && (
+              <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60">
+                <img
+                  src={vehicle.vehicle_image}
+                  alt={vehicle.vehicle_type}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <div className="flex flex-1 flex-col gap-3">
+              <div>
+                <h4 className="text-lg font-semibold text-card-foreground">
+                  {vehicle.vehicle_type}
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  {vehicle.level_of_service}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <div className="flex gap-4 text-xs">
+                  {vehicle.max_seating_capacity != null && (
+                    <span>Seats: {vehicle.max_seating_capacity}</span>
+                  )}
+                  {vehicle.max_cargo_capacity != null && (
+                    <span>Cargo: {vehicle.max_cargo_capacity}</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-        <div className="flex flex-1 flex-col gap-3">
-          <div>
-            <h4 className="text-lg font-semibold text-card-foreground">
-              {vehicle.vehicle_type}
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              {vehicle.level_of_service}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+
+          {/* Drivers Section */}
+          {vehicleDrivers.length > 0 && (
+            <div className="p-5 border border-border rounded-md">
+              <div className="text-xs text-muted-foreground space-y-3">
+                <p className="uppercase tracking-wider text-[10px] font-semibold text-muted-foreground/80">
+                  Or select individual drivers
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {vehicleDrivers.map((driver) => {
+                    const isDriverSelected = selection.selectedDriverIds.includes(driver.id);
+                    return (
+                      <div
+                        key={driver.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDriverClick(driver.id);
+                        }}
+                        className={`flex items-center gap-3 rounded-md border-2 px-3 py-2 cursor-pointer transition-all ${
+                          isDriverSelected
+                            ? 'border-primary bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/30 dark:ring-primary/40 shadow-md dark:shadow-primary/20'
+                            : 'border-border/60 bg-muted/60 hover:border-primary/50 dark:hover:border-primary/40'
+                        }`}
+                      >
+                      <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-muted/70">
+                        {driver.imageUrl ? (
+                          <img
+                            src={driver.imageUrl}
+                            alt={driver.full_name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            onError={(event) => {
+                              (event.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-muted-foreground">
+                            ?
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 text-[11px] text-muted-foreground">
+                        <p className="text-sm font-semibold text-card-foreground truncate">
+                          {driver.full_name}
+                        </p>
+                        <p className="truncate">
+                          {driver.vehicle_type || 'Vehicle'}
+                          {driver.vehicle_type && driver.destination ? ' • ' : ''}
+                          {driver.destination}
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground/60">
+                          Supabase driver
+                        </p>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Fare and Reserve Section */}
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground px-5">
             <div className="flex items-center justify-between text-card-foreground font-semibold">
               <span>Fare</span>
-              <span className="text-lg">
-                {drivaniaQuotes.currency_code
-                  ? `${drivaniaQuotes.currency_code} ${vehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
-                  : vehicle.sale_price?.price?.toFixed(2) || 'N/A'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">
+                  {drivaniaQuotes.currency_code
+                    ? `${drivaniaQuotes.currency_code} ${basePrice.toFixed(2)}`
+                    : basePrice.toFixed(2)}
+                </span>
+                {selection.isVehicleSelected && (
+                  <span className="text-xs text-muted-foreground">(Discounted fare)</span>
+                )}
+              </div>
             </div>
+            {selection.selectedDriverIds.length > 0 && extraFare > 0 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Extra fare</span>
+                <span>
+                  {drivaniaQuotes.currency_code
+                    ? `${drivaniaQuotes.currency_code} ${extraFare.toFixed(2)}`
+                    : extraFare.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {selection.selectedDriverIds.length > 0 && (
+              <div className="flex items-center justify-between text-card-foreground font-semibold border-t border-border pt-2">
+                <span>Total</span>
+                <span className="text-lg">
+                  {drivaniaQuotes.currency_code
+                    ? `${drivaniaQuotes.currency_code} ${totalPrice.toFixed(2)}`
+                    : totalPrice.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {vehicle.extra_hour && (
+              <div className="text-xs text-muted-foreground">
+                Extra hour: {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
+              </div>
+            )}
             <Button
               size="sm"
               type="button"
               className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-              onClick={() => openBookingPreview(vehicle)}
+              onClick={() => {
+                // Pass vehicle with updated total price
+                const vehicleWithTotal = {
+                  ...vehicle,
+                  sale_price: {
+                    ...vehicle.sale_price,
+                    price: totalPrice,
+                  },
+                };
+                openBookingPreview(vehicleWithTotal);
+              }}
             >
               Reserve
             </Button>
-            <div className="flex gap-4 text-xs">
-              {vehicle.max_seating_capacity != null && (
-                <span>Seats: {vehicle.max_seating_capacity}</span>
-              )}
-              {vehicle.max_cargo_capacity != null && (
-                <span>Cargo: {vehicle.max_cargo_capacity}</span>
-              )}
-            </div>
-            {vehicle.extra_hour && (
-              <span>
-                Extra hour: {vehicle.extra_hour.toFixed(2)} {drivaniaQuotes.currency_code}
-              </span>
-            )}
           </div>
-          {(vehicle.pickup_instructions || vehicle.cancellation_policy) && (
-            <div className="text-xs text-muted-foreground">
-              {vehicle.pickup_instructions && (
-                <p className="whitespace-pre-line">{vehicle.pickup_instructions}</p>
-              )}
-              {vehicle.cancellation_policy && (
-                <p className="pt-2 whitespace-pre-line">
-                  <span className="font-medium">Cancellation: </span>
-                  {vehicle.cancellation_policy.replace(/\\n/g, '\n')}
-                </p>
-              )}
-            </div>
-          )}
-          {vehicleDrivers.length > 0 && (
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p className="uppercase tracking-wider text-[10px] font-semibold text-muted-foreground/80">
-                Drivers matching this vehicle
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {vehicleDrivers.map((driver) => (
-                  <div
-                    key={driver.id}
-                    className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/60 px-3 py-2"
-                  >
-                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-muted/70">
-                      {driver.imageUrl ? (
-                        <img
-                          src={driver.imageUrl}
-                          alt={driver.full_name}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                          onError={(event) => {
-                            (event.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center text-xs font-semibold uppercase text-muted-foreground">
-                          ?
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 text-[11px] text-muted-foreground">
-                      <p className="text-sm font-semibold text-card-foreground truncate">
-                        {driver.full_name}
-                      </p>
-                      <p className="truncate">
-                        {driver.vehicle_type || 'Vehicle'}
-                        {driver.vehicle_type && driver.destination ? ' • ' : ''}
-                        {driver.destination}
-                      </p>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground/60">
-                        Supabase driver
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
   };
 
   // Track scroll position for sticky update bar
@@ -7136,10 +7240,10 @@ export default function ResultsPage() {
                         if (tripStatus === 'not confirmed' || (tripStatus === 'cancelled' && !hasActivity)) {
                           return 'request-quote-style'; // Match request quote button colors/frame
                         }
-                        // All other statuses use existing variants
-                        return tripStatus === 'rejected' ? 'rejected' :
-                          tripStatus === 'confirmed' ? 'confirmed' :
-                            driverEmail ? 'pending' : 'not-confirmed';
+                      // All other statuses use existing variants
+                      return tripStatus === 'rejected' ? 'rejected' :
+                        tripStatus === 'confirmed' || tripStatus === 'booked' ? 'confirmed' :
+                          driverEmail ? 'pending' : 'not-confirmed';
                       };
 
                       const buttonVariant = getButtonVariant();
@@ -7147,7 +7251,8 @@ export default function ResultsPage() {
                       const buttonText = isCancelledWithActivity ? 'Cancelled' :
                         tripStatus === 'rejected' ? 'Rejected' :
                           tripStatus === 'confirmed' ? 'Confirmed' :
-                            driverEmail ? 'Pending' : 'Not confirmed';
+                            tripStatus === 'booked' ? 'Booked' :
+                              driverEmail ? 'Pending' : 'Not confirmed';
 
                       return (
                         <FlowHoverButton
@@ -7160,7 +7265,7 @@ export default function ResultsPage() {
                                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
-                              ) : tripStatus === 'confirmed' ? (
+                              ) : tripStatus === 'confirmed' || tripStatus === 'booked' ? (
                                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
@@ -7263,7 +7368,7 @@ export default function ResultsPage() {
                           variant="outline"
                           className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
                             ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                            : tripStatus === 'confirmed' && driverEmail
+                            : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
                               ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
                               : driverEmail
                                 ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
@@ -9134,7 +9239,7 @@ export default function ResultsPage() {
                   </>
                 ) : (
                   <>
-                    <Alert className={`mb-4 ${tripStatus === 'confirmed'
+                    <Alert className={`mb-4 ${tripStatus === 'confirmed' || tripStatus === 'booked'
                       ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30'
                       : tripStatus === 'rejected'
                         ? 'bg-red-500/10 border-red-500/30'
@@ -9142,7 +9247,7 @@ export default function ResultsPage() {
                           ? 'bg-gray-500/10 border-gray-500/30'
                           : 'bg-blue-500/10 border-blue-500/30'
                       }`}>
-                      <AlertDescription className={`font-medium ${tripStatus === 'confirmed'
+                      <AlertDescription className={`font-medium ${tripStatus === 'confirmed' || tripStatus === 'booked'
                         ? 'text-[#3ea34b]'
                         : tripStatus === 'rejected'
                           ? 'text-red-600'
@@ -9151,9 +9256,10 @@ export default function ResultsPage() {
                             : 'text-blue-600'
                         }`}>
                         {tripStatus === 'confirmed' && '✅ You have confirmed this trip'}
+                        {tripStatus === 'booked' && '✅ This trip has been booked'}
                         {tripStatus === 'rejected' && '❌ You have rejected this trip'}
                         {tripStatus === 'cancelled' && '🚫 This trip has been cancelled'}
-                        {tokenMessage && !['confirmed', 'rejected', 'cancelled'].includes(tripStatus) && `ℹ️ ${tokenMessage}`}
+                        {tokenMessage && !['confirmed', 'booked', 'rejected', 'cancelled'].includes(tripStatus) && `ℹ️ ${tokenMessage}`}
                       </AlertDescription>
                     </Alert>
 
@@ -9167,6 +9273,7 @@ export default function ResultsPage() {
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {tripStatus === 'confirmed' && 'The trip owner has been notified of your acceptance.'}
+                        {tripStatus === 'booked' && 'Your booking request has been sent to Drivania.'}
                         {tripStatus === 'rejected' && 'The trip owner has been notified that you declined.'}
                         {tripStatus === 'cancelled' && 'The trip owner has cancelled this trip.'}
                       </div>
@@ -10359,7 +10466,7 @@ export default function ResultsPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  We are processing your payment
+                  We are processing your booking
                 </div>
               )}
               {bookingSubmissionState === 'success' && (
@@ -10503,41 +10610,12 @@ export default function ResultsPage() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase text-muted-foreground">Payment</p>
-                    <Input
-                      placeholder="Cardholder name"
-                      className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardName')}`}
-                      value={bookingPreviewFields.cardName}
-                      onChange={(e) => handleBookingFieldChange('cardName', e.target.value)}
-                    />
-                    <Input
-                      placeholder="Card number (e.g. 4242 4242 4242 4242)"
-                      className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardNumber')}`}
-                      value={bookingPreviewFields.cardNumber}
-                      onChange={(e) => handleBookingFieldChange('cardNumber', e.target.value)}
-                    />
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Input
-                        placeholder="MM/YY"
-                        className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardExpiry')}`}
-                        value={bookingPreviewFields.cardExpiry}
-                        onChange={(e) => handleBookingFieldChange('cardExpiry', e.target.value)}
-                      />
-                      <Input
-                        placeholder="CVC"
-                        className={`w-full border border-border rounded-md px-3 py-2 text-sm ${highlightMissing('cardCVC')}`}
-                        value={bookingPreviewFields.cardCVC}
-                        onChange={(e) => handleBookingFieldChange('cardCVC', e.target.value)}
-                      />
-                    </div>
-                    <Button
-                      onClick={handlePayNow}
-                      className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] transition-transform duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-lg"
-                    >
-                      Pay now
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={handlePayNow}
+                    className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] transition-transform duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-lg"
+                  >
+                    Book Now
+                  </Button>
                 </>
               )}
             </div>

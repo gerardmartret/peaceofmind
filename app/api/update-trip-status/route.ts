@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate status value
-    const validStatuses = ['confirmed', 'not confirmed', 'pending', 'rejected', 'cancelled'];
+    const validStatuses = ['confirmed', 'not confirmed', 'pending', 'rejected', 'cancelled', 'booked'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, error: 'Invalid status value' },
@@ -41,9 +41,10 @@ export async function POST(request: NextRequest) {
 
     // Validate state transitions
     const VALID_TRANSITIONS: Record<string, string[]> = {
-      'not confirmed': ['pending', 'confirmed'],
-      'pending': ['confirmed', 'rejected', 'cancelled'], // Can cancel to cancelled
+      'not confirmed': ['pending', 'confirmed', 'booked'],
+      'pending': ['confirmed', 'rejected', 'cancelled', 'booked'], // Can cancel to cancelled
       'confirmed': ['cancelled'], // Can cancel to cancelled
+      'booked': ['cancelled'], // Can cancel booked trips
       'rejected': ['pending', 'not confirmed'], // Can retry after rejection
       'cancelled': [], // TERMINAL STATUS - no transitions allowed, must create new trip
     };
