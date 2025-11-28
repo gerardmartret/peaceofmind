@@ -3947,6 +3947,11 @@ export default function ResultsPage() {
       return;
     }
 
+    // Check if there are drivers available for this destination
+    if (!loadingMatchingDrivers && matchingDrivers.length === 0 && driverDestinationForDrivers) {
+      return; // Silently return if no drivers available
+    }
+
     // Reset errors and state
     setDrivaniaError(null);
     setDrivaniaQuotes(null);
@@ -9796,8 +9801,8 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* Drivania Quotes Section */}
-                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
+                {/* Drivania Quotes Section - Only show if there are drivers for this destination */}
+                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && matchingDrivers.length > 0 && (
                   <div className="mb-8">
 
                     {drivaniaError && (
