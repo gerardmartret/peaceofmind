@@ -306,61 +306,6 @@ export async function POST(request: NextRequest) {
       console.log('💡 Note: Drivania will calculate distance from pickup to dropoff coordinates. The dropoff datetime represents the total service duration.');
     }
 
-    // Validation: Check if trip needs special request (only for hourly services with duration > 3 hours)
-    if (finalServiceType === 'hourly' && quoteRequest.pickup.datetime && quoteRequest.dropoff.datetime) {
-      try {
-        // Calculate total duration in hours from pickup to dropoff times
-        const pickupDateTime = new Date(quoteRequest.pickup.datetime);
-        const dropoffDateTime = new Date(quoteRequest.dropoff.datetime);
-        const durationMs = dropoffDateTime.getTime() - pickupDateTime.getTime();
-        const durationHours = durationMs / (1000 * 60 * 60); // Convert milliseconds to hours
-
-        console.log('⏱️ Trip duration calculation:', {
-          pickup: quoteRequest.pickup.datetime,
-          dropoff: quoteRequest.dropoff.datetime,
-          durationHours: durationHours.toFixed(2),
-          durationMinutes: (durationHours * 60).toFixed(0),
-        });
-
-        // Only validate if trip duration > 3 hours
-        if (durationHours > 3 && totalRouteDistance !== null && totalRouteDistance > 0) {
-          // Convert route distance from km to miles
-          const totalRouteDistanceMiles = totalRouteDistance * 0.621371;
-          
-          // Calculate average miles per hour covered
-          const averageMilesPerHour = totalRouteDistanceMiles / durationHours;
-
-          console.log('🔍 Route validation check:', {
-            durationHours: durationHours.toFixed(2),
-            totalRouteDistanceKm: totalRouteDistance.toFixed(2),
-            totalRouteDistanceMiles: totalRouteDistanceMiles.toFixed(2),
-            averageMilesPerHour: averageMilesPerHour.toFixed(2),
-            threshold: 15,
-            needsSpecialRequest: averageMilesPerHour > 15,
-          });
-
-          // If average miles per hour > 15, require special request
-          if (averageMilesPerHour > 15) {
-            return NextResponse.json({
-              success: false,
-              error: 'COMPLEX_ROUTE',
-              message: 'Complex route detected - manual quote required',
-              details: {
-                totalRouteDistanceKm: totalRouteDistance.toFixed(2),
-                totalRouteDistanceMiles: totalRouteDistanceMiles.toFixed(2),
-                durationHours: durationHours.toFixed(2),
-                averageMilesPerHour: averageMilesPerHour.toFixed(2),
-                reason: `Your trip covers ${averageMilesPerHour.toFixed(1)} miles per hour of service time, indicating significant distance between stops (e.g., multiple cities/states). Please request a manual quote for accurate pricing.`,
-              },
-            }, { status: 400 });
-          }
-        }
-      } catch (error) {
-        console.error('⚠️ Error calculating trip duration for validation:', error);
-        // Continue with normal quote if duration calculation fails
-      }
-    }
-
     // Call Drivania API
     const quoteResponse = await requestQuote(quoteRequest);
 

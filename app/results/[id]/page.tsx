@@ -789,7 +789,6 @@ export default function ResultsPage() {
   const [drivaniaQuotes, setDrivaniaQuotes] = useState<any>(null);
   const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
   const [drivaniaServiceType, setDrivaniaServiceType] = useState<'one-way' | 'hourly' | null>(null);
-  const [complexRouteDetails, setComplexRouteDetails] = useState<any>(null);
   const [showOtherVehicles, setShowOtherVehicles] = useState<boolean>(false);
   const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
   const [showBookingPreview, setShowBookingPreview] = useState<boolean>(false);
@@ -1477,7 +1476,26 @@ export default function ResultsPage() {
             tokenUsed: result.tokenUsed,
             canTakeAction: result.canTakeAction,
             tripStatus: result.tripStatus,
-            hasMessage: !!result.message
+            hasMessage: !!result.message,
+            driverEmail: result.driverEmail
+          });
+
+          // Determine canTakeAction explicitly - be very explicit about the logic
+          // API returns canTakeAction: true when trip is pending and token not used
+          // If API doesn't return it, calculate it ourselves as fallback
+          let canTakeActionValue: boolean;
+          if (result.canTakeAction !== undefined && result.canTakeAction !== null) {
+            // Use explicit value from API (handle both boolean true and string "true")
+            canTakeActionValue = result.canTakeAction === true || result.canTakeAction === 'true';
+          } else {
+            // Fallback: calculate based on trip status and token usage
+            canTakeActionValue = result.tripStatus === 'pending' && !result.tokenUsed;
+          }
+          console.log('🎯 Setting canTakeAction to:', canTakeActionValue, {
+            fromAPI: result.canTakeAction,
+            calculated: result.tripStatus === 'pending' && !result.tokenUsed,
+            tripStatus: result.tripStatus,
+            tokenUsed: result.tokenUsed
           });
 
           setValidatedDriverEmail(result.driverEmail);
@@ -1486,7 +1504,7 @@ export default function ResultsPage() {
           setTokenValidationError(null);
           setTokenAlreadyUsed(result.tokenUsed || false);
           setTokenMessage(result.message || null);
-          setCanTakeAction(result.canTakeAction !== false); // Default to true if not specified
+          setCanTakeAction(canTakeActionValue);
         } else {
           console.error('❌ Token validation failed:', result.error);
           setTokenValidationError(result.error || 'Invalid or expired link');
@@ -3944,15 +3962,9 @@ export default function ResultsPage() {
       return;
     }
 
-    // Check if there are drivers available for this destination
-    if (!loadingMatchingDrivers && matchingDrivers.length === 0 && driverDestinationForDrivers) {
-      return; // Silently return if no drivers available
-    }
-
     // Reset errors and state
     setDrivaniaError(null);
     setDrivaniaQuotes(null);
-    setComplexRouteDetails(null);
     setLoadingDrivaniaQuote(true);
 
     try {
@@ -4145,14 +4157,7 @@ export default function ResultsPage() {
         setDrivaniaQuotes(result.data);
         setDrivaniaServiceType(result.serviceType);
       } else {
-        // Check if it's a complex route validation error
-        if (result.error === 'COMPLEX_ROUTE' && result.details) {
-          setComplexRouteDetails(result.details);
-          setDrivaniaError(null); // Don't show as error, show as special message
-        } else {
-          setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
-          setComplexRouteDetails(null);
-        }
+        setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
       }
     } catch (err) {
       console.error('❌ Error requesting Drivania quote:', err);
@@ -5177,25 +5182,23 @@ export default function ResultsPage() {
         }
       }
 
-      // POST-PROCESSING: Validate date makes sense (not email send date)
-      if (extractedData.date && tripData) {
-        const extractedDate = new Date(extractedData.date);
-        const currentTripDate = new Date(tripData.tripDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      // POST-PROCESSING: Validate date - must be today or later
+      if (extractedData.date) {
+        try {
+          const extractedDate = new Date(extractedData.date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          extractedDate.setHours(0, 0, 0, 0);
 
-        // If extracted date is before current trip date, likely email metadata
-        if (extractedDate < currentTripDate) {
-          console.warn(`⚠️ [VALIDATION] Extracted date ${extractedData.date} is BEFORE trip date ${tripData.tripDate}`);
-          console.warn(`   This is likely email send date (metadata), not a trip date change. Ignoring.`);
-          extractedData.date = null;
-        }
-
-        // If extracted date matches today, might be email send date
-        const extractedDateOnly = extractedData.date;
-        const todayStr = today.toISOString().split('T')[0];
-        if (extractedDateOnly === todayStr && !updateText.toLowerCase().includes('today')) {
-          console.warn(`⚠️ [VALIDATION] Extracted date matches today but update doesn't say "today". Likely email metadata. Ignoring.`);
+          // Date must be today or later (date < today means invalid)
+          if (extractedDate < today) {
+            console.warn(`⚠️ [VALIDATION] Extracted date ${extractedData.date} is in the past. Setting to null (date must be today or later).`);
+            extractedData.date = null;
+          } else {
+            console.log(`✅ [VALIDATION] Extracted date ${extractedData.date} is valid (today or later)`);
+          }
+        } catch (error) {
+          console.error(`❌ [VALIDATION] Invalid date format: ${extractedData.date}`, error);
           extractedData.date = null;
         }
       }
@@ -6467,8 +6470,9 @@ export default function ResultsPage() {
   if (loading || !ownershipChecked) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Show sticky quote form even during loading if ownership is checked and user is not owner (but not for guest creators or guest-created trips) */}
-        {ownershipChecked && !isOwner && !isGuestCreator && !isGuestCreatedTrip && (
+        {/* Show sticky quote form even during loading if ownership is checked and user is not owner (but not for guest creators or guest-created trips)
+            NOTE: HIDDEN when driver accesses via token (isDriverView) - they see confirmation card instead */}
+        {ownershipChecked && !isOwner && !isGuestCreator && !isGuestCreatedTrip && !isDriverView && (
           <div
             className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
               }`}
@@ -6661,9 +6665,9 @@ export default function ResultsPage() {
     <div className="min-h-screen bg-background">
       {/* Quote Form Section - Sticky Bar - Shows for:
           1. Guests invited to submit quotes
-          2. Assigned drivers (with or without magic link)
-          3. Any non-owner viewer (but not guest creators or guest-created trips) */}
-      {!isOwner && !isGuestCreator && !isGuestCreatedTrip && (
+          2. Any non-owner viewer (but not guest creators or guest-created trips)
+          NOTE: HIDDEN when driver accesses via token (isDriverView) - they see confirmation card instead */}
+      {!isOwner && !isGuestCreator && !isGuestCreatedTrip && !isDriverView && (
         <div
           className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
             }`}
@@ -9817,8 +9821,8 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* Drivania Quotes Section - Only show if there are drivers for this destination */}
-                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && matchingDrivers.length > 0 && (
+                {/* Drivania Quotes Section - Always show if quotes are available */}
+                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
                   <div className="mb-8">
 
                     {drivaniaError && (
@@ -9827,25 +9831,6 @@ export default function ResultsPage() {
                       </Alert>
                     )}
 
-                    {complexRouteDetails && (
-                      <Alert className="mb-4 border-orange-500/50 bg-orange-500/10">
-                        <AlertDescription>
-                          <div className="space-y-3">
-                            <div className="font-semibold text-orange-600 dark:text-orange-400">
-                              Complex route detected - manual quote required
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {complexRouteDetails.reason}
-                            </div>
-                            <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-orange-500/20">
-                              <div>Total route distance: {complexRouteDetails.totalRouteDistanceMiles} miles ({complexRouteDetails.totalRouteDistanceKm} km)</div>
-                              <div>Trip duration: {complexRouteDetails.durationHours} hours</div>
-                              <div>Average miles per hour: {complexRouteDetails.averageMilesPerHour}</div>
-                            </div>
-                          </div>
-                        </AlertDescription>
-                      </Alert>
-                    )}
 
                     {loadingDrivaniaQuote ? (
                       <div className="flex items-center justify-center py-8">
@@ -10144,91 +10129,8 @@ export default function ResultsPage() {
               Assigning this driver will set the trip to pending status and send them an acceptance request email.
             </DialogDescription>
           </DialogHeader>
-          {drivaniaQuotes && (
-          <div className="space-y-4 py-4 border-t border-dashed border-border">
-            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground">
-              <span>Latest Drivania quote</span>
-              {drivaniaQuotes.service_id && (
-                <span className="text-[10px] font-semibold text-foreground/70">
-                  Service ID: {drivaniaQuotes.service_id}
-                </span>
-              )}
-            </div>
-
-            {drivaniaServiceType && (
-              <div className="text-sm text-muted-foreground">
-                Service type:&nbsp;
-                <span className="text-foreground">
-                  {drivaniaServiceType === 'one-way' ? 'One-way (mileage-based)' : 'Hourly (time-based)'}
-                </span>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              {drivaniaQuotes.distance && (
-                <span>
-                  Distance: {drivaniaQuotes.distance.quantity} {drivaniaQuotes.distance.uom}
-                </span>
-              )}
-              {drivaniaQuotes.drive_time && <span>Drive time: {drivaniaQuotes.drive_time}</span>}
-              {drivaniaQuotes.currency_code && <span>Currency: {drivaniaQuotes.currency_code}</span>}
-            </div>
-
-            <div className="space-y-2">
-              {drivaniaQuotes.quotes?.vehicles?.map((vehicle: any, index: number) => {
-                const price = vehicle.sale_price?.price;
-                const formattedPrice =
-                  typeof price === 'number'
-                    ? price.toFixed(2)
-                    : price ?? 'N/A';
-                return (
-                  <div
-                    key={vehicle.vehicle_id || index}
-                    className="rounded-lg border border-border bg-muted/30 p-3"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-semibold text-card-foreground">{vehicle.vehicle_type}</p>
-                        {vehicle.level_of_service && (
-                          <p className="text-xs text-muted-foreground">{vehicle.level_of_service}</p>
-                        )}
-                      </div>
-                      <div className="text-right text-sm font-semibold text-card-foreground">
-                        {drivaniaQuotes.currency_code
-                          ? `${drivaniaQuotes.currency_code} ${formattedPrice}`
-                          : formattedPrice}
-                        <p className="text-[10px] text-muted-foreground">
-                          {vehicle.fare_type || 'Estimated fare'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                      {vehicle.max_seating_capacity != null && (
-                        <span>Seats: {vehicle.max_seating_capacity}</span>
-                      )}
-                      {vehicle.max_cargo_capacity != null && (
-                        <span>Cargo: {vehicle.max_cargo_capacity}</span>
-                      )}
-                      {typeof vehicle.extra_hour === 'number' && (
-                        <span>
-                          Extra hour: {vehicle.extra_hour.toFixed(2)}{' '}
-                          {drivaniaQuotes.currency_code || ''}
-                        </span>
-                      )}
-                    </div>
-
-                    {vehicle.pickup_instructions && (
-                      <div className="mt-3 rounded border border-border/60 bg-background/60 p-2 text-[11px] text-muted-foreground">
-                        {vehicle.pickup_instructions}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+          {/* Flow A is for Supabase driver assignment - Drivania quotes should not be shown here */}
+          {/* (Drivania quotes are only relevant when booking with Drivania, not when assigning Supabase drivers) */}
           <DialogFooter className="justify-start">
             <Button
               variant="outline"
@@ -10288,27 +10190,7 @@ export default function ResultsPage() {
                       console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
                     }
 
-                    // Send magic link email to driver
-                    const notifyResponse = await fetch('/api/notify-driver-assignment', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        driverEmail: selectedQuoteDriver,
-                        tripDate: tripDate,
-                        leadPassengerName: leadPassengerName,
-                        tripDestination: tripDestination,
-                      }),
-                    });
-
-                    const notifyResult = await notifyResponse.json();
-                    if (notifyResult.success) {
-                      console.log('✅ [FLOW A] Magic link email sent to driver');
-                    } else {
-                      console.error('❌ [FLOW A] Failed to send magic link email:', notifyResult.error);
-                    }
+                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
 
                     // Close both modals
                     setShowFlowAModal(false);
@@ -10411,27 +10293,7 @@ export default function ResultsPage() {
                       console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
                     }
 
-                    // Send magic link email to driver
-                    const notifyResponse = await fetch('/api/notify-driver-assignment', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        driverEmail: directAssignDriver,
-                        tripDate: tripDate,
-                        leadPassengerName: leadPassengerName,
-                        tripDestination: tripDestination,
-                      }),
-                    });
-
-                    const notifyResult = await notifyResponse.json();
-                    if (notifyResult.success) {
-                      console.log('✅ [FLOW B] Magic link email sent to driver');
-                    } else {
-                      console.error('❌ [FLOW B] Failed to send magic link email:', notifyResult.error);
-                    }
+                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
 
                     // Close both modals
                     setShowFlowBModal(false);
@@ -10925,6 +10787,7 @@ export default function ResultsPage() {
                         disabled={(date) => {
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
+                          // Disable past dates - allow today or later
                           return date < today;
                         }}
                         defaultMonth={editingTripDate || new Date()}
