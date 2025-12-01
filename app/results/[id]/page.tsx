@@ -7377,187 +7377,189 @@ export default function ResultsPage() {
                 }
 
                 return vehicleType ? (
-                  <Card className="mb-6 shadow-none">
-                    <CardContent className="p-5 relative">
-                      {/* Assign Driver button - Top Right */}
-                      {isOwner && (
-                        <div className="absolute top-3 right-5">
-                          <div className="relative inline-block">
-                        <Button
-                          variant="outline"
-                          className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
-                            ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                            : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
-                              ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
-                              : driverEmail
-                                ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
-                                : ''
-                              }`}
-                          onClick={() => {
-                            if (tripStatus === 'cancelled') {
-                              alert('This trip has been cancelled. Please create a new trip instead.');
-                              return;
-                            }
-                            setShowDriverModal(true);
-                          }}
-                          disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
-                        >
-                              {mounted && driverEmail && (
-                                <img
-                                  src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                  alt="Driver"
-                                  className="w-4 h-4"
-                                />
+                  <div className="mb-6 grid grid-cols-1 lg:grid-cols-[66%_34%] gap-6">
+                    {/* Left Column - Vehicle Box (66%) */}
+                    <Card className="shadow-none">
+                      <CardContent className="p-5 relative">
+                        {/* Assign Driver button - Top Right */}
+                        {isOwner && (
+                          <div className="absolute top-3 right-5">
+                            <div className="relative inline-block">
+                          <Button
+                            variant="outline"
+                            className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
+                              ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                              : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
+                                ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                                : driverEmail
+                                  ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
+                                  : ''
+                                }`}
+                            onClick={() => {
+                              if (tripStatus === 'cancelled') {
+                                alert('This trip has been cancelled. Please create a new trip instead.');
+                                return;
+                              }
+                              setShowDriverModal(true);
+                            }}
+                            disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
+                          >
+                                {mounted && driverEmail && (
+                                  <img
+                                    src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                    alt="Driver"
+                                    className="w-4 h-4"
+                                  />
+                                )}
+                                {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
+                              </Button>
+                              {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
+                                <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                                  {quotes.length}
+                                </span>
                               )}
-                              {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
-                            </Button>
-                            {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
-                              <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
-                                {quotes.length}
-                              </span>
-                            )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Vehicle Image and Info - Bottom */}
+                        <div className="flex gap-6 items-center mt-8 -mb-2">
+                          {/* Vehicle Image on the left */}
+                          <img
+                            src={vehicleType === 'suv' ? "/suv-driverbrief.webp" : "/sedan-driverbrief.webp"}
+                            alt={vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"}
+                            className="h-32 w-auto flex-shrink-0"
+                          />
+
+                          {/* Vehicle Info on the right */}
+                          <div className="flex flex-col flex-1 min-w-0 pb-0">
+                            <div className="flex items-center gap-3 mb-2">
+                              <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
+                            </div>
+                            <p className="text-3xl font-semibold text-card-foreground break-words">
+                              {(() => {
+                                // First, try to get vehicle from vehicleInfo field or driverNotes
+                                const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
+
+                                // Use the helper to determine what to display:
+                                // - If vehicle is empty or not in whitelist, show auto-selected vehicle
+                                // - If vehicle is in whitelist, show that vehicle
+                                return getDisplayVehicle(requestedVehicle, numberOfPassengers);
+                              })()}
+                            </p>
                           </div>
                         </div>
-                      )}
+                      </CardContent>
+                    </Card>
 
-                      {/* Vehicle Image and Info - Bottom */}
-                      <div className="flex gap-6 items-center mt-8 -mb-2">
-                        {/* Vehicle Image on the left */}
-                        <img
-                          src={vehicleType === 'suv' ? "/suv-driverbrief.webp" : "/sedan-driverbrief.webp"}
-                          alt={vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"}
-                          className="h-32 w-auto flex-shrink-0"
+                    {/* Right Column - Map Box (33%) */}
+                    <div className="hidden lg:block">
+                      <div className="h-full min-h-[200px] rounded-lg overflow-hidden border border-border">
+                        <GoogleTripMap
+                          locations={mapLocations}
+                          height="100%"
+                          compact={true}
+                          tripDestination={tripDestination}
                         />
-
-                        {/* Vehicle Info on the right */}
-                        <div className="flex flex-col flex-1 min-w-0 pb-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                            <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
-                          </div>
-                          <p className="text-3xl font-semibold text-card-foreground break-words">
-                            {(() => {
-                              // First, try to get vehicle from vehicleInfo field or driverNotes
-                              const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
-
-                              // Use the helper to determine what to display:
-                              // - If vehicle is empty or not in whitelist, show auto-selected vehicle
-                              // - If vehicle is in whitelist, show that vehicle
-                              return getDisplayVehicle(requestedVehicle, numberOfPassengers);
-                            })()}
-                          </p>
-                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 ) : null;
               })()}
 
-              {/* Trip Details Cards - 2 Column Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-[30%_1fr] gap-6 mb-6 lg:auto-rows-fr">
-                {/* Left Column - Stacked Cards */}
-                <div className="flex flex-col gap-4">
-                  {/* Pickup Time Card */}
-                  <Card className="shadow-none">
-                    <CardContent className="p-5 flex flex-col">
-                      <div className="flex items-center gap-3 mb-2">
-                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-sm text-muted-foreground font-medium">Pickup Time</span>
-                      </div>
-                      <p className="text-4xl font-semibold text-card-foreground">
-                        {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
-                      </p>
-                    </CardContent>
-                  </Card>
+              {/* Trip Details Cards - Single Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                {/* Pickup Time Card */}
+                <Card className="shadow-none">
+                  <CardContent className="p-5 flex flex-col">
+                    <div className="flex items-center gap-3 mb-2">
+                      <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm text-muted-foreground font-medium">Pickup Time</span>
+                    </div>
+                    <p className="text-4xl font-semibold text-card-foreground">
+                      {locations[0]?.time ? getLondonLocalTime(locations[0].time) : 'N/A'}
+                    </p>
+                  </CardContent>
+                </Card>
 
-                  {/* Trip Duration Card */}
-                  <Card className="shadow-none">
-                    <CardContent className="p-5 flex flex-col">
-                      <div className="flex items-center gap-3 mb-2">
-                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span className="text-sm text-muted-foreground font-medium">Trip Duration</span>
-                      </div>
-                      <p className="text-4xl font-semibold text-card-foreground">
-                        {(() => {
-                          if (locations && locations.length >= 2) {
-                            const pickupTime = parseInt(locations[0]?.time) || 0;
-                            const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
-                            const duration = dropoffTime - pickupTime;
+                {/* Trip Duration Card */}
+                <Card className="shadow-none">
+                  <CardContent className="p-5 flex flex-col">
+                    <div className="flex items-center gap-3 mb-2">
+                      <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span className="text-sm text-muted-foreground font-medium">Trip Duration</span>
+                    </div>
+                    <p className="text-4xl font-semibold text-card-foreground">
+                      {(() => {
+                        if (locations && locations.length >= 2) {
+                          const pickupTime = parseInt(locations[0]?.time) || 0;
+                          const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+                          const duration = dropoffTime - pickupTime;
 
-                            if (duration > 0) {
-                              const hours = Math.floor(duration);
-                              const minutes = Math.round((duration - hours) * 60);
-                              return `${hours}h ${minutes}m`;
-                            } else {
-                              return 'Same day';
+                          if (duration > 0) {
+                            const hours = Math.floor(duration);
+                            const minutes = Math.round((duration - hours) * 60);
+                            return `${hours}h ${minutes}m`;
+                          } else {
+                            return 'Same day';
+                          }
+                        }
+                        return 'N/A';
+                      })()}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Estimated Distance */}
+                <Card className="shadow-none">
+                  <CardContent className="p-5 flex flex-col">
+                    <div className="flex items-center gap-3 mb-2">
+                      <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="text-sm text-muted-foreground font-medium">Estimated Distance</span>
+                    </div>
+                    <p className="text-4xl font-semibold text-card-foreground">
+                      {(() => {
+                        // Check if traffic predictions exist and have the correct structure
+                        if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
+                          // Calculate total distance from traffic predictions
+                          const totalKm = trafficPredictions.data.reduce((total: number, route: any) => {
+                            if (route.distance) {
+                              // Parse distance (format: "5.2 km" or just number)
+                              const distanceStr = typeof route.distance === 'string' ? route.distance : String(route.distance);
+                              const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
+                              return total + (isNaN(distanceKm) ? 0 : distanceKm);
                             }
+                            return total;
+                          }, 0);
+
+                          // Convert km to miles (1 km = 0.621371 miles)
+                          const totalMiles = totalKm * 0.621371;
+                          return totalMiles > 0 ? totalMiles.toFixed(1) + ' miles' : 'Calculating...';
+                        }
+
+                        // Fallback: try to use totalDistance from trafficPredictions if available
+                        if (trafficPredictions?.totalDistance) {
+                          const distanceStr = trafficPredictions.totalDistance;
+                          const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
+                          if (!isNaN(distanceKm) && distanceKm > 0) {
+                            const totalMiles = distanceKm * 0.621371;
+                            return totalMiles.toFixed(1) + ' miles';
                           }
-                          return 'N/A';
-                        })()}
-                      </p>
-                    </CardContent>
-                  </Card>
+                        }
 
-                  {/* Estimated Distance */}
-                  <Card className="shadow-none">
-                    <CardContent className="p-5 flex flex-col">
-                      <div className="flex items-center gap-3 mb-2">
-                        <svg className="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span className="text-sm text-muted-foreground font-medium">Estimated Distance</span>
-                      </div>
-                      <p className="text-4xl font-semibold text-card-foreground">
-                        {(() => {
-                          // Check if traffic predictions exist and have the correct structure
-                          if (trafficPredictions?.success && trafficPredictions.data && Array.isArray(trafficPredictions.data) && trafficPredictions.data.length > 0) {
-                            // Calculate total distance from traffic predictions
-                            const totalKm = trafficPredictions.data.reduce((total: number, route: any) => {
-                              if (route.distance) {
-                                // Parse distance (format: "5.2 km" or just number)
-                                const distanceStr = typeof route.distance === 'string' ? route.distance : String(route.distance);
-                                const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
-                                return total + (isNaN(distanceKm) ? 0 : distanceKm);
-                              }
-                              return total;
-                            }, 0);
-
-                            // Convert km to miles (1 km = 0.621371 miles)
-                            const totalMiles = totalKm * 0.621371;
-                            return totalMiles > 0 ? totalMiles.toFixed(1) + ' miles' : 'Calculating...';
-                          }
-
-                          // Fallback: try to use totalDistance from trafficPredictions if available
-                          if (trafficPredictions?.totalDistance) {
-                            const distanceStr = trafficPredictions.totalDistance;
-                            const distanceKm = parseFloat(distanceStr.replace(/[^\d.]/g, ''));
-                            if (!isNaN(distanceKm) && distanceKm > 0) {
-                              const totalMiles = distanceKm * 0.621371;
-                              return totalMiles.toFixed(1) + ' miles';
-                            }
-                          }
-
-                          return 'Calculating...';
-                        })()}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Right Column - Map View */}
-                <div className="hidden lg:block min-h-[500px]">
-                  <GoogleTripMap
-                    locations={mapLocations}
-                    height="100%"
-                    compact={false}
-                    tripDestination={tripDestination}
-                  />
-                </div>
+                        return 'Calculating...';
+                      })()}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
 
             </div>
@@ -9821,6 +9823,36 @@ export default function ResultsPage() {
                   </div>
                 )}
 
+                {/* Drivania Quotes Section - Only show if there are drivers for this destination */}
+                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && matchingDrivers.length > 0 && (
+                  <div className="mb-8 grid grid-cols-1 lg:grid-cols-[66%_34%] gap-6">
+                    {/* Left Column - Vehicle Box (66%) */}
+                    <div>
+                      {drivaniaError && (
+                        <Alert variant="destructive" className="mb-4">
+                          <AlertDescription>{drivaniaError}</AlertDescription>
+                        </Alert>
+                      )}
+
+                      {complexRouteDetails && (
+                        <Alert className="mb-4 border-orange-500/50 bg-orange-500/10">
+                          <AlertDescription>
+                            <div className="space-y-3">
+                              <div className="font-semibold text-orange-600 dark:text-orange-400">
+                                Complex route detected - manual quote required
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {complexRouteDetails.reason}
+                              </div>
+                              <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-orange-500/20">
+                                <div>Total route distance: {complexRouteDetails.totalRouteDistanceMiles} miles ({complexRouteDetails.totalRouteDistanceKm} km)</div>
+                                <div>Trip duration: {complexRouteDetails.durationHours} hours</div>
+                                <div>Average miles per hour: {complexRouteDetails.averageMilesPerHour}</div>
+                              </div>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
                 {/* Drivania Quotes Section - Always show if quotes are available */}
                 {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
                   <div className="mb-8">
@@ -9832,60 +9864,73 @@ export default function ResultsPage() {
                     )}
 
 
-                    {loadingDrivaniaQuote ? (
-                      <div className="flex items-center justify-center py-8">
-                        <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span className="ml-2 text-muted-foreground">Loading Drivania quotes...</span>
-                      </div>
-                    ) : drivaniaQuotes && drivaniaQuotes.quotes?.vehicles ? (
-                      <div className="space-y-4">
-                        <div className="text-lg font-semibold text-card-foreground">
-                          Exclusive rates from Drivania
+                      {loadingDrivaniaQuote ? (
+                        <div className="flex items-center justify-center py-8">
+                          <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span className="ml-2 text-muted-foreground">Loading Drivania quotes...</span>
                         </div>
-                        {preferredVehicleHint && !preferredVehicles.length && (
-                          <p className="text-sm text-muted-foreground">
-                            Preferred vehicle (“{preferredVehicleHint}”) not found; showing all available options.
-                          </p>
-                        )}
+                      ) : drivaniaQuotes && drivaniaQuotes.quotes?.vehicles ? (
                         <div className="space-y-4">
-                          {displayVehicles.map(renderVehicleCard)}
+                          <div className="text-lg font-semibold text-card-foreground">
+                            Exclusive rates from Drivania
+                          </div>
+                          {preferredVehicleHint && !preferredVehicles.length && (
+                            <p className="text-sm text-muted-foreground">
+                              Preferred vehicle ("{preferredVehicleHint}") not found; showing all available options.
+                            </p>
+                          )}
+                          <div className="space-y-4">
+                            {displayVehicles.map(renderVehicleCard)}
+                          </div>
+                          {preferredVehicles.length > 0 && otherVehicles.length > 0 && (
+                            <div className="space-y-3">
+                              <Button
+                                variant="outline"
+                                onClick={() => setShowOtherVehicles(prev => !prev)}
+                              >
+                                {showOtherVehicles ? 'Hide other vehicles' : 'Show other vehicles'}
+                              </Button>
+                              {showOtherVehicles && (
+                                <div className="space-y-4">
+                                  {otherVehicles.map(renderVehicleCard)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {drivaniaQuotes.service_id && (
+                            <div className="mt-4 text-xs text-muted-foreground">
+                              Service ID: {drivaniaQuotes.service_id}
+                              {drivaniaQuotes.expiration && (
+                                <span className="ml-4">
+                                  Expires: {new Date(drivaniaQuotes.expiration).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {preferredVehicles.length > 0 && otherVehicles.length > 0 && (
-                          <div className="space-y-3">
-                            <Button
-                              variant="outline"
-                              onClick={() => setShowOtherVehicles(prev => !prev)}
-                            >
-                              {showOtherVehicles ? 'Hide other vehicles' : 'Show other vehicles'}
-                            </Button>
-                            {showOtherVehicles && (
-                              <div className="space-y-4">
-                                {otherVehicles.map(renderVehicleCard)}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {drivaniaQuotes.service_id && (
-                          <div className="mt-4 text-xs text-muted-foreground">
-                            Service ID: {drivaniaQuotes.service_id}
-                            {drivaniaQuotes.expiration && (
-                              <span className="ml-4">
-                                Expires: {new Date(drivaniaQuotes.expiration).toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                        )}
+                      ) : drivaniaQuotes && drivaniaQuotes.quotes?.unavailable_reason ? (
+                        <Alert className="mb-4">
+                          <AlertDescription>
+                            Quote unavailable: {drivaniaQuotes.quotes.unavailable_reason}
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
+                    </div>
+
+                    {/* Right Column - Map Box (33%) */}
+                    <div className="hidden lg:block">
+                      <div className="sticky top-20 h-[500px] rounded-lg overflow-hidden border border-border">
+                        <GoogleTripMap
+                          locations={mapLocations}
+                          height="100%"
+                          compact={true}
+                          tripDestination={tripDestination}
+                        />
                       </div>
-                    ) : drivaniaQuotes && drivaniaQuotes.quotes?.unavailable_reason ? (
-                      <Alert className="mb-4">
-                        <AlertDescription>
-                          Quote unavailable: {drivaniaQuotes.quotes.unavailable_reason}
-                        </AlertDescription>
-                      </Alert>
-                    ) : null}
+                    </div>
                   </div>
                 )}
               </div>
