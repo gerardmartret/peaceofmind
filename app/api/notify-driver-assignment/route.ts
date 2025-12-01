@@ -14,32 +14,97 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique token
-    const token = crypto.randomUUID();
-    
-    // Calculate expiry date (3 days from now)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 3);
+    const normalizedEmail = driverEmail.toLowerCase().trim();
 
-    // Store token in database
-    const { error: tokenError } = await supabase
+    // Check if a valid token already exists for this driver/trip
+    const { data: existingTokens, error: checkError } = await supabase
       .from('driver_tokens')
-      .insert({
-        trip_id: tripId,
-        driver_email: driverEmail.toLowerCase().trim(),
-        token: token,
-        expires_at: expiresAt.toISOString()
-      });
+      .select('*')
+      .eq('trip_id', tripId)
+      .eq('driver_email', normalizedEmail)
+      .is('invalidated_at', null)
+      .eq('used', false);
 
-    if (tokenError) {
-      console.error('❌ Failed to create driver token:', tokenError);
-      return NextResponse.json(
-        { success: false, error: 'Failed to create authentication token' },
-        { status: 500 }
-      );
+    if (checkError) {
+      console.error('❌ Error checking for existing tokens:', checkError);
+      // Continue with token creation if check fails
     }
 
-    console.log(`✅ Driver token created, expires at: ${expiresAt.toISOString()}`);
+    let token: string;
+    let expiresAt: Date;
+
+    // If valid token exists and not expired, reuse it
+    if (existingTokens && existingTokens.length > 0) {
+      const validToken = existingTokens.find(t => {
+        const tokenExpiresAt = new Date(t.expires_at);
+        return new Date() < tokenExpiresAt;
+      });
+
+      if (validToken) {
+        console.log(`✅ Reusing existing valid token for driver ${normalizedEmail}`);
+        token = validToken.token;
+        expiresAt = new Date(validToken.expires_at);
+      } else {
+        // All existing tokens are expired, invalidate them and create new one
+        console.log(`⚠️ Existing tokens expired, invalidating and creating new token`);
+        await supabase
+          .from('driver_tokens')
+          .update({
+            invalidated_at: new Date().toISOString(),
+            invalidation_reason: 'replaced_by_new_token'
+          })
+          .eq('trip_id', tripId)
+          .eq('driver_email', normalizedEmail)
+          .is('invalidated_at', null);
+
+        token = crypto.randomUUID();
+        expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 3);
+
+        const { error: tokenError } = await supabase
+          .from('driver_tokens')
+          .insert({
+            trip_id: tripId,
+            driver_email: normalizedEmail,
+            token: token,
+            expires_at: expiresAt.toISOString()
+          });
+
+        if (tokenError) {
+          console.error('❌ Failed to create driver token:', tokenError);
+          return NextResponse.json(
+            { success: false, error: 'Failed to create authentication token' },
+            { status: 500 }
+          );
+        }
+
+        console.log(`✅ New driver token created, expires at: ${expiresAt.toISOString()}`);
+      }
+    } else {
+      // No existing tokens, create new one
+      token = crypto.randomUUID();
+      expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 3);
+
+      const { error: tokenError } = await supabase
+        .from('driver_tokens')
+        .insert({
+          trip_id: tripId,
+          driver_email: normalizedEmail,
+          token: token,
+          expires_at: expiresAt.toISOString()
+        });
+
+      if (tokenError) {
+        console.error('❌ Failed to create driver token:', tokenError);
+        return NextResponse.json(
+          { success: false, error: 'Failed to create authentication token' },
+          { status: 500 }
+        );
+      }
+
+      console.log(`✅ Driver token created, expires at: ${expiresAt.toISOString()}`);
+    }
 
     // Build magic link
     const host = request.headers.get('host') || 'localhost:3000';
@@ -71,7 +136,7 @@ export async function POST(request: NextRequest) {
 
       await resend.emails.send({
         from: 'Chauffs <info@trips.chauffs.com>',
-        to: [driverEmail],
+        to: [normalizedEmail],
         subject: `You've been assigned to a trip - ${formattedDate}`,
         html: `
           <!DOCTYPE html>

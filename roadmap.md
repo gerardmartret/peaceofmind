@@ -1,8 +1,8 @@
 
-2. cross check all the statuses, notifications, logic (don't let create reposrts in the past)
+2. cross check all the statuses, notifications, logic 
 
 analytics 
-drivers in other cities - show just car
+
 email verification
 live mode? 
 RSL policies in supabase
