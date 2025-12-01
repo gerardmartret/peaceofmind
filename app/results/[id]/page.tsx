@@ -1064,7 +1064,7 @@ export default function ResultsPage() {
     setShowBookingPreview(false);
     setShowDriverModal(false);
   };
-  const handlePayNow = async () => {
+  const handleBookNow = async () => {
     if (!selectedDrivaniaVehicle) return;
     const missing = requiredFields.filter((field) => {
       const value = bookingPreviewFields[field];
@@ -1082,42 +1082,39 @@ export default function ResultsPage() {
     setBookingSubmissionState('loading');
     setBookingSubmissionMessage('We are processing your booking');
 
+    // Prepare payload for Drivania API service creation
     const payload = {
       service_id: drivaniaQuotes?.service_id,
-      service_type: drivaniaServiceType,
-      preferred_vehicle: selectedDrivaniaVehicle,
-      tripDate: tripData?.tripDate,
-      pickup: locations[0],
-      dropoff: locations[locations.length - 1],
+      vehicle_id: selectedDrivaniaVehicle.vehicle_id,
       passenger_name: bookingPreviewFields.passengerName,
-      passenger_count: bookingPreviewFields.passengerCount,
-      child_seats: bookingPreviewFields.childSeats,
+      contact_email: bookingPreviewFields.contactEmail,
+      contact_phone: bookingPreviewFields.contactPhone,
+      notes: bookingPreviewFields.notes,
+      child_seats: bookingPreviewFields.childSeats || 0,
       flight_number: bookingPreviewFields.flightNumber,
       flight_direction: bookingPreviewFields.flightDirection,
-      pickup_time: bookingPreviewFields.pickupTime,
-      dropoff_time: bookingPreviewFields.dropoffTime,
-      vehicle_notes: bookingPreviewFields.notes,
-      client_email: bookingPreviewFields.contactEmail,
-      contact_phone: bookingPreviewFields.contactPhone,
-      trip_destination: tripDestination,
+      pickup_location: locations[0],
+      trip_id: tripId,
     };
 
-    console.log('📡 Sending booking request to info@drivania.com:', payload);
+    console.log('📡 [UI] Creating service with Drivania API. Request body:', JSON.stringify(payload, null, 2));
 
     if (processingTimer) {
       clearTimeout(processingTimer);
     }
 
     try {
-      // Send booking request to info@drivania.com
-      const emailResponse = await fetch('/api/send-booking-request', {
+      // Create service via Drivania API
+      const serviceResponse = await fetch('/api/drivania/create-service', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const emailResult = await emailResponse.json();
+      const serviceResult = await serviceResponse.json();
 
-      if (emailResult.success) {
+      if (serviceResult.success) {
+        console.log('✅ [UI] Service created successfully:', serviceResult);
+        
         // Update trip status to "booked" and assign driver to "drivania"
         try {
           const statusResponse = await fetch('/api/update-trip-status', {
@@ -1144,7 +1141,7 @@ export default function ResultsPage() {
           // Continue even if status update fails
         }
 
-        setBookingSubmissionMessage('Your booking request has been sent. We will contact you shortly.');
+        setBookingSubmissionMessage('Your booking has been created with Drivania successfully.');
         setMissingFields(new Set());
         const timer = setTimeout(() => {
           setBookingSubmissionState('success');
@@ -1153,12 +1150,12 @@ export default function ResultsPage() {
         setProcessingTimer(timer);
       } else {
         setBookingSubmissionState('idle');
-        setBookingSubmissionMessage(emailResult.error || 'Failed to send booking request');
+        setBookingSubmissionMessage(serviceResult.error || 'Failed to create service with Drivania');
       }
     } catch (err) {
       console.error('❌ Booking submission error', err);
       setBookingSubmissionState('idle');
-      setBookingSubmissionMessage('Failed to send booking request');
+      setBookingSubmissionMessage('Failed to create service with Drivania. Please try again.');
     }
   };
 
@@ -10645,7 +10642,7 @@ export default function ResultsPage() {
                   </div>
 
                   <Button
-                    onClick={handlePayNow}
+                    onClick={handleBookNow}
                     className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] transition-transform duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-lg"
                   >
                     Book Now
