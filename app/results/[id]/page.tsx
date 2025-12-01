@@ -789,7 +789,6 @@ export default function ResultsPage() {
   const [drivaniaQuotes, setDrivaniaQuotes] = useState<any>(null);
   const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
   const [drivaniaServiceType, setDrivaniaServiceType] = useState<'one-way' | 'hourly' | null>(null);
-  const [complexRouteDetails, setComplexRouteDetails] = useState<any>(null);
   const [showOtherVehicles, setShowOtherVehicles] = useState<boolean>(false);
   const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
   const [showBookingPreview, setShowBookingPreview] = useState<boolean>(false);
@@ -3944,15 +3943,9 @@ export default function ResultsPage() {
       return;
     }
 
-    // Check if there are drivers available for this destination
-    if (!loadingMatchingDrivers && matchingDrivers.length === 0 && driverDestinationForDrivers) {
-      return; // Silently return if no drivers available
-    }
-
     // Reset errors and state
     setDrivaniaError(null);
     setDrivaniaQuotes(null);
-    setComplexRouteDetails(null);
     setLoadingDrivaniaQuote(true);
 
     try {
@@ -4145,14 +4138,7 @@ export default function ResultsPage() {
         setDrivaniaQuotes(result.data);
         setDrivaniaServiceType(result.serviceType);
       } else {
-        // Check if it's a complex route validation error
-        if (result.error === 'COMPLEX_ROUTE' && result.details) {
-          setComplexRouteDetails(result.details);
-          setDrivaniaError(null); // Don't show as error, show as special message
-        } else {
-          setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
-          setComplexRouteDetails(null);
-        }
+        setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
       }
     } catch (err) {
       console.error('❌ Error requesting Drivania quote:', err);
@@ -9815,8 +9801,8 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* Drivania Quotes Section - Only show if there are drivers for this destination */}
-                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && matchingDrivers.length > 0 && (
+                {/* Drivania Quotes Section - Always show if quotes are available */}
+                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
                   <div className="mb-8">
 
                     {drivaniaError && (
@@ -9825,25 +9811,6 @@ export default function ResultsPage() {
                       </Alert>
                     )}
 
-                    {complexRouteDetails && (
-                      <Alert className="mb-4 border-orange-500/50 bg-orange-500/10">
-                        <AlertDescription>
-                          <div className="space-y-3">
-                            <div className="font-semibold text-orange-600 dark:text-orange-400">
-                              Complex route detected - manual quote required
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {complexRouteDetails.reason}
-                            </div>
-                            <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-orange-500/20">
-                              <div>Total route distance: {complexRouteDetails.totalRouteDistanceMiles} miles ({complexRouteDetails.totalRouteDistanceKm} km)</div>
-                              <div>Trip duration: {complexRouteDetails.durationHours} hours</div>
-                              <div>Average miles per hour: {complexRouteDetails.averageMilesPerHour}</div>
-                            </div>
-                          </div>
-                        </AlertDescription>
-                      </Alert>
-                    )}
 
                     {loadingDrivaniaQuote ? (
                       <div className="flex items-center justify-center py-8">
