@@ -23,16 +23,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        // Handle refresh token errors - clear session state
+        if (error.message?.includes('Refresh Token') || error.message?.includes('refresh_token')) {
+          console.warn('⚠️ Refresh token error detected, clearing session:', error.message);
+          setSession(null);
+          setUser(null);
+        } else {
+          console.error('❌ Session error:', error.message);
+          // For other errors, still clear session to be safe
+          setSession(null);
+          setUser(null);
+        }
+      } else {
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
+      setLoading(false);
+    }).catch((err) => {
+      // Fallback error handling for unexpected errors
+      console.error('❌ Unexpected session error:', err);
+      setSession(null);
+      setUser(null);
       setLoading(false);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Session will be null on errors (including refresh token errors)
+      // This is the correct behavior - Supabase automatically clears invalid sessions
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        // Token refresh failed - session is null
+        console.warn('⚠️ Token refresh failed, session cleared');
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -61,12 +87,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       return { error };
     } catch (error) {
+      // Handle network errors (e.g., "Failed to fetch")
+      if (error instanceof Error) {
+        // Check if it's a network error
+        if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+          const networkError: AuthError = {
+            message: 'Network error: Unable to connect to authentication server. Please check your internet connection and try again.',
+            name: 'AuthApiError',
+            status: 0,
+          } as AuthError;
+          return { error: networkError };
+        }
+      }
       return { error: error as AuthError };
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('❌ Sign out error:', error.message);
+        // Clear state even if signOut fails (e.g., invalid session)
+        // This ensures UI updates correctly
+        setSession(null);
+        setUser(null);
+      } else {
+        // Sign out successful - state will be cleared by onAuthStateChange
+        // But we can also clear it here for immediate UI update
+        setSession(null);
+        setUser(null);
+      }
+    } catch (err) {
+      // Fallback error handling for unexpected errors
+      console.error('❌ Unexpected sign out error:', err);
+      // Always clear state on error to ensure UI updates
+      setSession(null);
+      setUser(null);
+    }
   };
 
   const value = {

@@ -160,7 +160,7 @@ Extract:
 Return a JSON object with this exact structure:
 {
   "success": true,
-  "date": "YYYY-MM-DD ONLY if explicitly mentioned in text, otherwise null. CRITICAL: If no date is mentioned at all, return null. Do NOT invent or assume a date. If year is not mentioned but date is, use current year (${new Date().getFullYear()})",
+  "date": "YYYY-MM-DD ONLY if explicitly mentioned in text, otherwise null. CRITICAL: If no date is mentioned at all, return null. Do NOT invent or assume a date. If year is not mentioned but date is, use current year (${new Date().getFullYear()}). IMPORTANT: Only extract dates that are today or in the future. If the mentioned date is in the past, return null instead.",
   "leadPassengerName": "Main passenger name (e.g., 'Mr. Smith', 'John Doe') or null if not mentioned",
   "passengerCount": number,
   "tripDestination": "Main destination city only (e.g., 'London', 'New York', 'Paris')",
@@ -768,9 +768,31 @@ Rules for driver notes:
       }
     }
     
+    // Validate extracted date: must be today or later, otherwise set to null
+    let validatedDate = parsed.date || null;
+    if (validatedDate) {
+      try {
+        const extractedDate = new Date(validatedDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        extractedDate.setHours(0, 0, 0, 0);
+        
+        // Date must be today or later (date < today means invalid)
+        if (extractedDate < today) {
+          console.warn(`⚠️ [VALIDATION] Extracted date ${validatedDate} is in the past. Setting to null (user must select date manually).`);
+          validatedDate = null;
+        } else {
+          console.log(`✅ [VALIDATION] Extracted date ${validatedDate} is valid (today or later)`);
+        }
+      } catch (error) {
+        console.error(`❌ [VALIDATION] Invalid date format: ${validatedDate}`, error);
+        validatedDate = null;
+      }
+    }
+    
     const response = {
       success: true,
-      date: parsed.date || null,
+      date: validatedDate,
       leadPassengerName: parsed.leadPassengerName || null,
       passengerCount: parsed.passengerCount || 1,
       tripDestination: parsed.tripDestination || null,

@@ -41,13 +41,31 @@ export default function LoginPage() {
       const { error: signInError } = await signIn(email, password);
 
       if (signInError) {
-        setError(signInError.message);
+        // Provide user-friendly error messages
+        let errorMessage = signInError.message;
+        
+        // Handle specific error cases
+        if (errorMessage.includes('Network error') || errorMessage.includes('Failed to fetch')) {
+          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+        } else if (errorMessage.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please try again.';
+        } else if (errorMessage.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email address before logging in.';
+        }
+        
+        setError(errorMessage);
       } else {
         // Redirect to home after successful login
         router.push('/');
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      // Fallback for unexpected errors
+      const errorMessage = err instanceof Error 
+        ? (err.message.includes('fetch') 
+            ? 'Network error: Unable to connect to the server. Please check your internet connection.'
+            : err.message)
+        : 'An unexpected error occurred. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
