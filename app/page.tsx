@@ -1069,7 +1069,7 @@ export default function Home() {
     const futureDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     setStartDate(formatDateLocal(today));
     setEndDate(formatDateLocal(futureDate));
-    setTripDate(today);
+    // No default trip date - user must explicitly select a date (tomorrow or later)
 
     // Restore extracted data from session storage
     if (typeof window !== 'undefined') {
@@ -1481,8 +1481,12 @@ export default function Home() {
       purpose: loc.purpose // Store purpose in location object for database
     }));
 
-    // Set the trip date from extracted data or use today
-    const tripDateToUse = extractedDate ? new Date(extractedDate) : new Date();
+    // Set the trip date from extracted data - must be provided (validation should prevent this from being null)
+    if (!extractedDate) {
+      setExtractionError('Please select a trip date to continue. Date must be today or later.');
+      return;
+    }
+    const tripDateToUse = new Date(extractedDate);
 
     console.log('\n🚀 Starting analysis for EXTRACTED trip data...');
     console.log(`📍 ${mappedLocations.length} locations mapped from extraction`);
@@ -1519,7 +1523,12 @@ export default function Home() {
       return;
     }
 
-    const tripDateToUse = tripDate || new Date();
+    // Trip date must be selected (validation should prevent this from being undefined)
+    if (!tripDate) {
+      setError('Please select a trip date to continue. Date must be today or later.');
+      return;
+    }
+    const tripDateToUse = tripDate;
 
     console.log('\n🚀 Starting analysis for MANUAL trip data...');
     console.log(`📍 ${validLocations.length} locations from manual form`);
@@ -3081,6 +3090,7 @@ export default function Home() {
                           disabled={(date) => {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
+                            // Disable past dates - allow today or later
                             return date < today;
                           }}
                           defaultMonth={new Date()}
@@ -3414,6 +3424,7 @@ export default function Home() {
                           disabled={(date) => {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
+                            // Disable past dates - allow today or later
                             return date < today;
                           }}
                           defaultMonth={new Date()}

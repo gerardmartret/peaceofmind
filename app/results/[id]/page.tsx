@@ -5177,25 +5177,23 @@ export default function ResultsPage() {
         }
       }
 
-      // POST-PROCESSING: Validate date makes sense (not email send date)
-      if (extractedData.date && tripData) {
-        const extractedDate = new Date(extractedData.date);
-        const currentTripDate = new Date(tripData.tripDate);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      // POST-PROCESSING: Validate date - must be today or later
+      if (extractedData.date) {
+        try {
+          const extractedDate = new Date(extractedData.date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          extractedDate.setHours(0, 0, 0, 0);
 
-        // If extracted date is before current trip date, likely email metadata
-        if (extractedDate < currentTripDate) {
-          console.warn(`⚠️ [VALIDATION] Extracted date ${extractedData.date} is BEFORE trip date ${tripData.tripDate}`);
-          console.warn(`   This is likely email send date (metadata), not a trip date change. Ignoring.`);
-          extractedData.date = null;
-        }
-
-        // If extracted date matches today, might be email send date
-        const extractedDateOnly = extractedData.date;
-        const todayStr = today.toISOString().split('T')[0];
-        if (extractedDateOnly === todayStr && !updateText.toLowerCase().includes('today')) {
-          console.warn(`⚠️ [VALIDATION] Extracted date matches today but update doesn't say "today". Likely email metadata. Ignoring.`);
+          // Date must be today or later (date < today means invalid)
+          if (extractedDate < today) {
+            console.warn(`⚠️ [VALIDATION] Extracted date ${extractedData.date} is in the past. Setting to null (date must be today or later).`);
+            extractedData.date = null;
+          } else {
+            console.log(`✅ [VALIDATION] Extracted date ${extractedData.date} is valid (today or later)`);
+          }
+        } catch (error) {
+          console.error(`❌ [VALIDATION] Invalid date format: ${extractedData.date}`, error);
           extractedData.date = null;
         }
       }
@@ -10925,6 +10923,7 @@ export default function ResultsPage() {
                         disabled={(date) => {
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
+                          // Disable past dates - allow today or later
                           return date < today;
                         }}
                         defaultMonth={editingTripDate || new Date()}
