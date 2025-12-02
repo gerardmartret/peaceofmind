@@ -1,7 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-const ADMIN_EMAIL = 'gerard@drivania.com';
+/**
+ * Get admin email from environment variable
+ * 
+ * Uses NEXT_PUBLIC_ADMIN_EMAIL for both server and client.
+ * Note: Admin email being public is acceptable since real security is enforced
+ * server-side via requireAdmin() in API routes. Client-side checks are for UX only.
+ * 
+ * For enhanced security, you can set ADMIN_EMAIL (server-only) and NEXT_PUBLIC_ADMIN_EMAIL
+ * separately, but both should match for consistency.
+ */
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'gerard@drivania.com';
+
+// Warn in production if admin email is not set
+if (!process.env.NEXT_PUBLIC_ADMIN_EMAIL && !process.env.ADMIN_EMAIL && process.env.NODE_ENV === 'production') {
+  console.error('⚠️ NEXT_PUBLIC_ADMIN_EMAIL or ADMIN_EMAIL environment variable is not set! Admin access will not work correctly.');
+}
 
 /**
  * Check if the current authenticated user is an admin (for API routes)
@@ -13,7 +28,9 @@ export async function isAdmin(request: Request): Promise<boolean> {
     const authHeader = request.headers.get('authorization');
     
     if (!authHeader) {
-      console.log('❌ No authorization header found');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ No authorization header found');
+      }
       return false;
     }
 
@@ -21,11 +38,15 @@ export async function isAdmin(request: Request): Promise<boolean> {
     const token = authHeader.replace('Bearer ', '');
     
     if (!token) {
-      console.log('❌ No token in authorization header');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ No token in authorization header');
+      }
       return false;
     }
 
-    console.log('🔑 Token received, length:', token.length);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔑 Token received, length:', token.length);
+    }
 
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,20 +56,28 @@ export async function isAdmin(request: Request): Promise<boolean> {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     
     if (error) {
-      console.log('❌ Error getting user:', error.message);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ Error getting user:', error.message);
+      }
       return false;
     }
     
     if (!user) {
-      console.log('❌ No user found');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ No user found');
+      }
       return false;
     }
     
-    console.log('✅ User authenticated:', user.email);
-    console.log('🔐 Is admin?', user.email === ADMIN_EMAIL);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ User authenticated:', user.email);
+      console.log('🔐 Is admin?', user.email === ADMIN_EMAIL);
+    }
     return user.email === ADMIN_EMAIL;
   } catch (error) {
-    console.error('❌ Error checking admin status:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error checking admin status:', error);
+    }
     return false;
   }
 }

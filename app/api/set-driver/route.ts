@@ -40,7 +40,9 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedEmail = driverEmail.trim().toLowerCase();
-    console.log(`🚗 Setting driver for trip ${tripId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🚗 Setting driver for trip ${tripId}`);
+    }
 
     // Get authorization header
     const authHeader = request.headers.get('authorization');
@@ -59,7 +61,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (tripError || !trip) {
-      console.error('❌ Trip not found:', tripError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Trip not found:', tripError);
+      }
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
@@ -86,7 +90,9 @@ export async function POST(request: NextRequest) {
 
     // Check if trip is cancelled (terminal status)
     if (trip.status === 'cancelled') {
-      console.log(`⚠️ Cannot assign driver to cancelled trip ${tripId}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⚠️ Cannot assign driver to cancelled trip ${tripId}`);
+      }
       return NextResponse.json(
         { success: false, error: 'This trip has been cancelled. Please create a new trip instead.' },
         { status: 400 }
@@ -95,7 +101,9 @@ export async function POST(request: NextRequest) {
 
     // Check if trip is confirmed and has a driver
     if (trip.status === 'confirmed' && trip.driver) {
-      console.log(`⚠️ Cannot change driver for confirmed trip ${tripId}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⚠️ Cannot change driver for confirmed trip ${tripId}`);
+      }
       return NextResponse.json(
         { success: false, error: 'Change status to not confirmed first' },
         { status: 400 }
@@ -107,8 +115,10 @@ export async function POST(request: NextRequest) {
     const previousDriverEmail = currentDriver && currentDriver !== normalizedEmail ? currentDriver : null;
     
     if (previousDriverEmail) {
-      console.log(`🔄 Driver being changed for trip ${tripId}`);
-      console.log(`🗑️ Invalidating tokens for previous driver: ${previousDriverEmail}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔄 Driver being changed for trip ${tripId}`);
+        console.log(`🗑️ Invalidating tokens for previous driver: ${previousDriverEmail}`);
+      }
       
       // Invalidate old driver tokens
       const { error: invalidateError } = await supabase
@@ -123,15 +133,21 @@ export async function POST(request: NextRequest) {
         .is('invalidated_at', null);
       
       if (invalidateError) {
-        console.error('⚠️ Failed to invalidate old driver tokens:', invalidateError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('⚠️ Failed to invalidate old driver tokens:', invalidateError);
+        }
         // Don't fail the request, just log the error
       } else {
-        console.log(`✅ Previous driver tokens invalidated`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ Previous driver tokens invalidated`);
+        }
       }
       
       // Send unassignment email to previous driver if trip status is pending (driver hasn't accepted yet)
       if (trip.status === 'pending') {
-        console.log(`📧 Sending unassignment notification to previous driver: ${previousDriverEmail}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`📧 Sending unassignment notification to previous driver: ${previousDriverEmail}`);
+        }
         fetch(`${request.url.split('/api')[0]}/api/notify-driver-unassignment`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -144,17 +160,23 @@ export async function POST(request: NextRequest) {
           })
         }).then(res => res.json())
           .then(result => {
-            if (result.success) {
-              console.log('✅ Driver unassignment notification sent');
-            } else {
-              console.log('⚠️ Failed to send unassignment notification:', result.error);
+            if (process.env.NODE_ENV === 'development') {
+              if (result.success) {
+                console.log('✅ Driver unassignment notification sent');
+              } else {
+                console.log('⚠️ Failed to send unassignment notification:', result.error);
+              }
             }
           })
           .catch(err => {
-            console.log('⚠️ Unassignment notification will be sent in background:', err.message);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('⚠️ Unassignment notification will be sent in background:', err.message);
+            }
           });
       } else {
-        console.log(`ℹ️ Trip status is ${trip.status}, skipping unassignment email (driver may have already accepted/rejected)`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`ℹ️ Trip status is ${trip.status}, skipping unassignment email (driver may have already accepted/rejected)`);
+        }
       }
     }
 
@@ -170,14 +192,18 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (updateError || !updatedTrip) {
-      console.error('❌ Error updating driver:', updateError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error updating driver:', updateError);
+      }
       return NextResponse.json(
         { success: false, error: 'Failed to set driver' },
         { status: 500 }
       );
     }
 
-    console.log(`✅ Driver set successfully for trip ${tripId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Driver set successfully for trip ${tripId}`);
+    }
     
     // Send notification email to driver (non-blocking - don't wait)
     fetch(`${request.url.split('/api')[0]}/api/notify-driver-assignment`, {
@@ -192,14 +218,18 @@ export async function POST(request: NextRequest) {
       })
     }).then(res => res.json())
       .then(result => {
-        if (result.success) {
-          console.log('✅ Driver assignment notification sent');
-        } else {
-          console.log('⚠️ Failed to send driver notification:', result.error);
+        if (process.env.NODE_ENV === 'development') {
+          if (result.success) {
+            console.log('✅ Driver assignment notification sent');
+          } else {
+            console.log('⚠️ Failed to send driver notification:', result.error);
+          }
         }
       })
       .catch(err => {
-        console.log('⚠️ Driver notification will be sent in background:', err.message);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('⚠️ Driver notification will be sent in background:', err.message);
+        }
       });
     
     return NextResponse.json({ 
@@ -208,7 +238,9 @@ export async function POST(request: NextRequest) {
       driver: normalizedEmail
     });
   } catch (error) {
-    console.error('❌ Error in set-driver API:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error in set-driver API:', error);
+    }
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

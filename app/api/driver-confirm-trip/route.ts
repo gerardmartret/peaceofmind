@@ -5,7 +5,9 @@ export async function POST(request: NextRequest) {
   try {
     const { tripId, driverEmail, token } = await request.json();
 
-    console.log('🔄 Driver confirmation request for trip:', tripId, '- Token auth:', !!token);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 Driver confirmation request for trip:', tripId, '- Token auth:', !!token);
+    }
 
     if (!tripId || (!driverEmail && !token)) {
       return NextResponse.json(
@@ -27,7 +29,9 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (tokenError || !validToken) {
-        console.error('❌ Invalid token:', tokenError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Invalid token:', tokenError);
+        }
         return NextResponse.json(
           { success: false, error: 'Invalid or expired link' },
           { status: 404 }
@@ -61,7 +65,9 @@ export async function POST(request: NextRequest) {
 
       normalizedDriverEmail = validToken.driver_email.toLowerCase().trim();
       tokenData = validToken;
-      console.log('✅ Token validated successfully');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Token validated successfully');
+      }
     } else {
       // Old flow: email-based confirmation
       normalizedDriverEmail = driverEmail!.toLowerCase().trim();
@@ -75,7 +81,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (fetchError || !trip) {
-      console.error('❌ Trip not found:', fetchError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Trip not found:', fetchError);
+      }
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
@@ -86,7 +94,9 @@ export async function POST(request: NextRequest) {
     const assignedDriver = trip.driver?.toLowerCase().trim();
 
     if (!assignedDriver || assignedDriver !== normalizedDriverEmail) {
-      console.error('❌ Driver email mismatch detected');
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Driver email mismatch detected');
+      }
       return NextResponse.json(
         { success: false, error: 'You are not the assigned driver for this trip' },
         { status: 403 }
@@ -95,7 +105,9 @@ export async function POST(request: NextRequest) {
 
     // Verify trip is in pending status
     if (trip.status !== 'pending') {
-      console.error('❌ Trip is not in pending status:', trip.status);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Trip is not in pending status:', trip.status);
+      }
       return NextResponse.json(
         { success: false, error: `Trip status is "${trip.status}", not "pending"` },
         { status: 400 }
@@ -109,7 +121,9 @@ export async function POST(request: NextRequest) {
       .eq('id', tripId);
 
     if (updateError) {
-      console.error('❌ Failed to update trip status:', updateError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to update trip status:', updateError);
+      }
       return NextResponse.json(
         { success: false, error: 'Failed to confirm trip' },
         { status: 500 }
@@ -125,10 +139,14 @@ export async function POST(request: NextRequest) {
           used_at: new Date().toISOString()
         })
         .eq('id', tokenData.id);
-      console.log('✅ Token marked as used');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Token marked as used');
+      }
     }
 
-    console.log('✅ Trip confirmed by driver:', tripId);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Trip confirmed by driver:', tripId);
+    }
 
     // Send confirmation email to driver
     try {
@@ -221,7 +239,9 @@ export async function POST(request: NextRequest) {
           `,
         });
 
-        console.log('✅ Confirmation email sent successfully');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Confirmation email sent successfully');
+        }
 
         // Also send notification to trip owner
         if (trip.user_email) {
@@ -295,11 +315,15 @@ export async function POST(request: NextRequest) {
             `,
           });
 
-          console.log('✅ Confirmation notification sent to trip owner');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ Confirmation notification sent to trip owner');
+          }
         }
       }
     } catch (emailError) {
-      console.error('❌ Failed to send confirmation email:', emailError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to send confirmation email:', emailError);
+      }
       // Don't fail the operation if email fails
     }
 
@@ -309,7 +333,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error in driver-confirm-trip API:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error in driver-confirm-trip API:', error);
+    }
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

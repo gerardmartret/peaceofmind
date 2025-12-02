@@ -13,7 +13,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🔐 Verifying password for trip: ${tripId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔐 Verifying password for trip: ${tripId}`);
+    }
 
     // Fetch the trip from the database
     const { data: trip, error: fetchError } = await supabase
@@ -23,7 +25,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (fetchError || !trip) {
-      console.error('❌ Error fetching trip:', fetchError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error fetching trip:', fetchError);
+      }
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
@@ -32,23 +36,31 @@ export async function POST(request: NextRequest) {
 
     // Check if the trip has a password
     if (!trip.password) {
-      console.log('✅ Trip is not password protected');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Trip is not password protected');
+      }
       return NextResponse.json({ success: true });
     }
 
     // Verify the password
     if (trip.password === password) {
-      console.log('✅ Password verified successfully');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Password verified successfully');
+      }
       return NextResponse.json({ success: true });
     } else {
-      console.log('❌ Incorrect password');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ Incorrect password');
+      }
       return NextResponse.json(
         { success: false, error: 'Incorrect password' },
         { status: 401 }
       );
     }
   } catch (error) {
-    console.error('❌ Error in verify-password API:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error in verify-password API:', error);
+    }
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

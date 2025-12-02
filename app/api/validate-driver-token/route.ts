@@ -5,7 +5,9 @@ export async function POST(request: NextRequest) {
   try {
     const { token, tripId } = await request.json();
 
-    console.log('🔍 Validating driver token for trip:', tripId);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Validating driver token for trip:', tripId);
+    }
 
     if (!token || !tripId) {
       return NextResponse.json(
@@ -23,7 +25,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (tokenError || !tokenData) {
-      console.error('❌ Token not found:', tokenError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Token not found:', tokenError);
+      }
       return NextResponse.json(
         { success: false, error: 'Invalid or expired link' },
         { status: 404 }
@@ -32,13 +36,15 @@ export async function POST(request: NextRequest) {
 
     // Check if token has been used (allow viewing but flag as used)
     const tokenAlreadyUsed = tokenData.used === true;
-    if (tokenAlreadyUsed) {
+    if (tokenAlreadyUsed && process.env.NODE_ENV === 'development') {
       console.log('ℹ️ Token already used - allowing view but disabling actions');
     }
 
     // Check if token has been invalidated
     if (tokenData.invalidated_at) {
-      console.log('⚠️ Token invalidated - reason:', tokenData.invalidation_reason);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('⚠️ Token invalidated - reason:', tokenData.invalidation_reason);
+      }
       return NextResponse.json(
         { 
           success: false, 
@@ -55,7 +61,9 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     
     if (now > expiresAt) {
-      console.log('⚠️ Token expired');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('⚠️ Token expired');
+      }
       return NextResponse.json(
         { success: false, error: 'This link has expired (valid for 3 days)' },
         { status: 400 }

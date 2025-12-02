@@ -22,23 +22,29 @@ export async function GET(request: Request) {
       lng = parseFloat(customLng);
       locationName = 'Custom Location';
       
-      console.log(`\n🔍 Fetching UK Police data for custom location`);
-      console.log('='.repeat(60));
-      console.log(`📍 Location: Custom`);
-      console.log(`📌 Coordinates: ${lat}, ${lng}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`\n🔍 Fetching UK Police data for custom location`);
+        console.log('='.repeat(60));
+        console.log(`📍 Location: Custom`);
+        console.log(`📌 Coordinates: ${lat}, ${lng}`);
+      }
     } else {
       // Use predefined district
-      console.log(`\n🔍 Fetching UK Police data for London district: ${districtParam}`);
-      console.log('='.repeat(60));
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`\n🔍 Fetching UK Police data for London district: ${districtParam}`);
+        console.log('='.repeat(60));
+      }
 
       const districtKey = districtParam as keyof typeof LONDON_DISTRICTS;
       const district = LONDON_DISTRICTS[districtKey];
 
       if (!district) {
         const availableDistricts = Object.values(LONDON_DISTRICTS).map(d => d.name).join(', ');
-        console.log(`❌ District not found: ${districtParam}`);
-        console.log(`Available districts: ${availableDistricts}`);
-        console.log('='.repeat(60) + '\n');
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`❌ District not found: ${districtParam}`);
+          console.log(`Available districts: ${availableDistricts}`);
+          console.log('='.repeat(60) + '\n');
+        }
 
         return NextResponse.json({
           success: false,
@@ -50,10 +56,12 @@ export async function GET(request: Request) {
       lng = district.lng;
       locationName = district.name;
       
-      console.log(`📍 District: ${district.name}, London`);
-      console.log(`📌 Coordinates: ${lat}, ${lng}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📍 District: ${district.name}, London`);
+        console.log(`📌 Coordinates: ${lat}, ${lng}`);
+      }
     }
-    if (date) {
+    if (date && process.env.NODE_ENV === 'development') {
       console.log(`📅 Date: ${date}`);
     }
 

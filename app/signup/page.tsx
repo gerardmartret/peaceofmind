@@ -129,7 +129,7 @@ export default function SignUpPage() {
             {success && (
               <Alert className="bg-green-500/10 border-green-500/30">
                 <AlertDescription className="text-green-500">
-                  Account created successfully! Redirecting...
+                  Account created. Confirm your email to continue.
                 </AlertDescription>
               </Alert>
             )}

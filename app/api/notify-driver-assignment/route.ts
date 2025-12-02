@@ -5,7 +5,9 @@ export async function POST(request: NextRequest) {
   try {
     const { tripId, driverEmail, tripDate, leadPassengerName, tripDestination } = await request.json();
 
-    console.log('📧 Notifying driver of assignment for trip:', tripId);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📧 Notifying driver of assignment for trip:', tripId);
+    }
 
     if (!tripId || !driverEmail) {
       return NextResponse.json(
@@ -26,7 +28,9 @@ export async function POST(request: NextRequest) {
       .eq('used', false);
 
     if (checkError) {
-      console.error('❌ Error checking for existing tokens:', checkError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error checking for existing tokens:', checkError);
+      }
       // Continue with token creation if check fails
     }
 
@@ -41,12 +45,16 @@ export async function POST(request: NextRequest) {
       });
 
       if (validToken) {
-        console.log(`✅ Reusing existing valid token for driver ${normalizedEmail}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ Reusing existing valid token for driver ${normalizedEmail}`);
+        }
         token = validToken.token;
         expiresAt = new Date(validToken.expires_at);
       } else {
         // All existing tokens are expired, invalidate them and create new one
-        console.log(`⚠️ Existing tokens expired, invalidating and creating new token`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`⚠️ Existing tokens expired, invalidating and creating new token`);
+        }
         await supabase
           .from('driver_tokens')
           .update({
@@ -71,14 +79,18 @@ export async function POST(request: NextRequest) {
           });
 
         if (tokenError) {
-          console.error('❌ Failed to create driver token:', tokenError);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Failed to create driver token:', tokenError);
+          }
           return NextResponse.json(
             { success: false, error: 'Failed to create authentication token' },
             { status: 500 }
           );
         }
 
-        console.log(`✅ New driver token created, expires at: ${expiresAt.toISOString()}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`✅ New driver token created, expires at: ${expiresAt.toISOString()}`);
+        }
       }
     } else {
       // No existing tokens, create new one
@@ -96,14 +108,18 @@ export async function POST(request: NextRequest) {
       });
 
     if (tokenError) {
-      console.error('❌ Failed to create driver token:', tokenError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to create driver token:', tokenError);
+      }
       return NextResponse.json(
         { success: false, error: 'Failed to create authentication token' },
         { status: 500 }
       );
     }
 
-    console.log(`✅ Driver token created, expires at: ${expiresAt.toISOString()}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Driver token created, expires at: ${expiresAt.toISOString()}`);
+    }
     }
 
     // Build magic link
@@ -118,7 +134,9 @@ export async function POST(request: NextRequest) {
       const resendApiKey = process.env.RESEND_API_KEY;
 
       if (!resendApiKey) {
-        console.warn('⚠️ RESEND_API_KEY not configured, skipping email');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ RESEND_API_KEY not configured, skipping email');
+        }
         return NextResponse.json({
           success: true,
           message: 'Token created but email not sent (RESEND_API_KEY not configured)',
@@ -214,7 +232,9 @@ export async function POST(request: NextRequest) {
         `,
       });
 
-      console.log('✅ Driver assignment email sent successfully');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Driver assignment email sent successfully');
+      }
 
       return NextResponse.json({
         success: true,
@@ -222,7 +242,9 @@ export async function POST(request: NextRequest) {
       });
 
     } catch (emailError) {
-      console.error('❌ Failed to send driver assignment email:', emailError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to send driver assignment email:', emailError);
+      }
       return NextResponse.json(
         { success: false, error: 'Failed to send notification email' },
         { status: 500 }
@@ -230,7 +252,9 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('❌ Error in notify-driver-assignment API:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error in notify-driver-assignment API:', error);
+    }
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

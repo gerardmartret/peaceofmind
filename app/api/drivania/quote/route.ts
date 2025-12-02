@@ -11,7 +11,9 @@ async function calculateRouteDistance(
   locations: Array<{ lat: number; lng: number; name: string }>
 ): Promise<{ totalDistanceKm: number; totalDurationMinutes: number } | null> {
   if (!GOOGLE_MAPS_API_KEY) {
-    console.warn('⚠️ Google Maps API key not available for route calculation');
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️ Google Maps API key not available for route calculation');
+    }
     return null;
   }
 
@@ -37,7 +39,9 @@ async function calculateRouteDistance(
     url.searchParams.append('key', GOOGLE_MAPS_API_KEY);
     url.searchParams.append('departure_time', Math.floor(Date.now() / 1000).toString()); // Current time
 
-    console.log('🗺️ Calculating route distance via Google Maps Directions API...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🗺️ Calculating route distance via Google Maps Directions API...');
+    }
 
     const response = await fetch(url.toString());
     const data = await response.json();
@@ -56,18 +60,24 @@ async function calculateRouteDistance(
       const totalDistanceKm = totalDistanceMeters / 1000;
       const totalDurationMinutes = Math.round(totalDurationSeconds / 60);
 
-      console.log(`✅ Route calculated: ${totalDistanceKm.toFixed(2)} km, ${totalDurationMinutes} min`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✅ Route calculated: ${totalDistanceKm.toFixed(2)} km, ${totalDurationMinutes} min`);
+      }
 
       return {
         totalDistanceKm,
         totalDurationMinutes,
       };
     } else {
-      console.error(`❌ Google Directions API error: ${data.status}`, data.error_message);
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`❌ Google Directions API error: ${data.status}`, data.error_message);
+      }
       return null;
     }
   } catch (error) {
-    console.error('❌ Error calculating route distance:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error calculating route distance:', error);
+    }
     return null;
   }
 }
@@ -199,7 +209,9 @@ export async function POST(request: NextRequest) {
     let intermediateStopsInfo: string = '';
 
     if (finalServiceType === 'hourly' && locations.length > 2) {
-      console.log('🔄 Calculating route distance and duration including intermediate stops...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Calculating route distance and duration including intermediate stops...');
+      }
       
       try {
         // Prepare locations for route calculation
@@ -228,10 +240,14 @@ export async function POST(request: NextRequest) {
             intermediateStops: intermediateStops.length,
           });
         } else {
-          console.warn('⚠️ Route calculation returned null - validation will be skipped');
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ Route calculation returned null - validation will be skipped');
+          }
         }
       } catch (error) {
-        console.error('⚠️ Error calculating route with intermediate stops:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('⚠️ Error calculating route with intermediate stops:', error);
+        }
         // Continue without route calculation - Drivania will calculate based on pickup/dropoff
       }
     }
@@ -259,22 +275,23 @@ export async function POST(request: NextRequest) {
     };
 
     // Log coordinate precision for debugging
-    console.log('🔍 Coordinate precision check:', {
-      pickup: {
-        lat: quoteRequest.pickup.latitude,
-        lng: quoteRequest.pickup.longitude,
-        latPrecision: quoteRequest.pickup.latitude.toString().split('.')[1]?.length || 0,
-        lngPrecision: quoteRequest.pickup.longitude.toString().split('.')[1]?.length || 0,
-      },
-      dropoff: {
-        lat: quoteRequest.dropoff.latitude,
-        lng: quoteRequest.dropoff.longitude,
-        latPrecision: quoteRequest.dropoff.latitude.toString().split('.')[1]?.length || 0,
-        lngPrecision: quoteRequest.dropoff.longitude.toString().split('.')[1]?.length || 0,
-      },
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Coordinate precision check:', {
+        pickup: {
+          lat: quoteRequest.pickup.latitude,
+          lng: quoteRequest.pickup.longitude,
+          latPrecision: quoteRequest.pickup.latitude.toString().split('.')[1]?.length || 0,
+          lngPrecision: quoteRequest.pickup.longitude.toString().split('.')[1]?.length || 0,
+        },
+        dropoff: {
+          lat: quoteRequest.dropoff.latitude,
+          lng: quoteRequest.dropoff.longitude,
+          latPrecision: quoteRequest.dropoff.latitude.toString().split('.')[1]?.length || 0,
+          lngPrecision: quoteRequest.dropoff.longitude.toString().split('.')[1]?.length || 0,
+        },
+      });
 
-    console.log('📋 Requesting Drivania quote with full details:', {
+      console.log('📋 Requesting Drivania quote with full details:', {
       serviceType: finalServiceType,
       pickup: {
         name: quoteRequest.pickup.name,
@@ -296,10 +313,11 @@ export async function POST(request: NextRequest) {
       intermediateStops: locations.length > 2 ? locations.length - 2 : 0,
       timestamp: new Date().toISOString(),
       fullRequest: quoteRequest,
-    });
+      });
+    }
 
     // Log intermediate stops information
-    if (intermediateStopsInfo) {
+    if (intermediateStopsInfo && process.env.NODE_ENV === 'development') {
       console.log('📍 Intermediate stops info:', intermediateStopsInfo.trim());
       console.log(`📏 Total route distance (including intermediate stops): ${totalRouteDistance} km`);
       console.log(`⏱️ Total route duration (including intermediate stops): ${totalRouteDuration} min`);
@@ -309,26 +327,28 @@ export async function POST(request: NextRequest) {
     // Call Drivania API
     const quoteResponse = await requestQuote(quoteRequest);
 
-    console.log('✅ Drivania quote received:', {
-      serviceId: quoteResponse.service_id,
-      vehicleCount: quoteResponse.quotes?.vehicles?.length || 0,
-      currency: quoteResponse.currency_code,
-      distance: quoteResponse.distance,
-      driveTime: quoteResponse.drive_time,
-      createdAt: quoteResponse.created_at,
-      expiration: quoteResponse.expiration,
-      timestamp: new Date().toISOString(),
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Drivania quote received:', {
+        serviceId: quoteResponse.service_id,
+        vehicleCount: quoteResponse.quotes?.vehicles?.length || 0,
+        currency: quoteResponse.currency_code,
+        distance: quoteResponse.distance,
+        driveTime: quoteResponse.drive_time,
+        createdAt: quoteResponse.created_at,
+        expiration: quoteResponse.expiration,
+        timestamp: new Date().toISOString(),
+      });
 
-    // Log a hash of the request to help identify if same request is being sent
-    const requestHash = JSON.stringify({
-      pickup: `${quoteRequest.pickup.latitude.toFixed(6)},${quoteRequest.pickup.longitude.toFixed(6)}`,
-      dropoff: `${quoteRequest.dropoff.latitude.toFixed(6)},${quoteRequest.dropoff.longitude.toFixed(6)}`,
-      datetime: quoteRequest.pickup.datetime,
-      serviceType: quoteRequest.service_type,
-      passengers: quoteRequest.passengers_number,
-    });
-    console.log('🔑 Request hash (for cache detection):', requestHash.substring(0, 100) + '...');
+      // Log a hash of the request to help identify if same request is being sent
+      const requestHash = JSON.stringify({
+        pickup: `${quoteRequest.pickup.latitude.toFixed(6)},${quoteRequest.pickup.longitude.toFixed(6)}`,
+        dropoff: `${quoteRequest.dropoff.latitude.toFixed(6)},${quoteRequest.dropoff.longitude.toFixed(6)}`,
+        datetime: quoteRequest.pickup.datetime,
+        serviceType: quoteRequest.service_type,
+        passengers: quoteRequest.passengers_number,
+      });
+      console.log('🔑 Request hash (for cache detection):', requestHash.substring(0, 100) + '...');
+    }
 
     return NextResponse.json({
       success: true,
@@ -336,7 +356,9 @@ export async function POST(request: NextRequest) {
       serviceType: finalServiceType,
     });
   } catch (error) {
-    console.error('❌ Error requesting Drivania quote:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error requesting Drivania quote:', error);
+    }
     
     const errorMessage = error instanceof Error 
       ? error.message 

@@ -5,7 +5,9 @@ export async function POST(request: NextRequest) {
   try {
     const { tripId, token } = await request.json();
 
-    console.log('🔄 Driver rejection request for trip:', tripId);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 Driver rejection request for trip:', tripId);
+    }
 
     if (!tripId || !token) {
       return NextResponse.json(
@@ -23,7 +25,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (tokenError || !tokenData) {
-      console.error('❌ Invalid token:', tokenError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Invalid token:', tokenError);
+      }
       return NextResponse.json(
         { success: false, error: 'Invalid or expired link' },
         { status: 404 }
@@ -63,7 +67,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (tripError || !trip) {
-      console.error('❌ Trip not found:', tripError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Trip not found:', tripError);
+      }
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
@@ -97,7 +103,9 @@ export async function POST(request: NextRequest) {
       .eq('id', tripId);
 
     if (updateError) {
-      console.error('❌ Failed to update trip status:', updateError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to update trip status:', updateError);
+      }
       return NextResponse.json(
         { success: false, error: 'Failed to reject trip' },
         { status: 500 }
@@ -113,7 +121,9 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', tokenData.id);
 
-    console.log('✅ Trip rejected by driver successfully');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Trip rejected by driver successfully');
+    }
 
     // Send notification email to trip owner
     try {
@@ -204,10 +214,14 @@ export async function POST(request: NextRequest) {
           `,
         });
 
-        console.log('✅ Rejection notification email sent to trip owner');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Rejection notification email sent to trip owner');
+        }
       }
     } catch (emailError) {
-      console.error('❌ Failed to send rejection notification email:', emailError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Failed to send rejection notification email:', emailError);
+      }
       // Don't fail the operation if email fails
     }
 
@@ -217,7 +231,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Error in driver-reject-trip API:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error in driver-reject-trip API:', error);
+    }
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

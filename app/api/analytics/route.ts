@@ -277,7 +277,9 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Analytics error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Analytics error:', error);
+    }
     
     return NextResponse.json(
       {

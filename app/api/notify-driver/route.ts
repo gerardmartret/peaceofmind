@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📧 Notifying driver for trip: ${tripId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📧 Notifying driver for trip: ${tripId}`);
+    }
 
     // Fetch trip details including version and latest_changes
     const { data: trip, error: tripError } = await supabase
@@ -43,15 +45,19 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (tripError || !trip) {
-      console.error('❌ Trip not found:', tripError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Trip not found:', tripError);
+      }
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
       );
     }
 
-    console.log(`📦 Trip version: ${trip.version || 1}`);
-    console.log(`📝 Latest changes:`, (trip as any).latest_changes ? 'Yes' : 'No');
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📦 Trip version: ${trip.version || 1}`);
+      console.log(`📝 Latest changes:`, (trip as any).latest_changes ? 'Yes' : 'No');
+    }
 
     // Verify user is the trip owner
     if (trip.user_id !== user.id) {
@@ -72,7 +78,9 @@ export async function POST(request: NextRequest) {
     // Initialize Resend
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {
-      console.error('❌ RESEND_API_KEY not configured');
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ RESEND_API_KEY not configured');
+      }
       return NextResponse.json(
         { success: false, error: 'Email service not configured' },
         { status: 500 }
@@ -299,18 +307,21 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('❌ Error sending notification email:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error sending notification email:', error);
+      }
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Failed to send notification email',
-          details: error.message 
+          error: 'Failed to send notification email'
         },
         { status: 500 }
       );
     }
 
-    console.log(`✅ Notification sent to ${trip.driver} for trip ${tripId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Notification sent to ${trip.driver} for trip ${tripId}`);
+    }
     
     return NextResponse.json({ 
       success: true, 
@@ -318,7 +329,9 @@ export async function POST(request: NextRequest) {
       emailId: data?.id
     });
   } catch (error) {
-    console.error('❌ Error in notify-driver API:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error in notify-driver API:', error);
+    }
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

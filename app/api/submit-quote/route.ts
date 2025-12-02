@@ -40,7 +40,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`💰 Submitting quote for trip: ${tripId}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`💰 Submitting quote for trip: ${tripId}`);
+    }
 
     // Verify trip exists and get driver info
     const { data: trip, error: tripError } = await supabase
@@ -50,7 +52,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (tripError || !trip) {
-      console.error('❌ Trip not found:', tripError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Trip not found:', tripError);
+      }
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
@@ -71,7 +75,9 @@ export async function POST(request: NextRequest) {
 
     if (existingQuote) {
       // Update existing quote
-      console.log(`📝 Updating existing quote: ${existingQuote.id}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📝 Updating existing quote: ${existingQuote.id}`);
+      }
       const { data: updatedQuote, error: updateError } = await supabase
         .from('quotes')
         .update({
@@ -84,7 +90,9 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (updateError || !updatedQuote) {
-        console.error('❌ Error updating quote:', updateError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Error updating quote:', updateError);
+        }
         return NextResponse.json(
           { success: false, error: 'Failed to update quote' },
           { status: 500 }
@@ -95,7 +103,9 @@ export async function POST(request: NextRequest) {
       isUpdate = true;
     } else {
       // Insert new quote
-      console.log('✨ Creating new quote');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✨ Creating new quote');
+      }
       const { data: newQuote, error: insertError } = await supabase
         .from('quotes')
         .insert({
@@ -108,7 +118,9 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (insertError || !newQuote) {
-        console.error('❌ Error inserting quote:', insertError);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Error inserting quote:', insertError);
+        }
         return NextResponse.json(
           { success: false, error: 'Failed to submit quote' },
           { status: 500 }
@@ -118,7 +130,9 @@ export async function POST(request: NextRequest) {
       quote = newQuote;
     }
 
-    console.log(`✅ Quote ${isUpdate ? 'updated' : 'submitted'} successfully: ${quote.id}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Quote ${isUpdate ? 'updated' : 'submitted'} successfully: ${quote.id}`);
+    }
     
     // NOTE: Removed auto-confirmation logic. Drivers must manually confirm trips via the confirmation button.
     
@@ -129,7 +143,9 @@ export async function POST(request: NextRequest) {
       isUpdate: isUpdate
     });
   } catch (error) {
-    console.error('❌ Error in submit-quote API:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Error in submit-quote API:', error);
+    }
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

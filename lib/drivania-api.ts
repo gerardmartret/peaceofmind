@@ -120,7 +120,9 @@ async function login(): Promise<string> {
 
     return data.token;
   } catch (error) {
-    console.error('❌ Drivania API login error:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Drivania API login error:', error);
+    }
     throw error;
   }
 }
