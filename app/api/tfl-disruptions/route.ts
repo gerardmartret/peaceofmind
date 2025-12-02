@@ -121,6 +121,10 @@ export async function GET(request: Request) {
         analysis,
       },
       message: `Found ${disruptions.length} disruptions for ${locationName}`,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' // 5 min cache, 10 min stale
+      }
     });
   } catch (error) {
     console.error('\n❌ Error fetching TfL disruptions:', error);

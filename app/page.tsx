@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, ShieldCheck, Zap, Sparkles, Map, Users, Activity } from 'lucide-react';
-import mammoth from 'mammoth';
-import * as XLSX from 'xlsx';
+// Heavy libraries loaded dynamically when needed
+// import mammoth from 'mammoth';
+// import * as XLSX from 'xlsx';
 import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
@@ -2168,7 +2169,8 @@ export default function Home() {
       setFileError(null);
 
       const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer });
+      const mammoth = await import('mammoth');
+      const result = await mammoth.default.extractRawText({ arrayBuffer });
       const text = result.value;
 
       if (text.trim()) {
@@ -2191,6 +2193,7 @@ export default function Home() {
       setFileError(null);
 
       const arrayBuffer = await file.arrayBuffer();
+      const XLSX = await import('xlsx');
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
       // Process all sheets

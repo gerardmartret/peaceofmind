@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     if (token) {
       const { data: validToken, error: tokenError } = await supabase
         .from('driver_tokens')
-        .select('*')
+        .select('id, used, invalidated_at, expires_at, driver_email')
         .eq('token', token)
         .eq('trip_id', tripId)
         .single();

@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate token first
+    // Validate token first (only needed fields)
     const { data: tokenData, error: tokenError } = await supabase
       .from('driver_tokens')
-      .select('*')
+      .select('id, used, invalidated_at, expires_at, driver_email')
       .eq('token', token)
       .eq('trip_id', tripId)
       .single();
@@ -59,10 +59,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch trip details
+    // Fetch trip details (only needed fields)
     const { data: trip, error: tripError } = await supabase
       .from('trips')
-      .select('*')
+      .select('id, driver, status, trip_date, user_email, trip_destination')
       .eq('id', tripId)
       .single();
 

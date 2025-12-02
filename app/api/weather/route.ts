@@ -89,6 +89,10 @@ export async function GET(request: Request) {
         summary,
       },
       message: `Successfully retrieved ${days}-day forecast for ${locationName}`,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' // 5 min cache, 10 min stale
+      }
     });
   } catch (error) {
     console.error('\n❌ Error fetching weather data:', error);

@@ -35,6 +35,10 @@ export async function GET(request: Request) {
       success: true,
       data: parkingData,
       message: 'Parking information retrieved successfully',
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200' // 10 min cache, 20 min stale
+      }
     });
   } catch (error: any) {
     console.error('❌ Error in parking API route:', error);

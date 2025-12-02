@@ -18,10 +18,10 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = driverEmail.toLowerCase().trim();
 
-    // Check if a valid token already exists for this driver/trip
+    // Check if a valid token already exists for this driver/trip (only needed fields)
     const { data: existingTokens, error: checkError } = await supabase
       .from('driver_tokens')
-      .select('*')
+      .select('id, token, expires_at')
       .eq('trip_id', tripId)
       .eq('driver_email', normalizedEmail)
       .is('invalidated_at', null)

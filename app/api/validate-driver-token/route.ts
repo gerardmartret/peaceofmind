@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch token from database
+    // Fetch token from database (only needed fields)
     const { data: tokenData, error: tokenError } = await supabase
       .from('driver_tokens')
-      .select('*')
+      .select('id, used, invalidated_at, invalidation_reason, expires_at, driver_email')
       .eq('token', token)
       .eq('trip_id', tripId)
       .single();
@@ -78,7 +78,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (tripError || !trip) {
-      console.error('❌ Trip not found:', tripError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Trip not found:', tripError);
+      }
       return NextResponse.json(
         { success: false, error: 'Trip not found' },
         { status: 404 }
@@ -87,14 +89,18 @@ export async function POST(request: NextRequest) {
 
     // Verify the token's driver email matches the trip's assigned driver
     if (trip.driver?.toLowerCase() !== tokenData.driver_email.toLowerCase()) {
-      console.log('⚠️ Driver mismatch detected');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('⚠️ Driver mismatch detected');
+      }
       return NextResponse.json(
         { success: false, error: 'This link is not valid for the currently assigned driver' },
         { status: 403 }
       );
     }
 
-    console.log('✅ Token validated successfully');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Token validated successfully');
+    }
 
     // Check if trip status is still pending (determines if actions are allowed)
     const canTakeAction = trip.status === 'pending' && !tokenAlreadyUsed;

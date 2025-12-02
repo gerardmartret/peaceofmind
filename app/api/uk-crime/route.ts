@@ -128,6 +128,10 @@ export async function GET(request: Request) {
         safetyScore,
       },
       message: `Successfully retrieved crime data for ${locationName}, London`,
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' // 1 hour cache, 2 hour stale
+      }
     });
   } catch (error) {
     console.error('\n❌ Error fetching UK Police data:', error);

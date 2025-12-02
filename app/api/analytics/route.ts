@@ -38,49 +38,49 @@ export async function GET(request: Request) {
       timeSeriesUsersResult,
       timeSeriesTripsResult,
     ] = await Promise.all([
-      // Current period users
+      // Current period users (count only - no data needed)
       supabase
         .from('users')
-        .select('*', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .gte('created_at', startDateStr),
       
-      // Previous period users
+      // Previous period users (count only - no data needed)
       supabase
         .from('users')
-        .select('*', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .gte('created_at', previousStartDateStr)
         .lt('created_at', startDateStr),
       
-      // Current period trips
+      // Current period trips (count only - no data needed)
       supabase
         .from('trips')
-        .select('*', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .gte('created_at', startDateStr),
       
-      // Previous period trips
+      // Previous period trips (count only - no data needed)
       supabase
         .from('trips')
-        .select('*', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .gte('created_at', previousStartDateStr)
         .lt('created_at', startDateStr),
       
-      // Current period quotes
+      // Current period quotes (count only - no data needed)
       supabase
         .from('quotes')
-        .select('*', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .gte('created_at', startDateStr),
       
-      // Previous period quotes
+      // Previous period quotes (count only - no data needed)
       supabase
         .from('quotes')
-        .select('*', { count: 'exact' })
+        .select('id', { count: 'exact', head: true })
         .gte('created_at', previousStartDateStr)
         .lt('created_at', startDateStr),
       
-      // Driver tokens
+      // Driver tokens (only need 'used' field for usage rate calculation)
       supabase
         .from('driver_tokens')
-        .select('*'),
+        .select('used', { count: 'exact' }),
       
       // Trips by status
       supabase
@@ -103,10 +103,15 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: true }),
     ]);
 
-    // Get all users and trips for comprehensive metrics
-    const { data: allUsers } = await supabase.from('users').select('email, created_at');
-    const { data: allTrips } = await supabase.from('trips').select('id, user_email, locations, version, created_at, status, driver');
-    const { data: allQuotes } = await supabase.from('quotes').select('trip_id, created_at');
+    // Get all users and trips for comprehensive metrics (parallelized)
+    const [allUsersResult, allTripsResult, allQuotesResult] = await Promise.all([
+      supabase.from('users').select('email, created_at'),
+      supabase.from('trips').select('id, user_email, locations, version, created_at, status, driver'),
+      supabase.from('quotes').select('trip_id, created_at'),
+    ]);
+    const allUsers = allUsersResult.data;
+    const allTrips = allTripsResult.data;
+    const allQuotes = allQuotesResult.data;
     
     // Get trips with quotes (unique trips that have at least one quote in current period)
     const currentPeriodQuotesData = (allQuotes || []).filter(

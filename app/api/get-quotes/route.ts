@@ -21,10 +21,10 @@ export async function POST(request: NextRequest) {
       console.log(`📊 Fetching quotes for trip: ${tripId}${driverEmail ? ` (driver: ${driverEmail})` : ''}`);
     }
 
-    // Build the query
+    // Build the query (only needed fields)
     let query = supabase
       .from('quotes')
-      .select('*')
+      .select('id, trip_id, email, price, currency, created_at, updated_at')
       .eq('trip_id', tripId);
 
     // If driverEmail is provided, filter to only show that driver's quotes

@@ -37,10 +37,10 @@ export async function POST(request: NextRequest) {
       console.log(`📧 Notifying driver for trip: ${tripId}`);
     }
 
-    // Fetch trip details including version and latest_changes
+    // Fetch trip details including version and latest_changes (only needed fields)
     const { data: trip, error: tripError } = await supabase
       .from('trips')
-      .select('*')
+      .select('id, user_id, driver, trip_date, status, version, trip_notes, latest_changes, trip_destination')
       .eq('id', tripId)
       .single();
 
