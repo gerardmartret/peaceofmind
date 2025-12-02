@@ -36,6 +36,7 @@ import { numberToLetter } from '@/lib/helpers/string-helpers';
 import { formatLocationDisplay } from '@/lib/helpers/location-formatters';
 import { formatDateLocal } from '@/lib/helpers/date-helpers';
 import { generateLoadingSteps } from '@/lib/helpers/loading-steps';
+import { hasUnknownOrMissingValues } from '@/lib/validation/trip-validation';
 import {
   DndContext,
   closestCenter,
@@ -51,140 +52,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-
-interface CrimeData {
-  district: string;
-  coordinates: { lat: number; lng: number };
-  crimes: any[];
-  summary: {
-    totalCrimes: number;
-    topCategories: Array<{ category: string; count: number; percentage: number }>;
-    byOutcome: Record<string, number>;
-    month: string;
-  };
-  safetyScore: number;
-}
-
-interface DisruptionData {
-  district: string;
-  timeframe: string;
-  isAreaFiltered: boolean;
-  disruptions: any[];
-  analysis: {
-    total: number;
-    bySeverity: Record<string, number>;
-    byCategory: Record<string, number>;
-    active: number;
-    upcoming: number;
-  };
-}
-
-interface WeatherData {
-  district: string;
-  coordinates: { lat: number; lng: number };
-  forecast: Array<{
-    date: string;
-    maxTemp: number;
-    minTemp: number;
-    precipitation: number;
-    precipitationProb: number;
-    weatherCode: number;
-    weatherDescription: string;
-    windSpeed: number;
-  }>;
-  summary: {
-    avgMaxTemp: number;
-    avgMinTemp: number;
-    totalPrecipitation: number;
-    rainyDays: number;
-    maxWindSpeed: number;
-  };
-}
-
-interface EventData {
-  location: string;
-  coordinates: { lat: number; lng: number };
-  date: string;
-  events: Array<{
-    title: string;
-    description: string;
-    date?: string;
-    severity: 'high' | 'medium' | 'low';
-    type: 'strike' | 'protest' | 'festival' | 'construction' | 'other';
-  }>;
-  summary: {
-    total: number;
-    byType: Record<string, number>;
-    bySeverity: Record<string, number>;
-    highSeverity: number;
-  };
-}
-
-interface ParkingData {
-  location: string;
-  coordinates: { lat: number; lng: number };
-  carParks: Array<{
-    id: string;
-    name: string;
-    address: string;
-    lat: number;
-    lng: number;
-    distance: number;
-    totalSpaces?: number;
-    operatingHours?: string;
-    facilities: string[];
-    type: string;
-  }>;
-  cpzInfo: {
-    inCPZ: boolean;
-    zone?: string;
-    zoneName?: string;
-    borough?: string;
-    operatingHours?: string;
-    operatingDays?: string;
-    restrictions?: string;
-    chargeInfo?: string;
-  };
-  parkingRiskScore: number;
-  summary: {
-    totalNearby: number;
-    averageDistance: number;
-    hasStationParking: boolean;
-    cpzWarning: boolean;
-  };
-}
-
-interface CafeData {
-  location: string;
-  coordinates: { lat: number; lng: number };
-  cafes: Array<{
-    id: string;
-    name: string;
-    address: string;
-    rating: number;
-    userRatingsTotal: number;
-    priceLevel: number;
-    distance?: number;
-    lat: number;
-    lng: number;
-    types: string[];
-    businessStatus?: string;
-  }>;
-  summary: {
-    total: number;
-    averageRating: number;
-    averageDistance: number;
-  };
-}
-
-interface CombinedData {
-  crime: CrimeData;
-  disruptions: DisruptionData;
-  weather: WeatherData;
-  events: EventData;
-  parking: ParkingData;
-  cafes: CafeData;
-}
+import type { CombinedData } from '@/lib/types/trip.types';
 
 
 
@@ -2080,7 +1948,7 @@ export default function Home() {
   // Clear validation messages when form becomes valid
   useEffect(() => {
     if (showValidationMessages && !loadingTrip) {
-      const isValid = extractedLocations?.every(loc => loc.verified) && !hasUnknownOrMissingValues();
+      const isValid = extractedLocations?.every(loc => loc.verified) && !hasUnknownOrMissingValues(extractedDate, extractedLocations, tripDestination);
       if (isValid) {
         setShowValidationMessages(false);
       }
@@ -2101,83 +1969,6 @@ export default function Home() {
     return 'High Alert';
   };
 
-  // Check if form has any "unknown" or missing values that prevent creating the brief
-  const hasUnknownOrMissingValues = () => {
-    // Check if date is missing
-    if (!extractedDate) {
-      return true;
-    }
-
-    // Check if there are any locations with unknown status or missing/invalid data
-    if (!extractedLocations || extractedLocations.length === 0) {
-      return true;
-    }
-
-    // Helper function to check if a location is non-specific (same logic as in SortableExtractedLocationItem)
-    const isNonSpecificLocation = (location: any) => {
-      if (!tripDestination) return false;
-
-      const locationText = (location.formattedAddress || location.location || '').toLowerCase().trim();
-      const destinationText = tripDestination.toLowerCase().trim();
-
-      // Check if location matches trip destination exactly (city name only)
-      if (locationText === destinationText) return true;
-
-      // Check if location is just the city name with optional country suffix
-      const cityOnlyPattern = new RegExp(`^${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*,\\s*|\\s+)?(uk|usa|us|united\\s+kingdom|united\\s+states|france|deutschland|germany|singapore|japan|switzerland)?$`, 'i');
-
-      if (cityOnlyPattern.test(locationText)) {
-        return true;
-      }
-
-      // Define postcode patterns for different cities
-      const postcodePatterns: { [key: string]: RegExp } = {
-        'paris': /\b\d{5}\b/,
-        'london': /\b([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}|\b(?:EC|WC|SW|SE|NW|N|E|W|W1|SW1|EC1|WC1)[0-9]{1,2}[A-Z]{0,2}\b)/i,
-        'new york': /\b\d{5}(?:-\d{4})?\b/,
-        'boston': /\b\d{5}(?:-\d{4})?\b/,
-        'singapore': /\b\d{6}\b/,
-        'frankfurt': /\b\d{5}\b/,
-        'tokyo': /\b\d{3}-?\d{4}\b/,
-        'zurich': /\b\d{4}\b/,
-      };
-
-      const cityKey = destinationText.toLowerCase();
-      const postcodePattern = postcodePatterns[cityKey];
-      const hasPostcode = postcodePattern ? postcodePattern.test(locationText) : false;
-
-      // Check if address has street-level detail
-      const hasStreetDetail = /\b(\d+\s*(rue|avenue|boulevard|bd|street|st|avenue|ave|road|rd|lane|ln|drive|dr|way|path|close|plaza|place|pl|square|sq|row|court|ct|terrace|ter|gardens|gdn|park|crescent|cr|circle|cir|view|rise|heights|hill|manor|villas|walk|villa|mews|gate|quay|wharf|dock|bridge|passage|alley|mews|yards|grove|wood|green|mount|maunt|rise|down|dene|vale|end|side|corner|cross|crossing|intersection))\b/i.test(locationText);
-
-      // Check if address matches pattern: [Place Name], [City], [Country] without postcode or street detail
-      const genericPlacePattern = new RegExp(
-        `^[^,]+,\\s*${destinationText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:,\\s*(?:france|deutschland|germany|uk|united\\s+kingdom|usa|united\\s+states|singapore|japan|switzerland))?$`,
-        'i'
-      );
-
-      // If it matches the generic place pattern AND lacks postcode AND lacks street detail, it's non-specific
-      if (genericPlacePattern.test(locationText) && !hasPostcode && !hasStreetDetail) {
-        return true;
-      }
-
-      return false;
-    };
-
-    // Check each location for unknown status or missing/invalid time
-    for (const location of extractedLocations) {
-      // Check if location is unknown (non-specific)
-      if (isNonSpecificLocation(location)) {
-        return true;
-      }
-
-      // Check if time is missing or invalid
-      if (!location.time || location.time === 'null' || location.time === 'undefined' || (typeof location.time === 'string' && location.time.trim() === '')) {
-        return true;
-      }
-    }
-
-    return false;
-  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -2674,7 +2465,7 @@ export default function Home() {
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <Button
                   onClick={() => {
-                    const isDisabled = loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues();
+                    const isDisabled = loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues(extractedDate, extractedLocations, tripDestination);
                     if (isDisabled) {
                       setShowValidationMessages(true);
                     } else {
@@ -2682,7 +2473,7 @@ export default function Home() {
                       handleExtractedTripSubmit();
                     }
                   }}
-                  disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues()}
+                  disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues(extractedDate, extractedLocations, tripDestination)}
                   size="lg"
                   className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                 >
