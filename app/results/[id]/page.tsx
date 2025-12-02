@@ -7279,12 +7279,11 @@ export default function ResultsPage() {
                 const extractCarInfo = (text: string | null): string | null => {
                   if (!text) return null;
                   const carPatterns = [
-                    /(?:Mercedes|Merc)\s*(?:E|S)[\s-]*Class/i,
-                    /(?:Mercedes|Merc)\s*Maybach\s*S/i,
-                    /BMW\s*(?:5|7)\s*Series/i,
-                    /Audi\s*(?:A6|A8)/i,
+                    /(?:Mercedes|Merc)\s*E[\s-]*Class/i,
+                    /BMW\s*5\s*Series/i,
+                    /Audi\s*A6/i,
                     /Lincoln\s*(?:Continental|MKS)/i,
-                    /Lexus\s*(?:E350|LS\s*500)/i,
+                    /Lexus\s*E350/i,
                     /Volvo\s*S90/i,
                     /Cadillac\s*XTS/i,
                     /\bBusiness\s+Sedan\b/i,
@@ -7341,6 +7340,40 @@ export default function ResultsPage() {
                   return minibusPatterns.some(pattern => pattern.test(text));
                 };
 
+                const extractPremiumSedanInfo = (text: string | null): boolean => {
+                  if (!text) return false;
+                  const premiumSedanPatterns = [
+                    // Specific luxury models
+                    /(?:Mercedes|Merc)\s*S[\s-]*Class/i,
+                    /BMW\s*7\s*Series/i,
+                    /Audi\s*A8/i,
+                    /Lexus\s*LS\s*500/i,
+                    // Luxury car phrases
+                    /\b(?:nice|luxury|luxurious|premium|high-end|high\s*end|very\s+good|very\s+nice|top\s+of\s+the\s+line|top\s+of\s+line|best|fancy|expensive|upscale|deluxe)\s+car\b/i,
+                    /\b(?:nice|luxury|luxurious|premium|high-end|high\s*end|very\s+good|very\s+nice|top\s+of\s+the\s+line|top\s+of\s+line|best|fancy|expensive|upscale|deluxe)\s+vehicle\b/i,
+                    /\bPremium\s+Sedan\b/i,
+                  ];
+
+                  return premiumSedanPatterns.some(pattern => pattern.test(text));
+                };
+
+                const extractSignatureSedanInfo = (text: string | null): boolean => {
+                  if (!text) return false;
+                  const signatureSedanPatterns = [
+                    // Specific ultra-luxury models
+                    /(?:Mercedes|Merc)\s*Maybach\s*S(?:[\s-]*Class)?/i,
+                    /Rolls\s*Royce\s*Ghost/i,
+                    /Rolls\s*Royce\s*Phantom/i,
+                    // Ultra-luxury car phrases
+                    /\b(?:very\s+luxurious|very\s+luxury|dream|super\s+elite|super\s+luxury|ultra\s+luxury|ultra\s+luxurious|most\s+luxurious|most\s+luxury|ultimate\s+luxury|ultimate\s+luxurious|exclusive|elite|platinum|signature)\s+car\b/i,
+                    /\b(?:very\s+luxurious|very\s+luxury|dream|super\s+elite|super\s+luxury|ultra\s+luxury|ultra\s+luxurious|most\s+luxurious|most\s+luxury|ultimate\s+luxury|ultimate\s+luxurious|exclusive|elite|platinum|signature)\s+vehicle\b/i,
+                    /\b(?:most\s+luxurious|most\s+luxury|most\s+expensive|most\s+premium|most\s+exclusive|most\s+elite)\s+(?:vehicle|car|sedan)\s+(?:possible|available|option)\b/i,
+                    /\bSignature\s+Sedan\b/i,
+                  ];
+
+                  return signatureSedanPatterns.some(pattern => pattern.test(text));
+                };
+
                 // Check for van/V-Class first (highest priority)
                 const hasVanPattern = extractVanInfo(vehicleInfo || '') || extractVanInfo(driverNotes || '');
 
@@ -7350,16 +7383,22 @@ export default function ResultsPage() {
                 // Check for SUV (priority) - check text patterns regardless of passenger count
                 const hasSUVPattern = extractSUVInfo(vehicleInfo || '') || extractSUVInfo(driverNotes || '');
 
-                // Check for sedan patterns
+                // Check for signature sedan (ultra-luxury cars and specific models) - highest sedan priority
+                const hasSignatureSedanPattern = extractSignatureSedanInfo(vehicleInfo || '') || extractSignatureSedanInfo(driverNotes || '');
+
+                // Check for premium sedan (luxury cars and specific models)
+                const hasPremiumSedanPattern = extractPremiumSedanInfo(vehicleInfo || '') || extractPremiumSedanInfo(driverNotes || '');
+
+                // Check for sedan patterns (but exclude S-Class which should be premium sedan)
                 const hasSedanPattern = extractCarInfo(vehicleInfo || '') || extractCarInfo(driverNotes || '');
 
                 // Check if any vehicle info exists (brand/model/type)
-                const hasAnyVehicleInfo = !!(vehicleInfo && vehicleInfo.trim()) || hasSUVPattern || hasSedanPattern || hasMinibusPattern || hasVanPattern;
+                const hasAnyVehicleInfo = !!(vehicleInfo && vehicleInfo.trim()) || hasSUVPattern || hasSedanPattern || hasPremiumSedanPattern || hasSignatureSedanPattern || hasMinibusPattern || hasVanPattern;
 
-                // Determine vehicle type: van takes highest priority, then minibus, then SUV, then sedan
+                // Determine vehicle type: van takes highest priority, then minibus, then SUV, then signature sedan, then premium sedan, then regular sedan
                 // Otherwise use passenger count as fallback
                 // Default to sedan for < 3 passengers when no vehicle specified
-                let vehicleType: 'suv' | 'sedan' | 'minibus' | 'van' | null = null;
+                let vehicleType: 'suv' | 'sedan' | 'premium-sedan' | 'signature-sedan' | 'minibus' | 'van' | null = null;
 
                 if (hasVanPattern) {
                   vehicleType = 'van';
@@ -7367,6 +7406,10 @@ export default function ResultsPage() {
                   vehicleType = 'minibus';
                 } else if (hasSUVPattern) {
                   vehicleType = 'suv';
+                } else if (hasSignatureSedanPattern && numberOfPassengers <= 3) {
+                  vehicleType = 'signature-sedan';
+                } else if (hasPremiumSedanPattern && numberOfPassengers <= 3) {
+                  vehicleType = 'premium-sedan';
                 } else if (hasSedanPattern) {
                   vehicleType = 'sedan';
                 } else {
@@ -7427,7 +7470,7 @@ export default function ResultsPage() {
                                       className="w-4 h-4"
                                     />
                                   )}
-                                  {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
+                                  {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign driver'}
                                 </Button>
                                 {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
                                   <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
@@ -7448,10 +7491,14 @@ export default function ResultsPage() {
                                       ? (theme === 'light' ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.webp")
                                       : vehicleType === 'suv' 
                                         ? (theme === 'light' ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.webp")
-                                        : (theme === 'light' ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp")
+                                        : vehicleType === 'signature-sedan'
+                                          ? (theme === 'light' ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
+                                          : vehicleType === 'premium-sedan'
+                                            ? (theme === 'light' ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
+                                            : (theme === 'light' ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp")
                                 }
-                                 alt={vehicleType === 'van' ? "Van Vehicle" : vehicleType === 'minibus' ? "Minibus Vehicle" : vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"}
-                                 className="h-[216px] w-auto flex-shrink-0"
+                                 alt={vehicleType === 'van' ? "Van Vehicle" : vehicleType === 'minibus' ? "Minibus Vehicle" : vehicleType === 'suv' ? "SUV Vehicle" : vehicleType === 'signature-sedan' ? "Signature Sedan Vehicle" : "Sedan Vehicle"}
+                                 className="h-[216px] w-auto flex-shrink-0 pl-[10px]"
                               />
 
                               {/* Vehicle Info on the right */}
@@ -7462,6 +7509,25 @@ export default function ResultsPage() {
                                 </div>
                                 <p className="text-3xl font-semibold text-card-foreground break-words">
                                   {(() => {
+                                    // If signature sedan, check if specific brand/model was mentioned
+                                    if (vehicleType === 'signature-sedan') {
+                                      const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes) || '';
+                                      const vehicleText = (vehicleInfo || driverNotes || '').toLowerCase();
+                                      
+                                      // Check if specific luxury models are mentioned
+                                      const hasSpecificModel = 
+                                        /(?:mercedes|merc)\s*maybach\s*s/i.test(vehicleText) ||
+                                        /rolls\s*royce\s*ghost/i.test(vehicleText) ||
+                                        /rolls\s*royce\s*phantom/i.test(vehicleText);
+                                      
+                                      // If specific model mentioned, show it; otherwise show "Signature Sedan"
+                                      if (hasSpecificModel && requestedVehicle) {
+                                        return getDisplayVehicle(requestedVehicle, numberOfPassengers);
+                                      } else {
+                                        return 'Signature Sedan';
+                                      }
+                                    }
+                                    
                                     // First, try to get vehicle from vehicleInfo field or driverNotes
                                     const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
 
@@ -9583,6 +9649,36 @@ export default function ResultsPage() {
                               </>
                             ) : (
                               'Request quote'
+                            )}
+                          </Button>
+                        )}
+
+                        {/* Assign Driver - Show alongside Request quote when not in assign-only mode */}
+                        {!assignOnlyMode && (
+                          <Button
+                            onClick={() => {
+                              // Flow B: Show confirmation modal before assigning
+                              if (!manualDriverEmail.trim()) return;
+                              if (tripStatus === 'cancelled') {
+                                alert('This trip has been cancelled. Please create a new trip instead.');
+                                return;
+                              }
+                              setDirectAssignDriver(manualDriverEmail);
+                              setShowFlowBModal(true);
+                            }}
+                            disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest || tripStatus === 'cancelled'}
+                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                          >
+                            {settingDriver ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Assigning...
+                              </>
+                            ) : (
+                              'Assign driver'
                             )}
                           </Button>
                         )}
