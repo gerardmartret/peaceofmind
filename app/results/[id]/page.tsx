@@ -579,6 +579,8 @@ export default function ResultsPage() {
   const [showDriverConfirmDialog, setShowDriverConfirmDialog] = useState<boolean>(false);
   const [showDriverRejectDialog, setShowDriverRejectDialog] = useState<boolean>(false);
   const [confirmingTrip, setConfirmingTrip] = useState<boolean>(false);
+  const [showDriverAcceptRejectModal, setShowDriverAcceptRejectModal] = useState<boolean>(false);
+  const [driverResponseStatus, setDriverResponseStatus] = useState<'accepted' | 'rejected' | null>(null);
 
   // Driver token authentication (magic link)
   const [driverToken, setDriverToken] = useState<string | null>(null);
@@ -589,6 +591,7 @@ export default function ResultsPage() {
   const [tokenMessage, setTokenMessage] = useState<string | null>(null);
   const [canTakeAction, setCanTakeAction] = useState<boolean>(false);
   const [rejectingTrip, setRejectingTrip] = useState<boolean>(false);
+  const [showDriverAssignmentInfoModal, setShowDriverAssignmentInfoModal] = useState<boolean>(false);
 
   // Map modal state
   const [showMapModal, setShowMapModal] = useState<boolean>(false);
@@ -651,6 +654,7 @@ export default function ResultsPage() {
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [showConfirmDriverRequiredModal, setShowConfirmDriverRequiredModal] = useState<boolean>(false);
   const [sendingStatusNotification, setSendingStatusNotification] = useState<boolean>(false);
   const [statusModalSuccess, setStatusModalSuccess] = useState<string | null>(null);
   const [resendingConfirmation, setResendingConfirmation] = useState<boolean>(false);
@@ -678,6 +682,7 @@ export default function ResultsPage() {
   }>>([]);
   const [loadingQuotes, setLoadingQuotes] = useState<boolean>(false);
   const [quoteEmail, setQuoteEmail] = useState<string>('');
+  const [quoteDriverName, setQuoteDriverName] = useState<string>('');
   const [quotePrice, setQuotePrice] = useState<string>('');
   const [quoteCurrency, setQuoteCurrency] = useState<string>('USD');
   const [quoteEmailError, setQuoteEmailError] = useState<string | null>(null);
@@ -800,6 +805,22 @@ export default function ResultsPage() {
 
   const highlightMissing = (field: BookingPreviewFieldKey) =>
     missingFields.has(field) ? 'border-destructive/70 bg-destructive/10 text-destructive' : '';
+
+  // Check if a location is an airport (pattern: "airport, country" or "city airport, country")
+  // Accepts locations that only contain airport name and country, without full street address
+  const isAirportLocation = (locationText: string | null | undefined): boolean => {
+    if (!locationText) return false;
+    const text = locationText.trim().toLowerCase();
+    // Pattern: contains "airport" followed by a comma and country name
+    // Examples: "zurich airport, switzerland", "airport, france", "london airport, uk"
+    // Should NOT match if it contains street addresses (numbers, street names like "street", "avenue", etc.)
+    const hasStreetAddress = /\d+\s+(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct)/i.test(text);
+    if (hasStreetAddress) return false;
+    
+    // Check if it matches airport pattern: word(s) + "airport" + comma + country
+    const airportPattern = /^[a-z\s]*airport\s*,?\s*[a-z\s]+$/i;
+    return airportPattern.test(text) && text.includes('airport');
+  };
 
   const normalizeVehicleText = (text?: string): string =>
     (text || '')
@@ -1454,6 +1475,15 @@ export default function ResultsPage() {
           setTokenAlreadyUsed(result.tokenUsed || false);
           setTokenMessage(result.message || null);
           setCanTakeAction(canTakeActionValue);
+          
+          // Initialize driver response status based on trip status
+          if (result.tripStatus === 'confirmed') {
+            setDriverResponseStatus('accepted');
+          } else if (result.tripStatus === 'rejected') {
+            setDriverResponseStatus('rejected');
+          } else {
+            setDriverResponseStatus(null);
+          }
         } else {
           console.error('❌ Token validation failed:', result.error);
           setTokenValidationError(result.error || 'Invalid or expired link');
@@ -2180,7 +2210,11 @@ export default function ResultsPage() {
         const hasName = (loc.location && loc.location.trim() !== '') ||
           (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
           (loc.purpose && loc.purpose.trim() !== '');
-        return hasCoords && hasName;
+        // Exception: Airport locations are valid even without coordinates if they match airport pattern
+        const isAirport = isAirportLocation(loc.location) || 
+                         isAirportLocation(loc.formattedAddress) || 
+                         isAirportLocation(loc.purpose);
+        return (hasCoords && hasName) || (isAirport && hasName);
       });
 
       if (validLocations.length === 0) {
@@ -2934,10 +2968,18 @@ export default function ResultsPage() {
         setTripDestination(data.trip_destination || '');
         setPassengerNames([]); // passenger_names column doesn't exist in DB, set empty array
         setCurrentVersion(data.version || 1); // Load current version
-        setTripStatus(data.status || 'not confirmed'); // Load trip status
+        const status = data.status || 'not confirmed';
+        setTripStatus(status); // Load trip status
         setDriverEmail(data.driver || null); // Load driver email
         setValidatedDriverEmail(data.driver || null); // Set validated driver email for display
         originalDriverEmailRef.current = data.driver || null; // Store original driver email for activity check
+        
+        // Initialize driver response status if trip is already confirmed/rejected and driver is assigned
+        // This will be updated when driver token is validated or when driver confirms/rejects
+        if (data.driver && (status === 'confirmed' || status === 'rejected')) {
+          // We'll set this properly after token validation or when driver actions are taken
+          // For now, leave it null and let the handlers set it
+        }
 
         // Populate location display names from database
         const displayNames: { [key: string]: string } = {};
@@ -3091,6 +3133,65 @@ export default function ResultsPage() {
     router.push('/');
   };
 
+  // Format number with commas and 2 decimals (only for display, allows partial input)
+  const formatPriceDisplay = (value: string): string => {
+    if (!value) return '';
+    // Remove commas first, then any non-numeric characters except decimal point
+    const cleaned = value.replace(/,/g, '').replace(/[^\d.]/g, '');
+    if (!cleaned) return '';
+    
+    // Handle multiple decimal points - keep only the first one
+    const firstDotIndex = cleaned.indexOf('.');
+    let normalizedValue = cleaned;
+    if (firstDotIndex !== -1) {
+      const beforeDot = cleaned.substring(0, firstDotIndex);
+      const afterDot = cleaned.substring(firstDotIndex + 1).replace(/\./g, '');
+      normalizedValue = beforeDot + (afterDot ? '.' + afterDot : '.');
+    }
+    
+    // Handle partial decimal input (e.g., "123." should stay as "123.")
+    if (normalizedValue.endsWith('.')) {
+      const numPart = normalizedValue.slice(0, -1);
+      if (numPart) {
+        const num = parseFloat(numPart);
+        if (!isNaN(num) && num >= 0) {
+          return num.toLocaleString('en-US') + '.';
+        }
+      }
+      return normalizedValue;
+    }
+    
+    // Split into integer and decimal parts
+    const parts = normalizedValue.split('.');
+    const integerPart = parts[0] || '';
+    const decimalPart = parts[1] || '';
+    
+    // Format integer part with commas
+    if (integerPart) {
+      const num = parseFloat(integerPart);
+      if (!isNaN(num) && num >= 0) {
+        const formattedInteger = num.toLocaleString('en-US');
+        if (decimalPart !== undefined && decimalPart !== '') {
+          // Has decimal part - allow up to 2 decimal places while typing
+          const limitedDecimal = decimalPart.slice(0, 2);
+          return `${formattedInteger}.${limitedDecimal}`;
+        } else {
+          // No decimal part yet
+          return formattedInteger;
+        }
+      }
+    }
+    
+    // Fallback: return cleaned value if parsing fails
+    return normalizedValue;
+  };
+
+  // Parse formatted price back to number string
+  const parsePriceInput = (value: string): string => {
+    // Remove commas and keep only numbers and decimal point
+    return value.replace(/,/g, '').replace(/[^\d.]/g, '');
+  };
+
   // State transition validation
   const isValidTransition = (from: string, to: string): boolean => {
     const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -3105,22 +3206,42 @@ export default function ResultsPage() {
   };
 
   const handleStatusToggle = () => {
-    // Check if user is authenticated - if not, show signup modal
-    if (!isAuthenticated) {
-      setShowSignupModal(true);
+    if (!tripId || updatingStatus) return;
+
+    // Block modals when viewing via quote request link
+    if (quoteParam === 'true') {
       return;
     }
-
-    if (!tripId || updatingStatus) return;
 
     // Check if user is the assigned driver (not owner)
     const isAssignedDriver = !isOwner && driverEmail && quoteEmail &&
       driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim();
 
-    // DRIVER FLOW: Assigned driver clicking to confirm pending trip
-    if (isAssignedDriver && tripStatus === 'pending') {
-      console.log('🚗 [DRIVER] Assigned driver clicked confirmation button, opening confirmation dialog');
-      setShowDriverConfirmDialog(true);
+    // DRIVER FLOW: Assigned driver clicking to confirm pending trip (with or without token)
+    // Don't require authentication for assigned drivers - they can use token to accept/reject
+    if ((isAssignedDriver || (driverToken && validatedDriverEmail)) && tripStatus === 'pending') {
+      console.log('🚗 [DRIVER] Assigned driver clicked confirmation button, opening accept/reject modal');
+      // If driver has token and no quote exists, show message asking to quote first
+      if (driverToken && myQuotes.length === 0) {
+        alert('Please submit a quote for this trip before confirming. Use the quote form above to provide your pricing.');
+        return;
+      }
+      // If driver has token and action already taken, show assignment info modal
+      if (driverToken && !canTakeAction) {
+        setShowDriverAssignmentInfoModal(true);
+        return;
+      }
+      // If driver has already responded, don't show modal again
+      if (driverResponseStatus) {
+        return;
+      }
+      setShowDriverAcceptRejectModal(true);
+      return;
+    }
+
+    // Check if user is authenticated - if not, show signup modal (only for non-driver flows)
+    if (!isAuthenticated) {
+      setShowSignupModal(true);
       return;
     }
 
@@ -3144,11 +3265,10 @@ export default function ResultsPage() {
 
     const newStatus = tripStatus === 'confirmed' ? 'not confirmed' : 'confirmed';
 
-    // If confirming without a driver, open driver modal in assign-only mode
+    // If confirming without a driver, show popup requiring driver assignment
     if (newStatus === 'confirmed' && !driverEmail) {
-      console.log('🚗 [STATUS] No driver assigned, opening driver modal in assign-only mode');
-      setAssignOnlyMode(true);
-      setShowDriverModal(true);
+      console.log('🚗 [STATUS] No driver assigned, showing confirmation popup');
+      setShowConfirmDriverRequiredModal(true);
       return;
     }
 
@@ -3709,8 +3829,8 @@ export default function ResultsPage() {
       return;
     }
 
-    // Validate price
-    const priceNum = parseFloat(quotePrice);
+    // Validate price - parse the formatted price (remove commas)
+    const priceNum = parseFloat(parsePriceInput(quotePrice));
     if (isNaN(priceNum) || priceNum <= 0) {
       setQuotePriceError('Please enter a valid price greater than 0');
       return;
@@ -3725,6 +3845,7 @@ export default function ResultsPage() {
         body: JSON.stringify({
           tripId: tripId,
           email: quoteEmail.trim(),
+          driverName: quoteDriverName.trim() || null,
           price: priceNum,
           currency: quoteCurrency,
         }),
@@ -4149,17 +4270,24 @@ export default function ResultsPage() {
 
   // Handler for driver to confirm a pending trip
   const handleDriverConfirmTrip = async () => {
-    // Check if user is authenticated - if not, show signup modal
-    if (!isAuthenticated) {
+    // Don't require authentication for assigned drivers - they can use token to accept/reject
+    // Only check authentication if not using token
+    if (!driverToken && !isAuthenticated) {
       setShowSignupModal(true);
       return;
     }
 
     if (!tripId || confirmingTrip) return;
 
-    // Block action if token was already used or trip not pending
+    // If driver has token and action already taken, show assignment info modal instead
     if (driverToken && !canTakeAction) {
-      alert('This trip has already been responded to or is no longer available.');
+      setShowDriverAssignmentInfoModal(true);
+      return;
+    }
+
+    // If driver has token and no quote exists, show message asking to quote first
+    if (driverToken && myQuotes.length === 0) {
+      alert('Please submit a quote for this trip before confirming. Use the quote form above to provide your pricing.');
       return;
     }
 
@@ -4187,8 +4315,10 @@ export default function ResultsPage() {
       if (result.success) {
         console.log('✅ Trip confirmed by driver');
         setShowDriverConfirmDialog(false);
+        setShowDriverAcceptRejectModal(false);
         // Update local state immediately
         setTripStatus('confirmed');
+        setDriverResponseStatus('accepted');
         // Show success message
         setQuoteSuccess(true);
         setQuoteSuccessMessage('✅ Trip confirmed! The trip owner has been notified.');
@@ -4233,8 +4363,10 @@ export default function ResultsPage() {
       if (result.success) {
         console.log('✅ Trip rejected by driver');
         setShowDriverRejectDialog(false); // Close dialog
+        setShowDriverAcceptRejectModal(false);
         // Update local state immediately
         setTripStatus('rejected');
+        setDriverResponseStatus('rejected');
         setDriverEmail(null); // Clear driver assignment
         // Show success message
         setQuoteSuccess(true);
@@ -4850,8 +4982,11 @@ export default function ResultsPage() {
           newLocation.formattedAddress.trim() !== '';
         const hasValidCoords = (newLocation.lat !== 0 && newLocation.lng !== 0) ||
           (extractedLoc.lat !== 0 && extractedLoc.lng !== 0);
+        // Exception: Airport locations are valid even without coordinates if they match airport pattern
+        const isAirport = isAirportLocation(newLocation.location) || 
+                         isAirportLocation(newLocation.formattedAddress);
 
-        if (!hasValidLocation) {
+        if (!hasValidLocation && !isAirport) {
           console.warn(`⚠️ [MAP] Skipping empty location: location="${newLocation.location}", formattedAddress="${newLocation.formattedAddress}"`);
           console.warn(`   - This location will not be added to the trip`);
           return; // Skip this location
@@ -4906,7 +5041,11 @@ export default function ResultsPage() {
       const hasName = (loc.location && loc.location.trim() !== '') ||
         (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
         (loc.purpose && loc.purpose.trim() !== '');
-      return hasCoords && hasName;
+      // Exception: Airport locations are valid even without coordinates if they match airport pattern
+      const isAirport = isAirportLocation(loc.location) || 
+                       isAirportLocation(loc.formattedAddress) || 
+                       isAirportLocation(loc.purpose);
+      return (hasCoords && hasName) || (isAirport && hasName);
     });
 
     // Fallback: If previewLocations is empty/invalid and we have tripData, use original locations
@@ -4934,7 +5073,11 @@ export default function ResultsPage() {
       const hasName = (loc.location && loc.location.trim() !== '') ||
         (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
         (loc.purpose && loc.purpose.trim() !== '');
-      return hasCoords && hasName;
+      // Exception: Airport locations are valid even without coordinates if they match airport pattern
+      const isAirport = isAirportLocation(loc.location) || 
+                       isAirportLocation(loc.formattedAddress) || 
+                       isAirportLocation(loc.purpose);
+      return (hasCoords && hasName) || (isAirport && hasName);
     });
 
     if (finalValidLocations.length === 0) {
@@ -6444,131 +6587,115 @@ export default function ResultsPage() {
     return (
       <div className="min-h-screen bg-background">
         {/* Show sticky quote form even during loading if ownership is checked and user is not owner (but not for guest creators or guest-created trips)
-            NOTE: HIDDEN when driver accesses via token (isDriverView) - they see confirmation card instead */}
-        {ownershipChecked && !isOwner && !isGuestCreator && !isGuestCreatedTrip && !isDriverView && (
+            Also show for drivers accessing via token (isDriverView && driverToken) */}
+        {ownershipChecked && !isOwner && !isGuestCreator && !isGuestCreatedTrip && (!isDriverView || (isDriverView && driverToken)) && (
           <div
             className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
               }`}
           >
-            <div className="container mx-auto px-4 pt-8 pb-3">
-              <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
-                <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">
-                  {myQuotes.length > 0 ? 'Your quote' : 'Submit quote'}
+          <div className="container mx-auto px-4 pt-8 pb-3">
+            <div className={`rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length > 0 ? 'border-[#3ea34b]' : (myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border')}`}>
+              {/* Always show the same structure - fields are disabled when quote exists */}
+              <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                <label className="flex-1">
+                  <span className="block text-sm text-white font-medium mb-1">Driver email</span>
+                  <Input
+                    id="quote-email-loading"
+                    type="email"
+                    value={myQuotes.length > 0 ? (quoteEmail || myQuotes[0].email) : quoteEmail}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0 && !isEmailFromUrl && !(isDriverView && driverToken)) {
+                        setQuoteEmail(e.target.value);
+                      }
+                    }}
+                    placeholder="your.email@company.com"
+                    disabled={myQuotes.length > 0 || submittingQuote || isEmailFromUrl || (isDriverView && driverToken)}
+                    readOnly={myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
+                  />
+                  {quoteEmailError && (
+                    <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                  )}
                 </label>
 
-                {quoteSuccess && (
-                  <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
-                    <p className="text-sm text-[#3ea34b]">
-                      ✅ {quoteSuccessMessage}
-                    </p>
-                  </div>
-                )}
+                <label className="flex-[1.5]">
+                  <span className="block text-sm text-white font-medium mb-1">Driver name</span>
+                  <Input
+                    id="quote-driver-name-loading"
+                    type="text"
+                    value={myQuotes.length > 0 ? (myQuotes[0].driverName || 'N/A') : quoteDriverName}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0) {
+                        setQuoteDriverName(e.target.value);
+                      }
+                    }}
+                    placeholder="John Doe"
+                    disabled={myQuotes.length > 0 || submittingQuote}
+                    readOnly={myQuotes.length > 0}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  />
+                </label>
 
-                {driverEmail && myQuotes.length > 0 && (
-                  <div className="mb-3 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30">
-                    <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                      Quote cannot be updated - driver already assigned
-                    </p>
-                  </div>
-                )}
+                <label className="w-[120px]">
+                  <span className="block text-sm text-white font-medium mb-1">Total</span>
+                  <Input
+                    id="quote-price-loading"
+                    type="text"
+                    value={myQuotes.length > 0 ? `${myQuotes[0].currency} ${myQuotes[0].price.toFixed(2)}` : (quotePrice ? formatPriceDisplay(quotePrice) : '')}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0) {
+                        const parsed = parsePriceInput(e.target.value);
+                        setQuotePrice(parsed);
+                      }
+                    }}
+                    placeholder="100.00"
+                    disabled={myQuotes.length > 0 || submittingQuote}
+                    readOnly={myQuotes.length > 0}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''} ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  />
+                  {quotePriceError && (
+                    <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                  )}
+                </label>
 
-                {myQuotes.length > 0 ? (
-                  // Show update quote UI when quote exists
-                  <div className="flex gap-3 items-start">
-                    <div className="flex-1">
-                      <Input
-                        id="quote-email-loading-existing"
-                        type="email"
-                        value={quoteEmail || myQuotes[0].email}
-                        disabled={true}
-                        readOnly={true}
-                        className="h-[44px] border-border bg-background dark:bg-input/30 text-foreground cursor-not-allowed opacity-75"
-                      />
-                    </div>
+                <label className="w-[110px]">
+                  <span className="block text-sm text-white font-medium mb-1">Currency</span>
+                  <select
+                    id="quote-currency-loading"
+                    value={myQuotes.length > 0 ? myQuotes[0].currency : quoteCurrency}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0) {
+                        setQuoteCurrency(e.target.value);
+                      }
+                    }}
+                    disabled={myQuotes.length > 0 || submittingQuote}
+                    className={`w-full h-[44px] pl-3 pr-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors appearance-none focus:outline-none focus:ring-0 ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="JPY">JPY</option>
+                    <option value="CAD">CAD</option>
+                    <option value="AUD">AUD</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </label>
 
-                    <div className="w-[140px] flex items-center">
-                      <p className="text-sm font-medium text-foreground">
-                        {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
-                      </p>
-                    </div>
-
-                    <div className="w-[100px] flex items-center">
-                      <p className="text-sm text-muted-foreground">
-                        {myQuotes[0].currency}
-                      </p>
-                    </div>
-
+                <label className="w-[110px]">
+                  <span className="block text-sm text-white font-medium mb-1">&nbsp;</span>
+                  {myQuotes.length > 0 ? (
                     <Button
                       type="button"
-                      onClick={handleOpenUpdateQuote}
-                      disabled={!!driverEmail}
-                      className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={true}
+                      className="w-full h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] cursor-not-allowed opacity-50"
                     >
-                      Update Quote
+                      Submitted
                     </Button>
-                  </div>
-                ) : (
-                  // Show submit quote form when no quote exists
-                  <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                    <div className="flex-1">
-                      <Input
-                        id="quote-email-loading"
-                        type="email"
-                        value={quoteEmail}
-                        onChange={(e) => {
-                          if (!isEmailFromUrl) {
-                            setQuoteEmail(e.target.value);
-                          }
-                        }}
-                        placeholder="your.email@company.com"
-                        disabled={submittingQuote || isEmailFromUrl}
-                        readOnly={isEmailFromUrl}
-                        className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                      />
-                      {quoteEmailError && (
-                        <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                      )}
-                    </div>
-
-                    <div className="w-[140px]">
-                      <Input
-                        id="quote-price-loading"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={quotePrice}
-                        onChange={(e) => setQuotePrice(e.target.value)}
-                        placeholder="100.00"
-                        disabled={submittingQuote}
-                        className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                      />
-                      {quotePriceError && (
-                        <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                      )}
-                    </div>
-
-                    <div className="w-[100px]">
-                      <select
-                        id="quote-currency-loading"
-                        value={quoteCurrency}
-                        onChange={(e) => setQuoteCurrency(e.target.value)}
-                        disabled={submittingQuote}
-                        className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
-                      >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="JPY">JPY</option>
-                        <option value="CAD">CAD</option>
-                        <option value="AUD">AUD</option>
-                        <option value="CHF">CHF</option>
-                      </select>
-                    </div>
-
+                  ) : (
                     <Button
                       type="submit"
                       disabled={submittingQuote || !quoteEmail || !quotePrice}
-                      className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                      className="w-full h-[44px] bg-[#E5E7EF] text-[#05060A] hover:bg-[#E5E7EF]/90"
                     >
                       {submittingQuote ? (
                         <>
@@ -6582,10 +6709,11 @@ export default function ResultsPage() {
                         'Submit quote'
                       )}
                     </Button>
-                  </form>
-                )}
-              </div>
+                  )}
+                </label>
+              </form>
             </div>
+          </div>
           </div>
         )}
 
@@ -6639,146 +6767,131 @@ export default function ResultsPage() {
       {/* Quote Form Section - Sticky Bar - Shows for:
           1. Guests invited to submit quotes
           2. Any non-owner viewer (but not guest creators or guest-created trips)
-          NOTE: HIDDEN when driver accesses via token (isDriverView) - they see confirmation card instead */}
-      {!isOwner && !isGuestCreator && !isGuestCreatedTrip && !isDriverView && (
+          3. Drivers accessing via token (isDriverView && driverToken) */}
+      {!isOwner && !isGuestCreator && !isGuestCreatedTrip && (!isDriverView || (isDriverView && driverToken)) && (
         <div
           className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
             }`}
         >
           <div className="container mx-auto px-4 pt-8 pb-3">
-            <div className="rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
-              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">
-                {myQuotes.length > 0 ? 'Your quote' : 'Submit quote'}
-              </label>
+            <div className={`rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length > 0 ? 'border-[#3ea34b]' : (myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border')}`}>
+              {/* Always show the same structure - fields are disabled when quote exists */}
+              <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
+                <label className="flex-1">
+                  <span className="block text-sm text-white font-medium mb-1">Driver email</span>
+                  <Input
+                    id="quote-email"
+                    type="email"
+                    value={myQuotes.length > 0 ? (quoteEmail || myQuotes[0].email) : quoteEmail}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0 && !isEmailFromUrl && !(isDriverView && driverToken)) {
+                        setQuoteEmail(e.target.value);
+                      }
+                    }}
+                    placeholder="your.email@company.com"
+                    disabled={myQuotes.length > 0 || submittingQuote || isEmailFromUrl || (isDriverView && driverToken)}
+                    readOnly={myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
+                  />
+                  {quoteEmailError && (
+                    <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
+                  )}
+                </label>
 
-              {quoteSuccess && (
-                <div className="mb-3 px-3 py-2 rounded-md bg-[#3ea34b]/10 border border-[#3ea34b]/30">
-                  <p className="text-sm text-[#3ea34b]">
-                    ✅ {quoteSuccessMessage}
-                  </p>
-                </div>
-              )}
+                <label className="flex-[1.5]">
+                  <span className="block text-sm text-white font-medium mb-1">Driver name</span>
+                  <Input
+                    id="quote-driver-name"
+                    type="text"
+                    value={myQuotes.length > 0 ? (myQuotes[0].driverName || 'N/A') : quoteDriverName}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0) {
+                        setQuoteDriverName(e.target.value);
+                      }
+                    }}
+                    placeholder="John Doe"
+                    disabled={myQuotes.length > 0 || submittingQuote}
+                    readOnly={myQuotes.length > 0}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  />
+                </label>
 
-              {driverEmail && myQuotes.length > 0 && (
-                <div className="mb-3 px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30">
-                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                    Quote cannot be updated - driver already assigned
-                  </p>
-                </div>
-              )}
+                <label className="w-[120px]">
+                  <span className="block text-sm text-white font-medium mb-1">Total</span>
+                  <Input
+                    id="quote-price"
+                    type="text"
+                    value={myQuotes.length > 0 ? `${myQuotes[0].currency} ${myQuotes[0].price.toFixed(2)}` : (quotePrice ? formatPriceDisplay(quotePrice) : '')}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0) {
+                        const parsed = parsePriceInput(e.target.value);
+                        setQuotePrice(parsed);
+                      }
+                    }}
+                    placeholder="100.00"
+                    disabled={myQuotes.length > 0 || submittingQuote}
+                    readOnly={myQuotes.length > 0}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''} ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  />
+                  {quotePriceError && (
+                    <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
+                  )}
+                </label>
 
-              {myQuotes.length > 0 ? (
-                // Show update quote UI when quote exists
-                <div className="flex gap-3 items-start">
-                  <div className="flex-1">
-                    <Input
-                      id="quote-email-existing"
-                      type="email"
-                      value={quoteEmail || myQuotes[0].email}
+                <label className="w-[110px]">
+                  <span className="block text-sm text-white font-medium mb-1">Currency</span>
+                  <select
+                    id="quote-currency"
+                    value={myQuotes.length > 0 ? myQuotes[0].currency : quoteCurrency}
+                    onChange={(e) => {
+                      if (myQuotes.length === 0) {
+                        setQuoteCurrency(e.target.value);
+                      }
+                    }}
+                    disabled={myQuotes.length > 0 || submittingQuote}
+                    className={`w-full h-[44px] pl-3 pr-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors appearance-none focus:outline-none focus:ring-0 ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  >
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="JPY">JPY</option>
+                    <option value="CAD">CAD</option>
+                    <option value="AUD">AUD</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </label>
+
+                <label className="w-[110px]">
+                  <span className="block text-sm text-white font-medium mb-1">&nbsp;</span>
+                  {myQuotes.length > 0 ? (
+                    <Button
+                      type="button"
                       disabled={true}
-                      readOnly={true}
-                      className="h-[44px] border-border bg-background dark:bg-input/30 text-foreground cursor-not-allowed opacity-75"
-                    />
-                  </div>
-
-                  <div className="w-[140px] flex items-center">
-                    <p className="text-sm font-medium text-foreground">
-                      {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
-                    </p>
-                  </div>
-
-                  <div className="w-[100px] flex items-center">
-                    <p className="text-sm text-muted-foreground">
-                      {myQuotes[0].currency}
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    onClick={handleOpenUpdateQuote}
-                    disabled={!!driverEmail}
-                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Update Quote
-                  </Button>
-                </div>
-              ) : (
-                // Show submit quote form when no quote exists
-                <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
-                  <div className="flex-1">
-                    <Input
-                      id="quote-email"
-                      type="email"
-                      value={quoteEmail}
-                      onChange={(e) => {
-                        if (!isEmailFromUrl) {
-                          setQuoteEmail(e.target.value);
-                        }
-                      }}
-                      placeholder="your.email@company.com"
-                      disabled={submittingQuote || isEmailFromUrl}
-                      readOnly={isEmailFromUrl}
-                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${isEmailFromUrl ? 'cursor-not-allowed opacity-75' : ''}`}
-                    />
-                    {quoteEmailError && (
-                      <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
-                    )}
-                  </div>
-
-                  <div className="w-[140px]">
-                    <Input
-                      id="quote-price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={quotePrice}
-                      onChange={(e) => setQuotePrice(e.target.value)}
-                      placeholder="100.00"
-                      disabled={submittingQuote}
-                      className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''}`}
-                    />
-                    {quotePriceError && (
-                      <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
-                    )}
-                  </div>
-
-                  <div className="w-[100px]">
-                    <select
-                      id="quote-currency"
-                      value={quoteCurrency}
-                      onChange={(e) => setQuoteCurrency(e.target.value)}
-                      disabled={submittingQuote}
-                      className="w-full h-[44px] px-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors"
+                      className="w-full h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] cursor-not-allowed opacity-50"
                     >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                      <option value="JPY">JPY</option>
-                      <option value="CAD">CAD</option>
-                      <option value="AUD">AUD</option>
-                      <option value="CHF">CHF</option>
-                    </select>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={submittingQuote || !quoteEmail || !quotePrice}
-                    className="h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-                  >
-                    {submittingQuote ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Submitting...
-                      </>
-                    ) : (
-                      'Submit quote'
-                    )}
-                  </Button>
-                </form>
-              )}
+                      Submitted
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      disabled={submittingQuote || !quoteEmail || !quotePrice}
+                      className="w-full h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                    >
+                      {submittingQuote ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit quote'
+                      )}
+                    </Button>
+                  )}
+                </label>
+              </form>
             </div>
           </div>
         </div>
@@ -7224,6 +7337,13 @@ export default function ResultsPage() {
                       // Activity exists if driver was ever assigned OR quotes were requested/received
                       const hasActivity = hasDriverInState || hasDriverInOriginalData || hasQuotes || hasSentEmails;
 
+                      // Check if user is the assigned driver (not owner)
+                      const isAssignedDriver = !isOwner && driverEmail && quoteEmail &&
+                        driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim();
+
+                      // Check if driver is viewing and trip is pending
+                      const isDriverViewingPending = (isAssignedDriver || (driverToken && validatedDriverEmail)) && tripStatus === 'pending';
+                      
                       // Determine variant based on status and activity
                       const getButtonVariant = () => {
                         if (tripStatus === 'cancelled' && hasActivity) {
@@ -7231,6 +7351,13 @@ export default function ResultsPage() {
                         }
                         if (tripStatus === 'not confirmed' || (tripStatus === 'cancelled' && !hasActivity)) {
                           return 'request-quote-style'; // Match request quote button colors/frame
+                        }
+                        // Driver response status takes priority
+                        if (driverResponseStatus === 'accepted') {
+                          return 'confirmed'; // Green
+                        }
+                        if (driverResponseStatus === 'rejected') {
+                          return 'rejected'; // Red
                         }
                       // All other statuses use existing variants
                       return tripStatus === 'rejected' ? 'rejected' :
@@ -7240,19 +7367,24 @@ export default function ResultsPage() {
 
                       const buttonVariant = getButtonVariant();
                       const isCancelledWithActivity = tripStatus === 'cancelled' && hasActivity;
+                      
                       const buttonText = isCancelledWithActivity ? 'Cancelled' :
-                        tripStatus === 'rejected' ? 'Rejected' :
-                          tripStatus === 'confirmed' ? 'Confirmed' :
-                            tripStatus === 'booked' ? 'Booked' :
-                              driverEmail ? 'Pending' : 'Not confirmed';
+                        driverResponseStatus === 'rejected' ? 'Rejected' :
+                          driverResponseStatus === 'accepted' ? 'Accepted' :
+                            tripStatus === 'rejected' ? 'Rejected' :
+                              tripStatus === 'confirmed' ? 'Confirmed' :
+                                tripStatus === 'booked' ? 'Booked' :
+                                  isDriverViewingPending ? 'Accept trip' :
+                                    driverEmail ? 'Pending' : 'Not confirmed';
 
                       return (
                         <FlowHoverButton
                           variant={buttonVariant}
                           onClick={handleStatusToggle}
-                          disabled={updatingStatus || isCancelledWithActivity || (driverEmail === 'drivania' && tripStatus === 'booked')}
+                          disabled={updatingStatus || isCancelledWithActivity || (driverEmail === 'drivania' && tripStatus === 'booked') || (isDriverViewingPending && driverResponseStatus !== null)}
                           icon={
                             isCancelledWithActivity ? undefined : // No icon for cancelled
+                              driverResponseStatus === 'accepted' ? undefined : // No icon when driver accepted
                               tripStatus === 'rejected' ? (
                                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -7435,50 +7567,52 @@ export default function ResultsPage() {
                         {/* Left Column - Vehicle Box (spans 2 columns) */}
                         <Card className="shadow-none lg:col-span-2 -my-0">
                           <CardContent className="pl-0 pr-5 pt-0 pb-0 relative flex items-center">
-                            {/* Assign Driver button - Top Right */}
-                            <div className="absolute top-3 right-5">
-                              <div className="relative inline-block">
-                                <Button
-                                  variant="outline"
-                                  className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
-                                    ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                                    : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
-                                      ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
-                                      : driverEmail
-                                        ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
-                                        : ''
-                                      }`}
-                                  onClick={() => {
-                                    // Check if user is authenticated - if not, show signup modal
-                                    if (!isAuthenticated) {
-                                      setShowSignupModal(true);
-                                      return;
-                                    }
+                            {/* Assign Driver button - Top Right - Hide when driver accesses via token (assigned) or quote request link */}
+                            {!(isDriverView && driverToken) && quoteParam !== 'true' && (
+                              <div className="absolute top-3 right-5">
+                                <div className="relative inline-block">
+                                  <Button
+                                    variant="outline"
+                                    className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
+                                      ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                                      : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
+                                        ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                                        : driverEmail
+                                          ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
+                                          : ''
+                                        }`}
+                                    onClick={() => {
+                                      // Check if user is authenticated - if not, show signup modal
+                                      if (!isAuthenticated) {
+                                        setShowSignupModal(true);
+                                        return;
+                                      }
 
-                                    if (tripStatus === 'cancelled') {
-                                      alert('This trip has been cancelled. Please create a new trip instead.');
-                                      return;
-                                    }
-                                    setShowDriverModal(true);
-                                  }}
-                                  disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
-                                >
-                                  {mounted && driverEmail && (
-                                    <img
-                                      src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                      alt="Driver"
-                                      className="w-4 h-4"
-                                    />
+                                      if (tripStatus === 'cancelled') {
+                                        alert('This trip has been cancelled. Please create a new trip instead.');
+                                        return;
+                                      }
+                                      setShowDriverModal(true);
+                                    }}
+                                    disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
+                                  >
+                                    {mounted && driverEmail && (
+                                      <img
+                                        src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                        alt="Driver"
+                                        className="w-4 h-4"
+                                      />
+                                    )}
+                                    {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign driver'}
+                                  </Button>
+                                  {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
+                                    <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                                      {quotes.length}
+                                    </span>
                                   )}
-                                  {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign driver'}
-                                </Button>
-                                {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
-                                  <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
-                                    {quotes.length}
-                                  </span>
-                                )}
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Vehicle Image and Info */}
                             <div className="flex gap-6 items-center w-full m-0">
@@ -7758,6 +7892,11 @@ export default function ResultsPage() {
                       size="sm"
                       className="flex items-center gap-2"
                       onClick={() => {
+                        // Block modals when viewing via quote request link
+                        if (quoteParam === 'true') {
+                          return;
+                        }
+
                         // Check if user is authenticated - if not, show signup modal
                         if (!isAuthenticated) {
                           setShowSignupModal(true);
@@ -9268,167 +9407,6 @@ export default function ResultsPage() {
           )
         }
 
-        {/* Driver Confirmation Card - Magic Link Flow (Token-based) */}
-        {
-          !isOwner && isDriverView && validatedDriverEmail && (
-            <Card className={`mb-8 border-2 shadow-lg ${!canTakeAction ? 'border-gray-400' : 'border-[#e77500]'
-              }`}>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${!canTakeAction ? 'bg-gray-100' : 'bg-[#e77500]/10'
-                    }`}>
-                    <svg
-                      className={`w-6 h-6 ${!canTakeAction ? 'text-gray-500' : 'text-[#e77500]'}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d={!canTakeAction ? "M5 13l4 4L19 7" : "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"}
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold">
-                      {!canTakeAction ? 'Trip status update' : 'Trip confirmation required'}
-                    </h2>
-                    <p className="text-muted-foreground">
-                      {!canTakeAction ? 'You\'ve already responded to this trip' : 'You\'ve been assigned to this trip'}
-                    </p>
-                  </div>
-                </div>
-
-                {canTakeAction ? (
-                  <>
-                    <Alert className="mb-4 bg-[#e77500]/10 border-[#e77500]/30">
-                      <AlertDescription className="text-[#e77500] font-medium">
-                        ⏱️ This trip is waiting for your confirmation
-                      </AlertDescription>
-                    </Alert>
-
-                    <div className="mb-6">
-                      <p className="text-muted-foreground mb-4">
-                        Please confirm your availability for this trip. The trip owner will be notified of your decision.
-                      </p>
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <span className="text-muted-foreground">Assigned to:</span>
-                          <span className="font-medium">{validatedDriverEmail}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={handleDriverConfirmTrip}
-                        disabled={confirmingTrip || rejectingTrip}
-                        className="flex-1 bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
-                        size="lg"
-                      >
-                        {confirmingTrip ? (
-                          <>
-                            <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            Confirming...
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              className="w-5 h-5 mr-2"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            Confirm trip
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        onClick={() => setShowDriverRejectDialog(true)}
-                        disabled={confirmingTrip || rejectingTrip}
-                        variant="outline"
-                        className="flex-1 border-red-500 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
-                        size="lg"
-                      >
-                        <svg
-                          className="w-5 h-5 mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                        Reject trip
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Alert className={`mb-4 ${tripStatus === 'confirmed' || tripStatus === 'booked'
-                      ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30'
-                      : tripStatus === 'rejected'
-                        ? 'bg-red-500/10 border-red-500/30'
-                        : tripStatus === 'cancelled'
-                          ? 'bg-gray-500/10 border-gray-500/30'
-                          : 'bg-blue-500/10 border-blue-500/30'
-                      }`}>
-                      <AlertDescription className={`font-medium ${tripStatus === 'confirmed' || tripStatus === 'booked'
-                        ? 'text-[#3ea34b]'
-                        : tripStatus === 'rejected'
-                          ? 'text-red-600'
-                          : tripStatus === 'cancelled'
-                            ? 'text-gray-600'
-                            : 'text-blue-600'
-                        }`}>
-                        {tripStatus === 'confirmed' && '✅ You have confirmed this trip'}
-                        {tripStatus === 'booked' && '✅ This trip has been booked'}
-                        {tripStatus === 'rejected' && '❌ You have rejected this trip'}
-                        {tripStatus === 'cancelled' && '🚫 This trip has been cancelled'}
-                        {tokenMessage && !['confirmed', 'booked', 'rejected', 'cancelled'].includes(tripStatus) && `ℹ️ ${tokenMessage}`}
-                      </AlertDescription>
-                    </Alert>
-
-                    <div className="bg-muted/50 rounded-lg p-4">
-                      <div className="flex items-center gap-2 text-sm mb-3">
-                        <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        <span className="text-muted-foreground">Assigned to:</span>
-                        <span className="font-medium">{validatedDriverEmail === 'drivania' ? 'Drivania' : validatedDriverEmail}</span>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {tripStatus === 'confirmed' && 'The trip owner has been notified of your acceptance.'}
-                        {tripStatus === 'booked' && 'Your booking request has been sent to Drivania.'}
-                        {tripStatus === 'rejected' && 'The trip owner has been notified that you declined.'}
-                        {tripStatus === 'cancelled' && 'The trip owner has cancelled this trip.'}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )
-        }
 
         {/* Driver Confirmation Card - Email-based Flow (Old flow for backward compatibility) */}
         {
@@ -10148,11 +10126,8 @@ export default function ResultsPage() {
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center">
-              Ready to pick your favorite driver?
+              Chauffs is free - start saving time now.
             </DialogTitle>
-            <DialogDescription className="text-center">
-              Free trips, unlimited – start saving time now
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {/* Benefits Grid */}
@@ -10730,6 +10705,157 @@ export default function ResultsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Driver Accept/Reject Modal - Shows when driver clicks "Accept trip" button */}
+      <Dialog open={showDriverAcceptRejectModal} onOpenChange={setShowDriverAcceptRejectModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Accept or reject trip</DialogTitle>
+            <DialogDescription>
+              You've been assigned as the driver to this trip
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6">
+            <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#e77500]/10 flex items-center justify-center">
+                <svg
+                  className="w-5 h-5 text-[#e77500]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  You can accept or reject this trip assignment.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  If you accept, the trip status will change to Confirmed. If you reject, the trip owner will be notified.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowDriverAcceptRejectModal(false)}
+              disabled={confirmingTrip || rejectingTrip}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={async () => {
+                setShowDriverAcceptRejectModal(false);
+                await handleDriverRejectTrip();
+              }}
+              disabled={confirmingTrip || rejectingTrip}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {rejectingTrip ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Rejecting...
+                </>
+              ) : (
+                'Reject trip'
+              )}
+            </Button>
+            <Button
+              onClick={async () => {
+                setShowDriverAcceptRejectModal(false);
+                await handleDriverConfirmTrip();
+              }}
+              disabled={confirmingTrip || rejectingTrip}
+              className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
+            >
+              {confirmingTrip ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Accepting...
+                </>
+              ) : (
+                'Accept trip'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Driver Assignment Info Modal - Shows when driver clicks confirmation with token but action already taken */}
+      <Dialog open={showDriverAssignmentInfoModal} onOpenChange={setShowDriverAssignmentInfoModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Trip status update</DialogTitle>
+            <DialogDescription>
+              You've already responded to this trip
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Alert className={`mb-4 ${tripStatus === 'confirmed' || tripStatus === 'booked'
+              ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30'
+              : tripStatus === 'rejected'
+                ? 'bg-red-500/10 border-red-500/30'
+                : tripStatus === 'cancelled'
+                  ? 'bg-gray-500/10 border-gray-500/30'
+                  : 'bg-blue-500/10 border-blue-500/30'
+              }`}>
+              <AlertDescription className={`font-medium ${tripStatus === 'confirmed' || tripStatus === 'booked'
+                ? 'text-[#3ea34b]'
+                : tripStatus === 'rejected'
+                  ? 'text-red-600'
+                  : tripStatus === 'cancelled'
+                    ? 'text-gray-600'
+                    : 'text-blue-600'
+                }`}>
+                {tripStatus === 'confirmed' && '✅ You have confirmed this trip'}
+                {tripStatus === 'booked' && '✅ This trip has been booked'}
+                {tripStatus === 'rejected' && '❌ You have rejected this trip'}
+                {tripStatus === 'cancelled' && '🚫 This trip has been cancelled'}
+                {tokenMessage && !['confirmed', 'booked', 'rejected', 'cancelled'].includes(tripStatus) && `ℹ️ ${tokenMessage}`}
+              </AlertDescription>
+            </Alert>
+
+            <div className="bg-muted/50 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-sm mb-3">
+                <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="text-muted-foreground">Assigned to:</span>
+                <span className="font-medium">{validatedDriverEmail === 'drivania' ? 'Drivania' : validatedDriverEmail}</span>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {tripStatus === 'confirmed' && 'The trip owner has been notified of your acceptance.'}
+                {tripStatus === 'booked' && 'Your booking request has been sent to Drivania.'}
+                {tripStatus === 'rejected' && 'The trip owner has been notified that you declined.'}
+                {tripStatus === 'cancelled' && 'The trip owner has cancelled this trip.'}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowDriverAssignmentInfoModal(false)}
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Driver Rejection Dialog */}
       <Dialog open={showDriverRejectDialog} onOpenChange={setShowDriverRejectDialog}>
         <DialogContent className="sm:max-w-[500px]">
@@ -10867,6 +10993,35 @@ export default function ResultsPage() {
               ) : (
                 'Yes, Notify Driver'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Driver Required Modal */}
+      <Dialog open={showConfirmDriverRequiredModal} onOpenChange={setShowConfirmDriverRequiredModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Driver required</DialogTitle>
+            <DialogDescription>
+              To confirm the trip, a driver must be assigned.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmDriverRequiredModal(false)}
+            >
+              Dismiss
+            </Button>
+            <Button
+              onClick={() => {
+                setShowConfirmDriverRequiredModal(false);
+                setShowDriverModal(true);
+              }}
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+            >
+              Assign driver
             </Button>
           </DialogFooter>
         </DialogContent>
