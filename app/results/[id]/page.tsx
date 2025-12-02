@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Car, Calendar as CalendarIcon } from 'lucide-react';
+import { Car, Calendar as CalendarIcon, Maximize2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7188,7 +7188,7 @@ export default function ResultsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex flex-col items-end">
                     {(() => {
                       // Determine if there was any activity (driver assigned, quotes requested, or quotes received)
                       // Check both current state and original data to ensure we catch activity even if state changes
@@ -7248,6 +7248,7 @@ export default function ResultsPage() {
               </div>
 
               {/* Vehicle Image - Show for sedan or SUV services */}
+              <div className="-mt-8">
               {(() => {
                 const numberOfPassengers = passengerCount || 1;
                 const extractCarInfo = (text: string | null): string | null => {
@@ -7292,27 +7293,62 @@ export default function ResultsPage() {
                   return suvPatterns.some(pattern => pattern.test(text));
                 };
 
-                // Check for SUV first (priority) - check text patterns regardless of passenger count
+                const extractVanInfo = (text: string | null): boolean => {
+                  if (!text) return false;
+                  const vanPatterns = [
+                    /\b(?:van|v-class|vclass)\b/i,
+                    /(?:Mercedes|Merc)\s*(?:V-Class|VClass)/i,
+                    /\bBusiness\s+Van\b/i,
+                  ];
+
+                  return vanPatterns.some(pattern => pattern.test(text));
+                };
+
+                const extractMinibusInfo = (text: string | null): boolean => {
+                  if (!text) return false;
+                  const minibusPatterns = [
+                    /\b(?:minibus|mini\s*bus)\b/i,
+                    /\b(?:sprinter)\b/i,
+                    /(?:Mercedes|Merc)\s*(?:Sprinter)/i,
+                    /\bBusiness\s+(?:Minibus|Sprinter)\b/i,
+                  ];
+
+                  return minibusPatterns.some(pattern => pattern.test(text));
+                };
+
+                // Check for van/V-Class first (highest priority)
+                const hasVanPattern = extractVanInfo(vehicleInfo || '') || extractVanInfo(driverNotes || '');
+
+                // Check for minibus/sprinter
+                const hasMinibusPattern = extractMinibusInfo(vehicleInfo || '') || extractMinibusInfo(driverNotes || '');
+
+                // Check for SUV (priority) - check text patterns regardless of passenger count
                 const hasSUVPattern = extractSUVInfo(vehicleInfo || '') || extractSUVInfo(driverNotes || '');
 
                 // Check for sedan patterns
                 const hasSedanPattern = extractCarInfo(vehicleInfo || '') || extractCarInfo(driverNotes || '');
 
                 // Check if any vehicle info exists (brand/model/type)
-                const hasAnyVehicleInfo = !!(vehicleInfo && vehicleInfo.trim()) || hasSUVPattern || hasSedanPattern;
+                const hasAnyVehicleInfo = !!(vehicleInfo && vehicleInfo.trim()) || hasSUVPattern || hasSedanPattern || hasMinibusPattern || hasVanPattern;
 
-                // Determine vehicle type: SUV takes priority if patterns match
+                // Determine vehicle type: van takes highest priority, then minibus, then SUV, then sedan
                 // Otherwise use passenger count as fallback
                 // Default to sedan for < 3 passengers when no vehicle specified
-                let vehicleType: 'suv' | 'sedan' | null = null;
+                let vehicleType: 'suv' | 'sedan' | 'minibus' | 'van' | null = null;
 
-                if (hasSUVPattern) {
+                if (hasVanPattern) {
+                  vehicleType = 'van';
+                } else if (hasMinibusPattern) {
+                  vehicleType = 'minibus';
+                } else if (hasSUVPattern) {
                   vehicleType = 'suv';
                 } else if (hasSedanPattern) {
                   vehicleType = 'sedan';
                 } else {
                   // Fallback to passenger count
-                  if (numberOfPassengers > 3 && numberOfPassengers <= 7) {
+                  if (numberOfPassengers > 7) {
+                    vehicleType = 'minibus';
+                  } else if (numberOfPassengers > 3 && numberOfPassengers <= 7) {
                     vehicleType = 'suv';
                   } else if (numberOfPassengers <= 3) {
                     vehicleType = 'sedan';
@@ -7325,96 +7361,119 @@ export default function ResultsPage() {
                 }
 
                 return vehicleType ? (
-                  <div className="mb-6 grid grid-cols-1 lg:grid-cols-[66%_34%] gap-6">
-                    {/* Left Column - Vehicle Box (66%) */}
-                    <Card className="shadow-none">
-                      <CardContent className="p-5 relative">
-                        {/* Assign Driver button - Top Right */}
-                        {isOwner && (
-                          <div className="absolute top-3 right-5">
-                            <div className="relative inline-block">
+                  <Card className="shadow-none border-none mb-6">
+                    <CardContent className="p-0">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4 gap-y-0">
+                        {/* Left Column - Vehicle Box (spans 2 columns) */}
+                        <Card className="shadow-none lg:col-span-2 -my-0">
+                          <CardContent className="pl-0 pr-5 pt-0 pb-0 relative flex items-center">
+                            {/* Assign Driver button - Top Right */}
+                            {isOwner && (
+                              <div className="absolute top-3 right-5">
+                                <div className="relative inline-block">
+                                  <Button
+                                    variant="outline"
+                                    className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
+                                      ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                                      : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
+                                        ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                                        : driverEmail
+                                          ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
+                                          : ''
+                                        }`}
+                                    onClick={() => {
+                                      if (tripStatus === 'cancelled') {
+                                        alert('This trip has been cancelled. Please create a new trip instead.');
+                                        return;
+                                      }
+                                      setShowDriverModal(true);
+                                    }}
+                                    disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
+                                  >
+                                    {mounted && driverEmail && (
+                                      <img
+                                        src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                        alt="Driver"
+                                        className="w-4 h-4"
+                                      />
+                                    )}
+                                    {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
+                                  </Button>
+                                  {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
+                                    <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                                      {quotes.length}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Vehicle Image and Info */}
+                            <div className="flex gap-6 items-center w-full m-0">
+                              {/* Vehicle Image on the left */}
+                              <img
+                                src={
+                                  vehicleType === 'van' 
+                                    ? (theme === 'light' ? "/Vehicles/light-brief-vclass-web.png" : "/Vehicles/dark-brief-vclass-web.webp")
+                                    : vehicleType === 'minibus' 
+                                      ? (theme === 'light' ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.webp")
+                                      : vehicleType === 'suv' 
+                                        ? (theme === 'light' ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.webp")
+                                        : (theme === 'light' ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp")
+                                }
+                                 alt={vehicleType === 'van' ? "Van Vehicle" : vehicleType === 'minibus' ? "Minibus Vehicle" : vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"}
+                                 className="h-[216px] w-auto flex-shrink-0"
+                              />
+
+                              {/* Vehicle Info on the right */}
+                              <div className="flex flex-col flex-1 min-w-0 pb-0 mt-32">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                                  <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
+                                </div>
+                                <p className="text-3xl font-semibold text-card-foreground break-words">
+                                  {(() => {
+                                    // First, try to get vehicle from vehicleInfo field or driverNotes
+                                    const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
+
+                                    // Use the helper to determine what to display:
+                                    // - If vehicle is empty or not in whitelist, show auto-selected vehicle
+                                    // - If vehicle is in whitelist, show that vehicle
+                                    return getDisplayVehicle(requestedVehicle, numberOfPassengers);
+                                  })()}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Right Column - Map Box (1 column) */}
+                        <div className="hidden lg:block relative">
+                          <div className="h-full min-h-[200px] rounded-lg overflow-hidden border border-border">
+                            <GoogleTripMap
+                              locations={mapLocations}
+                              height="100%"
+                              compact={true}
+                              tripDestination={tripDestination}
+                            />
+                          </div>
+                          {/* Expand Map Button */}
                           <Button
                             variant="outline"
-                            className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
-                              ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                              : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
-                                ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
-                                : driverEmail
-                                  ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
-                                  : ''
-                                }`}
-                            onClick={() => {
-                              if (tripStatus === 'cancelled') {
-                                alert('This trip has been cancelled. Please create a new trip instead.');
-                                return;
-                              }
-                              setShowDriverModal(true);
-                            }}
-                            disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
+                            size="sm"
+                            className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm hover:bg-background"
+                            onClick={() => setShowMapModal(true)}
+                            aria-label="Expand map"
                           >
-                                {mounted && driverEmail && (
-                                  <img
-                                    src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                    alt="Driver"
-                                    className="w-4 h-4"
-                                  />
-                                )}
-                                {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
-                              </Button>
-                              {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
-                                <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
-                                  {quotes.length}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Vehicle Image and Info - Bottom */}
-                        <div className="flex gap-6 items-center mt-8 -mb-2">
-                          {/* Vehicle Image on the left */}
-                          <img
-                            src={vehicleType === 'suv' ? "/suv-driverbrief.webp" : "/sedan-driverbrief.webp"}
-                            alt={vehicleType === 'suv' ? "SUV Vehicle" : "Sedan Vehicle"}
-                            className="h-32 w-auto flex-shrink-0"
-                          />
-
-                          {/* Vehicle Info on the right */}
-                          <div className="flex flex-col flex-1 min-w-0 pb-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                              <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
-                            </div>
-                            <p className="text-3xl font-semibold text-card-foreground break-words">
-                              {(() => {
-                                // First, try to get vehicle from vehicleInfo field or driverNotes
-                                const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
-
-                                // Use the helper to determine what to display:
-                                // - If vehicle is empty or not in whitelist, show auto-selected vehicle
-                                // - If vehicle is in whitelist, show that vehicle
-                                return getDisplayVehicle(requestedVehicle, numberOfPassengers);
-                              })()}
-                            </p>
-                          </div>
+                            <Maximize2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Right Column - Map Box (33%) */}
-                    <div className="hidden lg:block">
-                      <div className="h-full min-h-[200px] rounded-lg overflow-hidden border border-border">
-                        <GoogleTripMap
-                          locations={mapLocations}
-                          height="100%"
-                          compact={true}
-                          tripDestination={tripDestination}
-                        />
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ) : null;
               })()}
+              </div>
 
               {/* Trip Details Cards - Single Column Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -9773,8 +9832,7 @@ export default function ResultsPage() {
 
                 {/* Drivania Quotes Section - Always show if quotes are available */}
                 {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
-                  <div className="mb-8 grid grid-cols-1 lg:grid-cols-[66%_34%] gap-6">
-                    {/* Left Column - Vehicle Box (66%) */}
+                  <div className="mb-8">
                     <div>
                       {drivaniaError && (
                         <Alert variant="destructive" className="mb-4">
@@ -9838,17 +9896,6 @@ export default function ResultsPage() {
                       ) : null}
                     </div>
 
-                    {/* Right Column - Map Box (33%) */}
-                    <div className="hidden lg:block">
-                      <div className="sticky top-20 h-[500px] rounded-lg overflow-hidden border border-border">
-                        <GoogleTripMap
-                          locations={mapLocations}
-                          height="100%"
-                          compact={true}
-                          tripDestination={tripDestination}
-                        />
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
