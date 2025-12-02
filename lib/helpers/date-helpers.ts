@@ -11,3 +11,18 @@ export const formatDateLocal = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * Calculate the number of days between two date strings
+ * @param startDate - Start date string (YYYY-MM-DD format)
+ * @param endDate - End date string (YYYY-MM-DD format)
+ * @returns Number of days between dates, or 30 if dates are invalid
+ */
+export const calculateDaysFromDates = (startDate: string, endDate: string): number => {
+  if (!startDate || !endDate) return 30;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+

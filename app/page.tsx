@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, ShieldCheck, Zap, Sparkles, Map, Users, Activity } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 // Heavy libraries loaded dynamically when needed
 // import mammoth from 'mammoth';
 // import * as XLSX from 'xlsx';
@@ -34,9 +34,17 @@ import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, n
 import { getDisplayVehicle } from '@/lib/vehicle-helpers';
 import { numberToLetter } from '@/lib/helpers/string-helpers';
 import { formatLocationDisplay } from '@/lib/helpers/location-formatters';
-import { formatDateLocal } from '@/lib/helpers/date-helpers';
+import { formatDateLocal, calculateDaysFromDates } from '@/lib/helpers/date-helpers';
 import { generateLoadingSteps } from '@/lib/helpers/loading-steps';
 import { hasUnknownOrMissingValues } from '@/lib/validation/trip-validation';
+import { safeJsonParse } from '@/lib/helpers/api-helpers';
+import { getSafetyColor, getSafetyBg, getSafetyLabel } from '@/lib/helpers/safety-helpers';
+import { getTimeLabel } from '@/lib/helpers/time-helpers';
+import { londonDistricts } from '@/lib/constants/districts';
+import { WhyChauffsSection } from '@/components/homepage/WhyChauffsSection';
+import { HowItWorksSection } from '@/components/homepage/HowItWorksSection';
+import { DemoSection } from '@/components/homepage/DemoSection';
+import { CTASection } from '@/components/homepage/CTASection';
 import {
   DndContext,
   closestCenter,
@@ -62,20 +70,6 @@ export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const { setResetToImport } = useHomepageContext();
   const [loading, setLoading] = useState(false);
-
-  // Helper function to safely parse JSON responses
-  const safeJsonParse = async (response: Response) => {
-    if (!response.ok) {
-      console.error(`❌ API error: ${response.status} ${response.statusText}`);
-      return { success: false, error: response.statusText };
-    }
-    try {
-      return await response.json();
-    } catch (err) {
-      console.error('❌ Failed to parse JSON response:', err);
-      return { success: false, error: 'Invalid response format' };
-    }
-  };
   const [results, setResults] = useState<Array<{ district: string; data: CombinedData }>>([]);
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>(['westminster']);
   const [startDate, setStartDate] = useState('');
@@ -287,32 +281,6 @@ export default function Home() {
 
 
 
-  const londonDistricts = [
-    { id: 'westminster', name: 'Westminster' },
-    { id: 'city-of-london', name: 'City of London' },
-    { id: 'camden', name: 'Camden' },
-    { id: 'islington', name: 'Islington' },
-    { id: 'hackney', name: 'Hackney' },
-    { id: 'tower-hamlets', name: 'Tower Hamlets' },
-    { id: 'greenwich', name: 'Greenwich' },
-    { id: 'lewisham', name: 'Lewisham' },
-    { id: 'southwark', name: 'Southwark' },
-    { id: 'lambeth', name: 'Lambeth' },
-    { id: 'wandsworth', name: 'Wandsworth' },
-    { id: 'hammersmith-fulham', name: 'Hammersmith & Fulham' },
-    { id: 'kensington-chelsea', name: 'Kensington & Chelsea' },
-    { id: 'soho', name: 'Soho' },
-    { id: 'covent-garden', name: 'Covent Garden' },
-    { id: 'shoreditch', name: 'Shoreditch' },
-    { id: 'notting-hill', name: 'Notting Hill' },
-    { id: 'brixton', name: 'Brixton' },
-    { id: 'clapham', name: 'Clapham' },
-    { id: 'chelsea', name: 'Chelsea' },
-    { id: 'mayfair', name: 'Mayfair' },
-    { id: 'canary-wharf', name: 'Canary Wharf' },
-    { id: 'stratford', name: 'Stratford' },
-    { id: 'wimbledon', name: 'Wimbledon' },
-  ];
 
   // Register reset function with context
   useEffect(() => {
@@ -427,14 +395,6 @@ export default function Home() {
     }
   };
 
-  const calculateDaysFromDates = () => {
-    if (!startDate || !endDate) return 30;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
 
   const addLocation = () => {
     const newId = `location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -1217,7 +1177,7 @@ export default function Home() {
     setError(null);
 
     try {
-      const days = calculateDaysFromDates();
+      const days = calculateDaysFromDates(startDate, endDate);
 
       console.log(`\n${'='.repeat(80)}`);
       console.log(`🚀 Fetching data for ${selectedDistricts.length} district(s)`);
@@ -1299,19 +1259,6 @@ export default function Home() {
     }
   };
 
-  const getSafetyColor = (score: number) => {
-    if (score >= 80) return 'text-green-500';
-    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    if (score >= 40) return 'text-orange-600 dark:text-orange-400';
-    return 'text-red-600 dark:text-red-400';
-  };
-
-  const getSafetyBg = (score: number) => {
-    if (score >= 80) return 'bg-green-500/10 border-green-500/30';
-    if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700';
-    if (score >= 40) return 'bg-orange-100 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700';
-    return 'bg-red-100 dark:bg-red-900/20 border-red-300 dark:border-red-700';
-  };
 
   // Handle voice recording
   const handleStartRecording = async () => {
@@ -1955,19 +1902,6 @@ export default function Home() {
     }
   }, [extractedDate, extractedLocations, loadingTrip, showValidationMessages, tripDestination]);
 
-  // Get time label based on position in the trip
-  const getTimeLabel = (index: number, totalLocations: number) => {
-    if (index === 0) return 'Pickup Time';
-    if (index === totalLocations - 1) return 'Drop Off Time';
-    return 'Resume At';
-  };
-
-  const getSafetyLabel = (score: number) => {
-    if (score >= 80) return 'Very Safe';
-    if (score >= 60) return 'Moderately Safe';
-    if (score >= 40) return 'Caution Advised';
-    return 'High Alert';
-  };
 
 
   return (
@@ -3105,135 +3039,10 @@ export default function Home() {
 
       {!isAuthenticated && (
         <>
-          {/* Why Chauffs? Section */}
-          <section className="py-24 px-4 sm:px-8 bg-background border-t border-border">
-            <div className="max-w-6xl mx-auto">
-              <div className="text-center mb-16">
-                <h2 className="text-4xl font-light mb-6 text-[#05060A] dark:text-white">Why Chauffs?</h2>
-                <p className="text-muted-foreground text-lg max-w-2xl mx-auto font-light">
-                  Experience the future of roadshow planning with our AI-powered platform.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                {/* Benefit 1 */}
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="p-4 rounded-full bg-primary/5 dark:bg-white/10 text-[#05060A] dark:text-white mb-2">
-                    <ShieldCheck className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-xl font-semibold">Reliable & Safe</h3>
-                  <p className="text-muted-foreground">
-                    Vetted drivers and secure booking process ensure your peace of mind during every trip.
-                  </p>
-                </div>
-
-                {/* Benefit 2 */}
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="p-4 rounded-full bg-primary/5 dark:bg-white/10 text-[#05060A] dark:text-white mb-2">
-                    <Zap className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-xl font-semibold">Time Efficient</h3>
-                  <p className="text-muted-foreground">
-                    Save hours of planning time with our intelligent route optimization and instant quotes.
-                  </p>
-                </div>
-
-                {/* Benefit 3 */}
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="p-4 rounded-full bg-primary/5 dark:bg-white/10 text-[#05060A] dark:text-white mb-2">
-                    <Sparkles className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-xl font-semibold">Premium Experience</h3>
-                  <p className="text-muted-foreground">
-                    Access a fleet of luxury vehicles and professional chauffeurs for a first-class journey.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* How it works? Section */}
-          <section className="py-24 px-4 sm:px-8 bg-background border-t border-border">
-            <div className="max-w-6xl mx-auto">
-              <div className="text-center mb-16">
-                <h2 className="text-4xl font-light mb-6 text-[#05060A] dark:text-white">How it works?</h2>
-                <p className="text-muted-foreground text-lg max-w-2xl mx-auto font-light">
-                  Three simple steps to organize your perfect roadshow.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-                {/* Connecting Line (Desktop only) */}
-                <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-border -z-10"></div>
-
-                {/* Step 1 */}
-                <div className="flex flex-col items-center text-center bg-background p-6">
-                  <div className="w-24 h-24 rounded-full bg-card border border-border flex items-center justify-center mb-6 shadow-sm z-10">
-                    <Map className="w-10 h-10 text-[#05060A] dark:text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">1. Plan the trip</h3>
-                  <p className="text-muted-foreground">
-                    Enter your itinerary or upload a file. Our AI extracts locations and optimizes the route.
-                  </p>
-                </div>
-
-                {/* Step 2 */}
-                <div className="flex flex-col items-center text-center bg-background p-6">
-                  <div className="w-24 h-24 rounded-full bg-card border border-border flex items-center justify-center mb-6 shadow-sm z-10">
-                    <Users className="w-10 h-10 text-[#05060A] dark:text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">2. Quote drivers</h3>
-                  <p className="text-muted-foreground">
-                    Get instant quotes from our network of verified professional chauffeurs.
-                  </p>
-                </div>
-
-                {/* Step 3 */}
-                <div className="flex flex-col items-center text-center bg-background p-6">
-                  <div className="w-24 h-24 rounded-full bg-card border border-border flex items-center justify-center mb-6 shadow-sm z-10">
-                    <Activity className="w-10 h-10 text-[#05060A] dark:text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2">3. Realtime updates</h3>
-                  <p className="text-muted-foreground">
-                    Track your ride in real-time and receive status updates throughout your journey.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Demo Section */}
-          <section className="py-24 px-4 sm:px-8 bg-background border-t border-border">
-            <div className="max-w-5xl mx-auto text-center">
-              <h2 className="text-4xl font-light mb-12 text-[#05060A] dark:text-white">See it in action</h2>
-              <div className="relative aspect-video w-full bg-card rounded-xl border border-border shadow-lg overflow-hidden flex items-center justify-center group cursor-pointer">
-                <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-50"></div>
-                <div className="w-20 h-20 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center shadow-xl transition-transform transform group-hover:scale-110">
-                  <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <p className="absolute bottom-8 text-muted-foreground font-medium">Watch Demo Video</p>
-              </div>
-            </div>
-          </section>
-
-          {/* Bottom CTA Section */}
-          <section className="py-32 px-4 sm:px-8 bg-background border-t border-border">
-            <div className="max-w-3xl mx-auto text-center">
-              <h2 className="text-5xl font-light mb-8 text-[#05060A] dark:text-white">Ready to streamline your roadshows?</h2>
-              <p className="text-xl text-muted-foreground mb-12 font-light">
-                Join thousands of professionals who trust Chauffs for their ground transportation needs.
-              </p>
-              <Button
-                size="lg"
-                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              >
-                Plan your trip
-              </Button>
-            </div>
-          </section>
+          <WhyChauffsSection />
+          <HowItWorksSection />
+          <DemoSection />
+          <CTASection />
         </>
       )}
     </div>
