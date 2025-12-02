@@ -2,11 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-// Helper function to convert numbers to letters (1 -> A, 2 -> B, etc.)
-const numberToLetter = (num: number): string => {
-  return String.fromCharCode(64 + num); // 65 is 'A' in ASCII
-};
+import { numberToLetter } from '@/lib/helpers/string-helpers';
 
 interface LocationRisk {
   locationId: string;
