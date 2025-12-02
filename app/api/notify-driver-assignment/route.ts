@@ -84,26 +84,26 @@ export async function POST(request: NextRequest) {
       // No existing tokens, create new one
       token = crypto.randomUUID();
       expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 3);
+    expiresAt.setDate(expiresAt.getDate() + 3);
 
-      const { error: tokenError } = await supabase
-        .from('driver_tokens')
-        .insert({
-          trip_id: tripId,
+    const { error: tokenError } = await supabase
+      .from('driver_tokens')
+      .insert({
+        trip_id: tripId,
           driver_email: normalizedEmail,
-          token: token,
-          expires_at: expiresAt.toISOString()
-        });
+        token: token,
+        expires_at: expiresAt.toISOString()
+      });
 
-      if (tokenError) {
-        console.error('❌ Failed to create driver token:', tokenError);
-        return NextResponse.json(
-          { success: false, error: 'Failed to create authentication token' },
-          { status: 500 }
-        );
-      }
+    if (tokenError) {
+      console.error('❌ Failed to create driver token:', tokenError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to create authentication token' },
+        { status: 500 }
+      );
+    }
 
-      console.log(`✅ Driver token created, expires at: ${expiresAt.toISOString()}`);
+    console.log(`✅ Driver token created, expires at: ${expiresAt.toISOString()}`);
     }
 
     // Build magic link

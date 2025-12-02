@@ -105,19 +105,57 @@ export async function GET(request: Request) {
 
     // Get all users and trips for comprehensive metrics
     const { data: allUsers } = await supabase.from('users').select('email, created_at');
-    const { data: allTrips } = await supabase.from('trips').select('user_email, locations, version, created_at');
-    const { data: allQuotes } = await supabase.from('quotes').select('trip_id');
+    const { data: allTrips } = await supabase.from('trips').select('id, user_email, locations, version, created_at, status, driver');
+    const { data: allQuotes } = await supabase.from('quotes').select('trip_id, created_at');
+    
+    // Get trips with quotes (unique trips that have at least one quote in current period)
+    const currentPeriodQuotesData = (allQuotes || []).filter(
+      q => q.created_at && q.created_at >= startDateStr
+    );
+    const tripsWithQuotes = new Set(currentPeriodQuotesData.map(q => q.trip_id));
+    
+    // Get current period trips data
+    const currentPeriodTripsData = (allTrips || []).filter(
+      trip => trip.created_at && trip.created_at >= startDateStr
+    );
+    
+    // Calculate conversion funnel for current period
+    const currentPeriodUsers = usersResult.count || 0;
+    const currentPeriodTrips = tripsResult.count || 0;
+    const currentPeriodTripsWithQuotes = currentPeriodTripsData.filter(
+      trip => tripsWithQuotes.has(trip.id)
+    ).length;
+    const currentPeriodBookings = currentPeriodTripsData.filter(
+      trip => trip.status === 'booked' && trip.driver === 'drivania'
+    ).length;
+    
+    // Calculate conversion rates
+    const usersToReportsRate = currentPeriodUsers > 0 
+      ? (currentPeriodTrips / currentPeriodUsers) * 100 
+      : 0;
+    const reportsToQuotesRate = currentPeriodTrips > 0
+      ? (currentPeriodTripsWithQuotes / currentPeriodTrips) * 100
+      : 0;
+    const quotesToBookingsRate = currentPeriodTripsWithQuotes > 0
+      ? (currentPeriodBookings / currentPeriodTripsWithQuotes) * 100
+      : 0;
+    const overallConversionRate = currentPeriodUsers > 0
+      ? (currentPeriodBookings / currentPeriodUsers) * 100
+      : 0;
+    
+    // Calculate drop-off counts
+    const dropOffUsersToReports = currentPeriodUsers - currentPeriodTrips;
+    const dropOffReportsToQuotes = currentPeriodTrips - currentPeriodTripsWithQuotes;
+    const dropOffQuotesToBookings = currentPeriodTripsWithQuotes - currentPeriodBookings;
 
     // Calculate metrics
     const totalUsers = allUsers?.length || 0;
-    const currentPeriodUsers = usersResult.count || 0;
     const previousPeriodUsers = previousUsersResult.count || 0;
     const userGrowth = previousPeriodUsers > 0 
       ? ((currentPeriodUsers - previousPeriodUsers) / previousPeriodUsers) * 100 
       : 0;
 
     const totalTrips = allTrips?.length || 0;
-    const currentPeriodTrips = tripsResult.count || 0;
     const previousPeriodTrips = previousTripsResult.count || 0;
     const tripGrowth = previousPeriodTrips > 0
       ? ((currentPeriodTrips - previousPeriodTrips) / previousPeriodTrips) * 100
@@ -208,6 +246,23 @@ export async function GET(request: Request) {
             total: driverTokens.length,
             used: usedTokens,
             usageRate: Math.round(driverTokenUsageRate * 10) / 10,
+          },
+          conversionFunnel: {
+            users: currentPeriodUsers,
+            reports: currentPeriodTrips,
+            quotes: currentPeriodTripsWithQuotes,
+            bookings: currentPeriodBookings,
+            conversionRates: {
+              usersToReports: Math.round(usersToReportsRate * 10) / 10,
+              reportsToQuotes: Math.round(reportsToQuotesRate * 10) / 10,
+              quotesToBookings: Math.round(quotesToBookingsRate * 10) / 10,
+              overall: Math.round(overallConversionRate * 10) / 10,
+            },
+            dropOffs: {
+              usersToReports: dropOffUsersToReports,
+              reportsToQuotes: dropOffReportsToQuotes,
+              quotesToBookings: dropOffQuotesToBookings,
+            },
           },
         },
         charts: {

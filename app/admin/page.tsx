@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getAdminEmail } from '@/lib/admin-helpers';
-import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,23 +42,28 @@ interface AnalyticsData {
       used: number;
       usageRate: number;
     };
-    quality: {
-      totalEvaluated: number;
-      avgScore: number;
-      breakdown: {
-        critical_identification: number;
-        exceptional_circumstances: number;
-        actionability: number;
-        communication_clarity: number;
-      } | null;
-      evaluationRate: number;
+    conversionFunnel: {
+      users: number;
+      reports: number;
+      quotes: number;
+      bookings: number;
+      conversionRates: {
+        usersToReports: number;
+        reportsToQuotes: number;
+        quotesToBookings: number;
+        overall: number;
+      };
+      dropOffs: {
+        usersToReports: number;
+        reportsToQuotes: number;
+        quotesToBookings: number;
+      };
     };
   };
   charts: {
     userTimeSeries: Array<{ date: string; count: number }>;
     tripTimeSeries: Array<{ date: string; count: number }>;
     reportsPerUserTimeSeries: Array<{ date: string; reportsPerUser: number }>;
-    qualityTimeSeries: Array<{ date: string; avgScore: number; count: number }>;
     tripsByStatus: Array<{ status: string; count: number }>;
   };
 }
@@ -140,11 +144,17 @@ function ChartCard({
 
 export default function AdminPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Cache to prevent unnecessary refreshes
+  const lastFetchTimeRef = useRef<number>(0);
+  const lastTimeRangeRef = useRef<TimeRange>(timeRange);
+  const lastSessionTokenRef = useRef<string | undefined>(undefined);
+  const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
   useEffect(() => {
     // Check if user is admin
@@ -154,19 +164,37 @@ export default function AdminPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!authLoading && user?.email === getAdminEmail()) {
-      fetchAnalytics();
+    if (!authLoading && user?.email === getAdminEmail() && session?.access_token) {
+      const now = Date.now();
+      const timeSinceLastFetch = now - lastFetchTimeRef.current;
+      const timeRangeChanged = lastTimeRangeRef.current !== timeRange;
+      const sessionChanged = lastSessionTokenRef.current !== session.access_token;
+      const hasNoData = !data;
+      
+      // Only fetch if:
+      // 1. Time range changed
+      // 2. Session token changed (new login)
+      // 3. It's been more than 5 minutes since last fetch
+      // 4. We don't have data yet (initial load)
+      if (timeRangeChanged || sessionChanged || timeSinceLastFetch > REFRESH_INTERVAL || hasNoData) {
+        lastFetchTimeRef.current = now;
+        lastTimeRangeRef.current = timeRange;
+        lastSessionTokenRef.current = session.access_token;
+        fetchAnalytics();
+      } else {
+        // If we have cached data and don't need to fetch, just set loading to false
+        setLoading(false);
+      }
     }
-  }, [timeRange, authLoading, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeRange, authLoading, user, session?.access_token]);
 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Get the session token from Supabase
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      // Use session from auth context - no need to refresh token every time
       if (!session?.access_token) {
         throw new Error('No active session');
       }
@@ -232,10 +260,10 @@ export default function AdminPage() {
               </p>
             </div>
             <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
-              <TabsList>
-                <TabsTrigger value="7d">Week</TabsTrigger>
-                <TabsTrigger value="30d">Month</TabsTrigger>
-                <TabsTrigger value="90d">Quarter</TabsTrigger>
+              <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
+                <TabsTrigger value="7d" className="dark:data-[state=active]:bg-[#323236]">Week</TabsTrigger>
+                <TabsTrigger value="30d" className="dark:data-[state=active]:bg-[#323236]">Month</TabsTrigger>
+                <TabsTrigger value="90d" className="dark:data-[state=active]:bg-[#323236]">Quarter</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -267,7 +295,7 @@ export default function AdminPage() {
                 value={data.metrics.users.total}
                 description={
                   <p className="text-xs text-muted-foreground">
-                    <span className={data.metrics.users.growth >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    <span className={data.metrics.users.growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                       {formatGrowth(data.metrics.users.growth)}
                     </span>{' '}
                     from previous period
@@ -282,7 +310,7 @@ export default function AdminPage() {
                 value={data.metrics.trips.total}
                 description={
                   <p className="text-xs text-muted-foreground">
-                    <span className={data.metrics.trips.growth >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    <span className={data.metrics.trips.growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                       {formatGrowth(data.metrics.trips.growth)}
                     </span>{' '}
                     from previous period
@@ -309,7 +337,7 @@ export default function AdminPage() {
                 value={data.metrics.quotes.total}
                 description={
                   <p className="text-xs text-muted-foreground">
-                    <span className={data.metrics.quotes.growth >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    <span className={data.metrics.quotes.growth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                       {formatGrowth(data.metrics.quotes.growth)}
                     </span>{' '}
                     from previous period
@@ -364,81 +392,171 @@ export default function AdminPage() {
                   </p>
                 }
               />
-
-              {/* Report Quality Score */}
-              <MetricCard
-                title="Report quality score"
-                tooltip="AI-evaluated quality score (0-100). An AI judge reviews each report against 4 criteria: critical identification, exceptional circumstances, actionability, and communication clarity."
-                value={`${data.metrics.quality.avgScore.toFixed(1)}/100`}
-                description={
-                  <p className="text-xs text-muted-foreground">
-                    Based on {data.metrics.quality.totalEvaluated} evaluated reports
-                  </p>
-                }
-              />
-
-              {/* Quality Evaluation Rate */}
-              <MetricCard
-                title="Evaluation coverage"
-                tooltip="Percentage of reports that have been evaluated for quality. New reports are evaluated asynchronously in the background."
-                value={`${data.metrics.quality.evaluationRate.toFixed(1)}%`}
-                description={
-                  <p className="text-xs text-muted-foreground">
-                    {data.metrics.quality.totalEvaluated} of {data.metrics.trips.total} reports
-                  </p>
-                }
-              />
             </div>
 
-            {/* Quality Breakdown - if available */}
-            {data.metrics.quality.breakdown && (
+            {/* Conversion Funnel */}
+            {data.metrics.conversionFunnel && (
               <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-4">Quality dimensions</h3>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <MetricCard
-                    title="Critical identification"
-                    tooltip="Evaluates if AI identifies what's most important for the specific trip: critical time constraints, purpose-specific needs, and route complexity."
-                    value={`${data.metrics.quality.breakdown.critical_identification.toFixed(1)}/25`}
-                    description={
-                      <p className="text-xs text-muted-foreground">
-                        Identifying important factors
-                      </p>
-                    }
-                  />
-                  
-                  <MetricCard
-                    title="Exceptional circumstances"
-                    tooltip="Evaluates if AI catches unusual or exceptional factors: potential issues, risks, opportunities, and demonstrates context awareness."
-                    value={`${data.metrics.quality.breakdown.exceptional_circumstances.toFixed(1)}/25`}
-                    description={
-                      <p className="text-xs text-muted-foreground">
-                        Catching unusual factors
-                      </p>
-                    }
-                  />
-                  
-                  <MetricCard
-                    title="Actionability"
-                    tooltip="Evaluates if recommendations are clear and practical: driver can understand what to do, timing/routing is clear, and contingency plans are provided."
-                    value={`${data.metrics.quality.breakdown.actionability.toFixed(1)}/25`}
-                    description={
-                      <p className="text-xs text-muted-foreground">
-                        Clear, practical guidance
-                      </p>
-                    }
-                  />
-                  
-                  <MetricCard
-                    title="Communication clarity"
-                    tooltip="Evaluates report structure and presentation: information is easy to find, language is clear and professional, and detail level is appropriate."
-                    value={`${data.metrics.quality.breakdown.communication_clarity.toFixed(1)}/25`}
-                    description={
-                      <p className="text-xs text-muted-foreground">
-                        Structure and readability
-                      </p>
-                    }
-                  />
-                </div>
+                <ChartCard
+                  title="Conversion funnel"
+                  description="User journey from signup to Drivania booking"
+                  tooltip="Shows the flow of users through the platform: Users → Reports → Quotes → Bookings. Conversion rates show the percentage of users progressing to each stage."
+                >
+                  <div className="space-y-4 py-4 overflow-x-auto">
+                    {/* Funnel Stages */}
+                    <div className="flex flex-col gap-3 min-w-0">
+                      {/* Users Stage */}
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Users</div>
+                        <div className="flex-1 relative min-w-0">
+                          <div 
+                            className="h-10 sm:h-12 bg-blue-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
+                            style={{ width: '100%', maxWidth: '100%' }}
+                          >
+                            <span className="truncate">{data.metrics.conversionFunnel.users}</span>
+                            <span className="text-xs opacity-90 shrink-0 ml-2">100%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Arrow and Conversion Rate */}
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="w-20 sm:w-24 shrink-0"></div>
+                        <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
+                          <div className="flex-1 h-px bg-border"></div>
+                          <div className="text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
+                            {data.metrics.conversionFunnel.conversionRates.usersToReports.toFixed(1)}% convert
+                          </div>
+                          <div className="flex-1 h-px bg-border"></div>
+                        </div>
+                      </div>
+
+                      {/* Reports Stage */}
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Reports</div>
+                        <div className="flex-1 relative min-w-0">
+                          <div 
+                            className="h-10 sm:h-12 bg-purple-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
+                            style={{ 
+                              width: `${Math.max(10, (data.metrics.conversionFunnel.reports / data.metrics.conversionFunnel.users) * 100)}%`,
+                              maxWidth: '100%'
+                            }}
+                          >
+                            <span className="truncate">{data.metrics.conversionFunnel.reports}</span>
+                            <span className="text-xs opacity-90 shrink-0 ml-2">
+                              {data.metrics.conversionFunnel.conversionRates.usersToReports.toFixed(1)}%
+                            </span>
+                          </div>
+                          {data.metrics.conversionFunnel.dropOffs.usersToReports > 0 && (
+                            <div className="absolute left-0 top-full mt-1 text-xs text-muted-foreground">
+                              {data.metrics.conversionFunnel.dropOffs.usersToReports} dropped off
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Arrow and Conversion Rate */}
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="w-20 sm:w-24 shrink-0"></div>
+                        <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
+                          <div className="flex-1 h-px bg-border"></div>
+                          <div className="text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
+                            {data.metrics.conversionFunnel.conversionRates.reportsToQuotes.toFixed(1)}% convert
+                          </div>
+                          <div className="flex-1 h-px bg-border"></div>
+                        </div>
+                      </div>
+
+                      {/* Quotes Stage */}
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Quotes</div>
+                        <div className="flex-1 relative min-w-0">
+                          <div 
+                            className="h-10 sm:h-12 bg-cyan-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
+                            style={{ 
+                              width: `${Math.max(10, (data.metrics.conversionFunnel.quotes / data.metrics.conversionFunnel.users) * 100)}%`,
+                              maxWidth: '100%'
+                            }}
+                          >
+                            <span className="truncate">{data.metrics.conversionFunnel.quotes}</span>
+                            <span className="text-xs opacity-90 shrink-0 ml-2">
+                              {data.metrics.conversionFunnel.conversionRates.reportsToQuotes.toFixed(1)}%
+                            </span>
+                          </div>
+                          {data.metrics.conversionFunnel.dropOffs.reportsToQuotes > 0 && (
+                            <div className="absolute left-0 top-full mt-1 text-xs text-muted-foreground">
+                              {data.metrics.conversionFunnel.dropOffs.reportsToQuotes} dropped off
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Arrow and Conversion Rate */}
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="w-20 sm:w-24 shrink-0"></div>
+                        <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
+                          <div className="flex-1 h-px bg-border"></div>
+                          <div className="text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
+                            {data.metrics.conversionFunnel.conversionRates.quotesToBookings.toFixed(1)}% convert
+                          </div>
+                          <div className="flex-1 h-px bg-border"></div>
+                        </div>
+                      </div>
+
+                      {/* Bookings Stage */}
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Bookings</div>
+                        <div className="flex-1 relative min-w-0">
+                          <div 
+                            className="h-10 sm:h-12 bg-green-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
+                            style={{ 
+                              width: `${Math.max(10, (data.metrics.conversionFunnel.bookings / data.metrics.conversionFunnel.users) * 100)}%`,
+                              maxWidth: '100%'
+                            }}
+                          >
+                            <span className="truncate">{data.metrics.conversionFunnel.bookings}</span>
+                            <span className="text-xs opacity-90 shrink-0 ml-2">
+                              {data.metrics.conversionFunnel.conversionRates.overall.toFixed(1)}%
+                            </span>
+                          </div>
+                          {data.metrics.conversionFunnel.dropOffs.quotesToBookings > 0 && (
+                            <div className="absolute left-0 top-full mt-1 text-xs text-muted-foreground">
+                              {data.metrics.conversionFunnel.dropOffs.quotesToBookings} dropped off
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Conversion Metrics Summary */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-foreground">
+                          {data.metrics.conversionFunnel.conversionRates.usersToReports.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Users → Reports</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-foreground">
+                          {data.metrics.conversionFunnel.conversionRates.reportsToQuotes.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Reports → Quotes</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-foreground">
+                          {data.metrics.conversionFunnel.conversionRates.quotesToBookings.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Quotes → Bookings</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {data.metrics.conversionFunnel.conversionRates.overall.toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Overall Conversion</div>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCard>
               </div>
             )}
 
@@ -457,23 +575,29 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-1))',
                     },
                   }}
-                  className="h-[300px]"
+                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.charts.userTimeSeries}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="date" 
                         tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
                       />
-                      <YAxis />
+                      <YAxis 
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area 
                         type="monotone" 
                         dataKey="count" 
-                        stroke="hsl(var(--chart-1))" 
-                        fill="hsl(var(--chart-1))" 
-                        fillOpacity={0.2}
+                        stroke="#a78bfa" 
+                        strokeWidth={2.5}
+                        fill="#a78bfa" 
+                        fillOpacity={0.4}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -493,23 +617,29 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-2))',
                     },
                   }}
-                  className="h-[300px]"
+                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.charts.tripTimeSeries}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="date" 
                         tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
                       />
-                      <YAxis />
+                      <YAxis 
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area 
                         type="monotone" 
                         dataKey="count" 
-                        stroke="hsl(var(--chart-2))" 
-                        fill="hsl(var(--chart-2))" 
-                        fillOpacity={0.2}
+                        stroke="#22d3ee" 
+                        strokeWidth={2.5}
+                        fill="#22d3ee" 
+                        fillOpacity={0.4}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -529,66 +659,34 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-3))',
                     },
                   }}
-                  className="h-[300px]"
+                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data.charts.reportsPerUserTimeSeries}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="date" 
                         tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
                       />
-                      <YAxis />
+                      <YAxis 
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area 
                         type="monotone" 
                         dataKey="reportsPerUser" 
-                        stroke="hsl(var(--chart-3))" 
-                        fill="hsl(var(--chart-3))" 
-                        fillOpacity={0.2}
+                        stroke="#34d399" 
+                        strokeWidth={2.5}
+                        fill="#34d399" 
+                        fillOpacity={0.4}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
                 </ChartContainer>
               </ChartCard>
-
-              {/* Quality Score Over Time */}
-              {data.charts.qualityTimeSeries.length > 0 && (
-                <ChartCard
-                  title="Quality score over time"
-                  description="AI report quality trend"
-                  tooltip="Daily average of AI-evaluated quality scores. Each report is evaluated on 4 criteria (25 pts each): critical identification, exceptional circumstances, actionability, and communication clarity."
-                >
-                  <ChartContainer
-                    config={{
-                      avgScore: {
-                        label: 'Quality score',
-                        color: 'hsl(var(--chart-5))',
-                      },
-                    }}
-                    className="h-[300px]"
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={data.charts.qualityTimeSeries}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="date" 
-                          tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        />
-                        <YAxis domain={[0, 100]} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Area 
-                          type="monotone" 
-                          dataKey="avgScore" 
-                          stroke="hsl(var(--chart-5))" 
-                          fill="hsl(var(--chart-5))" 
-                          fillOpacity={0.2}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </ChartCard>
-              )}
 
               {/* Trips By Status */}
               <ChartCard
@@ -603,17 +701,24 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-4))',
                     },
                   }}
-                  className="h-[300px]"
+                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.charts.tripsByStatus}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="status" />
-                      <YAxis />
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="status" 
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
+                      />
+                      <YAxis 
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        stroke="hsl(var(--border))"
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Bar 
                         dataKey="count" 
-                        fill="hsl(var(--chart-4))" 
+                        fill="#fbbf24" 
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
