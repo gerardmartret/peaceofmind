@@ -1121,10 +1121,17 @@ export default function ResultsPage() {
     const basePrice = vehicle.sale_price?.price || 0;
     let extraFare = 0;
     
-    if (selection.selectedDriverIds.length === 1) {
-      extraFare = basePrice * 0.3; // +30% for one driver
-    } else if (selection.selectedDriverIds.length >= 2) {
-      extraFare = basePrice * 0.25; // +25% for two or more drivers
+    const driverCount = selection.selectedDriverIds.length;
+    if (driverCount === 1) {
+      extraFare = basePrice * 0.2; // +20% for one driver
+    } else if (driverCount === 2) {
+      extraFare = basePrice * 0.15; // +15% for two drivers
+    } else if (driverCount === 3) {
+      extraFare = basePrice * 0.1; // +10% for three drivers
+    } else if (driverCount === 4) {
+      extraFare = basePrice * 0.05; // +5% for four drivers
+    } else if (driverCount >= 5) {
+      extraFare = 0; // +0% for five or more drivers
     }
     
     const totalPrice = basePrice + extraFare;
