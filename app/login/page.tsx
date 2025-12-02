@@ -72,13 +72,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-4 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center bg-background px-4 sm:px-6 lg:px-8 py-8">
       <div className="w-full max-w-md">
-        <img 
-          src="/chauffs-logo-neutral.png" 
-          alt="Chauffs" 
-          className="mx-auto h-6 w-auto mb-12"
-        />
         <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Welcome Back</CardTitle>
