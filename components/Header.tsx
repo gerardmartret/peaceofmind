@@ -69,7 +69,7 @@ export default function Header() {
               <img 
                 src={mounted && theme === 'dark' ? "/chauffs-logo-neg.png" : "/chauffs-logo-pos.png"}
                 alt="Chauffs" 
-                className="h-[1.496rem] w-auto"
+                className="h-[1.7204rem] w-auto"
               />
             </button>
             

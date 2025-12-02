@@ -764,6 +764,7 @@ export default function ResultsPage() {
   const [guestSignupError, setGuestSignupError] = useState<string | null>(null);
   const [guestSignupLoading, setGuestSignupLoading] = useState<boolean>(false);
   const [guestSignupSuccess, setGuestSignupSuccess] = useState<boolean>(false);
+  const [showSignupModal, setShowSignupModal] = useState<boolean>(false);
 
   // Scroll position state for sticky update bar
   const [scrollY, setScrollY] = useState(0);
@@ -3080,6 +3081,12 @@ export default function ResultsPage() {
   };
 
   const handlePlanNewTrip = () => {
+    // Check if user is authenticated - if not, show signup modal
+    if (!isAuthenticated) {
+      setShowSignupModal(true);
+      return;
+    }
+
     // Redirect to home for new trip
     router.push('/');
   };
@@ -3098,6 +3105,12 @@ export default function ResultsPage() {
   };
 
   const handleStatusToggle = () => {
+    // Check if user is authenticated - if not, show signup modal
+    if (!isAuthenticated) {
+      setShowSignupModal(true);
+      return;
+    }
+
     if (!tripId || updatingStatus) return;
 
     // Check if user is the assigned driver (not owner)
@@ -4136,6 +4149,12 @@ export default function ResultsPage() {
 
   // Handler for driver to confirm a pending trip
   const handleDriverConfirmTrip = async () => {
+    // Check if user is authenticated - if not, show signup modal
+    if (!isAuthenticated) {
+      setShowSignupModal(true);
+      return;
+    }
+
     if (!tripId || confirmingTrip) return;
 
     // Block action if token was already used or trip not pending
@@ -5048,9 +5067,15 @@ export default function ResultsPage() {
   };
 
   const handleExtractUpdates = async () => {
-    // Security check: Only owners can extract updates
-    if (!isOwner) {
-      console.error('❌ Unauthorized: Only trip owners can extract updates');
+    // Check if user is authenticated - if not, show signup modal
+    if (!isAuthenticated) {
+      setShowSignupModal(true);
+      return;
+    }
+
+    // Security check: Only owners and guest creators can extract updates
+    if (!isOwner && !isGuestCreator) {
+      console.error('❌ Unauthorized: Only trip owners and guest creators can extract updates');
       setError('Only trip owners can update trip information');
       return;
     }
@@ -6841,8 +6866,8 @@ export default function ResultsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Update Trip Section - Sticky Bar - Only show for owners */}
-      {isOwner && !isLiveMode && !isRegenerating && (
+      {/* Update Trip Section - Sticky Bar - Only show for owners and guest creators */}
+      {(isOwner || isGuestCreator) && !isLiveMode && !isRegenerating && (
         <div
           className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
             }`}
@@ -7368,45 +7393,49 @@ export default function ResultsPage() {
                         <Card className="shadow-none lg:col-span-2 -my-0">
                           <CardContent className="pl-0 pr-5 pt-0 pb-0 relative flex items-center">
                             {/* Assign Driver button - Top Right */}
-                            {isOwner && (
-                              <div className="absolute top-3 right-5">
-                                <div className="relative inline-block">
-                                  <Button
-                                    variant="outline"
-                                    className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
-                                      ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                                      : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
-                                        ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
-                                        : driverEmail
-                                          ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
-                                          : ''
-                                        }`}
-                                    onClick={() => {
-                                      if (tripStatus === 'cancelled') {
-                                        alert('This trip has been cancelled. Please create a new trip instead.');
-                                        return;
-                                      }
-                                      setShowDriverModal(true);
-                                    }}
-                                    disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
-                                  >
-                                    {mounted && driverEmail && (
-                                      <img
-                                        src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                        alt="Driver"
-                                        className="w-4 h-4"
-                                      />
-                                    )}
-                                    {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
-                                  </Button>
-                                  {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
-                                    <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
-                                      {quotes.length}
-                                    </span>
+                            <div className="absolute top-3 right-5">
+                              <div className="relative inline-block">
+                                <Button
+                                  variant="outline"
+                                  className={`flex items-center gap-2 h-10 ${tripStatus === 'cancelled'
+                                    ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                                    : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
+                                      ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                                      : driverEmail
+                                        ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
+                                        : ''
+                                      }`}
+                                  onClick={() => {
+                                    // Check if user is authenticated - if not, show signup modal
+                                    if (!isAuthenticated) {
+                                      setShowSignupModal(true);
+                                      return;
+                                    }
+
+                                    if (tripStatus === 'cancelled') {
+                                      alert('This trip has been cancelled. Please create a new trip instead.');
+                                      return;
+                                    }
+                                    setShowDriverModal(true);
+                                  }}
+                                  disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
+                                >
+                                  {mounted && driverEmail && (
+                                    <img
+                                      src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                      alt="Driver"
+                                      className="w-4 h-4"
+                                    />
                                   )}
-                                </div>
+                                  {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Request quote'}
+                                </Button>
+                                {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
+                                  <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                                    {quotes.length}
+                                  </span>
+                                )}
                               </div>
-                            )}
+                            </div>
 
                             {/* Vehicle Image and Info */}
                             <div className="flex gap-6 items-center w-full m-0">
@@ -7663,6 +7692,12 @@ export default function ResultsPage() {
                       size="sm"
                       className="flex items-center gap-2"
                       onClick={() => {
+                        // Check if user is authenticated - if not, show signup modal
+                        if (!isAuthenticated) {
+                          setShowSignupModal(true);
+                          return;
+                        }
+
                         // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
                         setEditingLocations(locations.map((loc, idx) => ({
                           location: (loc as any).fullAddress || loc.name,
@@ -9383,124 +9418,6 @@ export default function ResultsPage() {
 
         {/* Quote Submission Form - REMOVED - Now sticky at top for non-owners */}
 
-        {/* Guest Signup CTA - Only for guests who created this report */}
-        {
-          isGuestCreator && !guestSignupSuccess && (
-            <Card className="mb-8 border border-primary/60 bg-gradient-to-br from-primary/5 to-primary/10">
-              <CardContent className="p-8">
-                <div className="max-w-2xl mx-auto">
-                  <h2 className="text-2xl font-bold text-center mb-3">
-                    🎉 Want to save this report and access it anytime?
-                  </h2>
-                  <p className="text-center text-muted-foreground mb-6">
-                    Create an account now to unlock powerful features
-                  </p>
-
-                  {/* Benefits Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-                    <div className="flex items-center gap-2 text-sm">
-                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Edit trips anytime</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Share with links</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Get driver quotes</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Password protect</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Notify drivers</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>Save all trips</span>
-                    </div>
-                  </div>
-
-                  {/* Signup Form */}
-                  <form onSubmit={handleGuestSignup} className="space-y-4">
-                    <div>
-                      <label htmlFor="guest-email" className="block text-sm font-medium mb-2">
-                        Email Address
-                      </label>
-                      <Input
-                        id="guest-email"
-                        type="email"
-                        value={tripData?.userEmail || ''}
-                        disabled
-                        className="bg-muted"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        We already have your email from when you created this report
-                      </p>
-                    </div>
-
-                    <div>
-                      <label htmlFor="guest-password" className="block text-sm font-medium mb-2">
-                        Create Password
-                      </label>
-                      <Input
-                        id="guest-password"
-                        type="password"
-                        value={guestSignupPassword}
-                        onChange={(e) => setGuestSignupPassword(e.target.value)}
-                        placeholder="At least 6 characters"
-                        disabled={guestSignupLoading}
-                        className={guestSignupError ? 'border-destructive' : ''}
-                      />
-                      {guestSignupError && (
-                        <p className="text-sm text-destructive mt-1">{guestSignupError}</p>
-                      )}
-                    </div>
-
-                    <Button
-                      type="submit"
-                      className="w-full text-lg py-6 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                      disabled={guestSignupLoading || !guestSignupPassword}
-                    >
-                      {guestSignupLoading ? (
-                        <>
-                          <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Creating Account...
-                        </>
-                      ) : (
-                        <>
-                          🚀 Create Account & Save Report
-                        </>
-                      )}
-                    </Button>
-                  </form>
-
-                  <p className="text-xs text-center text-muted-foreground mt-4">
-                    Already have an account? <a href="/login" className="text-primary hover:underline">Log in here</a>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        }
 
         {/* Success message after signup */}
         {
@@ -9515,7 +9432,7 @@ export default function ResultsPage() {
 
         {/* Footer Navigation */}
         <div className="py-8">
-          <div className="flex flex-wrap justify-start gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button
               onClick={handlePlanNewTrip}
               variant="default"
@@ -10130,6 +10047,119 @@ export default function ResultsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Signup Modal - Shown when non-authenticated users try to use features */}
+      <Dialog open={showSignupModal} onOpenChange={setShowSignupModal}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">
+              Ready to pick your favorite driver?
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Free trips, unlimited – start saving time now
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Benefits Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Unlimited trips</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Instant fixed pricing</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Pick your driver</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Edit trips instantly</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Billed in seconds</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Secure payments</span>
+              </div>
+            </div>
+
+            {/* Signup Form */}
+            <form onSubmit={handleGuestSignup} className="space-y-4">
+              <div>
+                <label htmlFor="modal-guest-email" className="block text-sm font-medium mb-2">
+                  Email address
+                </label>
+                <Input
+                  id="modal-guest-email"
+                  type="email"
+                  value={tripData?.userEmail || ''}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="modal-guest-password" className="block text-sm font-medium mb-2">
+                  Create password
+                </label>
+                <Input
+                  id="modal-guest-password"
+                  type="password"
+                  value={guestSignupPassword}
+                  onChange={(e) => setGuestSignupPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  disabled={guestSignupLoading}
+                  className={guestSignupError ? 'border-destructive' : ''}
+                />
+                {guestSignupError && (
+                  <p className="text-sm text-destructive mt-1">{guestSignupError}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full text-lg py-6 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                disabled={guestSignupLoading || !guestSignupPassword}
+              >
+                {guestSignupLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    Create account and save trip
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <p className="text-xs text-center text-muted-foreground">
+              Already have an account? <a href="/login" className="text-primary hover:underline dark:text-white">Log in here</a>
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Flow A Confirmation Modal - Selecting driver from quotes */}
       <Dialog open={showFlowAModal} onOpenChange={setShowFlowAModal}>
         <DialogContent>
@@ -10154,6 +10184,13 @@ export default function ResultsPage() {
             </Button>
             <Button
               onClick={async () => {
+                // Check if user is authenticated - if not, show signup modal
+                if (!isAuthenticated) {
+                  setShowFlowAModal(false);
+                  setShowSignupModal(true);
+                  return;
+                }
+
                 if (!selectedQuoteDriver) return;
 
                 setSettingDriver(true);

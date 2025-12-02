@@ -101,6 +101,7 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [pendingTripData, setPendingTripData] = useState<any>(null); // Store trip data for guest users before saving
+  const [savingGuestTrip, setSavingGuestTrip] = useState(false); // Loading state for guest trip save
   const [loadingSteps, setLoadingSteps] = useState<Array<{
     id: string;
     title: string;
@@ -546,6 +547,7 @@ export default function Home() {
       return;
     }
 
+    setSavingGuestTrip(true);
     try {
       console.log('💾 Saving guest trip to database...');
       console.log('   Email:', userEmail);
@@ -613,6 +615,7 @@ export default function Home() {
     } catch (err) {
       console.error('Error saving guest trip:', err);
       setError('Failed to save trip. Please try again.');
+      setSavingGuestTrip(false);
     }
   };
 
@@ -2395,8 +2398,21 @@ export default function Home() {
                 />
               </div>
 
-              {/* Create brief Button */}
+              {/* View Route & Create brief Buttons */}
               <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={() => setMapOpen(true)}
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 sm:flex-initial"
+                  disabled={!extractedLocations || extractedLocations.filter(loc => loc.verified).length < 2}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                  View Route
+                </Button>
+
                 <Button
                   onClick={() => {
                     const isDisabled = loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues(extractedDate, extractedLocations, tripDestination);
@@ -2409,7 +2425,7 @@ export default function Home() {
                   }}
                   disabled={loadingTrip || !extractedLocations?.every(loc => loc.verified) || hasUnknownOrMissingValues(extractedDate, extractedLocations, tripDestination)}
                   size="lg"
-                  className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                  className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] ml-auto"
                 >
                   {loadingTrip ? (
                     <>
@@ -2422,20 +2438,6 @@ export default function Home() {
                   ) : (
                     <>Create brief</>
                   )}
-                </Button>
-
-
-                <Button
-                  onClick={() => setMapOpen(true)}
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 sm:flex-initial ml-auto"
-                  disabled={!extractedLocations || extractedLocations.filter(loc => loc.verified).length < 2}
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                  </svg>
-                  View Route
                 </Button>
               </div>
             </div>
@@ -2691,14 +2693,27 @@ export default function Home() {
                 />
               </div>
 
-              {/* Create brief & View Map Buttons */}
+              {/* View Route & Create brief Buttons */}
               <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={() => setMapOpen(true)}
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 sm:flex-initial"
+                  disabled={locations.filter(l => l.name).length < 2}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                  View Route
+                </Button>
+
                 <Button
                   onClick={handleTripSubmit}
                   disabled={loadingTrip || locations.filter(l => l.name).length === 0}
                   variant={locationsReordered ? "destructive" : "default"}
                   size="lg"
-                  className={`flex-1 sm:flex-initial flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] ${locationsReordered ? 'animate-pulse' : ''}`}
+                  className={`flex-1 sm:flex-initial flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] ml-auto ${locationsReordered ? 'animate-pulse' : ''}`}
                 >
                   {loadingTrip ? (
                     <>
@@ -2711,20 +2726,6 @@ export default function Home() {
                   ) : (
                     <>Create brief</>
                   )}
-                </Button>
-
-
-                <Button
-                  onClick={() => setMapOpen(true)}
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 sm:flex-initial ml-auto"
-                  disabled={locations.filter(l => l.name).length < 2}
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                  </svg>
-                  View Route
                 </Button>
               </div>
             </div>
@@ -2800,7 +2801,7 @@ export default function Home() {
                             <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
                               <div className="flex flex-col items-center space-y-4">
                                 <label htmlFor="userEmail" className="block text-sm font-medium text-card-foreground text-center">
-                                  Your Business Email <span style={{ color: '#EEEFF4' }}>*</span> (required to view brief)
+                                  Your business email (required to view brief)
                                 </label>
                                 <Input
                                   type="email"
@@ -2824,12 +2825,12 @@ export default function Home() {
                                   </p>
                                 )}
 
-                                {/* View Driver Brief Button - Only for guest users */}
+                                {/* View driver brief Button - Only for guest users */}
                                 <Button
                                   onClick={handleGuestTripSave}
                                   size="lg"
                                   className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                                  disabled={!pendingTripData || !userEmail.trim() || !!emailError}
+                                  disabled={!pendingTripData || !userEmail.trim() || !!emailError || savingGuestTrip}
                                 >
                                   {!pendingTripData ? (
                                     <>
@@ -2837,14 +2838,22 @@ export default function Home() {
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                       </svg>
-                                      <span>Composing Brief...</span>
+                                      <span>Composing brief...</span>
+                                    </>
+                                  ) : savingGuestTrip ? (
+                                    <>
+                                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                      </svg>
+                                      <span>Proceeding...</span>
                                     </>
                                   ) : (
                                     <>
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                                       </svg>
-                                      View Driver Brief
+                                      View trip brief
                                     </>
                                   )}
                                 </Button>

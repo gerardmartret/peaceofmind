@@ -4,5 +4,7 @@
 	</defs>
 	<style>
 	</style>
-	<use id="img1" href="#img1" transform="matrix(1,0,0,1,57,0)"/>
+	<g transform="scale(0.85) translate(78, 78)">
+		<use id="img1" href="#img1" transform="matrix(1,0,0,1,57,0)"/>
+	</g>
 </svg>
