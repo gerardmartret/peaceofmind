@@ -6594,7 +6594,7 @@ export default function ResultsPage() {
               }`}
           >
           <div className="container mx-auto px-4 pt-8 pb-3">
-            <div className={`rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length > 0 ? 'border-[#3ea34b]' : (myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border')}`}>
+            <div className={`rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border'}`}>
               {/* Always show the same structure - fields are disabled when quote exists */}
               <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
                 <label className="flex-1">
@@ -6774,7 +6774,7 @@ export default function ResultsPage() {
             }`}
         >
           <div className="container mx-auto px-4 pt-8 pb-3">
-            <div className={`rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length > 0 ? 'border-[#3ea34b]' : (myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border')}`}>
+            <div className={`rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border'}`}>
               {/* Always show the same structure - fields are disabled when quote exists */}
               <form onSubmit={handleSubmitQuote} className="flex gap-3 items-start">
                 <label className="flex-1">
@@ -7370,9 +7370,9 @@ export default function ResultsPage() {
                       
                       const buttonText = isCancelledWithActivity ? 'Cancelled' :
                         driverResponseStatus === 'rejected' ? 'Rejected' :
-                          driverResponseStatus === 'accepted' ? 'Accepted' :
+                          driverResponseStatus === 'accepted' ? 'Trip accepted' :
                             tripStatus === 'rejected' ? 'Rejected' :
-                              tripStatus === 'confirmed' ? 'Confirmed' :
+                              tripStatus === 'confirmed' ? 'Trip confirmed' :
                                 tripStatus === 'booked' ? 'Booked' :
                                   isDriverViewingPending ? 'Accept trip' :
                                     driverEmail ? 'Pending' : 'Not confirmed';
@@ -7389,7 +7389,7 @@ export default function ResultsPage() {
                                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
-                              ) : tripStatus === 'confirmed' || tripStatus === 'booked' ? (
+                              ) : tripStatus === 'booked' ? (
                                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
@@ -7690,7 +7690,7 @@ export default function ResultsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm hover:bg-background"
+                            className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm hover:bg-white border-gray-300 text-gray-700 hover:text-gray-900"
                             onClick={() => setShowMapModal(true)}
                             aria-label="Expand map"
                           >
@@ -10707,8 +10707,18 @@ export default function ResultsPage() {
 
       {/* Driver Accept/Reject Modal - Shows when driver clicks "Accept trip" button */}
       <Dialog open={showDriverAcceptRejectModal} onOpenChange={setShowDriverAcceptRejectModal}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader className="relative">
+            <button
+              onClick={() => setShowDriverAcceptRejectModal(false)}
+              disabled={confirmingTrip || rejectingTrip}
+              className="absolute right-0 top-0 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span className="sr-only">Close</span>
+            </button>
             <DialogTitle>Accept or reject trip</DialogTitle>
             <DialogDescription>
               You've been assigned as the driver to this trip
@@ -10743,27 +10753,20 @@ export default function ResultsPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:justify-end">
             <Button
               variant="outline"
-              onClick={() => setShowDriverAcceptRejectModal(false)}
-              disabled={confirmingTrip || rejectingTrip}
-            >
-              Close
-            </Button>
-            <Button
               onClick={async () => {
                 setShowDriverAcceptRejectModal(false);
                 await handleDriverRejectTrip();
               }}
               disabled={confirmingTrip || rejectingTrip}
-              className="bg-red-600 hover:bg-red-700 text-white"
             >
               {rejectingTrip ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                   Rejecting...
                 </>
@@ -10777,13 +10780,13 @@ export default function ResultsPage() {
                 await handleDriverConfirmTrip();
               }}
               disabled={confirmingTrip || rejectingTrip}
-              className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
+              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
             >
               {confirmingTrip ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                   Accepting...
                 </>
