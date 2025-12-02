@@ -49,7 +49,7 @@ export default function Header() {
 
   if (loading) {
     return (
-      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-background border-b border-border">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-background">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-end items-center gap-2">
             <div className="h-9 w-20 bg-muted animate-pulse rounded"></div>
@@ -61,7 +61,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-background border-b border-border">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full bg-background">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             {/* Logo */}

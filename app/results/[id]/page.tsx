@@ -7494,6 +7494,7 @@ export default function ResultsPage() {
                   const signatureSedanPatterns = [
                     // Specific ultra-luxury models
                     /(?:Mercedes|Merc)\s*Maybach\s*S(?:[\s-]*Class)?/i,
+                    /Maybach\s*(?:Mercedes|Merc)\s*S(?:[\s-]*Class)?/i,
                     /Rolls\s*Royce\s*Ghost/i,
                     /Rolls\s*Royce\s*Phantom/i,
                     // Ultra-luxury car phrases
@@ -7618,8 +7619,20 @@ export default function ResultsPage() {
                             <div className="flex gap-6 items-center w-full m-0">
                               {/* Vehicle Image on the left */}
                               <img
-                                src={
-                                  vehicleType === 'van' 
+                                src={(() => {
+                                  // Check if it's a Maybach S-Class - should use S-Class image instead of Phantom
+                                  const vehicleText = (vehicleInfo || driverNotes || '').toLowerCase();
+                                  const isMaybachSClass = 
+                                    /(?:mercedes|merc)\s*maybach\s*s(?:[\s-]*class)?/i.test(vehicleText) ||
+                                    /maybach\s*(?:mercedes|merc)\s*s(?:[\s-]*class)?/i.test(vehicleText);
+                                  
+                                  // If it's Maybach S-Class, use S-Class image
+                                  if (isMaybachSClass) {
+                                    return theme === 'light' ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass-web.webp";
+                                  }
+                                  
+                                  // Otherwise, use normal logic
+                                  return vehicleType === 'van' 
                                     ? (theme === 'light' ? "/Vehicles/light-brief-vclass-web.png" : "/Vehicles/dark-brief-vclass-web.webp")
                                     : vehicleType === 'minibus' 
                                       ? (theme === 'light' ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.webp")
@@ -7629,8 +7642,8 @@ export default function ResultsPage() {
                                           ? (theme === 'light' ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
                                           : vehicleType === 'premium-sedan'
                                             ? (theme === 'light' ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
-                                            : (theme === 'light' ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp")
-                                }
+                                            : (theme === 'light' ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
+                                })()}
                                  alt={vehicleType === 'van' ? "Van Vehicle" : vehicleType === 'minibus' ? "Minibus Vehicle" : vehicleType === 'suv' ? "SUV Vehicle" : vehicleType === 'signature-sedan' ? "Signature Sedan Vehicle" : "Sedan Vehicle"}
                                  className="h-[216px] w-auto flex-shrink-0 pl-[10px]"
                               />
