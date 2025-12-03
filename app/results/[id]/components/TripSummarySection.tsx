@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Car, Maximize2 } from 'lucide-react';
@@ -36,6 +37,7 @@ interface TripSummarySectionProps {
   quoteParam: string | null;
   isAuthenticated: boolean;
   isLiveMode: boolean;
+  tripId: string;
   
   // UI state
   theme: 'light' | 'dark' | undefined;
@@ -73,6 +75,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   quoteParam,
   isAuthenticated,
   isLiveMode,
+  tripId,
   theme,
   mounted,
   onStatusToggle,
@@ -80,6 +83,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   onShowMapModal,
   onShowSignupModal,
 }) => {
+  const router = useRouter();
   const numberOfPassengers = passengerCount || 1;
   const vehicleType = determineVehicleType(vehicleInfo, driverNotes, numberOfPassengers);
 
@@ -282,9 +286,25 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                 {/* Left Column - Vehicle Box (spans 2 columns) */}
                 <Card className="shadow-none lg:col-span-2 -my-0">
                   <CardContent className="pl-0 pr-5 pt-0 pb-0 relative flex items-center">
-                    {/* Assign Driver button - Top Right - Hide when driver accesses via token (assigned) or quote request link */}
+                    {/* Action buttons - Top Right - Hide when driver accesses via token (assigned) or quote request link */}
                     {!(isDriverView && driverToken) && quoteParam !== 'true' && (
-                      <div className="absolute top-3 right-5">
+                      <div className="absolute top-3 right-5 flex gap-2">
+                        {/* Book a trip button - Show for owners when not booked/cancelled */}
+                        {isOwner && tripStatus !== 'cancelled' && tripStatus !== 'booked' && driverEmail !== 'drivania' && (
+                          <Button
+                            onClick={() => {
+                              if (!isAuthenticated) {
+                                onShowSignupModal();
+                                return;
+                              }
+                              router.push(`/booking/${tripId}`);
+                            }}
+                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                          >
+                            Book a trip
+                          </Button>
+                        )}
+                        {/* Assign Driver button */}
                         <div className="relative inline-block">
                           <Button
                             variant="outline"
