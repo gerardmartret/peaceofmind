@@ -558,6 +558,20 @@ export default function ResultsPage() {
     return (tripDestination || tripData?.tripDestination || '').trim();
   }, [tripDestination, tripData?.tripDestination]);
 
+  // Calculate lowest Drivania quote price
+  const lowestDrivaniaPrice = React.useMemo(() => {
+    if (!drivaniaQuotes?.quotes?.vehicles || drivaniaQuotes.quotes.vehicles.length === 0) {
+      return null;
+    }
+    const prices = drivaniaQuotes.quotes.vehicles
+      .map((vehicle: any) => vehicle.sale_price?.price)
+      .filter((price: any) => typeof price === 'number' && !isNaN(price));
+    if (prices.length === 0) return null;
+    return Math.min(...prices);
+  }, [drivaniaQuotes]);
+
+  const drivaniaCurrency = drivaniaQuotes?.currency_code || null;
+
   useEffect(() => {
     let active = true;
 
@@ -3211,7 +3225,17 @@ export default function ResultsPage() {
     }
   };
 
-  // Removed auto-fetch Drivania quotes - now handled on booking page
+  // Fetch Drivania quotes on page load for owners (to show lowest price in button)
+  useEffect(() => {
+    if (!tripId || !isOwner || !ownershipChecked || loading || loadingDrivaniaQuote || drivaniaQuotes) return;
+    
+    // Only fetch if trip is not cancelled/booked and not already assigned to Drivania
+    if (tripStatus === 'cancelled' || tripStatus === 'booked' || driverEmail === 'drivania') return;
+
+    // Fetch quotes silently in the background
+      handleDrivaniaQuote();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripId, isOwner, ownershipChecked, loading, tripStatus, driverEmail]);
 
   const handleModifyTrip = () => {
     // For now, just redirect to home
@@ -5091,6 +5115,9 @@ export default function ResultsPage() {
               onShowDriverModal={() => setShowDriverModal(true)}
               onShowMapModal={() => setShowMapModal(true)}
               onShowSignupModal={() => setShowSignupModal(true)}
+              lowestDrivaniaPrice={lowestDrivaniaPrice}
+              drivaniaCurrency={drivaniaCurrency}
+              loadingDrivaniaQuote={loadingDrivaniaQuote}
             />
           )}
 
@@ -6084,7 +6111,7 @@ export default function ResultsPage() {
                       <p className="text-sm text-muted-foreground mb-4">
                         Get instant quotes and book your trip with our partner Drivania
                       </p>
-                      <Button
+                              <Button
                         onClick={() => {
                           setShowDriverModal(false);
                           router.push(`/booking/${tripId}`);
@@ -6092,11 +6119,11 @@ export default function ResultsPage() {
                         className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
                       >
                         Book a trip
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                              </Button>
+                                </div>
+                            </div>
+                              )}
+                            </div>
             </div>
           </div>
         )

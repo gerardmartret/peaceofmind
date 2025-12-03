@@ -2,7 +2,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Car, Maximize2 } from 'lucide-react';
+import { Car, Maximize2, Loader2 } from 'lucide-react';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import { TripStatusButton } from './TripStatusButton';
 import { determineVehicleType, extractCarInfo } from '../utils/vehicle-detection-helpers';
@@ -48,6 +48,11 @@ interface TripSummarySectionProps {
   onShowDriverModal: () => void;
   onShowMapModal: () => void;
   onShowSignupModal: () => void;
+  
+  // Drivania quote info
+  lowestDrivaniaPrice: number | null;
+  drivaniaCurrency: string | null;
+  loadingDrivaniaQuote: boolean;
 }
 
 export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
@@ -82,6 +87,9 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   onShowDriverModal,
   onShowMapModal,
   onShowSignupModal,
+  lowestDrivaniaPrice,
+  drivaniaCurrency,
+  loadingDrivaniaQuote,
 }) => {
   const router = useRouter();
   const numberOfPassengers = passengerCount || 1;
@@ -258,7 +266,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
               </span>
             </div>
           </div>
-          <div className="flex-shrink-0 flex flex-col items-end">
+          <div className="flex-shrink-0 flex flex-col items-end gap-3">
             <TripStatusButton
               tripStatus={tripStatus}
               driverResponseStatus={driverResponseStatus}
@@ -273,6 +281,31 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
               updatingStatus={updatingStatus}
               onStatusToggle={onStatusToggle}
             />
+            {/* Book a trip button - Show for owners when not booked/cancelled */}
+            {isOwner && tripStatus !== 'cancelled' && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true' && (
+              <Button
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    onShowSignupModal();
+                    return;
+                  }
+                  router.push(`/booking/${tripId}`);
+                }}
+                disabled={loadingDrivaniaQuote}
+                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loadingDrivaniaQuote ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading best price
+                  </span>
+                ) : lowestDrivaniaPrice !== null ? (
+                  `Book for ${drivaniaCurrency ? `${drivaniaCurrency} ` : ''}${lowestDrivaniaPrice.toFixed(2)}`
+                ) : (
+                  'Book a trip'
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -288,22 +321,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                   <CardContent className="pl-0 pr-5 pt-0 pb-0 relative flex items-center">
                     {/* Action buttons - Top Right - Hide when driver accesses via token (assigned) or quote request link */}
                     {!(isDriverView && driverToken) && quoteParam !== 'true' && (
-                      <div className="absolute top-3 right-5 flex gap-2">
-                        {/* Book a trip button - Show for owners when not booked/cancelled */}
-                        {isOwner && tripStatus !== 'cancelled' && tripStatus !== 'booked' && driverEmail !== 'drivania' && (
-                          <Button
-                            onClick={() => {
-                              if (!isAuthenticated) {
-                                onShowSignupModal();
-                                return;
-                              }
-                              router.push(`/booking/${tripId}`);
-                            }}
-                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-                          >
-                            Book a trip
-                          </Button>
-                        )}
+                      <div className="absolute top-3 right-5">
                         {/* Assign Driver button */}
                         <div className="relative inline-block">
                           <Button
