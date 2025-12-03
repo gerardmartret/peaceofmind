@@ -64,6 +64,9 @@ import { extractFlightNumbers, extractServiceIntroduction } from './utils/extrac
 import { isValidTransition } from './utils/validation-helpers';
 import { determineVehicleType, extractCarInfo } from './utils/vehicle-detection-helpers';
 import { stripEmailMetadata, detectUnchangedFields, mapExtractedToManualForm, calculateChanges } from './utils/update-helpers';
+import { usePreviewApplication } from './hooks/usePreviewApplication';
+import { useUpdateExtraction } from './hooks/useUpdateExtraction';
+import { useTripRegeneration } from './hooks/useTripRegeneration';
 import { bookingPreviewInitialState, requiredFields, CURRENCY_OPTIONS, type BookingPreviewFieldKey } from './constants';
 import { QuoteFormSection } from './components/QuoteFormSection';
 import { RouteCard } from './components/RouteCard';
@@ -3911,86 +3914,22 @@ export default function ResultsPage() {
 
 
   // Preview modal handlers
-  const handleApplyPreview = async () => {
-    console.log('✅ [PREVIEW] Applying changes...');
-
-    // Prepare validated locations to pass directly (avoiding React state timing issues)
-    // Check all possible location fields: location, formattedAddress, or purpose
-    const validatedLocations = previewLocations.filter(loc => {
-      const hasCoords = loc.lat !== 0 && loc.lng !== 0;
-      const hasName = (loc.location && loc.location.trim() !== '') ||
-        (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
-        (loc.purpose && loc.purpose.trim() !== '');
-      // Exception: Airport locations are valid even without coordinates if they match airport pattern
-      const isAirport = isAirportLocation(loc.location) || 
-                       isAirportLocation(loc.formattedAddress) || 
-                       isAirportLocation(loc.purpose);
-      return (hasCoords && hasName) || (isAirport && hasName);
-    });
-
-    // Fallback: If previewLocations is empty/invalid and we have tripData, use original locations
-    // This handles cases where only non-location fields (passenger, vehicle) were changed
-    let locationsToSave = validatedLocations;
-    if (locationsToSave.length === 0 && tripData?.locations && tripData.locations.length > 0) {
-      console.log('⚠️ [PREVIEW] No valid preview locations, falling back to tripData.locations');
-      // Convert tripData.locations to manual form format (same as mapExtractedToManualForm does)
-      locationsToSave = tripData.locations.map((loc: any, idx: number) => ({
-        location: loc.name || (loc as any).fullAddress || '',
-        formattedAddress: (loc as any).fullAddress || (loc as any).formattedAddress || '', // Never fall back to name (purpose)
-        lat: loc.lat || 0,
-        lng: loc.lng || 0,
-        time: loc.time || '12:00',
-        purpose: loc.name || '', // Purpose is always from name, never fall back to fullAddress
-        confidence: 'high' as 'high' | 'medium' | 'low',
-        verified: true,
-        placeId: loc.id || `location-${idx + 1}`,
-      }));
-    }
-
-    // Final validation
-    const finalValidLocations = locationsToSave.filter(loc => {
-      const hasCoords = loc.lat !== 0 && loc.lng !== 0;
-      const hasName = (loc.location && loc.location.trim() !== '') ||
-        (loc.formattedAddress && loc.formattedAddress.trim() !== '') ||
-        (loc.purpose && loc.purpose.trim() !== '');
-      // Exception: Airport locations are valid even without coordinates if they match airport pattern
-      const isAirport = isAirportLocation(loc.location) || 
-                       isAirportLocation(loc.formattedAddress) || 
-                       isAirportLocation(loc.purpose);
-      return (hasCoords && hasName) || (isAirport && hasName);
-    });
-
-    if (finalValidLocations.length === 0) {
-      alert('Please ensure all locations have valid addresses and coordinates. Some locations may need to be selected from the address dropdown.');
-      return;
-    }
-
-    // Set editingLocations with validated data (for UI consistency, even though we pass directly)
-    setEditingLocations(finalValidLocations);
-
-    // Update driver notes if changed
-    if (previewDriverNotes !== driverNotes) {
-      setEditedDriverNotes(previewDriverNotes);
-      setDriverNotes(previewDriverNotes);
-    }
-    // Apply non-location field changes
-    if (previewNonLocationFields.leadPassengerName) {
-      setLeadPassengerName(previewNonLocationFields.leadPassengerName);
-    }
-    if (previewNonLocationFields.vehicleInfo) {
-      setVehicleInfo(previewNonLocationFields.vehicleInfo);
-    }
-    if (previewNonLocationFields.passengerCount) {
-      setPassengerCount(previewNonLocationFields.passengerCount);
-    }
-    if (previewNonLocationFields.tripDestination) {
-      setTripDestination(previewNonLocationFields.tripDestination);
-    }
-    // Close preview modal
-    setShowPreviewModal(false);
-    // Pass validated locations directly to avoid React state timing issues
-    await handleSaveRouteEdits(finalValidLocations);
-  };
+  const { handleApplyPreview } = usePreviewApplication({
+    previewLocations,
+    previewDriverNotes,
+    previewNonLocationFields,
+    tripData,
+    driverNotes,
+    setEditingLocations,
+    setEditedDriverNotes,
+    setDriverNotes,
+    setLeadPassengerName,
+    setVehicleInfo,
+    setPassengerCount,
+    setTripDestination,
+    setShowPreviewModal,
+    handleSaveRouteEdits,
+  });
 
   const handleEditManually = () => {
     console.log('✏️ [PREVIEW] Opening manual edit form...');
@@ -4031,217 +3970,34 @@ export default function ResultsPage() {
   };
 
 
-  const handleExtractUpdates = async () => {
-    // Check if user is authenticated - if not, show signup modal
-    if (!isAuthenticated) {
-      setShowSignupModal(true);
-      return;
-    }
-
-    // Security check: Only owners and guest creators can extract updates
-    if (!isOwner && !isGuestCreator) {
-      console.error('❌ Unauthorized: Only trip owners and guest creators can extract updates');
-      setError('Only trip owners can update trip information');
-      return;
-    }
-
-    if (!updateText.trim()) return;
-
-    // Don't show regeneration modal during extraction - it will show when user accepts preview
-    setIsExtracting(true);
-    setError(null);
-    setUpdateProgress({ step: 'Extracting trip data', error: null, canRetry: false });
-
-    try {
-      // PRE-PROCESSING: Strip email headers to prevent false positives
-      const cleanedText = stripEmailMetadata(updateText);
-
-      // Step 1: Extract updates from text
-      console.log('🔄 Step 1: Extracting updates from text...');
-
-      const extractResponse = await fetch('/api/extract-trip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: cleanedText,  // Use cleaned text without email headers
-          tripDestination: tripDestination || undefined // Pass current trip destination for proper geocoding
-        }),
-      });
-
-      const extractedData = await extractResponse.json();
-
-      if (!extractedData.success) {
-        const errorMsg = extractedData.error || 'Could not understand the update text';
-        console.error('❌ Extraction failed:', errorMsg);
-        setError(errorMsg);
-        setUpdateProgress({
-          step: 'Extraction',
-          error: 'Could not understand the update. Try rephrasing or breaking it into smaller pieces. For example: "Change pickup time to 3pm" or "Add stop at The Ritz Hotel"',
-          canRetry: true,
-        });
-        setIsExtracting(false);
-        return;
-      }
-
-      // POST-PROCESSING: Log removal operations if detected
-      if (extractedData.removedLocations && extractedData.removedLocations.length > 0) {
-        console.log(`🗑️ [REMOVAL] Detected ${extractedData.removedLocations.length} location(s) to remove:`, extractedData.removedLocations);
-      }
-
-      // POST-PROCESSING: Log insertion operations if detected
-      if (extractedData.locations && extractedData.locations.length > 0) {
-        extractedData.locations.forEach((loc: any, idx: number) => {
-          if (loc.insertAfter) {
-            console.log(`📌 [INSERT] Location "${loc.location}" should be inserted AFTER "${loc.insertAfter}"`);
-          } else if (loc.insertBefore) {
-            console.log(`📌 [INSERT] Location "${loc.location}" should be inserted BEFORE "${loc.insertBefore}"`);
-          }
-        });
-      }
-
-      // POST-PROCESSING: Validate and override fields based on "same" language
-      const unchangedFields = detectUnchangedFields(updateText);
-
-      if (unchangedFields.size > 0) {
-        console.log(`🔧 [POST-PROCESSING] Found ${unchangedFields.size} field(s) that should be unchanged:`, Array.from(unchangedFields));
-
-        if (unchangedFields.has('vehicle') && extractedData.vehicleInfo) {
-          console.log(`   → Ignoring extracted vehicle: "${extractedData.vehicleInfo}"`);
-          extractedData.vehicleInfo = null;
-        }
-        if (unchangedFields.has('passengers') && extractedData.leadPassengerName) {
-          console.log(`   → Ignoring extracted passenger data`);
-          extractedData.leadPassengerName = null;
-          extractedData.passengerNames = [];
-        }
-        if (unchangedFields.has('date') && extractedData.date) {
-          console.log(`   → Ignoring extracted date: "${extractedData.date}"`);
-          extractedData.date = null;
-        }
-      }
-
-      // POST-PROCESSING: Validate date - must be today or later
-      if (extractedData.date) {
-        try {
-          const extractedDate = new Date(extractedData.date);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          extractedDate.setHours(0, 0, 0, 0);
-
-          // Date must be today or later (date < today means invalid)
-          if (extractedDate < today) {
-            console.warn(`⚠️ [VALIDATION] Extracted date ${extractedData.date} is in the past. Setting to null (date must be today or later).`);
-            extractedData.date = null;
-          } else {
-            console.log(`✅ [VALIDATION] Extracted date ${extractedData.date} is valid (today or later)`);
-          }
-        } catch (error) {
-          console.error(`❌ [VALIDATION] Invalid date format: ${extractedData.date}`, error);
-          extractedData.date = null;
-        }
-      }
-
-      console.log('✅ Step 1 complete: Extracted data successfully');
-      setExtractedUpdates(extractedData);
-
-      // Step 2: Map extracted data to manual form format (replacing comparison step)
-      if (tripData) {
-        setUpdateProgress({ step: 'Mapping updates to trip format', error: null, canRetry: false });
-        console.log('🔄 [UPDATE] Step 2: Mapping extracted data to manual form format...');
-        console.log('📍 [UPDATE] Current:', tripData.locations.length, 'locations');
-        console.log('📍 [UPDATE] Extracted:', extractedData.locations?.length || 0, 'locations');
-
-        try {
-          // Map extracted data to manual form format
-          const mappedLocations = mapExtractedToManualForm(tripData.locations, extractedData);
-
-          // Calculate changes for preview
-          const changes = calculateChanges(tripData.locations, mappedLocations);
-
-          // Update trip notes if changed
-          const newDriverNotes = extractedData.driverNotes || driverNotes;
-          const notesChanged = extractedData.driverNotes && extractedData.driverNotes !== driverNotes;
-
-          console.log('✅ [UPDATE] Step 2: Mapping successful');
-          console.log('📊 [UPDATE] Changes:', {
-            removed: changes.removed.length,
-            modified: changes.modified.length,
-            added: changes.added.length,
-            notesChanged: notesChanged
-          });
-
-          // Store original values from tripData BEFORE updating state
-          const originalValuesData = {
-            leadPassengerName: leadPassengerName,
-            vehicleInfo: vehicleInfo,
-            passengerCount: passengerCount,
-            tripDestination: tripDestination,
-            driverNotes: driverNotes,
-          };
-          setOriginalValues(originalValuesData);
-
-          // Track non-location field changes (compare against original values)
-          const nonLocationChanges: any = {};
-          if (extractedData.leadPassengerName && extractedData.leadPassengerName !== originalValuesData.leadPassengerName) {
-            nonLocationChanges.leadPassengerName = extractedData.leadPassengerName;
-          }
-          if (extractedData.vehicleInfo && extractedData.vehicleInfo !== originalValuesData.vehicleInfo) {
-            nonLocationChanges.vehicleInfo = extractedData.vehicleInfo;
-          }
-          if (extractedData.passengerCount && extractedData.passengerCount !== originalValuesData.passengerCount) {
-            nonLocationChanges.passengerCount = extractedData.passengerCount;
-          }
-          if (extractedData.tripDestination && extractedData.tripDestination !== originalValuesData.tripDestination) {
-            nonLocationChanges.tripDestination = extractedData.tripDestination;
-          }
-
-          // Set preview data
-          setPreviewLocations(mappedLocations);
-          setPreviewChanges(changes);
-          setPreviewDriverNotes(newDriverNotes);
-          setPreviewNonLocationFields(nonLocationChanges);
-
-          // Update other fields if changed (for immediate state update)
-          if (extractedData.leadPassengerName) {
-            setLeadPassengerName(extractedData.leadPassengerName);
-          }
-          if (extractedData.vehicleInfo) {
-            setVehicleInfo(extractedData.vehicleInfo);
-          }
-          if (extractedData.passengerCount) {
-            setPassengerCount(extractedData.passengerCount);
-          }
-          if (extractedData.tripDestination) {
-            setTripDestination(extractedData.tripDestination);
-          }
-
-          // Show preview modal (regeneration modal will show when user accepts)
-          setIsExtracting(false);
-          setShowPreviewModal(true);
-
-        } catch (mapError) {
-          console.error('❌ [UPDATE] Mapping failed:', mapError);
-          setError(mapError instanceof Error ? mapError.message : 'Failed to map updates');
-          setUpdateProgress({
-            step: 'Mapping',
-            error: 'Could not map updates to trip format. Please try using the manual form.',
-            canRetry: true,
-          });
-          setIsExtracting(false);
-        }
-      }
-    } catch (err) {
-      console.error('❌ Unexpected error during update extraction:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setError(errorMessage);
-      setUpdateProgress({
-        step: updateProgress.step || 'Processing update',
-        error: `Something went wrong during ${updateProgress.step || 'the update process'}. ${errorMessage}`,
-        canRetry: true,
-      });
-      setIsExtracting(false);
-    }
-  };
+  const { handleExtractUpdates } = useUpdateExtraction({
+    updateText,
+    tripData,
+    tripDestination,
+    driverNotes,
+    leadPassengerName,
+    vehicleInfo,
+    passengerCount,
+    isAuthenticated,
+    isOwner,
+    isGuestCreator,
+    setIsExtracting,
+    setError,
+    setUpdateProgress,
+    setExtractedUpdates,
+    setPreviewLocations,
+    setPreviewChanges,
+    setPreviewDriverNotes,
+    setPreviewNonLocationFields,
+    setOriginalValues,
+    setLeadPassengerName,
+    setVehicleInfo,
+    setPassengerCount,
+    setTripDestination,
+    setShowPreviewModal,
+    setShowSignupModal,
+    updateProgress,
+  });
 
   // Transform AI comparison result to our diff format for UI display
   const transformComparisonToDiff = (comparison: any, extractedData: any) => {
@@ -5079,330 +4835,20 @@ export default function ResultsPage() {
   };
 
   // Direct regeneration handler (called from handleExtractUpdates, skipping preview)
-  const handleRegenerateDirectly = async (comparisonDiff: any, extractedUpdates: any) => {
-    if (!comparisonDiff || !extractedUpdates || !tripData) {
-      console.error('❌ Missing required data for regeneration');
-      setError('Missing required data for regeneration');
-      setIsRegenerating(false);
-      return;
-    }
-
-    setError(null);
-    setRegenerationStep('Preparing updated locations...');
-
-    try {
-      // Use finalLocations from AI comparison (already merged intelligently)
-      const finalLocations = comparisonDiff.finalLocations || [];
-
-      // Convert final locations to format expected by performTripAnalysis
-      // Log for debugging
-      console.log('🔍 [DEBUG] Final locations before validation:', JSON.stringify(finalLocations, null, 2));
-
-      // Filter out locations with invalid coordinates (lat === 0 && lng === 0)
-      console.log(`🔍 [VALIDATION-DIAG] Starting validation with ${finalLocations.length} locations`);
-      const validLocations = finalLocations
-        .map((loc: any, idx: number) => {
-          const location = {
-            id: loc.id || (idx + 1).toString(),
-            name: loc.name || loc.purpose || loc.fullAddress || loc.address || '',
-            lat: loc.lat || 0,
-            lng: loc.lng || 0,
-            time: loc.time || '',
-            fullAddress: loc.fullAddress || loc.address || loc.name || '',
-            purpose: loc.purpose || loc.name || '',
-          };
-
-          // Log locations with invalid coordinates
-          if (location.lat === 0 && location.lng === 0) {
-            console.warn(`⚠️ [VALIDATION-DIAG] Location ${idx + 1} (${location.name}) has invalid coordinates (0, 0)`);
-            console.warn(`   - fullAddress: "${location.fullAddress}"`);
-            console.warn(`   - Original loc data:`, JSON.stringify(loc, null, 2));
-          }
-
-          return location;
-        })
-        .filter((loc: any) => {
-          const isValid = loc.lat !== 0 || loc.lng !== 0;
-          if (!isValid) {
-            console.warn(`⚠️ [VALIDATION-DIAG] Filtering out location "${loc.name}" due to invalid coordinates`);
-            console.warn(`   - This location will be removed from the trip`);
-          }
-          return isValid;
-        });
-
-      console.log(`✅ [DEBUG] Valid locations after filtering: ${validLocations.length}`);
-      validLocations.forEach((loc: any, idx: number) => {
-        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
-      });
-
-      // Validate that we have at least 2 valid locations for traffic predictions
-      if (validLocations.length < 2) {
-        console.error('❌ Need at least 2 locations with valid coordinates for traffic predictions');
-        console.error(`   Current valid locations: ${validLocations.length}`);
-        console.error(`   Total final locations: ${finalLocations.length}`);
-        setError('Need at least 2 locations with valid coordinates to calculate routes. Please ensure all locations have valid addresses.');
-        setIsRegenerating(false);
-        return;
-      }
-
-      // VALIDATION: Check for coordinate/address mismatches BEFORE geocoding decision
-      console.log('🔍 [VALIDATION] Checking coordinate/address consistency...');
-      const inconsistentLocations: Array<{ loc: any, index: number, reason: string }> = [];
-
-      validLocations.forEach((loc: any, i: number) => {
-        if (loc.lat && loc.lng && loc.lat !== 0 && loc.lng !== 0 && loc.fullAddress) {
-          const addressLower = loc.fullAddress.toLowerCase();
-
-          // Check 1: Airport address but central London coordinates
-          const isAirportAddress = addressLower.includes('airport') ||
-            addressLower.includes('gatwick') ||
-            addressLower.includes('heathrow') ||
-            addressLower.includes('stansted') ||
-            addressLower.includes('luton');
-
-          // Central London bounds: ~51.49-51.53 lat, -0.14 to -0.07 lng
-          const inCentralLondon = (loc.lat > 51.49 && loc.lat < 51.53) &&
-            (loc.lng > -0.14 && loc.lng < -0.07);
-
-          if (isAirportAddress && inCentralLondon) {
-            console.error(`❌ [VALIDATION] Location ${i} has AIRPORT address but CENTRAL LONDON coords!`);
-            console.error(`   Address: ${loc.fullAddress}`);
-            console.error(`   Coords: ${loc.lat}, ${loc.lng}`);
-            inconsistentLocations.push({ loc, index: i, reason: 'airport-central-mismatch' });
-          }
-
-          // Check 2: Gatwick address but coords far from Gatwick
-          if (addressLower.includes('gatwick')) {
-            // Gatwick coords: ~51.1537, -0.1821
-            const distanceFromGatwick = Math.sqrt(
-              Math.pow((loc.lat - 51.1537) * 111, 2) + // rough km conversion
-              Math.pow((loc.lng - (-0.1821)) * 111 * Math.cos(loc.lat * Math.PI / 180), 2)
-            );
-
-            if (distanceFromGatwick > 5) {
-              console.error(`❌ [VALIDATION] Gatwick address but coords are ${distanceFromGatwick.toFixed(1)}km away!`);
-              console.error(`   Address: ${loc.fullAddress}`);
-              console.error(`   Coords: ${loc.lat}, ${loc.lng}`);
-              inconsistentLocations.push({ loc, index: i, reason: 'gatwick-distance-mismatch' });
-            }
-          }
-
-          // Check 3: Generic "London, UK" address (likely geocoding fallback)
-          if (loc.fullAddress === 'London, UK' || loc.fullAddress.length < 15) {
-            console.warn(`⚠️ [VALIDATION] Location ${i} has generic address: "${loc.fullAddress}"`);
-            inconsistentLocations.push({ loc, index: i, reason: 'generic-address' });
-          }
-        }
-      });
-
-      // Re-geocode inconsistent locations
-      if (inconsistentLocations.length > 0) {
-        console.log(`🔧 [FIX] Re-geocoding ${inconsistentLocations.length} inconsistent locations...`);
-
-        for (const inconsistent of inconsistentLocations) {
-          try {
-            const geocoder = new google.maps.Geocoder();
-            const query = inconsistent.loc.fullAddress;
-
-            const result = await new Promise<any>((resolve) => {
-              geocoder.geocode(
-                { address: query, region: getCityConfig(tripDestination).geocodingRegion },
-                (results, status) => {
-                  if (status === google.maps.GeocoderStatus.OK && results?.[0]) {
-                    resolve(results[0]);
-                  } else {
-                    resolve(null);
-                  }
-                }
-              );
-            });
-
-            if (result) {
-              validLocations[inconsistent.index].lat = result.geometry.location.lat();
-              validLocations[inconsistent.index].lng = result.geometry.location.lng();
-              validLocations[inconsistent.index].fullAddress = result.formatted_address;
-              console.log(`✅ [FIX] Corrected location ${inconsistent.index}: ${result.formatted_address} (${result.geometry.location.lat()}, ${result.geometry.location.lng()})`);
-            }
-          } catch (err) {
-            console.error(`❌ Failed to re-geocode location ${inconsistent.index}:`, err);
-          }
-        }
-      } else {
-        console.log('✅ [VALIDATION] All locations passed consistency checks');
-      }
-
-      // OPTIMIZATION: Separate locations that need geocoding from those that don't
-      // Check for: 1) Invalid coordinates OR 2) Incomplete/missing fullAddress
-      const needsGeocoding = (loc: any): boolean => {
-        // No coordinates = definitely needs geocoding
-        if (loc.lat === 0 && loc.lng === 0) return true;
-
-        // Has coordinates but missing/incomplete address = needs geocoding
-        const fullAddr = loc.fullAddress || '';
-        const hasIncompleteAddress = fullAddr.length < 20 || !fullAddr.includes(',');
-
-        if (hasIncompleteAddress) {
-          console.log(`   ⚠️ Location "${loc.name}" has incomplete address: "${fullAddr}" (needs geocoding)`);
-        }
-
-        return hasIncompleteAddress;
-      };
-
-      const locationsNeedingGeocoding = validLocations.filter(needsGeocoding);
-      const locationsWithValidData = validLocations.filter((loc: any) => !needsGeocoding(loc));
-
-      console.log(`🗺️ [OPTIMIZATION] Geocoding: ${locationsNeedingGeocoding.length} locations need geocoding, ${locationsWithValidData.length} already have valid data`);
-      setRegenerationProgress(35);
-      setRegenerationStep(`Geocoding ${locationsNeedingGeocoding.length} location(s)...`);
-      // Step 3 is already set to loading from handleExtractUpdates
-
-      // Only geocode locations that actually need it
-      let geocodedLocations: any[] = [];
-      if (locationsNeedingGeocoding.length > 0) {
-        console.log('🗺️ [DEBUG] Geocoding locations without valid coordinates...');
-        // Get city configuration for geocoding
-        const cityConfig = getCityConfig(tripDestination);
-        console.log(`🌍 [GEOCODING] Using city context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias})`);
-
-        geocodedLocations = await Promise.all(
-          locationsNeedingGeocoding.map(async (loc: any) => {
-            try {
-              console.log(`   Geocoding: ${loc.name || loc.fullAddress || loc.address || 'Unknown location'}`);
-
-              // Use Google Maps Geocoding API
-              const geocoder = new google.maps.Geocoder();
-              const query = loc.fullAddress || loc.address || loc.name || '';
-
-              // Diagnostic: Check if query is just city name
-              if (query && query.toLowerCase() === (tripDestination || '').toLowerCase()) {
-                console.warn(`⚠️ [GEOCODE-DIAG] WARNING: Geocoding query is just city name "${query}" - this might cause address replacement!`);
-                console.warn(`   - loc.fullAddress: "${loc.fullAddress}"`);
-                console.warn(`   - loc.address: "${loc.address}"`);
-                console.warn(`   - loc.name: "${loc.name}"`);
-              }
-
-              return new Promise<typeof loc>((resolve) => {
-                const geocodeQuery = `${query}, ${cityConfig.geocodingBias}`;
-                console.log(`🔍 [GEOCODE-DIAG] Geocoding query: "${geocodeQuery}"`);
-                geocoder.geocode(
-                  { address: geocodeQuery, region: cityConfig.geocodingRegion },
-                  (results, status) => {
-                    if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
-                      const result = results[0];
-                      const beforeFullAddress = loc.fullAddress;
-                      const geocodedLoc = {
-                        ...loc,
-                        lat: result.geometry.location.lat(),
-                        lng: result.geometry.location.lng(),
-                        fullAddress: result.formatted_address || loc.fullAddress || loc.address || loc.name,
-                      };
-                      console.log(`   ✅ [GEOCODE-DIAG] Geocoded: ${geocodedLoc.name} → (${geocodedLoc.lat}, ${geocodedLoc.lng})`);
-                      if (geocodedLoc.fullAddress !== beforeFullAddress) {
-                        console.log(`   - fullAddress changed: "${beforeFullAddress}" → "${geocodedLoc.fullAddress}"`);
-                        // Check if result is just city center
-                        if (geocodedLoc.fullAddress && geocodedLoc.fullAddress.toLowerCase().includes((tripDestination || '').toLowerCase()) && !geocodedLoc.fullAddress.includes(',')) {
-                          console.warn(`   ⚠️ [GEOCODE-DIAG] WARNING: Geocoded address appears to be just city name: "${geocodedLoc.fullAddress}"`);
-                        }
-                      }
-                      resolve(geocodedLoc);
-                    } else {
-                      console.warn(`   ⚠️ [GEOCODE-DIAG] Geocoding failed for: ${query} (status: ${status})`);
-                      console.warn(`   - Keeping original location data`);
-                      // Keep original location even if geocoding fails
-                      resolve(loc);
-                    }
-                  }
-                );
-              });
-            } catch (geocodeError) {
-              console.error(`   ❌ Error geocoding ${loc.name}:`, geocodeError);
-              // Keep original location if geocoding fails
-              return loc;
-            }
-          })
-        );
-        console.log(`✅ [DEBUG] Geocoding complete for ${geocodedLocations.length} locations`);
-      } else {
-        console.log('⚡️ [OPTIMIZATION] No geocoding needed - all locations have valid coordinates!');
-      }
-
-      // Combine geocoded locations with those that already had valid data
-      // Preserve original order by matching indices
-      const finalValidLocations = validLocations.map((loc: any) => {
-        if (needsGeocoding(loc)) {
-          // Find this location in geocoded results
-          const geocoded = geocodedLocations.find((g: any) => g.id === loc.id);
-          return geocoded || loc;
-        }
-        return loc; // Already has valid coordinates and complete address
-      });
-
-      console.log('✅ [DEBUG] Final locations ready');
-      finalValidLocations.forEach((loc: any, idx: number) => {
-        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
-      });
-      setRegenerationProgress(45);
-      setRegenerationStep('Fetching updated data for all locations...');
-      setRegenerationSteps(prev => prev.map(s =>
-        s.id === '3' ? { ...s, status: 'completed' as const } :
-          s.id === '4' ? { ...s, status: 'loading' as const } : s
-      ));
-
-      // Get updated trip date (from AI comparison or use current)
-      const comparisonData = comparisonDiff.comparisonData;
-      const updatedTripDate = comparisonData?.tripDateNew ||
-        (comparisonData?.tripDateChanged ? extractedUpdates.date : tripData.tripDate) ||
-        tripData.tripDate;
-
-      // Get merged notes (from AI comparison)
-      const mergedNotes = comparisonDiff.mergedNotes || driverNotes;
-
-      // Get updated passenger info (from AI comparison)
-      const updatedPassengerName = comparisonData?.passengerInfoNew ||
-        (comparisonData?.passengerInfoChanged ? (extractedUpdates.leadPassengerName || extractedUpdates.passengerNames?.join(', ')) : leadPassengerName) ||
-        leadPassengerName;
-
-      // Get updated vehicle info (from AI comparison)
-      const updatedVehicleInfo = comparisonData?.vehicleInfoNew ||
-        (comparisonData?.vehicleInfoChanged ? extractedUpdates.vehicleInfo : vehicleInfo) ||
-        vehicleInfo;
-
-      // Get updated passenger count
-      const updatedPassengerCount = comparisonData?.passengerCountNew ||
-        (comparisonData?.passengerCountChanged ? extractedUpdates.passengerCount : passengerCount) ||
-        passengerCount;
-
-      // Get updated trip destination
-      const updatedTripDestination = comparisonData?.tripDestinationNew ||
-        (comparisonData?.tripDestinationChanged ? extractedUpdates.tripDestination : tripDestination) ||
-        tripDestination;
-
-      // Parse trip date
-      const tripDateObj = new Date(updatedTripDate);
-
-      // Get passenger names array
-      const updatedPassengerNames = extractedUpdates.passengerNames || [];
-
-      // Call the regeneration function
-      setRegenerationProgress(50);
-      setRegenerationStep('Analyzing trip data...');
-      await performTripAnalysisUpdate(
-        finalValidLocations,
-        tripDateObj,
-        updatedPassengerName,
-        updatedVehicleInfo,
-        updatedPassengerCount,
-        updatedTripDestination,
-        updatedPassengerNames,
-        mergedNotes,
-        comparisonDiff
-      );
-    } catch (err) {
-      console.error('Error regenerating report:', err);
-      setError(err instanceof Error ? err.message : 'Failed to regenerate report');
-      setIsRegenerating(false);
-    }
-  };
+  const { handleRegenerateDirectly } = useTripRegeneration({
+    tripData,
+    tripDestination,
+    driverNotes,
+    leadPassengerName,
+    vehicleInfo,
+    passengerCount,
+    setError,
+    setIsRegenerating,
+    setRegenerationStep,
+    setRegenerationProgress,
+    setRegenerationSteps,
+    performTripAnalysisUpdate,
+  });
 
   // Show loading state until ownership is checked
   if (loading || !ownershipChecked) {
