@@ -50,74 +50,20 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
-
-// Sortable location item for edit route modal
-interface SortableEditLocationItemProps {
-  location: {
-    location: string;
-    time: string;
-    confidence: string;
-    purpose: string;
-    verified: boolean;
-    formattedAddress: string;
-    lat: number;
-    lng: number;
-    placeId: string | null;
-  };
-  index: number;
-  totalLocations: number;
-  onLocationSelect: (index: number, location: any) => void;
-  onTimeChange: (index: number, time: string) => void;
-  onRemove: (index: number) => void;
-  canRemove: boolean;
-  editingIndex: number | null;
-  editingField: 'location' | 'time' | null;
-  onEditStart: (index: number, field: 'location' | 'time') => void;
-  onEditEnd: () => void;
-  tripDestination?: string;
-}
-
-// Helper function to convert time to HH:MM format for TimePicker
-const formatTimeForPicker = (time: string | number | undefined): string => {
-  if (!time && time !== 0) {
-    console.log('⚠️ [TimePicker] No time value provided, using default 09:00');
-    return '09:00';
-  }
-
-  // If it's already a string in HH:MM format, normalize it
-  if (typeof time === 'string' && time.includes(':')) {
-    const [hours, minutes] = time.split(':');
-    const h = parseInt(hours) || 0;
-    const m = parseInt(minutes) || 0;
-    // Ensure valid range
-    const validH = Math.max(0, Math.min(23, h));
-    const validM = Math.max(0, Math.min(59, m));
-    const result = `${validH.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
-    console.log('✅ [TimePicker] Formatted time from string:', time, '→', result);
-    return result;
-  }
-
-  // If it's a decimal number (e.g., 14.5 for 14:30) or string number
-  if (typeof time === 'number' || (typeof time === 'string' && !time.includes(':'))) {
-    const numTime = typeof time === 'number' ? time : parseFloat(String(time));
-    if (isNaN(numTime)) {
-      console.log('⚠️ [TimePicker] Invalid number format:', time, 'using default 09:00');
-      return '09:00';
-    }
-    const hours = Math.floor(Math.abs(numTime));
-    const minutes = Math.round((Math.abs(numTime) % 1) * 60);
-    // Ensure valid range
-    const validH = Math.max(0, Math.min(23, hours));
-    const validM = Math.max(0, Math.min(59, minutes));
-    const result = `${validH.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
-    console.log('✅ [TimePicker] Formatted time from number:', time, '→', result);
-    return result;
-  }
-
-  console.log('⚠️ [TimePicker] Unknown time format:', time, 'using default 09:00');
-  return '09:00';
-};
+import { safeJsonParse } from '@/lib/helpers/api-helpers';
+import type {
+  SortableEditLocationItemProps,
+  TripData,
+  DriverRecord,
+} from './types';
+import { formatTimeForPicker, getDestinationLocalTime, getLondonLocalTime } from './utils/time-helpers';
+import { normalizeTripLocations, isAirportLocation } from './utils/location-helpers';
+import { normalizeVehicleText, normalizeMatchKey, matchesDriverToVehicle, vehicleKey } from './utils/vehicle-helpers';
+import { formatPriceDisplay, parsePriceInput } from './utils/price-helpers';
+import { calculateCombinedScheduleRisk, calculateTimelineRealism } from './utils/risk-helpers';
+import { extractFlightNumbers, extractServiceIntroduction } from './utils/extraction-helpers';
+import { isValidTransition } from './utils/validation-helpers';
+import { bookingPreviewInitialState, requiredFields, CURRENCY_OPTIONS, type BookingPreviewFieldKey } from './constants';
 
 function SortableEditLocationItem({
   location,
@@ -258,252 +204,6 @@ function SortableEditLocationItem({
   );
 }
 
-interface CrimeData {
-  district: string;
-  coordinates: { lat: number; lng: number };
-  crimes: any[];
-  summary: {
-    totalCrimes: number;
-    topCategories: Array<{ category: string; count: number; percentage: number }>;
-    byOutcome: Record<string, number>;
-    month: string;
-  };
-  safetyScore: number;
-}
-
-interface DisruptionData {
-  district: string;
-  timeframe: string;
-  isAreaFiltered: boolean;
-  disruptions: any[];
-  analysis: {
-    total: number;
-    bySeverity: Record<string, number>;
-    byCategory: Record<string, number>;
-    active: number;
-    upcoming: number;
-  };
-}
-
-interface WeatherData {
-  district: string;
-  coordinates: { lat: number; lng: number };
-  forecast: Array<{
-    date: string;
-    maxTemp: number;
-    minTemp: number;
-    precipitation: number;
-    precipitationProb: number;
-    weatherCode: number;
-    weatherDescription: string;
-    windSpeed: number;
-  }>;
-  summary: {
-    avgMaxTemp: number;
-    avgMinTemp: number;
-    totalPrecipitation: number;
-    rainyDays: number;
-    maxWindSpeed: number;
-  };
-}
-
-interface EventData {
-  location: string;
-  coordinates: { lat: number; lng: number };
-  date: string;
-  events: Array<{
-    title: string;
-    description: string;
-    date?: string;
-    severity: 'high' | 'medium' | 'low';
-    type: 'strike' | 'protest' | 'festival' | 'construction' | 'other';
-  }>;
-  summary: {
-    total: number;
-    byType: Record<string, number>;
-    bySeverity: Record<string, number>;
-    highSeverity: number;
-  };
-}
-
-interface ParkingData {
-  location: string;
-  coordinates: { lat: number; lng: number };
-  carParks: Array<{
-    id: string;
-    name: string;
-    address: string;
-    lat: number;
-    lng: number;
-    distance: number;
-    totalSpaces?: number;
-    operatingHours?: string;
-    facilities: string[];
-    type: string;
-  }>;
-  cpzInfo: {
-    inCPZ: boolean;
-    zone?: string;
-    zoneName?: string;
-    borough?: string;
-    operatingHours?: string;
-    operatingDays?: string;
-    restrictions?: string;
-    chargeInfo?: string;
-  };
-  parkingRiskScore: number;
-  summary: {
-    totalNearby: number;
-    averageDistance: number;
-    hasStationParking: boolean;
-    cpzWarning: boolean;
-  };
-}
-
-interface CafeData {
-  location: string;
-  coordinates: { lat: number; lng: number };
-  cafes: Array<{
-    id: string;
-    name: string;
-    address: string;
-    rating: number;
-    userRatingsTotal: number;
-    priceLevel: number;
-    distance?: number;
-    lat: number;
-    lng: number;
-    types: string[];
-    businessStatus?: string;
-  }>;
-  summary: {
-    total: number;
-    averageRating: number;
-    averageDistance: number;
-  };
-}
-
-interface EmergencyServicesData {
-  location: string;
-  coordinates: { lat: number; lng: number };
-  policeStation?: {
-    id: string;
-    name: string;
-    address: string;
-    distance: number;
-    lat: number;
-    lng: number;
-    type: 'police';
-  };
-  hospital?: {
-    id: string;
-    name: string;
-    address: string;
-    distance: number;
-    lat: number;
-    lng: number;
-    type: 'hospital';
-  };
-}
-
-interface CombinedData {
-  crime: CrimeData;
-  disruptions: DisruptionData;
-  weather: WeatherData;
-  events: EventData;
-  parking: ParkingData;
-  cafes: CafeData;
-  emergencyServices?: EmergencyServicesData;
-}
-
-interface TripData {
-  tripDate: string;
-  userEmail: string;
-  locations: Array<{
-    id: string;
-    name: string;
-    displayName?: string; // Custom user-defined name
-    lat: number;
-    lng: number;
-    time: string;
-    flightNumber?: string;
-    flightDirection?: 'arrival' | 'departure';
-  }>;
-  tripResults: Array<{
-    locationId: string;
-    locationName: string;
-    fullAddress?: string;
-    time: string;
-    data: CombinedData;
-  }>;
-  trafficPredictions: any;
-  executiveReport: any;
-  passengerCount?: number;
-  tripDestination?: string;
-  passengerNames?: string[];
-  password?: string | null;
-  status?: string;
-}
-
-type DriverRecord = Database['public']['Tables']['drivers']['Row'] & {
-  level_of_service?: string | null;
-};
-
-const normalizeTripLocations = (
-  rawLocations?: TripData['locations'] | string | null | unknown,
-): TripData['locations'] => {
-  if (!rawLocations) return [];
-
-  if (Array.isArray(rawLocations)) return rawLocations;
-
-  if (typeof rawLocations === 'string') {
-    const tryParse = (value: string) => {
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      } catch (error) {
-        // swallow
-      }
-      return null;
-    };
-
-    const direct = tryParse(rawLocations);
-    if (direct) return direct;
-
-    const relaxed = rawLocations
-      .replace(/'/g, '"')
-      .replace(/,\s*}/g, '}')
-      .replace(/,\s*\]/g, ']');
-
-    const parsedRelaxed = tryParse(relaxed);
-    if (parsedRelaxed) return parsedRelaxed;
-
-    const jsonLike = `[${rawLocations
-      .replace(/[\[\]]/g, '')
-      .split(/[,;]+/)
-      .map(part => part.trim())
-      .filter(Boolean)
-      .map(part => {
-        try {
-          const one = JSON.parse(part);
-          return one;
-        } catch {
-          return part;
-        }
-      })
-      .map(part => (typeof part === 'string' ? part : JSON.stringify(part)))
-      .join(',')}]`;
-
-    const fallback = tryParse(jsonLike);
-    if (fallback) return fallback;
-
-    console.warn('⚠️ Unable to parse trip locations JSON, returning empty array');
-  }
-
-  return [];
-};
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -517,19 +217,6 @@ export default function ResultsPage() {
   const [tripData, setTripData] = useState<TripData | null>(null);
   const locations = React.useMemo(() => normalizeTripLocations(tripData?.locations), [tripData?.locations]);
 
-  // Helper function to safely parse JSON responses
-  const safeJsonParse = async (response: Response) => {
-    if (!response.ok) {
-      console.error(`❌ API error: ${response.status} ${response.statusText}`);
-      return { success: false, error: response.statusText };
-    }
-    try {
-      return await response.json();
-    } catch (err) {
-      console.error('❌ Failed to parse JSON response:', err);
-      return { success: false, error: 'Invalid response format' };
-    }
-  };
   const quoteFormRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -745,19 +432,6 @@ export default function ResultsPage() {
   const [matchingDriversError, setMatchingDriversError] = useState<string | null>(null);
   // Track selection state for each vehicle: { vehicleId: { isVehicleSelected: boolean, selectedDriverIds: string[] } }
   const [vehicleSelections, setVehicleSelections] = useState<Record<string, { isVehicleSelected: boolean; selectedDriverIds: string[] }>>({});
-  const bookingPreviewInitialState = {
-    passengerName: '',
-    contactEmail: '',
-    contactPhone: '',
-    flightNumber: '',
-    flightDirection: '',
-    passengerCount: 1,
-    childSeats: 0,
-    pickupTime: '',
-    dropoffTime: '',
-    notes: '',
-  };
-  type BookingPreviewFieldKey = keyof typeof bookingPreviewInitialState;
   const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
   const [missingFields, setMissingFields] = useState<Set<BookingPreviewFieldKey>>(new Set());
   const [bookingSubmissionState, setBookingSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
@@ -808,65 +482,12 @@ export default function ResultsPage() {
   const highlightMissing = (field: BookingPreviewFieldKey) =>
     missingFields.has(field) ? 'border-destructive/70 bg-destructive/10 text-destructive' : '';
 
-  // Check if a location is an airport (pattern: "airport, country" or "city airport, country")
-  // Accepts locations that only contain airport name and country, without full street address
-  const isAirportLocation = (locationText: string | null | undefined): boolean => {
-    if (!locationText) return false;
-    const text = locationText.trim().toLowerCase();
-    // Pattern: contains "airport" followed by a comma and country name
-    // Examples: "zurich airport, switzerland", "airport, france", "london airport, uk"
-    // Should NOT match if it contains street addresses (numbers, street names like "street", "avenue", etc.)
-    const hasStreetAddress = /\d+\s+(street|st|avenue|ave|road|rd|boulevard|blvd|drive|dr|lane|ln|way|circle|ct)/i.test(text);
-    if (hasStreetAddress) return false;
-    
-    // Check if it matches airport pattern: word(s) + "airport" + comma + country
-    const airportPattern = /^[a-z\s]*airport\s*,?\s*[a-z\s]+$/i;
-    return airportPattern.test(text) && text.includes('airport');
-  };
-
-  const normalizeVehicleText = (text?: string): string =>
-    (text || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
 
   const preferredVehicleHint = React.useMemo(() => {
     return vehicleInfo?.trim() || driverNotes?.trim() || '';
   }, [vehicleInfo, driverNotes]);
 
-  const requiredFields: BookingPreviewFieldKey[] = [
-    'passengerName',
-    'contactEmail',
-    'flightDirection',
-    'pickupTime',
-    'dropoffTime',
-  ];
 
-  const normalizeMatchKey = (value?: string | null): string =>
-    (value || '').trim().toLowerCase();
-
-  const matchesDriverToVehicle = (
-    driverType: string | null | undefined,
-    driverLevel: string | null | undefined,
-    vehicleType: string | null | undefined,
-    vehicleLevel: string | null | undefined,
-  ) => {
-    const normalizedDriver = normalizeMatchKey(driverType);
-    const normalizedVehicle = normalizeMatchKey(vehicleType);
-    const normalizedDriverLevel = normalizeMatchKey(driverLevel);
-    const normalizedVehicleLevel = normalizeMatchKey(vehicleLevel);
-
-    if (!normalizedDriver || !normalizedVehicle) return false;
-
-    const vehicleMatches =
-      normalizedDriver.includes(normalizedVehicle) || normalizedVehicle.includes(normalizedDriver);
-
-    const levelMatches = normalizedVehicleLevel
-      ? normalizedDriverLevel.includes(normalizedVehicleLevel)
-      : true;
-
-    return vehicleMatches && levelMatches;
-  };
 
   const matchesPreferredVehicle = React.useCallback((vehicle: any): boolean => {
     if (!preferredVehicleHint) return false;
@@ -913,9 +534,6 @@ export default function ResultsPage() {
     return drivaniaQuotes?.quotes?.vehicles || [];
   }, [preferredVehicles, drivaniaQuotes]);
 
-  const vehicleKey = (vehicle: any) =>
-    vehicle.vehicle_id ||
-    `${vehicle.vehicle_type}-${vehicle.level_of_service || 'unknown'}-${vehicle.sale_price?.price || '0'}`;
 
   const otherVehicles = React.useMemo(() => {
     if (!drivaniaQuotes?.quotes?.vehicles || preferredVehicles.length === 0) {
@@ -1501,200 +1119,7 @@ export default function ResultsPage() {
     validateToken();
   }, [searchParams, tripId, loading]);
 
-  // Function to format stored time - times are already stored in trip destination timezone
-  // This function just formats the time string (HH:MM) for display
-  const getDestinationLocalTime = (timeString: string): string => {
-    if (!timeString) return 'N/A';
 
-    // Parse the time string (e.g., "18:35" or "18")
-    const timeParts = timeString.split(':');
-    const hours = parseInt(timeParts[0]) || 0;
-    const minutes = parseInt(timeParts[1]) || 0;
-
-    // Format as HH:MM (pad with zeros if needed)
-    const formattedHours = hours.toString().padStart(2, '0');
-    const formattedMinutes = minutes.toString().padStart(2, '0');
-
-    return `${formattedHours}:${formattedMinutes}`;
-  };
-
-  // Keep getLondonLocalTime for backward compatibility
-  const getLondonLocalTime = (timeString: string): string => {
-    return getDestinationLocalTime(timeString);
-  };
-
-  // Calculate combined schedule risk (timeline realism + traffic delay)
-  const calculateCombinedScheduleRisk = (
-    trafficDelay: number,
-    timelineRealism: 'realistic' | 'tight' | 'unrealistic' | null,
-    userExpectedMinutes: number,
-    googleCalculatedMinutes: number
-  ): {
-    level: 'low' | 'moderate' | 'high';
-    label: string;
-    color: string;
-    reason: string;
-  } => {
-    // If timeline is unrealistic, always high risk regardless of traffic
-    if (timelineRealism === 'unrealistic') {
-      return {
-        level: 'high',
-        label: 'Schedule risk: High',
-        color: '#9e201b',
-        reason: `Timeline unrealistic - travel time is ${googleCalculatedMinutes} min but you allocated ${userExpectedMinutes} min`,
-      };
-    }
-
-    // If timeline is tight, elevate risk
-    if (timelineRealism === 'tight') {
-      if (trafficDelay >= 10) {
-        return {
-          level: 'high',
-          label: 'Schedule risk: High',
-          color: '#9e201b',
-          reason: 'Tight timeline + high traffic delay',
-        };
-      } else if (trafficDelay >= 5) {
-        return {
-          level: 'moderate',
-          label: 'Schedule risk: Moderate',
-          color: '#db7304',
-          reason: 'Tight timeline + moderate traffic delay',
-        };
-      } else {
-        return {
-          level: 'moderate',
-          label: 'Schedule risk: Moderate',
-          color: '#db7304',
-          reason: 'Tight timeline - consider adding buffer time',
-        };
-      }
-    }
-
-    // If timeline is realistic, use traffic delay thresholds as-is
-    if (trafficDelay < 5) {
-      return {
-        level: 'low',
-        label: 'Delay risk: Low',
-        color: '#3ea34b',
-        reason: 'Low traffic delay',
-      };
-    } else if (trafficDelay < 10) {
-      return {
-        level: 'moderate',
-        label: 'Delay risk: Moderate',
-        color: '#db7304',
-        reason: 'Moderate traffic delay',
-      };
-    } else {
-      return {
-        level: 'high',
-        label: 'Delay risk: High',
-        color: '#9e201b',
-        reason: 'High traffic delay',
-      };
-    }
-  };
-
-  // Calculate timeline realism by comparing user input times with Google Maps calculated travel times
-  const calculateTimelineRealism = (
-    locations: Array<{ time: string }>,
-    trafficPredictions: any,
-    tripDate: string
-  ): Array<{
-    legIndex: number;
-    userExpectedMinutes: number;
-    googleCalculatedMinutes: number;
-    differenceMinutes: number;
-    realismLevel: 'realistic' | 'tight' | 'unrealistic';
-    message: string;
-  }> => {
-    const results: Array<{
-      legIndex: number;
-      userExpectedMinutes: number;
-      googleCalculatedMinutes: number;
-      differenceMinutes: number;
-      realismLevel: 'realistic' | 'tight' | 'unrealistic';
-      message: string;
-    }> = [];
-
-    if (!trafficPredictions?.success || !trafficPredictions.data || locations.length < 2) {
-      return results;
-    }
-
-    for (let i = 0; i < locations.length - 1; i++) {
-      const origin = locations[i];
-      const destination = locations[i + 1];
-      const trafficLeg = trafficPredictions.data[i];
-
-      if (!origin.time || !destination.time || !trafficLeg) {
-        continue;
-      }
-
-      // Parse user input times
-      const originTimeParts = origin.time.split(':');
-      const destTimeParts = destination.time.split(':');
-      const originHours = parseInt(originTimeParts[0]) || 0;
-      const originMinutes = parseInt(originTimeParts[1]) || 0;
-      const destHours = parseInt(destTimeParts[0]) || 0;
-      const destMinutes = parseInt(destTimeParts[1]) || 0;
-
-      // Create date objects for the trip date with the times
-      const tripDateObj = new Date(tripDate);
-      const originDateTime = new Date(tripDateObj);
-      originDateTime.setHours(originHours, originMinutes, 0, 0);
-
-      const destDateTime = new Date(tripDateObj);
-      destDateTime.setHours(destHours, destMinutes, 0, 0);
-
-      // Handle next-day transitions (e.g., 23:00 -> 01:00)
-      if (destDateTime <= originDateTime) {
-        destDateTime.setDate(destDateTime.getDate() + 1);
-      }
-
-      // Calculate user expected time in minutes
-      const userExpectedMs = destDateTime.getTime() - originDateTime.getTime();
-      const userExpectedMinutes = Math.round(userExpectedMs / (1000 * 60));
-
-      // Get Google calculated travel time
-      const googleCalculatedMinutes = trafficLeg.minutes || 0;
-
-      // Calculate difference (positive = user has more time, negative = user has less time)
-      const differenceMinutes = userExpectedMinutes - googleCalculatedMinutes;
-
-      // Determine realism level
-      // Realistic: User time >= Google time (or within 10% buffer)
-      // Tight: User time is 10-30% less than Google time
-      // Unrealistic: User time is >30% less than Google time
-      let realismLevel: 'realistic' | 'tight' | 'unrealistic';
-      let message: string;
-
-      if (differenceMinutes >= -googleCalculatedMinutes * 0.1) {
-        // User has at least 90% of the required time (realistic)
-        realismLevel = 'realistic';
-        message = 'Your timeline looks good';
-      } else if (differenceMinutes >= -googleCalculatedMinutes * 0.3) {
-        // User has 70-90% of the required time (tight)
-        realismLevel = 'tight';
-        message = 'Your timeline is tight - consider adding buffer time';
-      } else {
-        // User has less than 70% of the required time (unrealistic)
-        realismLevel = 'unrealistic';
-        message = 'Your timeline may be unrealistic - travel time is longer than expected';
-      }
-
-      results.push({
-        legIndex: i,
-        userExpectedMinutes,
-        googleCalculatedMinutes,
-        differenceMinutes,
-        realismLevel,
-        message,
-      });
-    }
-
-    return results;
-  };
 
 
   // Function to extract flight numbers from driver notes
@@ -1779,44 +1204,6 @@ export default function ResultsPage() {
     return flightMap;
   };
 
-  // Function to extract service introduction from driver notes
-  const extractServiceIntroduction = (notes: string): string => {
-    if (!notes) {
-      return 'Executive transportation service';
-    }
-
-    // Extract key operational details
-    const serviceType = notes.toLowerCase().includes('full day') ? 'Full day hourly-based journey' :
-      notes.toLowerCase().includes('hourly') ? 'Hourly-based journey' :
-        notes.toLowerCase().includes('chauffeur') ? 'Chauffeur service' :
-          'Executive transportation service';
-
-    // Extract client name
-    const nameMatch = notes.match(/\b(Mr\.|Mrs\.|Ms\.|Dr\.|Sir|Lady)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/);
-    const clientName = nameMatch ? `${nameMatch[1]} ${nameMatch[2]}` : 'Client';
-
-    // Extract location context
-    const locationContext = notes.toLowerCase().includes('london') ? 'in London' : 'in the specified area';
-
-    // Count stops
-    const stopCount = locations?.length || 0;
-    const stopText = stopCount === 1 ? 'stop' : 'stops';
-
-    // Extract start and end times from locations
-    let timeInfo = '';
-    if (locations && locations.length > 0) {
-      const startTime = locations[0]?.time ? getLondonLocalTime(locations[0].time) : '';
-      const endTime = locations[locations.length - 1]?.time ? getLondonLocalTime(locations[locations.length - 1].time) : '';
-
-      if (startTime && endTime && startTime !== endTime) {
-        timeInfo = ` starting at ${startTime} and finishing at ${endTime}`;
-      } else if (startTime) {
-        timeInfo = ` starting at ${startTime}`;
-      }
-    }
-
-    return `${serviceType} for ${clientName} with ${stopCount} ${stopText} ${locationContext}${timeInfo}`;
-  };
 
   // Function to extract car information from driver notes
   const extractCarInfo = (notes: string): string | null => {
@@ -3135,77 +2522,6 @@ export default function ResultsPage() {
     router.push('/');
   };
 
-  // Format number with commas and 2 decimals (only for display, allows partial input)
-  const formatPriceDisplay = (value: string): string => {
-    if (!value) return '';
-    // Remove commas first, then any non-numeric characters except decimal point
-    const cleaned = value.replace(/,/g, '').replace(/[^\d.]/g, '');
-    if (!cleaned) return '';
-    
-    // Handle multiple decimal points - keep only the first one
-    const firstDotIndex = cleaned.indexOf('.');
-    let normalizedValue = cleaned;
-    if (firstDotIndex !== -1) {
-      const beforeDot = cleaned.substring(0, firstDotIndex);
-      const afterDot = cleaned.substring(firstDotIndex + 1).replace(/\./g, '');
-      normalizedValue = beforeDot + (afterDot ? '.' + afterDot : '.');
-    }
-    
-    // Handle partial decimal input (e.g., "123." should stay as "123.")
-    if (normalizedValue.endsWith('.')) {
-      const numPart = normalizedValue.slice(0, -1);
-      if (numPart) {
-        const num = parseFloat(numPart);
-        if (!isNaN(num) && num >= 0) {
-          return num.toLocaleString('en-US') + '.';
-        }
-      }
-      return normalizedValue;
-    }
-    
-    // Split into integer and decimal parts
-    const parts = normalizedValue.split('.');
-    const integerPart = parts[0] || '';
-    const decimalPart = parts[1] || '';
-    
-    // Format integer part with commas
-    if (integerPart) {
-      const num = parseFloat(integerPart);
-      if (!isNaN(num) && num >= 0) {
-        const formattedInteger = num.toLocaleString('en-US');
-        if (decimalPart !== undefined && decimalPart !== '') {
-          // Has decimal part - allow up to 2 decimal places while typing
-          const limitedDecimal = decimalPart.slice(0, 2);
-          return `${formattedInteger}.${limitedDecimal}`;
-        } else {
-          // No decimal part yet
-          return formattedInteger;
-        }
-      }
-    }
-    
-    // Fallback: return cleaned value if parsing fails
-    return normalizedValue;
-  };
-
-  // Parse formatted price back to number string
-  const parsePriceInput = (value: string): string => {
-    // Remove commas and keep only numbers and decimal point
-    return value.replace(/,/g, '').replace(/[^\d.]/g, '');
-  };
-
-  // State transition validation
-  const isValidTransition = (from: string, to: string): boolean => {
-    const VALID_TRANSITIONS: Record<string, string[]> = {
-      'not confirmed': ['pending', 'confirmed'],
-      'pending': ['confirmed', 'rejected', 'cancelled'], // Can cancel to cancelled
-      'confirmed': ['cancelled'], // Can cancel to cancelled
-      'rejected': ['pending', 'not confirmed'], // Can retry after rejection
-      'cancelled': [], // TERMINAL STATUS - no transitions allowed, must create new trip
-    };
-
-    return VALID_TRANSITIONS[from]?.includes(to) ?? false;
-  };
 
   const handleStatusToggle = () => {
     if (!tripId || updatingStatus) return;
@@ -6673,13 +5989,9 @@ export default function ResultsPage() {
                     disabled={myQuotes.length > 0 || submittingQuote}
                     className={`w-full h-[44px] pl-3 pr-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors appearance-none focus:outline-none focus:ring-0 ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
                   >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
-                    <option value="CAD">CAD</option>
-                    <option value="AUD">AUD</option>
-                    <option value="CHF">CHF</option>
+                    {CURRENCY_OPTIONS.map(currency => (
+                      <option key={currency} value={currency}>{currency}</option>
+                    ))}
                   </select>
                 </label>
 
@@ -6853,13 +6165,9 @@ export default function ResultsPage() {
                     disabled={myQuotes.length > 0 || submittingQuote}
                     className={`w-full h-[44px] pl-3 pr-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors appearance-none focus:outline-none focus:ring-0 ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
                   >
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="JPY">JPY</option>
-                    <option value="CAD">CAD</option>
-                    <option value="AUD">AUD</option>
-                    <option value="CHF">CHF</option>
+                    {CURRENCY_OPTIONS.map(currency => (
+                      <option key={currency} value={currency}>{currency}</option>
+                    ))}
                   </select>
                 </label>
 

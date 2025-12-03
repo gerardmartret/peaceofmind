@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { tripId, email, price, currency } = await request.json();
+    const { tripId, email, driverName, price, currency } = await request.json();
 
     // Validate required fields
     if (!tripId || !email || !price || !currency) {
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
         .update({
           price: priceNum,
           currency: currency,
+          driver_name: driverName?.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingQuote.id)
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
         .insert({
           trip_id: tripId,
           email: normalizedEmail,
+          driver_name: driverName?.trim() || null,
           price: priceNum,
           currency: currency,
         })
