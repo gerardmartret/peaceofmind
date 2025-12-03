@@ -676,6 +676,7 @@ export default function ResultsPage() {
   const [quotes, setQuotes] = useState<Array<{
     id: string;
     email: string;
+    driver_name: string | null;
     price: number;
     currency: string;
     created_at: string;
@@ -699,6 +700,7 @@ export default function ResultsPage() {
   const [myQuotes, setMyQuotes] = useState<Array<{
     id: string;
     email: string;
+    driver_name: string | null;
     price: number;
     currency: string;
     created_at: string;
@@ -6604,14 +6606,14 @@ export default function ResultsPage() {
                     type="email"
                     value={myQuotes.length > 0 ? (quoteEmail || myQuotes[0].email) : quoteEmail}
                     onChange={(e) => {
-                      if (myQuotes.length === 0 && !isEmailFromUrl && !(isDriverView && driverToken)) {
+                      if (myQuotes.length === 0 && !isEmailFromUrl && !(isDriverView && !!driverToken)) {
                         setQuoteEmail(e.target.value);
                       }
                     }}
                     placeholder="your.email@company.com"
-                    disabled={myQuotes.length > 0 || submittingQuote || isEmailFromUrl || (isDriverView && driverToken)}
-                    readOnly={myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)}
-                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
+                    disabled={myQuotes.length > 0 || submittingQuote || isEmailFromUrl || (isDriverView && !!driverToken)}
+                    readOnly={myQuotes.length > 0 || isEmailFromUrl || (isDriverView && !!driverToken)}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && !!driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
                   />
                   {quoteEmailError && (
                     <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
@@ -6623,7 +6625,7 @@ export default function ResultsPage() {
                   <Input
                     id="quote-driver-name-loading"
                     type="text"
-                    value={myQuotes.length > 0 ? (myQuotes[0].driverName || 'N/A') : quoteDriverName}
+                    value={myQuotes.length > 0 ? (myQuotes[0].driver_name || 'N/A') : quoteDriverName}
                     onChange={(e) => {
                       if (myQuotes.length === 0) {
                         setQuoteDriverName(e.target.value);
@@ -6784,14 +6786,14 @@ export default function ResultsPage() {
                     type="email"
                     value={myQuotes.length > 0 ? (quoteEmail || myQuotes[0].email) : quoteEmail}
                     onChange={(e) => {
-                      if (myQuotes.length === 0 && !isEmailFromUrl && !(isDriverView && driverToken)) {
+                      if (myQuotes.length === 0 && !isEmailFromUrl && !(isDriverView && !!driverToken)) {
                         setQuoteEmail(e.target.value);
                       }
                     }}
                     placeholder="your.email@company.com"
-                    disabled={myQuotes.length > 0 || submittingQuote || isEmailFromUrl || (isDriverView && driverToken)}
-                    readOnly={myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)}
-                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
+                    disabled={myQuotes.length > 0 || submittingQuote || isEmailFromUrl || (isDriverView && !!driverToken)}
+                    readOnly={myQuotes.length > 0 || isEmailFromUrl || (isDriverView && !!driverToken)}
+                    className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && !!driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
                   />
                   {quoteEmailError && (
                     <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
@@ -6803,7 +6805,7 @@ export default function ResultsPage() {
                   <Input
                     id="quote-driver-name"
                     type="text"
-                    value={myQuotes.length > 0 ? (myQuotes[0].driverName || 'N/A') : quoteDriverName}
+                    value={myQuotes.length > 0 ? (myQuotes[0].driver_name || 'N/A') : quoteDriverName}
                     onChange={(e) => {
                       if (myQuotes.length === 0) {
                         setQuoteDriverName(e.target.value);
@@ -7342,7 +7344,7 @@ export default function ResultsPage() {
                         driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim();
 
                       // Check if driver is viewing and trip is pending
-                      const isDriverViewingPending = (isAssignedDriver || (driverToken && validatedDriverEmail)) && tripStatus === 'pending';
+                      const isDriverViewingPending = (isAssignedDriver || !!(driverToken && validatedDriverEmail)) && tripStatus === 'pending';
                       
                       // Determine variant based on status and activity
                       const getButtonVariant = () => {
@@ -7381,7 +7383,7 @@ export default function ResultsPage() {
                         <FlowHoverButton
                           variant={buttonVariant}
                           onClick={handleStatusToggle}
-                          disabled={updatingStatus || isCancelledWithActivity || (driverEmail === 'drivania' && tripStatus === 'booked') || (isDriverViewingPending && driverResponseStatus !== null)}
+                          disabled={!!(updatingStatus || isCancelledWithActivity || (driverEmail === 'drivania' && tripStatus === 'booked') || (isDriverViewingPending && driverResponseStatus !== null))}
                           icon={
                             isCancelledWithActivity ? undefined : // No icon for cancelled
                               driverResponseStatus === 'accepted' ? undefined : // No icon when driver accepted

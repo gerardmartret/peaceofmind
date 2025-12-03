@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Build the query (only needed fields)
     let query = supabase
       .from('quotes')
-      .select('id, trip_id, email, price, currency, created_at, updated_at')
+      .select('id, trip_id, email, driver_name, price, currency, created_at, updated_at')
       .eq('trip_id', tripId);
 
     // If driverEmail is provided, filter to only show that driver's quotes
