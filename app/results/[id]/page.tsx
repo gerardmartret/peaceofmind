@@ -85,6 +85,14 @@ import { RouteCard } from './components/RouteCard';
 import { LocationDetailCard } from './components/LocationDetailCard';
 import { TripSummarySection } from './components/TripSummarySection';
 import { LocationCardSection } from './components/LocationCardSection';
+import { UpdateQuoteModal } from './components/UpdateQuoteModal';
+import { GuestSignupModal } from './components/GuestSignupModal';
+import { StatusChangeModal } from './components/StatusChangeModal';
+import { DriverConfirmDialog } from './components/DriverConfirmDialog';
+import { DriverRejectDialog } from './components/DriverRejectDialog';
+import { UpdateNotificationModal } from './components/UpdateNotificationModal';
+import { ConfirmDriverRequiredModal } from './components/ConfirmDriverRequiredModal';
+import { DriverAcceptRejectModal } from './components/DriverAcceptRejectModal';
 
 function SortableEditLocationItem({
   location,
@@ -3559,86 +3567,21 @@ export default function ResultsPage() {
       />
 
       {/* Update Quote Modal */}
-      <Dialog open={showUpdateQuoteModal} onOpenChange={setShowUpdateQuoteModal}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Update quote</DialogTitle>
-            <DialogDescription>
-              You're about to update the previous price. The trip owner will see your updated offer.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {myQuotes[0] && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Previous price</label>
-                  <div className="px-3 py-2 rounded-md border border-border bg-muted/50">
-                    <p className="text-sm font-medium">
-                      {myQuotes[0].currency} {myQuotes[0].price.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="update-quote-price" className="text-sm font-medium">
-                    New price
-                  </label>
-                  <Input
-                    id="update-quote-price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={updateQuotePrice}
-                    onChange={(e) => setUpdateQuotePrice(e.target.value)}
-                    placeholder="Enter new price"
-                    disabled={updatingQuote}
-                    className={`h-[44px] ${updateQuotePriceError ? 'border-destructive' : ''}`}
-                  />
-                  {updateQuotePriceError && (
-                    <p className="text-xs text-destructive">{updateQuotePriceError}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Currency</label>
-                  <div className="px-3 py-2 rounded-md border border-border bg-muted/50">
-                    <p className="text-sm font-medium">{myQuotes[0].currency}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Currency cannot be changed</p>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
+      <UpdateQuoteModal
+        open={showUpdateQuoteModal}
+        onOpenChange={setShowUpdateQuoteModal}
+        myQuotes={myQuotes}
+        updateQuotePrice={updateQuotePrice}
+        updateQuotePriceError={updateQuotePriceError}
+        updatingQuote={updatingQuote}
+        onUpdateQuotePriceChange={setUpdateQuotePrice}
+        onUpdateQuote={handleUpdateQuote}
+        onDismiss={() => {
                 setShowUpdateQuoteModal(false);
                 setUpdateQuotePrice('');
                 setUpdateQuotePriceError(null);
               }}
-              disabled={updatingQuote}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={handleUpdateQuote}
-              disabled={updatingQuote || !updateQuotePrice}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-            >
-              {updatingQuote ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Updating...
-                </>
-              ) : (
-                'Update'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      />
 
       {/* Update Trip Section - Sticky Bar - Only show for owners and guest creators */}
       {(isOwner || isGuestCreator) && !isLiveMode && !isRegenerating && (
@@ -4985,340 +4928,43 @@ export default function ResultsPage() {
       }
 
       {/* Status Change Confirmation Modal */}
-      <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {/* Show "Trip actions" for pending state OR when unconfirming */}
-              {driverEmail
-                ? 'Trip actions'
-                : 'Driver not allocated'}
-            </DialogTitle>
-            <DialogDescription>
-              {statusModalSuccess ? (
-                <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{statusModalSuccess}</span>
-                </span>
-              ) : driverEmail ? (
-                <>
-                  Choose an action for this trip:
-                </>
-              ) : (
-                <>
-                  Please allocate a driver before confirming the trip.
-                  <br /><br />
-                  Click the "Driver" button to open Driver Management and assign a driver.
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            {/* Show success close button */}
-            {statusModalSuccess ? (
-              <Button
-                onClick={() => {
+      <StatusChangeModal
+        open={showStatusModal}
+        onOpenChange={setShowStatusModal}
+        driverEmail={driverEmail}
+        tripStatus={tripStatus}
+        tripId={tripId}
+        tripDate={tripDate}
+        leadPassengerName={leadPassengerName}
+        statusModalSuccess={statusModalSuccess}
+        resendingConfirmation={resendingConfirmation}
+        cancellingTrip={cancellingTrip}
+        onClose={() => {
                   setShowStatusModal(false);
                   setPendingStatus(null);
                   setStatusModalSuccess(null);
                   setResendingConfirmation(false);
                   setCancellingTrip(false);
                 }}
-                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-              >
-                Close
-              </Button>
-            ) : driverEmail ? (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    // Keep modal open, show loading and then success
-                    setResendingConfirmation(true);
-
-                    try {
-                      const { data: { session } } = await supabase.auth.getSession();
-                      if (!session) return;
-
-                      // If status is "not confirmed", upgrade to "confirmed"
-                      if (tripStatus === 'not confirmed') {
-                        const statusResponse = await fetch('/api/update-trip-status', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            tripId: tripId,
-                            status: 'confirmed',
-                          }),
-                        });
-
-                        const statusResult = await statusResponse.json();
-                        if (statusResult.success) {
-                          setTripStatus('confirmed');
-                          console.log('✅ Trip confirmed');
-                        }
-                      }
-
-                      // Send notification to driver with trip details
-                      const notifyResponse = await fetch('/api/notify-status-change', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${session.access_token}`,
-                        },
-                        body: JSON.stringify({
-                          tripId: tripId,
-                          newStatus: 'confirmed',
-                          driverEmail: driverEmail,
-                          tripDate: tripDate,
-                          leadPassengerName: leadPassengerName,
-                        }),
-                      });
-
-                      const notifyResult = await notifyResponse.json();
-                      console.log('✅ Confirmation notification response:', notifyResult);
-
-                      // Show success message
-                      setStatusModalSuccess('Confirmation sent to driver successfully!');
-                    } catch (err) {
-                      console.error('❌ Error sending confirmation:', err);
-                      setStatusModalSuccess('Failed to send confirmation. Please try again.');
-                    } finally {
-                      setResendingConfirmation(false);
-                    }
-                  }}
-                  disabled={resendingConfirmation || cancellingTrip}
-                  className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
-                >
-                  {resendingConfirmation ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Sending...
-                    </>
-                  ) : (
-                    'Resend confirmation to the driver'
-                  )}
-                </Button>
-                <Button
-                  onClick={async () => {
-                    // Cancel trip and notify driver
-                    setCancellingTrip(true);
-
-                    try {
-                      const { data: { session } } = await supabase.auth.getSession();
-                      if (!session) return;
-
-                      // Capture driver email BEFORE any operations
-                      const driverToNotify = driverEmail;
-                      console.log('📧 Preparing to notify driver of cancellation');
-
-                      // STEP 1: Send cancellation notification to driver FIRST (before DB changes)
-                      if (driverToNotify) {
-                        console.log(`📧 Sending cancellation email to driver`);
-                        const notifyResponse = await fetch('/api/notify-status-change', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session.access_token}`,
-                          },
-                          body: JSON.stringify({
-                            tripId: tripId,
-                            newStatus: 'cancelled',
-                            driverEmail: driverToNotify, // Use captured email, not the cleared one
-                            message: 'Trip cancelled',
-                            tripDate: tripDate,
-                            leadPassengerName: leadPassengerName,
-                          }),
-                        });
-
-                        const notifyResult = await notifyResponse.json();
-                        console.log('✅ Cancellation notification response:', notifyResult);
-                      }
-
-                      // STEP 2: Now update trip status to cancelled (clears driver in DB)
-                      const statusResponse = await fetch('/api/update-trip-status', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          tripId: tripId,
-                          status: 'cancelled',
-                        }),
-                      });
-
-                      const statusResult = await statusResponse.json();
-                      console.log('📊 Status update response:', statusResult);
-
-                      if (statusResult.success) {
-                        setTripStatus('cancelled');
-                        setDriverEmail(null); // Clear driver assignment in UI
-                        console.log('✅ Trip cancelled - status set to cancelled, driver cleared');
-
-                        // Show success message
-                        if (driverToNotify) {
-                          setStatusModalSuccess('Service cancelled successfully. Driver has been notified.');
-                        } else {
-                          setStatusModalSuccess('Service cancelled successfully.');
-                        }
-                      } else {
-                        console.error('❌ Failed to update trip status:', statusResult.error);
-                        setStatusModalSuccess(`Failed to cancel trip: ${statusResult.error || 'Unknown error'}`);
-                        setCancellingTrip(false);
-                        return;
-                      }
-                    } catch (err) {
-                      console.error('Error cancelling trip:', err);
-                      setStatusModalSuccess('Failed to cancel trip. Please try again.');
-                    } finally {
-                      setCancellingTrip(false);
-                    }
-                  }}
-                  disabled={resendingConfirmation || cancellingTrip}
-                  variant="destructive"
-                >
-                  {cancellingTrip ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Cancelling...
-                    </>
-                  ) : (
-                    'Cancel this trip'
-                  )}
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={() => {
-                  setShowStatusModal(false);
-                  setPendingStatus(null);
-                  setStatusModalSuccess(null);
-                  setResendingConfirmation(false);
-                  setCancellingTrip(false);
-                }}
-                className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-              >
-                OK
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onStatusUpdate={setTripStatus}
+        onDriverEmailUpdate={setDriverEmail}
+        onStatusModalSuccessUpdate={setStatusModalSuccess}
+        onResendingConfirmationUpdate={setResendingConfirmation}
+        onCancellingTripUpdate={setCancellingTrip}
+      />
 
       {/* Signup Modal - Shown when non-authenticated users try to use features */}
-      <Dialog open={showSignupModal} onOpenChange={setShowSignupModal}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center">
-              Chauffs is free - start saving time now.
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            {/* Benefits Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Unlimited trips</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Instant fixed pricing</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Pick your driver</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Edit trips instantly</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Billed in seconds</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Secure payments</span>
-              </div>
-            </div>
-
-            {/* Signup Form */}
-            <form onSubmit={handleGuestSignup} className="space-y-4">
-              <div>
-                <label htmlFor="modal-guest-email" className="block text-sm font-medium mb-2">
-                  Email address
-                </label>
-                <Input
-                  id="modal-guest-email"
-                  type="email"
-                  value={tripData?.userEmail || ''}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="modal-guest-password" className="block text-sm font-medium mb-2">
-                  Create password
-                </label>
-                <Input
-                  id="modal-guest-password"
-                  type="password"
-                  value={guestSignupPassword}
-                  onChange={(e) => setGuestSignupPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  disabled={guestSignupLoading}
-                  className={guestSignupError ? 'border-destructive' : ''}
-                />
-                {guestSignupError && (
-                  <p className="text-sm text-destructive mt-1">{guestSignupError}</p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full text-lg py-6 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                disabled={guestSignupLoading || !guestSignupPassword}
-              >
-                {guestSignupLoading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Creating Account...
-                  </>
-                ) : (
-                  <>
-                    Create account and save trip
-                  </>
-                )}
-              </Button>
-            </form>
-
-            <p className="text-xs text-center text-muted-foreground">
-              Already have an account? <a href="/login" className="text-primary hover:underline dark:text-white">Log in here</a>
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <GuestSignupModal
+        open={showSignupModal}
+        onOpenChange={setShowSignupModal}
+        userEmail={tripData?.userEmail || null}
+        guestSignupPassword={guestSignupPassword}
+        guestSignupError={guestSignupError}
+        guestSignupLoading={guestSignupLoading}
+        guestSignupSuccess={guestSignupSuccess}
+        onPasswordChange={setGuestSignupPassword}
+        onSubmit={handleGuestSignup}
+      />
 
       {/* Flow A Confirmation Modal - Selecting driver from quotes */}
       <Dialog open={showFlowAModal} onOpenChange={setShowFlowAModal}>
@@ -5482,164 +5128,21 @@ export default function ResultsPage() {
       {/* Booking Preview Modal - Removed: Now handled on /booking/[tripId] page */}
 
       {/* Driver Confirmation Dialog */}
-      <Dialog open={showDriverConfirmDialog} onOpenChange={setShowDriverConfirmDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Confirm trip</DialogTitle>
-            <DialogDescription>
-              You're about to confirm this trip
-            </DialogDescription>
-          </DialogHeader>
+      <DriverConfirmDialog
+        open={showDriverConfirmDialog}
+        onOpenChange={setShowDriverConfirmDialog}
+        confirmingTrip={confirmingTrip}
+        onConfirm={handleDriverConfirmTrip}
+      />
 
-          <div className="py-6">
-            <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#e77500]/10 flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-[#e77500]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  This will notify the trip owner that you've accepted this trip.
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  The trip status will change from Pending to Confirmed.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowDriverConfirmDialog(false)}
-              disabled={confirmingTrip}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={handleDriverConfirmTrip}
-              disabled={confirmingTrip}
-              className="bg-[#3ea34b] hover:bg-[#3ea34b]/90 text-white"
-            >
-              {confirmingTrip ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Confirming...
-                </>
-              ) : (
-                'Yes, confirm'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Driver Accept/Reject Modal - Shows when driver clicks "Accept trip" button */}
-      <Dialog open={showDriverAcceptRejectModal} onOpenChange={setShowDriverAcceptRejectModal}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader className="relative">
-            <button
-              onClick={() => setShowDriverAcceptRejectModal(false)}
-              disabled={confirmingTrip || rejectingTrip}
-              className="absolute right-0 top-0 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              <span className="sr-only">Close</span>
-            </button>
-            <DialogTitle>Accept or reject trip</DialogTitle>
-            <DialogDescription>
-              You've been assigned as the driver to this trip
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-6">
-            <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#e77500]/10 flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-[#e77500]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  You can accept or reject this trip assignment.
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  If you accept, the trip status will change to Confirmed. If you reject, the trip owner will be notified.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                setShowDriverAcceptRejectModal(false);
-                await handleDriverRejectTrip();
-              }}
-              disabled={confirmingTrip || rejectingTrip}
-            >
-              {rejectingTrip ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Rejecting...
-                </>
-              ) : (
-                'Reject trip'
-              )}
-            </Button>
-            <Button
-              onClick={async () => {
-                setShowDriverAcceptRejectModal(false);
-                await handleDriverConfirmTrip();
-              }}
-              disabled={confirmingTrip || rejectingTrip}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-            >
-              {confirmingTrip ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Accepting...
-                </>
-              ) : (
-                'Accept trip'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DriverAcceptRejectModal
+        open={showDriverAcceptRejectModal}
+        onOpenChange={setShowDriverAcceptRejectModal}
+        confirmingTrip={confirmingTrip}
+        rejectingTrip={rejectingTrip}
+        onAccept={handleDriverConfirmTrip}
+        onReject={handleDriverRejectTrip}
+      />
 
       {/* Driver Assignment Info Modal - Shows when driver clicks confirmation with token but action already taken */}
       <Dialog open={showDriverAssignmentInfoModal} onOpenChange={setShowDriverAssignmentInfoModal}>
@@ -5703,71 +5206,12 @@ export default function ResultsPage() {
       </Dialog>
 
       {/* Driver Rejection Dialog */}
-      <Dialog open={showDriverRejectDialog} onOpenChange={setShowDriverRejectDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Reject trip</DialogTitle>
-            <DialogDescription>
-              You're about to decline this trip assignment
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-6">
-            <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-red-600 dark:text-red-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  This will notify the trip owner that you're declining this trip.
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  The trip status will change to Rejected and you'll be unassigned.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowDriverRejectDialog(false)}
-              disabled={rejectingTrip}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={handleDriverRejectTrip}
-              disabled={rejectingTrip}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {rejectingTrip ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Rejecting...
-                </>
-              ) : (
-                'Yes, reject'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DriverRejectDialog
+        open={showDriverRejectDialog}
+        onOpenChange={setShowDriverRejectDialog}
+        rejectingTrip={rejectingTrip}
+        onReject={handleDriverRejectTrip}
+      />
 
       {/* Route View Map Modal */}
       {
@@ -5805,73 +5249,19 @@ export default function ResultsPage() {
       }
 
       {/* Trip Update Notification Modal */}
-      <Dialog open={showUpdateNotificationModal} onOpenChange={setShowUpdateNotificationModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Trip Updated</DialogTitle>
-            <DialogDescription>
-              The trip was updated successfully.
-              <br /><br />
-              Do you want to notify the driver about these changes?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => handleUpdateNotificationResponse(false)}
-              disabled={sendingUpdateNotification}
-            >
-              No
-            </Button>
-            <Button
-              onClick={() => handleUpdateNotificationResponse(true)}
-              disabled={sendingUpdateNotification}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-            >
-              {sendingUpdateNotification ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Sending...
-                </>
-              ) : (
-                'Yes, Notify Driver'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <UpdateNotificationModal
+        open={showUpdateNotificationModal}
+        onOpenChange={setShowUpdateNotificationModal}
+        sendingUpdateNotification={sendingUpdateNotification}
+        onResponse={handleUpdateNotificationResponse}
+      />
 
       {/* Confirm Driver Required Modal */}
-      <Dialog open={showConfirmDriverRequiredModal} onOpenChange={setShowConfirmDriverRequiredModal}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Driver required</DialogTitle>
-            <DialogDescription>
-              To confirm the trip, a driver must be assigned.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirmDriverRequiredModal(false)}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={() => {
-                setShowConfirmDriverRequiredModal(false);
-                setShowDriverModal(true);
-              }}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-            >
-              Assign driver
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDriverRequiredModal
+        open={showConfirmDriverRequiredModal}
+        onOpenChange={setShowConfirmDriverRequiredModal}
+        onAssignDriver={() => setShowDriverModal(true)}
+      />
 
       {/* Edit Route Modal */}
       <Dialog open={showEditRouteModal} onOpenChange={setShowEditRouteModal}>
