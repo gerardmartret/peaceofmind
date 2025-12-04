@@ -64,9 +64,17 @@ import { extractFlightNumbers, extractServiceIntroduction } from './utils/extrac
 import { isValidTransition } from './utils/validation-helpers';
 import { determineVehicleType, extractCarInfo } from './utils/vehicle-detection-helpers';
 import { stripEmailMetadata, detectUnchangedFields, mapExtractedToManualForm, calculateChanges } from './utils/update-helpers';
+import { determineRole } from './utils/role-determination';
+import { transformDatabaseTripToTripData } from './utils/trip-data-transformers';
 import { usePreviewApplication } from './hooks/usePreviewApplication';
 import { useUpdateExtraction } from './hooks/useUpdateExtraction';
 import { useTripRegeneration } from './hooks/useTripRegeneration';
+import { useScrollPosition } from './hooks/useScrollPosition';
+import { useUrlParams } from './hooks/useUrlParams';
+import { useDriverTokenValidation } from './hooks/useDriverTokenValidation';
+import { useQuotes } from './hooks/useQuotes';
+import { useRealtimeTripUpdates } from './hooks/useRealtimeTripUpdates';
+import { useTripActions } from './hooks/useTripActions';
 import { bookingPreviewInitialState, requiredFields, CURRENCY_OPTIONS, type BookingPreviewFieldKey } from './constants';
 import { QuoteFormSection } from './components/QuoteFormSection';
 import { RouteCard } from './components/RouteCard';
@@ -276,16 +284,6 @@ export default function ResultsPage() {
   const [showDriverRejectDialog, setShowDriverRejectDialog] = useState<boolean>(false);
   const [confirmingTrip, setConfirmingTrip] = useState<boolean>(false);
   const [showDriverAcceptRejectModal, setShowDriverAcceptRejectModal] = useState<boolean>(false);
-  const [driverResponseStatus, setDriverResponseStatus] = useState<'accepted' | 'rejected' | null>(null);
-
-  // Driver token authentication (magic link)
-  const [driverToken, setDriverToken] = useState<string | null>(null);
-  const [validatedDriverEmail, setValidatedDriverEmail] = useState<string | null>(null);
-  const [isDriverView, setIsDriverView] = useState<boolean>(false);
-  const [tokenValidationError, setTokenValidationError] = useState<string | null>(null);
-  const [tokenAlreadyUsed, setTokenAlreadyUsed] = useState<boolean>(false);
-  const [tokenMessage, setTokenMessage] = useState<string | null>(null);
-  const [canTakeAction, setCanTakeAction] = useState<boolean>(false);
   const [rejectingTrip, setRejectingTrip] = useState<boolean>(false);
   const [showDriverAssignmentInfoModal, setShowDriverAssignmentInfoModal] = useState<boolean>(false);
 
@@ -347,11 +345,10 @@ export default function ResultsPage() {
 
   // Trip status state
   const [tripStatus, setTripStatus] = useState<string>('not confirmed');
-  const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [showConfirmDriverRequiredModal, setShowConfirmDriverRequiredModal] = useState<boolean>(false);
-  const [sendingStatusNotification, setSendingStatusNotification] = useState<boolean>(false);
+  // sendingStatusNotification handled by useTripActions hook
   const [statusModalSuccess, setStatusModalSuccess] = useState<string | null>(null);
   const [resendingConfirmation, setResendingConfirmation] = useState<boolean>(false);
   const [cancellingTrip, setCancellingTrip] = useState<boolean>(false);
@@ -368,16 +365,7 @@ export default function ResultsPage() {
   const [showUpdateNotificationModal, setShowUpdateNotificationModal] = useState<boolean>(false);
   const [sendingUpdateNotification, setSendingUpdateNotification] = useState<boolean>(false);
 
-  // Quotes state
-  const [quotes, setQuotes] = useState<Array<{
-    id: string;
-    email: string;
-    driver_name: string | null;
-    price: number;
-    currency: string;
-    created_at: string;
-  }>>([]);
-  const [loadingQuotes, setLoadingQuotes] = useState<boolean>(false);
+  // Quote form state
   const [quoteEmail, setQuoteEmail] = useState<string>('');
   const [quoteDriverName, setQuoteDriverName] = useState<string>('');
   const [quotePrice, setQuotePrice] = useState<string>('');
@@ -392,27 +380,11 @@ export default function ResultsPage() {
   const [updateQuotePriceError, setUpdateQuotePriceError] = useState<string | null>(null);
   const [updatingQuote, setUpdatingQuote] = useState<boolean>(false);
 
-  // Driver's own quotes (only their submissions)
-  const [myQuotes, setMyQuotes] = useState<Array<{
-    id: string;
-    email: string;
-    driver_name: string | null;
-    price: number;
-    currency: string;
-    created_at: string;
-  }>>([]);
-  const [loadingMyQuotes, setLoadingMyQuotes] = useState<boolean>(false);
-
   // Driver state
   const [driverEmail, setDriverEmail] = useState<string | null>(null);
   // Store original driver email from database to check activity even if state changes
   const originalDriverEmailRef = useRef<string | null>(null);
-  const [manualDriverEmail, setManualDriverEmail] = useState<string>('');
-  const [manualDriverError, setManualDriverError] = useState<string | null>(null);
-  const [settingDriver, setSettingDriver] = useState<boolean>(false);
-  const [driverSuggestions, setDriverSuggestions] = useState<string[]>([]);
-  const [showDriverSuggestions, setShowDriverSuggestions] = useState<boolean>(false);
-  const [filteredDriverSuggestions, setFilteredDriverSuggestions] = useState<string[]>([]);
+  // Driver and status management handled by useTripActions hook
   const [notifyingDriver, setNotifyingDriver] = useState<boolean>(false);
   const [notificationSuccess, setNotificationSuccess] = useState<boolean>(false);
   const [notificationError, setNotificationError] = useState<string | null>(null);
@@ -456,8 +428,57 @@ export default function ResultsPage() {
   const [guestSignupSuccess, setGuestSignupSuccess] = useState<boolean>(false);
   const [showSignupModal, setShowSignupModal] = useState<boolean>(false);
 
-  // Scroll position state for sticky update bar
-  const [scrollY, setScrollY] = useState(0);
+  // Driver token authentication (magic link) - must be after setQuoteEmail is declared
+  const {
+    driverToken,
+    validatedDriverEmail,
+    isDriverView,
+    canTakeAction,
+    tokenValidationError,
+    tokenAlreadyUsed,
+    tokenMessage,
+    driverResponseStatus,
+    setDriverResponseStatus,
+    setValidatedDriverEmail,
+  } = useDriverTokenValidation({
+    searchParams,
+    tripId,
+    loading,
+    onEmailPreFill: setQuoteEmail,
+  });
+
+  // Quotes fetching and management - must be after driverEmail and validatedDriverEmail are declared
+  const {
+    quotes,
+    loadingQuotes,
+    fetchQuotes,
+    myQuotes,
+    loadingMyQuotes,
+    fetchMyQuotes,
+  } = useQuotes({
+    tripId,
+    isOwner,
+    loading,
+    ownershipChecked,
+    driverEmail,
+    quoteEmail,
+    validatedDriverEmail,
+    onQuoteEmailSet: setQuoteEmail,
+  });
+
+  // URL parameters handling (must be after all state declarations)
+  const { quoteParam, emailParam, isEmailFromUrl } = useUrlParams({
+    searchParams,
+    isOwner,
+    isGuestCreator,
+    isGuestCreatedTrip,
+    loading,
+    quoteFormRef,
+    onEmailChange: setQuoteEmail,
+  });
+
+  // Scroll position for sticky update bar
+  const { scrollY } = useScrollPosition();
 
 
   // Drag and drop sensors for edit route modal
@@ -631,15 +652,7 @@ export default function ResultsPage() {
 
   // Removed renderVehicleCard function - now handled on booking page
 
-  // Track scroll position for sticky update bar
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrollY(window.scrollY);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  // Scroll position tracking handled by useScrollPosition hook
 
   // Update current time when in live mode
   useEffect(() => {
@@ -670,112 +683,9 @@ export default function ResultsPage() {
     }
   }, [updateText]);
 
-  // Scroll to quote form if coming from quote request email and pre-fill email
-  const quoteParam = searchParams.get('quote');
-  const emailParam = searchParams.get('email');
-  const [isEmailFromUrl, setIsEmailFromUrl] = useState<boolean>(false);
+  // URL parameters handling (quote, email) - handled by useUrlParams hook
 
-  useEffect(() => {
-    if (quoteParam === 'true' && !isOwner && !isGuestCreator && !isGuestCreatedTrip && !loading && quoteFormRef.current) {
-      // Wait a bit for page to fully render, then scroll
-      setTimeout(() => {
-        quoteFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 500);
-    }
-
-    // Pre-fill email from URL parameter if present
-    if (emailParam && quoteParam === 'true' && !isOwner) {
-      const decodedEmail = decodeURIComponent(emailParam);
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (emailRegex.test(decodedEmail)) {
-        setQuoteEmail(decodedEmail);
-        setIsEmailFromUrl(true);
-        console.log('📧 Email pre-filled from URL:', decodedEmail);
-      }
-    }
-  }, [quoteParam, emailParam, isOwner, isGuestCreator, isGuestCreatedTrip, loading]);
-
-  // Validate driver token if present in URL (magic link authentication)
-  useEffect(() => {
-    const token = searchParams.get('driver_token');
-
-    if (!token || !tripId || loading) return;
-
-    console.log('🔍 Driver token detected in URL, validating...');
-    setDriverToken(token);
-
-    async function validateToken() {
-      try {
-        const response = await fetch('/api/validate-driver-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token: token,
-            tripId: tripId,
-          }),
-        });
-
-        const result = await safeJsonParse(response);
-
-        if (result.success) {
-          console.log('✅ Driver token validated successfully');
-          console.log('📊 Token info:', {
-            tokenUsed: result.tokenUsed,
-            canTakeAction: result.canTakeAction,
-            tripStatus: result.tripStatus,
-            hasMessage: !!result.message,
-            driverEmail: result.driverEmail
-          });
-
-          // Determine canTakeAction explicitly - be very explicit about the logic
-          // API returns canTakeAction: true when trip is pending and token not used
-          // If API doesn't return it, calculate it ourselves as fallback
-          let canTakeActionValue: boolean;
-          if (result.canTakeAction !== undefined && result.canTakeAction !== null) {
-            // Use explicit value from API (handle both boolean true and string "true")
-            canTakeActionValue = result.canTakeAction === true || result.canTakeAction === 'true';
-          } else {
-            // Fallback: calculate based on trip status and token usage
-            canTakeActionValue = result.tripStatus === 'pending' && !result.tokenUsed;
-          }
-          console.log('🎯 Setting canTakeAction to:', canTakeActionValue, {
-            fromAPI: result.canTakeAction,
-            calculated: result.tripStatus === 'pending' && !result.tokenUsed,
-            tripStatus: result.tripStatus,
-            tokenUsed: result.tokenUsed
-          });
-
-          setValidatedDriverEmail(result.driverEmail);
-          setIsDriverView(true);
-          setQuoteEmail(result.driverEmail); // Pre-fill email for convenience
-          setTokenValidationError(null);
-          setTokenAlreadyUsed(result.tokenUsed || false);
-          setTokenMessage(result.message || null);
-          setCanTakeAction(canTakeActionValue);
-          
-          // Initialize driver response status based on trip status
-          if (result.tripStatus === 'confirmed') {
-            setDriverResponseStatus('accepted');
-          } else if (result.tripStatus === 'rejected') {
-            setDriverResponseStatus('rejected');
-          } else {
-            setDriverResponseStatus(null);
-          }
-        } else {
-          console.error('❌ Token validation failed:', result.error);
-          setTokenValidationError(result.error || 'Invalid or expired link');
-          setIsDriverView(false);
-        }
-      } catch (err) {
-        console.error('❌ Error validating token:', err);
-        setTokenValidationError('Failed to validate link. Please try again.');
-        setIsDriverView(false);
-      }
-    }
-
-    validateToken();
-  }, [searchParams, tripId, loading]);
+  // Driver token validation handled by useDriverTokenValidation hook
 
 
 
@@ -1859,154 +1769,36 @@ export default function ResultsPage() {
 
         console.log('✅ Trip loaded from database');
 
-        // Check ownership: if user is authenticated and their ID matches the trip's user_id
+        // Determine user role using utility function
         const tripUserId = data.user_id;
         const currentUserId = user?.id;
+        const roleInfo = determineRole(tripUserId, currentUserId || null, isAuthenticated, tripId || '');
 
-        // Use local variable to determine ownership
-        const userIsOwner = isAuthenticated && currentUserId && tripUserId === currentUserId;
+        setIsOwner(roleInfo.isOwner);
+        setIsGuestCreator(roleInfo.isGuestCreator);
+        setIsGuestCreatedTrip(roleInfo.isGuestCreatedTrip);
 
-        if (userIsOwner) {
-          setIsOwner(true);
+        if (roleInfo.isOwner) {
           console.log('🔐 User is the owner of this trip - editing enabled');
         } else {
-          setIsOwner(false);
           console.log('👁️ User is NOT the owner - read-only mode');
         }
 
-        // Check if trip was created by a guest (user_id is null)
-        if (!tripUserId) {
-          setIsGuestCreatedTrip(true);
+        if (roleInfo.isGuestCreatedTrip) {
           console.log('👤 Trip was created by a guest user');
-        } else {
-          setIsGuestCreatedTrip(false);
         }
 
-        // Check if user is guest creator (for signup CTA)
-        if (!isAuthenticated && !tripUserId && typeof window !== 'undefined') {
-          const createdTripId = sessionStorage.getItem('guestCreatedTripId');
-          if (createdTripId === tripId) {
-            setIsGuestCreator(true);
+        if (roleInfo.isGuestCreator) {
             console.log('👤 Guest user created this trip - showing signup CTA');
-          }
         }
 
-        // Transform database data to match expected TripData format
-        // Ensure traffic_predictions has correct structure with success flag
-        let trafficPredictionsFormatted: any = null;
-        let rawTrafficPredictions = data.traffic_predictions as any;
-
-        // Parse if stored as JSON string
-        if (typeof rawTrafficPredictions === 'string') {
-          try {
-            rawTrafficPredictions = JSON.parse(rawTrafficPredictions);
-          } catch (e) {
-            console.error('❌ Failed to parse traffic_predictions JSON:', e);
-            rawTrafficPredictions = null;
-          }
-        }
-
-        if (rawTrafficPredictions) {
-          // Check if it already has the correct structure
-          if (rawTrafficPredictions.success !== undefined && Array.isArray(rawTrafficPredictions.data)) {
-            // Already in correct format
-            trafficPredictionsFormatted = rawTrafficPredictions;
-          } else if (Array.isArray(rawTrafficPredictions)) {
-            // Legacy format - array of route data
-            trafficPredictionsFormatted = {
-              success: true,
-              data: rawTrafficPredictions,
-            };
-          } else if (rawTrafficPredictions.data && Array.isArray(rawTrafficPredictions.data)) {
-            // Has data array but missing success flag or other fields
-            trafficPredictionsFormatted = {
-              success: rawTrafficPredictions.success !== false, // Default to true if not explicitly false
-              data: rawTrafficPredictions.data,
-              totalDistance: rawTrafficPredictions.totalDistance || '0 km',
-              totalMinutes: rawTrafficPredictions.totalMinutes || 0,
-              totalMinutesNoTraffic: rawTrafficPredictions.totalMinutesNoTraffic || 0,
-            };
-          } else {
-            // Invalid format - set to null to show "Calculating..."
-            console.warn('⚠️ Invalid traffic_predictions format:', rawTrafficPredictions);
-            trafficPredictionsFormatted = null;
-          }
-        }
-
-        // FIX: Validate and fix location IDs when loading from database
-        const usedIds = new Set<string>();
-
-        const normalizedLocations = normalizeTripLocations(data.locations);
-
-        if (normalizedLocations.length === 0 && data.locations) {
-          console.warn('⚠️ Locations normalized to empty array:', data.locations);
-        }
-
-        const locationsArray = normalizedLocations;
-
-        const locationsWithValidIds = locationsArray.map((loc: any, idx: number) => {
-          // Check if ID is invalid (literal string from AI bug)
-          if (!loc.id || loc.id === 'currentLocation.id' || loc.id === 'extractedLocation.id' || loc.id.includes('Location.id')) {
-            console.warn(`⚠️ [FIX] Invalid location ID detected in database: "${loc.id}", generating unique ID for location ${idx}`);
-            const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            usedIds.add(newId);
-            return {
-              ...loc,
-              id: newId
-            };
-          }
-
-          // Check for duplicate IDs
-          if (usedIds.has(loc.id)) {
-            const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            console.warn(`⚠️ [FIX] Duplicate location ID detected in database: "${loc.id}" at index ${idx}, generating unique ID: "${newId}"`);
-            usedIds.add(newId);
-            return {
-              ...loc,
-              id: newId
-            };
-          }
-
-          usedIds.add(loc.id);
-          return loc;
-        });
-
-        // Parse JSON fields if they're stored as strings
-        let tripResultsParsed = data.trip_results;
-        if (typeof tripResultsParsed === 'string') {
-          try {
-            tripResultsParsed = JSON.parse(tripResultsParsed);
-          } catch (e) {
-            console.error('❌ Failed to parse trip_results JSON:', e);
-            tripResultsParsed = [];
-          }
-        }
-
-        let executiveReportParsed = data.executive_report;
-        if (typeof executiveReportParsed === 'string') {
-          try {
-            executiveReportParsed = JSON.parse(executiveReportParsed);
-          } catch (e) {
-            console.error('❌ Failed to parse executive_report JSON:', e);
-            executiveReportParsed = null;
-          }
-        }
-
-        const tripData: TripData = {
-          tripDate: data.trip_date,
-          userEmail: data.user_email,
-          locations: locationsWithValidIds,
-          tripResults: tripResultsParsed as any,
-          trafficPredictions: trafficPredictionsFormatted,
-          executiveReport: executiveReportParsed as any,
-          passengerCount: data.passenger_count || 1,
-          tripDestination: data.trip_destination || '',
-          passengerNames: [], // passenger_names column doesn't exist in DB
-          password: data.password || null,
-          status: data.status || 'not confirmed',
-        };
+        // Transform database data to match expected TripData format using utility
+        const { tripData, locationDisplayNames } = transformDatabaseTripToTripData(data);
 
         setTripData(tripData);
+        setLocationDisplayNames(locationDisplayNames);
+        
+        // Set trip metadata
         setDriverNotes(data.trip_notes || '');
         setEditedDriverNotes(data.trip_notes || '');
         setLeadPassengerName(data.lead_passenger_name || '');
@@ -2027,16 +1819,6 @@ export default function ResultsPage() {
           // We'll set this properly after token validation or when driver actions are taken
           // For now, leave it null and let the handlers set it
         }
-
-        // Populate location display names from database
-        const displayNames: { [key: string]: string } = {};
-        tripData.locations.forEach((loc: any) => {
-          // Use the location name (which is now the purpose) as the display name
-          if (loc.name) {
-            displayNames[loc.id] = loc.name;
-          }
-        });
-        setLocationDisplayNames(displayNames);
 
         // Password protection removed - all users can access reports
 
@@ -2256,449 +2038,55 @@ export default function ResultsPage() {
     setShowStatusModal(true);
   };
 
-  const handleConfirmStatusChange = async (notifyDriver: boolean = false) => {
-    if (!tripId || !isOwner || !pendingStatus) return;
+  // Status change handlers handled by useTripActions hook
 
-    setUpdatingStatus(true);
-
-    try {
-      // If changing from confirmed to not confirmed AND notifying driver, send notification FIRST
-      if (tripStatus === 'confirmed' && pendingStatus === 'not confirmed' && notifyDriver && driverEmail) {
-        console.log('📧 Sending notification before clearing driver...');
-        await sendStatusChangeNotification();
-      }
-
-      // Now update the status (this will clear the driver if going from confirmed to not confirmed)
-      const response = await fetch('/api/update-trip-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripId: tripId,
-          status: pendingStatus,
-        }),
-      });
-
-      const result = await safeJsonParse(response);
-
-      if (result.success) {
-        const oldStatus = tripStatus;
-        setTripStatus(pendingStatus);
-        console.log(`✅ Trip status updated to: ${pendingStatus}`);
-
-        // If changing from confirmed to not confirmed, clear driver in UI
-        if (oldStatus === 'confirmed' && pendingStatus === 'not confirmed') {
-          setDriverEmail(null);
-          console.log(`✅ Driver assignment cleared in UI`);
-        }
-
-        // Send notification for other cases (confirmed -> confirmed, not confirmed -> confirmed)
-        if (notifyDriver && driverEmail && !(oldStatus === 'confirmed' && pendingStatus === 'not confirmed')) {
-          await sendStatusChangeNotification();
-        }
-
-        // Close modal
-        setShowStatusModal(false);
-        setPendingStatus(null);
-      } else {
-        console.error('❌ Failed to update status:', result.error);
-      }
-    } catch (err) {
-      console.error('❌ Error updating trip status:', err);
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
-
-  const sendStatusChangeNotification = async () => {
-    if (!tripId || !driverEmail || !pendingStatus) return;
-
-    setSendingStatusNotification(true);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        console.error('❌ No session found');
-        return;
-      }
-
-      const response = await fetch('/api/notify-status-change', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          tripId: tripId,
-          newStatus: pendingStatus,
-        }),
-      });
-
-      const result = await safeJsonParse(response);
-
-      if (result.success) {
-        console.log(`✅ Status change notification sent to driver`);
-      } else {
-        console.error('❌ Failed to send status notification:', result.error);
-      }
-    } catch (err) {
-      console.error('❌ Error sending status notification:', err);
-    } finally {
-      setSendingStatusNotification(false);
-    }
-  };
-
-  const fetchQuotes = useCallback(async () => {
-    if (!tripId || !isOwner) return;
-
-    setLoadingQuotes(true);
-    try {
-      const response = await fetch('/api/get-quotes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          tripId: tripId,
-        }),
-      });
-
-      // Handle non-JSON responses
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Failed to fetch quotes:', response.status, response.statusText);
-        console.error('   Response body:', errorText);
-        try {
-          const errorJson = JSON.parse(errorText);
-          console.error('   Error details:', errorJson);
-        } catch {
-          // Not JSON, just log the text
-        }
-        return;
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        // Deduplicate quotes: show only the latest quote per driver email
-        const quotesArray = result.quotes || [];
-        const quoteMap = new Map<string, typeof quotesArray[0]>();
-
-        // Since quotes are already ordered by created_at DESC, first occurrence per email is the latest
-        quotesArray.forEach((quote: any) => {
-          const emailKey = quote.email.toLowerCase().trim();
-          if (!quoteMap.has(emailKey)) {
-            quoteMap.set(emailKey, quote);
-          }
-        });
-
-        const deduplicatedQuotes = Array.from(quoteMap.values());
-        setQuotes(deduplicatedQuotes);
-        console.log(`✅ Fetched ${quotesArray.length} quotes, showing ${deduplicatedQuotes.length} unique driver quotes`);
-      } else {
-        console.error('❌ Failed to fetch quotes:', result.error);
-        if (result.details) {
-          console.error('   Error details:', result.details);
-        }
-      }
-    } catch (err) {
-      console.error('❌ Error fetching quotes:', err);
-      if (err instanceof Error) {
-        console.error('   Error message:', err.message);
-        console.error('   Error stack:', err.stack);
-      }
-    } finally {
-      setLoadingQuotes(false);
-    }
-  }, [tripId, isOwner]);
-
-  // Fetch quotes when page loads (for owners only)
-  useEffect(() => {
-    if (isOwner && tripId && !loading) {
-      fetchQuotes();
-    }
-  }, [isOwner, tripId, loading, fetchQuotes]);
-
-  // Fetch driver's own quotes (for non-owners)
-  const fetchMyQuotes = useCallback(async (email: string) => {
-    if (!tripId || !email) return;
-
-    setLoadingMyQuotes(true);
-    try {
-      const response = await fetch('/api/get-quotes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          tripId: tripId,
-          driverEmail: email.trim(), // Filter by driver's email only
-        }),
-      });
-
-      const result = await safeJsonParse(response);
-
-      if (result.success) {
-        // Get only the latest quote (first in array since ordered by created_at DESC)
-        const quotesArray = result.quotes || [];
-        setMyQuotes(quotesArray);
-        // Set quoteEmail if not already set and we have a quote
-        if (quotesArray.length > 0 && !quoteEmail) {
-          setQuoteEmail(quotesArray[0].email);
-        }
-        console.log(`✅ Fetched ${quotesArray.length} of my quotes, using latest: ${quotesArray[0] ? `${quotesArray[0].currency} ${quotesArray[0].price}` : 'none'}`);
-      } else {
-        console.error('❌ Failed to fetch my quotes:', result.error);
-      }
-    } catch (err) {
-      console.error('❌ Error fetching my quotes:', err);
-    } finally {
-      setLoadingMyQuotes(false);
-    }
-  }, [tripId]);
-
-  // Fetch driver's quotes when page loads (for non-owners with email)
-  useEffect(() => {
-    if (!isOwner && tripId && !loading) {
-      // Use validatedDriverEmail (from magic link) or quoteEmail (from form)
-      const emailToFetch = validatedDriverEmail || quoteEmail;
-      if (emailToFetch) {
-        fetchMyQuotes(emailToFetch);
-      }
-    }
-  }, [isOwner, tripId, loading, quoteEmail, validatedDriverEmail, fetchMyQuotes]);
-
-  // Subscribe to quote updates (for real-time updates when driver submits quote)
-  useEffect(() => {
-    if (!tripId || !isOwner || loading || !ownershipChecked) return;
-
-    console.log('🔄 Setting up realtime subscription for quote updates');
-
-    const quotesChannel = supabase
-      .channel(`quotes-${tripId}-${Date.now()}`) // Add timestamp to ensure unique channel
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'quotes',
-          filter: `trip_id=eq.${tripId}`,
-        },
-        (payload) => {
-          console.log('🔄 Realtime quote update received:', payload);
-          console.log('📊 Event type:', payload.eventType);
-          console.log('📊 New/Updated quote:', payload.new);
-          // Refresh quotes when any change occurs
-          // Use a small delay to ensure database consistency
-          setTimeout(() => {
-            console.log('🔄 Refreshing quotes after realtime update...');
-            fetchQuotes();
-          }, 200);
-        }
-      )
-      .subscribe((status, err) => {
-        console.log('🔄 Subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Successfully subscribed to quote updates for trip:', tripId);
-        } else if (status === 'CHANNEL_ERROR') {
-          // Handle channel errors gracefully - connection issues are common and not critical
-          if (err) {
-            console.warn('⚠️ Channel subscription error (non-critical):', err.message || err);
-          } else {
-            console.warn('⚠️ Channel subscription error (connection issue)');
-          }
-        } else if (status === 'TIMED_OUT') {
-          console.warn('⚠️ Subscription timed out, retrying...');
-        } else if (status === 'CLOSED') {
-          console.log('🔄 Subscription closed');
-        }
-      });
-
-    return () => {
-      console.log('🔄 Cleaning up quotes subscription');
-      try {
-        supabase.removeChannel(quotesChannel);
-      } catch (error) {
-        // Silently handle cleanup errors - channel may already be closed
-        console.debug('Channel cleanup:', error);
-      }
-    };
-  }, [tripId, isOwner, loading, ownershipChecked, fetchQuotes]);
+  // Quote fetching and subscriptions handled by useQuotes hook
 
   // Subscribe to trip status changes (for real-time updates)
-  useEffect(() => {
-    if (!tripId || !isOwner) return;
+  useRealtimeTripUpdates({
+    tripId,
+    isOwner,
+    tripStatus,
+    driverEmail,
+    onStatusUpdate: setTripStatus,
+    onDriverUpdate: setDriverEmail,
+  });
 
-    console.log('🔄 Setting up realtime subscription for trip status updates');
-
-    const channel = supabase
-      .channel(`trip-status-${tripId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'trips',
-          filter: `id=eq.${tripId}`,
-        },
-        (payload) => {
-          console.log('🔄 Realtime trip update received');
-          console.log('📊 Current UI state - Status:', tripStatus, 'Has driver:', !!driverEmail);
-
-          if (payload.new) {
-            const newStatus = payload.new.status;
-            const newDriver = payload.new.driver;
-
-            console.log('📊 Database update - New status:', newStatus, 'New driver:', newDriver);
-
-            // Update status if changed
-            if (newStatus && newStatus !== tripStatus) {
-              console.log(`✅ Trip status updated via realtime: ${tripStatus} → ${newStatus}`);
-              setTripStatus(newStatus);
-
-              // Special case: Auto-confirmation from driver quote submission
-              if (tripStatus === 'pending' && newStatus === 'confirmed') {
-                console.log('🎯 Detected Pending → Confirmed transition (likely from driver quote submission)');
-              }
-            }
-
-            // Update driver if changed
-            if (newDriver !== undefined && newDriver !== driverEmail) {
-              console.log(`✅ Driver updated via realtime: ${driverEmail ? 'assigned' : 'unassigned'} → ${newDriver ? 'assigned' : 'unassigned'}`);
-              setDriverEmail(newDriver);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('🔄 Cleaning up realtime subscription');
-      supabase.removeChannel(channel);
-    };
-  }, [tripId, isOwner]);
-
-  // Fetch driver suggestions when page loads (for owners only)
-  useEffect(() => {
-    async function fetchDriverSuggestions() {
-      if (!isOwner || !user?.id) return;
-
-      try {
-        const response = await fetch('/api/get-user-drivers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.id,
-          }),
-        });
-
-        // Handle non-JSON responses
-        if (!response.ok) {
-          console.error('❌ Failed to fetch driver suggestions:', response.statusText);
-          return;
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-          setDriverSuggestions(result.drivers || []);
-          setFilteredDriverSuggestions(result.drivers || []);
-          console.log(`✅ Loaded ${result.drivers?.length || 0} driver suggestions`);
-        } else {
-          console.error('❌ Failed to fetch driver suggestions:', result.error);
-        }
-      } catch (err) {
-        console.error('❌ Error fetching driver suggestions:', err);
-      }
-    }
-
-    if (isOwner && !loading && user?.id) {
-      fetchDriverSuggestions();
-    }
-  }, [isOwner, loading, user?.id]);
-
-  const handleSetDriver = async (email: string) => {
-    if (!tripId || !isOwner || settingDriver) return;
-
-    setSettingDriver(true);
-    setManualDriverError(null);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        console.error('❌ No session found');
-        setManualDriverError('Please log in to set driver');
-        setSettingDriver(false);
-        return;
-      }
-
-      const response = await fetch('/api/set-driver', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          tripId: tripId,
-          driverEmail: email,
-        }),
-      });
-
-      const result = await safeJsonParse(response);
-
-      if (result.success) {
-        setDriverEmail(email.toLowerCase());
-        console.log(`✅ Driver set successfully`);
-        setManualDriverEmail('');
-        setShowDriverSuggestions(false);
-
-        // If in assign-only mode, close modal (don't auto-confirm, let user manually confirm)
-        if (assignOnlyMode) {
-          console.log('🚗 [ASSIGN-ONLY] Driver assigned, closing modal. Trip status is now Pending.');
-          setShowDriverModal(false);
-          setAssignOnlyMode(false);
-          // User can now click the "Pending" button to manually confirm
-        }
-      } else {
-        setManualDriverError(result.error || 'Failed to set driver');
-      }
-    } catch (err) {
-      console.error('❌ Error setting driver:', err);
-      setManualDriverError('An error occurred while setting driver');
-    } finally {
-      setSettingDriver(false);
-    }
-  };
-
-  const handleManualDriverInputChange = (value: string) => {
-    setManualDriverEmail(value);
-    setManualDriverError(null);
-
-    // Filter suggestions based on input
-    if (value.trim().length > 0) {
-      const filtered = driverSuggestions.filter(driver =>
-        driver.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredDriverSuggestions(filtered);
-    } else {
-      setFilteredDriverSuggestions(driverSuggestions);
-    }
-  };
-
-  const handleManualDriverInputFocus = () => {
-    setShowDriverSuggestions(true);
-    if (manualDriverEmail.trim().length === 0) {
-      setFilteredDriverSuggestions(driverSuggestions);
-    }
-  };
-
-  const handleSelectDriverSuggestion = (driver: string) => {
-    setManualDriverEmail(driver);
-    setShowDriverSuggestions(false);
-  };
+  // Trip actions (driver management, status updates)
+  const {
+    driverSuggestions,
+    filteredDriverSuggestions,
+    showDriverSuggestions,
+    setShowDriverSuggestions,
+    settingDriver,
+    manualDriverEmail,
+    manualDriverError,
+    setManualDriverEmail,
+    setManualDriverError,
+    handleSetDriver,
+    handleManualDriverInputChange,
+    handleManualDriverInputFocus,
+    handleSelectDriverSuggestion,
+    updatingStatus,
+    sendingStatusNotification,
+    handleConfirmStatusChange,
+    sendStatusChangeNotification,
+  } = useTripActions({
+    tripId,
+    isOwner,
+    loading,
+    userId: user?.id,
+    tripStatus,
+    driverEmail,
+    pendingStatus,
+    assignOnlyMode,
+    onStatusUpdate: setTripStatus,
+    onDriverUpdate: setDriverEmail,
+    onPendingStatusClear: () => setPendingStatus(null),
+    onStatusModalClose: () => setShowStatusModal(false),
+    onDriverModalClose: () => setShowDriverModal(false),
+    onAssignOnlyModeChange: setAssignOnlyMode,
+  });
 
   const handleNotifyDriver = async () => {
     if (!tripId || !isOwner || !driverEmail || notifyingDriver) return;
@@ -3346,7 +2734,7 @@ export default function ResultsPage() {
         // Show success message
         setQuoteSuccess(true);
         setQuoteSuccessMessage('Trip declined. The trip owner has been notified.');
-        setIsDriverView(false); // Hide driver actions
+        // Driver view is managed by useDriverTokenValidation hook
       } else {
         console.error('❌ Failed to reject trip:', result.error);
         alert(result.error || 'Failed to reject trip');
@@ -6498,64 +5886,35 @@ export default function ResultsPage() {
 
                 if (!selectedQuoteDriver) return;
 
-                setSettingDriver(true);
-
                 try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  if (!session) {
-                    setManualDriverError('Please log in to set driver');
-                    return;
-                  }
-
-                  // Assign driver
-                  const response = await fetch('/api/set-driver', {
+                  // Use the hook's handleSetDriver function
+                  await handleSetDriver(selectedQuoteDriver);
+                  
+                  // Update status to pending (waiting for driver acceptance)
+                  const statusResponse = await fetch('/api/update-trip-status', {
                     method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${session.access_token}`,
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       tripId: tripId,
-                      driverEmail: selectedQuoteDriver,
+                      status: 'pending',
                     }),
                   });
 
-                  const result = await response.json();
-
-                  if (result.success) {
-                    setDriverEmail(selectedQuoteDriver.toLowerCase());
-                    console.log(`✅ [FLOW A] Driver selected from quotes`);
-
-                    // Update status to pending (waiting for driver acceptance)
-                    const statusResponse = await fetch('/api/update-trip-status', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        status: 'pending',
-                      }),
-                    });
-
-                    const statusResult = await statusResponse.json();
-                    if (statusResult.success) {
-                      setTripStatus('pending');
-                      console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
-                    }
-
-                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
-
-                    // Close both modals
-                    setShowFlowAModal(false);
-                    setShowDriverModal(false);
-                    setSelectedQuoteDriver(null);
-                  } else {
-                    setManualDriverError(result.error || 'Failed to set driver');
+                  const statusResult = await statusResponse.json();
+                  if (statusResult.success) {
+                    setTripStatus('pending');
+                    console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
                   }
+
+                  // Note: Email is automatically sent by /api/set-driver route, no need to send here
+
+                  // Close both modals
+                  setShowFlowAModal(false);
+                  setShowDriverModal(false);
+                  setSelectedQuoteDriver(null);
                 } catch (err) {
                   console.error('❌ Error in Flow A:', err);
                   setManualDriverError('An error occurred');
-                } finally {
-                  setSettingDriver(false);
                 }
               }}
               disabled={settingDriver}
@@ -6601,66 +5960,37 @@ export default function ResultsPage() {
               onClick={async () => {
                 if (!directAssignDriver) return;
 
-                setSettingDriver(true);
-
                 try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  if (!session) {
-                    setManualDriverError('Please log in to set driver');
-                    return;
-                  }
-
-                  // Assign driver
-                  const response = await fetch('/api/set-driver', {
+                  // Use the hook's handleSetDriver function
+                  await handleSetDriver(directAssignDriver);
+                  
+                  // Update status to pending (waiting for driver acceptance)
+                  const statusResponse = await fetch('/api/update-trip-status', {
                     method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${session.access_token}`,
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       tripId: tripId,
-                      driverEmail: directAssignDriver,
+                      status: 'pending',
                     }),
                   });
 
-                  const result = await response.json();
-
-                  if (result.success) {
-                    setDriverEmail(directAssignDriver.toLowerCase());
-                    console.log(`✅ [FLOW B] Driver assigned successfully`);
-
-                    // Update status to pending (waiting for driver acceptance)
-                    const statusResponse = await fetch('/api/update-trip-status', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        status: 'pending',
-                      }),
-                    });
-
-                    const statusResult = await statusResponse.json();
-                    if (statusResult.success) {
-                      setTripStatus('pending');
-                      console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
-                    }
-
-                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
-
-                    // Close both modals
-                    setShowFlowBModal(false);
-                    setShowDriverModal(false);
-                    setAssignOnlyMode(false);
-                    setDirectAssignDriver(null);
-                    setManualDriverEmail('');
-                  } else {
-                    setManualDriverError(result.error || 'Failed to set driver');
+                  const statusResult = await statusResponse.json();
+                  if (statusResult.success) {
+                    setTripStatus('pending');
+                    console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
                   }
+
+                  // Note: Email is automatically sent by /api/set-driver route, no need to send here
+
+                  // Close both modals
+                  setShowFlowBModal(false);
+                  setShowDriverModal(false);
+                  setAssignOnlyMode(false);
+                  setDirectAssignDriver(null);
+                  setManualDriverEmail('');
                 } catch (err) {
                   console.error('❌ Error in Flow B:', err);
                   setManualDriverError('An error occurred');
-                } finally {
-                  setSettingDriver(false);
                 }
               }}
               disabled={settingDriver}
