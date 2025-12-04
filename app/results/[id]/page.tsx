@@ -80,8 +80,7 @@ import { useGuestActions } from './hooks/useGuestActions';
 import { useNotifications } from './hooks/useNotifications';
 import { bookingPreviewInitialState, requiredFields, CURRENCY_OPTIONS, type BookingPreviewFieldKey } from './constants';
 import { QuoteFormSection } from './components/QuoteFormSection';
-import { RouteCard } from './components/RouteCard';
-import { LocationDetailCard } from './components/LocationDetailCard';
+import { ChronologicalView } from './components/ChronologicalView';
 import { TripSummarySection } from './components/TripSummarySection';
 import { LocationCardSection } from './components/LocationCardSection';
 import { UpdateQuoteModal } from './components/UpdateQuoteModal';
@@ -210,14 +209,11 @@ export default function ResultsPage() {
   });
 
   // Live Trip functionality state
-  const [isLiveMode, setIsLiveMode] = useState<boolean>(false);
-  const [activeLocationIndex, setActiveLocationIndex] = useState<number | null>(null);
-  const [liveTripInterval, setLiveTripInterval] = useState<NodeJS.Timeout | null>(null);
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
 
   // Trip status state
   const [tripStatus, setTripStatus] = useState<string>('not confirmed');
+  const [showChronologicalView, setShowChronologicalView] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [showConfirmDriverRequiredModal, setShowConfirmDriverRequiredModal] = useState<boolean>(false);
@@ -505,21 +501,6 @@ export default function ResultsPage() {
 
   // Scroll position tracking handled by useScrollPosition hook
 
-  // Update current time when in live mode
-  useEffect(() => {
-    if (isLiveMode) {
-      const timeInterval = setInterval(() => {
-        // Update current time in trip destination timezone
-        setCurrentTime(getCurrentTripTime());
-        // Auto-stop live mode if trip is completed
-        if (isTripCompleted()) {
-          stopLiveTrip();
-        }
-      }, 1000); // Update every second
-
-      return () => clearInterval(timeInterval);
-    }
-  }, [isLiveMode, tripDestination]);
 
   // Auto-resize textarea as content changes (up to 3 lines)
   useEffect(() => {
@@ -1397,33 +1378,6 @@ export default function ResultsPage() {
   };
 
 
-  const startLiveTrip = () => {
-    if (!tripData?.locations) return;
-
-    const closestIndex = findClosestLocation();
-    setActiveLocationIndex(closestIndex);
-    setIsLiveMode(true);
-
-    // Set up interval to update active location every minute
-    const interval = setInterval(() => {
-      const newClosestIndex = findClosestLocation();
-      if (newClosestIndex !== activeLocationIndex) {
-        setActiveLocationIndex(newClosestIndex);
-      }
-    }, 60000); // Update every minute
-
-    setLiveTripInterval(interval);
-  };
-
-  const stopLiveTrip = () => {
-
-    setIsLiveMode(false);
-    setActiveLocationIndex(null);
-    if (liveTripInterval) {
-      clearInterval(liveTripInterval);
-      setLiveTripInterval(null);
-    }
-  };
 
   const handleSaveNotes = async () => {
     if (!tripId) return;
@@ -1579,14 +1533,6 @@ export default function ResultsPage() {
     }
   }, [tripData?.locations, tripData?.tripDate]);
 
-  // Cleanup live trip interval on unmount
-  useEffect(() => {
-    return () => {
-      if (liveTripInterval) {
-        clearInterval(liveTripInterval);
-      }
-    };
-  }, [liveTripInterval]);
 
   // Guest signup handled by useGuestActions hook
 
@@ -3447,7 +3393,7 @@ export default function ResultsPage() {
       />
 
       {/* Update Trip Section - Sticky Bar - Only show for owners and guest creators */}
-      {(isOwner || isGuestCreator) && !isLiveMode && !isRegenerating && (
+      {(isOwner || isGuestCreator) && !isRegenerating && (
         <div
           className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
             }`}
@@ -3523,7 +3469,7 @@ export default function ResultsPage() {
       )}
 
       {/* Main Content */}
-      <div className={`container mx-auto px-4 ${(isOwner && !isLiveMode) || !isOwner ? 'pt-32 pb-8' : 'py-8'}`}>
+      <div className={`container mx-auto px-4 pt-32 pb-8`}>
 
         {/* Loading State Modal - Full Screen Overlay (Same as Homepage) */}
         {isRegenerating && (
@@ -3743,8 +3689,7 @@ export default function ResultsPage() {
 
 
           {/* Service Introduction */}
-          {!isLiveMode && (
-            <TripSummarySection
+          <TripSummarySection
               leadPassengerName={leadPassengerName}
               passengerCount={passengerCount}
               tripDate={tripDate}
@@ -3768,7 +3713,6 @@ export default function ResultsPage() {
               isDriverView={isDriverView}
               quoteParam={quoteParam}
               isAuthenticated={isAuthenticated}
-              isLiveMode={isLiveMode}
               tripId={tripId}
               theme={theme as 'light' | 'dark' | undefined}
               mounted={mounted}
@@ -3780,17 +3724,14 @@ export default function ResultsPage() {
               drivaniaCurrency={drivaniaCurrency}
               loadingDrivaniaQuote={loadingDrivaniaQuote}
             />
-          )}
 
-          {/* Trip Locations */}
-          {!isLiveMode && (
+          {/* Trip Locations - Card View */}
+          {!showChronologicalView && (
             <LocationCardSection
               locations={locations}
               tripDate={tripDate}
               trafficPredictions={trafficPredictions}
               driverNotes={driverNotes}
-              isLiveMode={isLiveMode}
-              activeLocationIndex={activeLocationIndex}
               tripData={tripData}
               passengerCount={passengerCount}
               tripDestination={tripDestination}
@@ -3799,8 +3740,6 @@ export default function ResultsPage() {
               isTripCompleted={isTripCompleted}
               isTripWithinOneHour={isTripWithinOneHour}
               findClosestLocation={findClosestLocation}
-              startLiveTrip={startLiveTrip}
-              stopLiveTrip={stopLiveTrip}
               onShowSignupModal={() => setShowSignupModal(true)}
               onShowEditRouteModal={() => setShowEditRouteModal(true)}
               onShowMapModal={() => setShowMapModal(true)}
@@ -3808,11 +3747,36 @@ export default function ResultsPage() {
               onSetEditingTripDate={setEditingTripDate}
               onSetPassengerCount={setPassengerCount}
               onSetTripDestination={setTripDestination}
+              onShowChronologicalView={() => setShowChronologicalView(true)}
+            />
+          )}
+
+          {/* Chronological Journey Flow */}
+          {showChronologicalView && (
+            <ChronologicalView
+              tripResults={tripResults}
+              tripDate={tripDate}
+              tripDestination={tripDestination}
+              trafficPredictions={trafficPredictions}
+              isOwner={isOwner}
+              locationDisplayNames={locationDisplayNames}
+              editingLocationId={editingLocationId}
+              editingLocationName={editingLocationName}
+              expandedLocations={expandedLocations}
+              expandedRoutes={expandedRoutes}
+              driverNotes={driverNotes}
+              onEditLocationName={handleEditLocationName}
+              onSaveLocationName={handleSaveLocationName}
+              onKeyPress={handleKeyPress}
+              onToggleLocationExpansion={toggleLocationExpansion}
+              onToggleRouteExpansion={toggleRouteExpansion}
+              onEditingLocationNameChange={setEditingLocationName}
+              onClose={() => setShowChronologicalView(false)}
             />
           )}
 
           {/* Important Information */}
-          {!isLiveMode && executiveReport?.importantInformation && (
+          {executiveReport?.importantInformation && (
             <Card className="mb-6 shadow-none">
               <CardContent className="px-3 py-1 pl-6">
                 <div className="mb-3">
@@ -3859,7 +3823,7 @@ export default function ResultsPage() {
           )}
 
           {/* Exceptional Information */}
-          {!isLiveMode && executiveReport?.exceptionalInformation && (
+          {executiveReport?.exceptionalInformation && (
             <Card className="mb-6 shadow-none bg-[#9e2622] dark:bg-[#9e2622] border-[#9e2622] dark:border-[#9e2622]">
               <CardContent className="px-3 py-1 pl-6">
                 <div className="mb-3">
@@ -3906,7 +3870,7 @@ export default function ResultsPage() {
           )}
 
           {/* Risk Score and Recommendations */}
-          {!isLiveMode && executiveReport && (
+          {executiveReport && (
             <div className="space-y-4 mb-6">
               {/* Top row: Risk Score (33%) and Top Disruptor (66%) */}
               <div className="flex gap-4">
@@ -3988,7 +3952,7 @@ export default function ResultsPage() {
           )}
 
           {/* Executive Report */}
-          {executiveReport && !isLiveMode && (
+          {executiveReport && (
             <>
               {/* Debug: Log executive report data */}
               {console.log('🔍 Executive Report Data:', executiveReport)}
@@ -4003,62 +3967,6 @@ export default function ResultsPage() {
             </>
           )}
 
-          {/* Chronological Journey Flow */}
-          {isLiveMode && (
-            <div className="relative space-y-6" style={{ overflowAnchor: 'none' }}>
-              {/* Back Button - Top Right */}
-              <div className="sticky top-20 mb-6 flex justify-end z-20">
-                <Button
-                  onClick={stopLiveTrip}
-                  size="lg"
-                  className="flex items-center gap-2 bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back
-                </Button>
-              </div>
-              {/* Connecting Line */}
-              <div className="absolute left-6 w-0.5 bg-border" style={{ top: '4rem', bottom: 0 }}></div>
-              {tripResults.map((result, index) => (
-                <React.Fragment key={result.locationId}>
-                  <LocationDetailCard
-                    index={index}
-                    result={result}
-                    tripDate={tripDate}
-                    tripResultsLength={tripResults.length}
-                    isOwner={isOwner}
-                    isLiveMode={isLiveMode}
-                    activeLocationIndex={activeLocationIndex}
-                    locationDisplayNames={locationDisplayNames}
-                    editingLocationId={editingLocationId}
-                    editingLocationName={editingLocationName}
-                    expandedLocations={expandedLocations}
-                    driverNotes={driverNotes}
-                    onEditLocationName={handleEditLocationName}
-                    onSaveLocationName={handleSaveLocationName}
-                    onKeyPress={handleKeyPress}
-                    onToggleExpansion={toggleLocationExpansion}
-                    onEditingLocationNameChange={setEditingLocationName}
-                  />
-
-                  {/* Route Card (after each location except the last) */}
-                  {index < tripResults.length - 1 && (
-                    <RouteCard
-                      index={index}
-                      tripResults={tripResults}
-                      trafficPredictions={trafficPredictions}
-                      tripDate={tripDate}
-                      tripDestination={tripDestination}
-                      expandedRoutes={expandedRoutes}
-                      onToggleExpansion={toggleRouteExpansion}
-                    />
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          )}
 
         </div>
 
@@ -4838,9 +4746,9 @@ export default function ResultsPage() {
         settingDriver={settingDriver}
         tripId={tripId}
         onDismiss={() => {
-          setShowFlowAModal(false);
-          setSelectedQuoteDriver(null);
-        }}
+                setShowFlowAModal(false);
+                setSelectedQuoteDriver(null);
+              }}
         onShowSignup={() => setShowSignupModal(true)}
         onSetDriver={handleSetDriver}
         onStatusUpdate={setTripStatus}
@@ -4856,9 +4764,9 @@ export default function ResultsPage() {
         settingDriver={settingDriver}
         tripId={tripId}
         onDismiss={() => {
-          setShowFlowBModal(false);
-          setDirectAssignDriver(null);
-        }}
+                setShowFlowBModal(false);
+                setDirectAssignDriver(null);
+              }}
         onSetDriver={handleSetDriver}
         onStatusUpdate={setTripStatus}
         onCloseDriverModal={() => setShowDriverModal(false)}
@@ -4909,8 +4817,8 @@ export default function ResultsPage() {
         open={showMapModal}
         onClose={() => setShowMapModal(false)}
         mapLocations={mapLocations}
-        tripDestination={tripDestination}
-      />
+                    tripDestination={tripDestination}
+                  />
 
       {/* Trip Update Notification Modal */}
       <UpdateNotificationModal
@@ -4950,8 +4858,8 @@ export default function ResultsPage() {
         onPassengerCountChange={setPassengerCount}
         onVehicleInfoChange={setVehicleInfo}
         onEditedDriverNotesChange={setEditedDriverNotes}
-        onLocationSelect={handleEditLocationSelect}
-        onTimeChange={handleEditTimeChange}
+                      onLocationSelect={handleEditLocationSelect}
+                      onTimeChange={handleEditTimeChange}
         onLocationRemove={handleEditLocationRemove}
         onAddLocation={handleAddEditLocation}
         onDragEnd={handleEditRouteDragEnd}

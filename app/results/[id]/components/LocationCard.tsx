@@ -18,12 +18,9 @@ interface LocationCardProps {
   index: number;
   totalLocations: number;
   driverNotes: string;
-  isLiveMode: boolean;
-  activeLocationIndex: number | null;
   isTripCompleted: () => boolean;
   isTripWithinOneHour: () => boolean;
   findClosestLocation: () => number;
-  onStartLiveTrip: () => void;
   legRealism?: {
     legIndex: number;
     realismLevel: 'realistic' | 'tight' | 'unrealistic';
@@ -36,17 +33,13 @@ export const LocationCard: React.FC<LocationCardProps> = ({
   index,
   totalLocations,
   driverNotes,
-  isLiveMode,
-  activeLocationIndex,
   isTripCompleted,
   isTripWithinOneHour,
   findClosestLocation,
-  onStartLiveTrip,
   legRealism,
 }) => {
   const isActive = !isTripCompleted() && 
-    ((isLiveMode && activeLocationIndex === index) || 
-     (!isLiveMode && isTripWithinOneHour() && findClosestLocation() === index));
+    isTripWithinOneHour() && findClosestLocation() === index;
 
   const locationType = index === 0 
     ? 'Pickup' 
@@ -173,7 +166,6 @@ export const LocationCard: React.FC<LocationCardProps> = ({
         <TimelineRealismWarning
           legRealism={legRealism}
           isTripCompleted={isTripCompleted}
-          onStartLiveTrip={onStartLiveTrip}
         />
       )}
     </div>

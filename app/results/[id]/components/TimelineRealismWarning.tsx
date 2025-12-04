@@ -7,13 +7,11 @@ interface TimelineRealismWarningProps {
     message: string;
   };
   isTripCompleted: () => boolean;
-  onStartLiveTrip: () => void;
 }
 
 export const TimelineRealismWarning: React.FC<TimelineRealismWarningProps> = ({
   legRealism,
   isTripCompleted,
-  onStartLiveTrip,
 }) => {
   if (legRealism.realismLevel === 'realistic') {
     return null;
@@ -29,8 +27,7 @@ export const TimelineRealismWarning: React.FC<TimelineRealismWarningProps> = ({
         }`}
         onClick={() => {
           if (!isTripCompleted()) {
-            onStartLiveTrip();
-            // Scroll to trip breakdown section after a short delay to allow state update
+            // Scroll to trip breakdown section
             setTimeout(() => {
               const breakdownElement = document.getElementById('trip-breakdown-0');
               if (breakdownElement) {

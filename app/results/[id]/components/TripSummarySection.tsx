@@ -36,7 +36,6 @@ interface TripSummarySectionProps {
   isDriverView: boolean;
   quoteParam: string | null;
   isAuthenticated: boolean;
-  isLiveMode: boolean;
   tripId: string;
   
   // UI state
@@ -79,7 +78,6 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   isDriverView,
   quoteParam,
   isAuthenticated,
-  isLiveMode,
   tripId,
   theme,
   mounted,

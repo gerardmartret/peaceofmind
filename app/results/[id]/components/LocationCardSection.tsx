@@ -18,8 +18,6 @@ interface LocationCardSectionProps {
   tripDate: string;
   trafficPredictions: { success: boolean; data: Array<any> } | null;
   driverNotes: string;
-  isLiveMode: boolean;
-  activeLocationIndex: number | null;
   tripData: {
     tripDate?: string;
     passengerCount?: number;
@@ -35,8 +33,6 @@ interface LocationCardSectionProps {
   isTripCompleted: () => boolean;
   isTripWithinOneHour: () => boolean;
   findClosestLocation: () => number;
-  startLiveTrip: () => void;
-  stopLiveTrip: () => void;
   
   // Handlers
   onShowSignupModal: () => void;
@@ -46,6 +42,7 @@ interface LocationCardSectionProps {
   onSetEditingTripDate: (date: Date) => void;
   onSetPassengerCount: (count: number) => void;
   onSetTripDestination: (destination: string) => void;
+  onShowChronologicalView: () => void;
 }
 
 export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
@@ -53,8 +50,6 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
   tripDate,
   trafficPredictions,
   driverNotes,
-  isLiveMode,
-  activeLocationIndex,
   tripData,
   passengerCount,
   tripDestination,
@@ -63,8 +58,6 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
   isTripCompleted,
   isTripWithinOneHour,
   findClosestLocation,
-  startLiveTrip,
-  stopLiveTrip,
   onShowSignupModal,
   onShowEditRouteModal,
   onShowMapModal,
@@ -72,6 +65,7 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
   onSetEditingTripDate,
   onSetPassengerCount,
   onSetTripDestination,
+  onShowChronologicalView,
 }) => {
   // Calculate timeline realism once for all legs
   const timelineRealism = calculateTimelineRealism(locations, trafficPredictions, tripDate);
@@ -129,25 +123,6 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
     onShowEditRouteModal();
   };
 
-  const handleTitleClick = () => {
-    const tripCompleted = isTripCompleted();
-    if (tripCompleted) return;
-    if (isLiveMode) {
-      stopLiveTrip();
-    } else {
-      startLiveTrip();
-    }
-  };
-
-  const handleTripBreakdownClick = () => {
-    const tripCompleted = isTripCompleted();
-    if (tripCompleted) return;
-    if (isLiveMode) {
-      stopLiveTrip();
-    } else {
-      startLiveTrip();
-    }
-  };
 
   const now = new Date();
   const tripDateTime = new Date(tripDate);
@@ -165,45 +140,17 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
                 ? 'opacity-50 cursor-not-allowed'
                 : 'cursor-pointer hover:text-primary transition-colors'
             }`}
-            onClick={handleTitleClick}
+            onClick={() => {
+              if (!tripCompleted) {
+                onShowChronologicalView();
+              }
+            }}
           >
             Trip Locations
           </h3>
 
           {/* Action Buttons - Right Side */}
           <div className="flex items-center gap-2">
-            {/* Trip Breakdown Button - Only show when live */}
-            {isLiveMode && (
-              <Button
-                variant={tripCompleted ? "outline" : (isLiveTripActive ? "default" : "outline")}
-                size="sm"
-                disabled={tripCompleted}
-                className={`flex items-center gap-2 ${
-                  tripCompleted
-                    ? 'opacity-50 cursor-not-allowed'
-                    : isLiveTripActive
-                      ? 'bg-[#3ea34b] text-white hover:bg-[#359840] border-[#3ea34b]'
-                      : ''
-                }`}
-                onClick={handleTripBreakdownClick}
-              >
-                {tripCompleted ? (
-                  <span>Completed</span>
-                ) : isLiveTripActive ? (
-                  <>
-                    <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                    <span>{isLiveMode ? 'Stop Live Trip' : 'Live Trip'}</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                    Trip Breakdown
-                  </>
-                )}
-              </Button>
-            )}
 
             {/* Edit trip Button */}
             <Button
@@ -262,12 +209,9 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
                   index={index}
                   totalLocations={locations.length}
                   driverNotes={driverNotes}
-                  isLiveMode={isLiveMode}
-                  activeLocationIndex={activeLocationIndex}
                   isTripCompleted={isTripCompleted}
                   isTripWithinOneHour={isTripWithinOneHour}
                   findClosestLocation={findClosestLocation}
-                  onStartLiveTrip={startLiveTrip}
                   legRealism={legRealism || null}
                 />
               );

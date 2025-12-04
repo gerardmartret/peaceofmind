@@ -70,8 +70,6 @@ interface LocationDetailCardProps {
   tripDate: string;
   tripResultsLength: number;
   isOwner: boolean;
-  isLiveMode: boolean;
-  activeLocationIndex: number | null;
   locationDisplayNames: { [key: string]: string };
   editingLocationId: string | null;
   editingLocationName: string;
@@ -90,8 +88,6 @@ export function LocationDetailCard({
   tripDate,
   tripResultsLength,
   isOwner,
-  isLiveMode,
-  activeLocationIndex,
   locationDisplayNames,
   editingLocationId,
   editingLocationName,
@@ -137,10 +133,7 @@ export function LocationDetailCard({
     <div className="flex items-start gap-4">
       <div className="flex-shrink-0 w-32 text-right relative">
         {/* Timeline Dot for Location */}
-        <div className={`absolute left-2 top-0 w-8 h-8 rounded-full border-2 border-background flex items-center justify-center z-10 ${isLiveMode && activeLocationIndex === index
-          ? 'animate-live-pulse text-white'
-          : 'bg-primary text-primary-foreground'
-          }`}>
+        <div className={`absolute left-2 top-0 w-8 h-8 rounded-full border-2 border-background flex items-center justify-center z-10 bg-primary text-primary-foreground`}>
           <span className="text-base font-bold">{numberToLetter(index + 1)}</span>
         </div>
         <div className="text-base font-bold text-foreground ml-6">
@@ -148,11 +141,6 @@ export function LocationDetailCard({
         </div>
         <div className="text-sm text-muted-foreground ml-2">
           {index === 0 ? 'Pick up' : index === tripResultsLength - 1 ? 'Drop off' : 'Resume'}
-          {isLiveMode && activeLocationIndex === index && (
-            <span className="ml-2 px-2 py-1 text-xs font-bold text-white rounded bg-[#3ea34b]">
-              LIVE
-            </span>
-          )}
         </div>
       </div>
       <div className="flex-1">
