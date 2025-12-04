@@ -64,8 +64,6 @@ import { extractFlightNumbers, extractServiceIntroduction } from './utils/extrac
 import { isValidTransition } from './utils/validation-helpers';
 import { determineVehicleType, extractCarInfo } from './utils/vehicle-detection-helpers';
 import { stripEmailMetadata, detectUnchangedFields, mapExtractedToManualForm, calculateChanges } from './utils/update-helpers';
-import { determineRole } from './utils/role-determination';
-import { transformDatabaseTripToTripData } from './utils/trip-data-transformers';
 import { usePreviewApplication } from './hooks/usePreviewApplication';
 import { useUpdateExtraction } from './hooks/useUpdateExtraction';
 import { useTripRegeneration } from './hooks/useTripRegeneration';
@@ -75,6 +73,12 @@ import { useDriverTokenValidation } from './hooks/useDriverTokenValidation';
 import { useQuotes } from './hooks/useQuotes';
 import { useRealtimeTripUpdates } from './hooks/useRealtimeTripUpdates';
 import { useTripActions } from './hooks/useTripActions';
+import { useTripLoading } from './hooks/useTripLoading';
+import { useQuoteSubmission } from './hooks/useQuoteSubmission';
+import { useDriverActions } from './hooks/useDriverActions';
+import { useLocationManagement } from './hooks/useLocationManagement';
+import { useGuestActions } from './hooks/useGuestActions';
+import { useNotifications } from './hooks/useNotifications';
 import { bookingPreviewInitialState, requiredFields, CURRENCY_OPTIONS, type BookingPreviewFieldKey } from './constants';
 import { QuoteFormSection } from './components/QuoteFormSection';
 import { RouteCard } from './components/RouteCard';
@@ -239,8 +243,7 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [ownershipChecked, setOwnershipChecked] = useState<boolean>(false);
-  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
-  const [editingLocationName, setEditingLocationName] = useState<string>('');
+  // Location editing state handled by useLocationManagement hook
   const inputRef = useRef<HTMLInputElement>(null);
   const [locationDisplayNames, setLocationDisplayNames] = useState<{ [key: string]: string }>({});
   const [expandedLocations, setExpandedLocations] = useState<{ [key: string]: boolean }>({});
@@ -282,9 +285,8 @@ export default function ResultsPage() {
   // Driver confirmation dialog state (for drivers to confirm pending trips)
   const [showDriverConfirmDialog, setShowDriverConfirmDialog] = useState<boolean>(false);
   const [showDriverRejectDialog, setShowDriverRejectDialog] = useState<boolean>(false);
-  const [confirmingTrip, setConfirmingTrip] = useState<boolean>(false);
+  // confirmingTrip and rejectingTrip handled by useDriverActions hook
   const [showDriverAcceptRejectModal, setShowDriverAcceptRejectModal] = useState<boolean>(false);
-  const [rejectingTrip, setRejectingTrip] = useState<boolean>(false);
   const [showDriverAssignmentInfoModal, setShowDriverAssignmentInfoModal] = useState<boolean>(false);
 
   // Map modal state
@@ -361,40 +363,21 @@ export default function ResultsPage() {
   const [showFlowBModal, setShowFlowBModal] = useState<boolean>(false);
   const [directAssignDriver, setDirectAssignDriver] = useState<string | null>(null);
 
-  // Trip update notification state
-  const [showUpdateNotificationModal, setShowUpdateNotificationModal] = useState<boolean>(false);
-  const [sendingUpdateNotification, setSendingUpdateNotification] = useState<boolean>(false);
+  // Trip update notification state handled by useNotifications hook
 
-  // Quote form state
+  // Quote form state - email managed separately, rest handled by useQuoteSubmission hook
   const [quoteEmail, setQuoteEmail] = useState<string>('');
-  const [quoteDriverName, setQuoteDriverName] = useState<string>('');
-  const [quotePrice, setQuotePrice] = useState<string>('');
-  const [quoteCurrency, setQuoteCurrency] = useState<string>('USD');
-  const [quoteEmailError, setQuoteEmailError] = useState<string | null>(null);
-  const [quotePriceError, setQuotePriceError] = useState<string | null>(null);
-  const [submittingQuote, setSubmittingQuote] = useState<boolean>(false);
-  const [quoteSuccess, setQuoteSuccess] = useState<boolean>(false);
-  const [quoteSuccessMessage, setQuoteSuccessMessage] = useState<string>('Quote submitted successfully!');
-  const [showUpdateQuoteModal, setShowUpdateQuoteModal] = useState<boolean>(false);
-  const [updateQuotePrice, setUpdateQuotePrice] = useState<string>('');
-  const [updateQuotePriceError, setUpdateQuotePriceError] = useState<string | null>(null);
-  const [updatingQuote, setUpdatingQuote] = useState<boolean>(false);
 
   // Driver state
   const [driverEmail, setDriverEmail] = useState<string | null>(null);
   // Store original driver email from database to check activity even if state changes
   const originalDriverEmailRef = useRef<string | null>(null);
   // Driver and status management handled by useTripActions hook
-  const [notifyingDriver, setNotifyingDriver] = useState<boolean>(false);
-  const [notificationSuccess, setNotificationSuccess] = useState<boolean>(false);
-  const [notificationError, setNotificationError] = useState<string | null>(null);
+  // Notification state handled by useNotifications hook
 
   // Quote request state (for inviting drivers to quote)
   const [allocateDriverEmail, setAllocateDriverEmail] = useState<string>('');
   const [allocateDriverEmailError, setAllocateDriverEmailError] = useState<string | null>(null);
-  const [sendingQuoteRequest, setSendingQuoteRequest] = useState<boolean>(false);
-  const [quoteRequestSuccess, setQuoteRequestSuccess] = useState<string | null>(null);
-  const [quoteRequestError, setQuoteRequestError] = useState<string | null>(null);
   const [sentDriverEmails, setSentDriverEmails] = useState<Array<{
     email: string;
     sentAt: string;
@@ -422,10 +405,7 @@ export default function ResultsPage() {
   // Guest signup state
   const [isGuestCreator, setIsGuestCreator] = useState<boolean>(false);
   const [isGuestCreatedTrip, setIsGuestCreatedTrip] = useState<boolean>(false);
-  const [guestSignupPassword, setGuestSignupPassword] = useState<string>('');
-  const [guestSignupError, setGuestSignupError] = useState<string | null>(null);
-  const [guestSignupLoading, setGuestSignupLoading] = useState<boolean>(false);
-  const [guestSignupSuccess, setGuestSignupSuccess] = useState<boolean>(false);
+  // Guest signup state handled by useGuestActions hook
   const [showSignupModal, setShowSignupModal] = useState<boolean>(false);
 
   // Driver token authentication (magic link) - must be after setQuoteEmail is declared
@@ -925,79 +905,7 @@ export default function ResultsPage() {
     }, 0);
   };
 
-  const handleSaveLocationName = async (locationId: string) => {
-    // Security check: Only owners can edit location names
-    if (!isOwner) {
-      console.error('❌ Unauthorized: Only trip owners can edit location names');
-      setEditingLocationId(null);
-      setEditingLocationName('');
-      return;
-    }
-
-    if (!editingLocationName.trim() || !tripData) {
-      setEditingLocationId(null);
-      setEditingLocationName('');
-      return;
-    }
-
-    try {
-      // Update the locations array with the new display name
-      const updatedLocations = tripData.locations.map(loc =>
-        loc.id === locationId
-          ? { ...loc, displayName: editingLocationName.trim() }
-          : loc
-      );
-
-      // Save to database - preserve trip_notes if they've been edited
-      const updateData: any = { locations: updatedLocations };
-      // Preserve current edited trip notes if they exist (user may have edited but not saved yet)
-      // Always preserve editedDriverNotes if it's different from the original driverNotes
-      // This handles cases where user edits notes but hasn't clicked "Save" on the notes field yet
-      if (editedDriverNotes !== undefined && editedDriverNotes !== driverNotes) {
-        updateData.trip_notes = editedDriverNotes || null; // Allow empty string to be saved
-        console.log('💾 [SAVE-LOCATION] Preserving unsaved trip notes:', editedDriverNotes);
-      } else if (driverNotes !== undefined) {
-        // If no edits, preserve the current driverNotes to prevent accidental loss
-        updateData.trip_notes = driverNotes || null;
-        console.log('💾 [SAVE-LOCATION] Preserving current trip notes:', driverNotes);
-      }
-
-      console.log('💾 [SAVE-LOCATION] Updating trip with:', {
-        locations: updatedLocations.length,
-        trip_notes: updateData.trip_notes ? 'preserved' : 'unchanged'
-      });
-
-      const { error: updateError } = await supabase
-        .from('trips')
-        .update(updateData)
-        .eq('id', tripId);
-
-      if (updateError) {
-        console.error('Error saving location name:', updateError);
-        setEditingLocationId(null);
-        setEditingLocationName('');
-        return;
-      }
-
-      // Update local state
-      setTripData({
-        ...tripData,
-        locations: updatedLocations
-      });
-
-      setLocationDisplayNames(prev => ({
-        ...prev,
-        [locationId]: editingLocationName.trim()
-      }));
-
-      setEditingLocationId(null);
-      setEditingLocationName('');
-    } catch (error) {
-      console.error('Error saving location name:', error);
-      setEditingLocationId(null);
-      setEditingLocationName('');
-    }
-  };
+  // Location name saving handled by useLocationManagement hook
 
   // Generate regeneration steps (same as home page generateLoadingSteps)
   const generateRegenerationSteps = (locations: any[], tripDestination?: string) => {
@@ -1736,104 +1644,39 @@ export default function ResultsPage() {
     }
   };
 
-  useEffect(() => {
-    async function loadTripFromDatabase() {
-      if (!tripId) {
-        console.log('⚠️ No trip ID provided');
-        router.push('/');
-        return;
-      }
-
-      try {
-        console.log(`📡 Loading trip from database: ${tripId}`);
-
-        const { data, error: fetchError } = await supabase
-          .from('trips')
-          .select('*')
-          .eq('id', tripId)
-          .single();
-
-        if (fetchError) {
-          console.error('❌ Error loading trip:', fetchError);
-          setError('Trip not found');
-          setLoading(false);
-          return;
-        }
-
-        if (!data) {
-          console.log('⚠️ Trip not found in database');
-          setError('Trip not found');
-          setLoading(false);
-          return;
-        }
-
-        console.log('✅ Trip loaded from database');
-
-        // Determine user role using utility function
-        const tripUserId = data.user_id;
-        const currentUserId = user?.id;
-        const roleInfo = determineRole(tripUserId, currentUserId || null, isAuthenticated, tripId || '');
-
-        setIsOwner(roleInfo.isOwner);
-        setIsGuestCreator(roleInfo.isGuestCreator);
-        setIsGuestCreatedTrip(roleInfo.isGuestCreatedTrip);
-
-        if (roleInfo.isOwner) {
-          console.log('🔐 User is the owner of this trip - editing enabled');
-        } else {
-          console.log('👁️ User is NOT the owner - read-only mode');
-        }
-
-        if (roleInfo.isGuestCreatedTrip) {
-          console.log('👤 Trip was created by a guest user');
-        }
-
-        if (roleInfo.isGuestCreator) {
-            console.log('👤 Guest user created this trip - showing signup CTA');
-        }
-
-        // Transform database data to match expected TripData format using utility
-        const { tripData, locationDisplayNames } = transformDatabaseTripToTripData(data);
-
-        setTripData(tripData);
-        setLocationDisplayNames(locationDisplayNames);
-        
-        // Set trip metadata
-        setDriverNotes(data.trip_notes || '');
-        setEditedDriverNotes(data.trip_notes || '');
-        setLeadPassengerName(data.lead_passenger_name || '');
-        setVehicleInfo(data.vehicle || '');
-        setPassengerCount(data.passenger_count || 1);
-        setTripDestination(data.trip_destination || '');
-        setPassengerNames([]); // passenger_names column doesn't exist in DB, set empty array
-        setCurrentVersion(data.version || 1); // Load current version
-        const status = data.status || 'not confirmed';
-        setTripStatus(status); // Load trip status
-        setDriverEmail(data.driver || null); // Load driver email
-        setValidatedDriverEmail(data.driver || null); // Set validated driver email for display
-        originalDriverEmailRef.current = data.driver || null; // Store original driver email for activity check
-        
-        // Initialize driver response status if trip is already confirmed/rejected and driver is assigned
-        // This will be updated when driver token is validated or when driver confirms/rejects
-        if (data.driver && (status === 'confirmed' || status === 'rejected')) {
-          // We'll set this properly after token validation or when driver actions are taken
-          // For now, leave it null and let the handlers set it
-        }
-
-        // Password protection removed - all users can access reports
-
-        // Mark ownership as checked and loading complete - MUST be last to prevent UI glitches
-        setOwnershipChecked(true);
-        setLoading(false);
-      } catch (err) {
-        console.error('❌ Unexpected error:', err);
-        setError('Failed to load trip');
-        setLoading(false);
-      }
-    }
-
-    loadTripFromDatabase();
-  }, [tripId, router, user, isAuthenticated]);
+  // Load trip from database and initialize state
+  useTripLoading({
+    tripId,
+    user,
+    isAuthenticated,
+    onTripDataLoaded: setTripData,
+    onLocationDisplayNamesLoaded: setLocationDisplayNames,
+    onRoleDetermined: (roleInfo) => {
+      setIsOwner(roleInfo.isOwner);
+      setIsGuestCreator(roleInfo.isGuestCreator);
+      setIsGuestCreatedTrip(roleInfo.isGuestCreatedTrip);
+    },
+    onMetadataLoaded: (metadata) => {
+      setDriverNotes(metadata.driverNotes);
+      setEditedDriverNotes(metadata.editedDriverNotes);
+      setLeadPassengerName(metadata.leadPassengerName);
+      setVehicleInfo(metadata.vehicleInfo);
+      setPassengerCount(metadata.passengerCount);
+      setTripDestination(metadata.tripDestination);
+      setPassengerNames(metadata.passengerNames);
+      setCurrentVersion(metadata.currentVersion);
+      setTripStatus(metadata.tripStatus);
+      setDriverEmail(metadata.driverEmail);
+    },
+    onValidatedDriverEmailSet: setValidatedDriverEmail,
+    onOriginalDriverEmailSet: (email) => {
+      originalDriverEmailRef.current = email;
+    },
+    onOwnershipChecked: () => setOwnershipChecked(true),
+    onLoadingChange: setLoading,
+    onError: setError,
+    originalDriverEmailRef: originalDriverEmailRef as React.RefObject<string | null>,
+  });
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -1874,82 +1717,7 @@ export default function ResultsPage() {
     };
   }, [liveTripInterval]);
 
-  const handleGuestSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setGuestSignupError(null);
-
-    // Validation
-    if (!guestSignupPassword || guestSignupPassword.length < 6) {
-      setGuestSignupError('Password must be at least 6 characters');
-      return;
-    }
-
-    if (!tripData?.userEmail) {
-      setGuestSignupError('Email not found. Please try again.');
-      return;
-    }
-
-    setGuestSignupLoading(true);
-
-    try {
-      // Create auth user with email and password
-      const { error: signUpError } = await signUp(tripData.userEmail, guestSignupPassword);
-
-      if (signUpError) {
-        // Handle specific errors
-        if (signUpError.message.toLowerCase().includes('already registered') ||
-          signUpError.message.toLowerCase().includes('already exists')) {
-          setGuestSignupError(`This email already has an account. Please login instead.`);
-        } else {
-          setGuestSignupError(signUpError.message);
-        }
-        setGuestSignupLoading(false);
-        return;
-      }
-
-      // Wait a moment for auth state to update
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Get the session to get user ID
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session?.user?.id) {
-        // Update ALL trips with this email to link to new user
-        const { error: updateError } = await supabase
-          .from('trips')
-          .update({ user_id: session.user.id })
-          .eq('user_email', tripData.userEmail)
-          .is('user_id', null);
-
-        if (updateError) {
-          console.error('Error linking trips to user:', updateError);
-        } else {
-          console.log('✅ All guest trips linked to new account');
-        }
-
-        // Clear sessionStorage
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('guestCreatedTripId');
-        }
-
-        // Show success and refresh page
-        setGuestSignupSuccess(true);
-        setGuestSignupError(null);
-
-        // Refresh the page after 2 seconds to show owner UI
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } else {
-        setGuestSignupError('Something went wrong. Please try logging in.');
-      }
-    } catch (err) {
-      console.error('Unexpected signup error:', err);
-      setGuestSignupError('An unexpected error occurred. Please try again.');
-    } finally {
-      setGuestSignupLoading(false);
-    }
-  };
+  // Guest signup handled by useGuestActions hook
 
   const handlePlanNewTrip = () => {
     // Check if user is authenticated - if not, show signup modal
@@ -2088,319 +1856,132 @@ export default function ResultsPage() {
     onAssignOnlyModeChange: setAssignOnlyMode,
   });
 
-  const handleNotifyDriver = async () => {
-    if (!tripId || !isOwner || !driverEmail || notifyingDriver) return;
+  // Quote submission and management
+  const {
+    quoteDriverName,
+    quotePrice,
+    quoteCurrency,
+    quoteEmailError,
+    quotePriceError,
+    submittingQuote,
+    quoteSuccess,
+    quoteSuccessMessage,
+    setQuoteDriverName,
+    setQuotePrice,
+    setQuoteCurrency,
+    setQuoteEmailError,
+    setQuotePriceError,
+    setQuoteSuccess,
+    setQuoteSuccessMessage,
+    showUpdateQuoteModal,
+    updateQuotePrice,
+    updateQuotePriceError,
+    updatingQuote,
+    setShowUpdateQuoteModal,
+    setUpdateQuotePrice,
+    setUpdateQuotePriceError,
+    sendingQuoteRequest,
+    quoteRequestError,
+    quoteRequestSuccess,
+    setQuoteRequestError,
+    setQuoteRequestSuccess,
+    handleSubmitQuote,
+    handleOpenUpdateQuote,
+    handleUpdateQuote,
+    handleSendQuoteRequest,
+  } = useQuoteSubmission({
+    tripId,
+    isOwner,
+    driverEmail,
+    quoteEmail,
+    allocateDriverEmail,
+    myQuotes,
+    fetchMyQuotes,
+    onQuoteEmailSet: setQuoteEmail,
+    onManualDriverEmailSet: setManualDriverEmail,
+    onAllocateDriverEmailSet: setAllocateDriverEmail,
+    sentDriverEmails,
+    onSentDriverEmailsSet: setSentDriverEmails,
+  });
 
-    setNotifyingDriver(true);
-    setNotificationError(null);
-    setNotificationSuccess(false);
+  // Driver actions (confirm/reject trip)
+  const {
+    confirmingTrip,
+    rejectingTrip,
+    handleDriverConfirmTrip,
+    handleDriverRejectTrip,
+  } = useDriverActions({
+    tripId,
+    driverToken,
+    isAuthenticated,
+    canTakeAction,
+    validatedDriverEmail,
+    quoteEmail,
+    myQuotes,
+    onTripStatusUpdate: setTripStatus,
+    onDriverResponseStatusUpdate: setDriverResponseStatus,
+    onDriverEmailUpdate: setDriverEmail,
+    onQuoteSuccessUpdate: setQuoteSuccess,
+    onQuoteSuccessMessageUpdate: setQuoteSuccessMessage,
+    onShowSignupModal: () => setShowSignupModal(true),
+    onShowDriverAssignmentInfoModal: () => setShowDriverAssignmentInfoModal(true),
+    onShowDriverConfirmDialogClose: () => setShowDriverConfirmDialog(false),
+    onShowDriverAcceptRejectModalClose: () => setShowDriverAcceptRejectModal(false),
+    onShowDriverRejectDialogClose: () => setShowDriverRejectDialog(false),
+  });
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
+  // Location management (name editing, saving)
+  const {
+    editingLocationId,
+    editingLocationName,
+    setEditingLocationId,
+    setEditingLocationName,
+    handleSaveLocationName,
+  } = useLocationManagement({
+    tripId,
+    isOwner,
+    tripData,
+    driverNotes,
+    editedDriverNotes,
+    onTripDataUpdate: setTripData,
+    onLocationDisplayNamesUpdate: (updater) => setLocationDisplayNames(updater),
+  });
 
-      if (!session) {
-        console.error('❌ No session found');
-        setNotificationError('Please log in to notify driver');
-        setNotifyingDriver(false);
-        return;
-      }
+  // Guest actions (signup, account linking)
+  const {
+    guestSignupPassword,
+    guestSignupError,
+    guestSignupLoading,
+    guestSignupSuccess,
+    setGuestSignupPassword,
+    setGuestSignupError,
+    setGuestSignupSuccess,
+    handleGuestSignup,
+  } = useGuestActions({
+    tripData,
+    signUp,
+  });
 
-      const response = await fetch('/api/notify-driver', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          tripId: tripId,
-        }),
-      });
+  // Notifications (driver notifications, update notifications)
+  const {
+    notifyingDriver,
+    notificationSuccess,
+    notificationError,
+    sendingUpdateNotification,
+    showUpdateNotificationModal,
+    setNotificationSuccess,
+    setNotificationError,
+    setSendingUpdateNotification,
+    setShowUpdateNotificationModal,
+    handleNotifyDriver,
+    handleUpdateNotificationResponse,
+  } = useNotifications({
+    tripId,
+    isOwner,
+    driverEmail,
+  });
 
-      const result = await safeJsonParse(response);
-
-      if (result.success) {
-        setNotificationSuccess(true);
-        console.log(`✅ Driver notified successfully`);
-        // Hide success message after 5 seconds
-        setTimeout(() => setNotificationSuccess(false), 5000);
-      } else {
-        setNotificationError(result.error || 'Failed to notify driver');
-      }
-    } catch (err) {
-      console.error('❌ Error notifying driver:', err);
-      setNotificationError('An error occurred while notifying driver');
-    } finally {
-      setNotifyingDriver(false);
-    }
-  };
-
-  const handleUpdateNotificationResponse = async (notify: boolean) => {
-    if (notify && driverEmail) {
-      setSendingUpdateNotification(true);
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session) {
-          console.error('❌ No session found');
-          window.location.reload();
-          return;
-        }
-
-        const response = await fetch('/api/notify-driver', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            tripId: tripId,
-          }),
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          console.log(`✅ Driver notified about trip update`);
-        } else {
-          console.error('❌ Failed to notify driver:', result.error);
-        }
-      } catch (err) {
-        console.error('❌ Error notifying driver:', err);
-      } finally {
-        setSendingUpdateNotification(false);
-        // Always reload after attempting notification
-        window.location.reload();
-      }
-    } else {
-      // User chose not to notify, just reload
-      window.location.reload();
-    }
-  };
-
-  const handleSubmitQuote = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Reset errors and success
-    setQuoteEmailError(null);
-    setQuotePriceError(null);
-    setQuoteSuccess(false);
-
-    // Basic email format validation (accept personal emails like Gmail)
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(quoteEmail.trim())) {
-      setQuoteEmailError('Please enter a valid email address');
-      return;
-    }
-
-    // Validate price - parse the formatted price (remove commas)
-    const priceNum = parseFloat(parsePriceInput(quotePrice));
-    if (isNaN(priceNum) || priceNum <= 0) {
-      setQuotePriceError('Please enter a valid price greater than 0');
-      return;
-    }
-
-    setSubmittingQuote(true);
-
-    try {
-      const response = await fetch('/api/submit-quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripId: tripId,
-          email: quoteEmail.trim(),
-          driverName: quoteDriverName.trim() || null,
-          price: priceNum,
-          currency: quoteCurrency,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        const action = result.isUpdate ? 'updated' : 'submitted';
-        console.log(`✅ Quote ${action} successfully`);
-        const submittedEmail = quoteEmail.trim();
-        setQuoteSuccessMessage(
-          result.isUpdate
-            ? 'Quote updated successfully! The trip owner will see your updated offer.'
-            : 'Quote submitted successfully! The trip owner will review your offer.'
-        );
-        setQuoteSuccess(true);
-
-        // Fetch the driver's quotes to show their submission
-        fetchMyQuotes(submittedEmail);
-
-        // Clear form fields but keep email for future quotes
-        setQuotePrice('');
-        setQuoteCurrency('USD');
-
-        // Hide success message after 5 seconds
-        setTimeout(() => setQuoteSuccess(false), 5000);
-      } else {
-        setQuoteEmailError(result.error || 'Failed to submit quote');
-      }
-    } catch (err) {
-      console.error('❌ Error submitting quote:', err);
-      setQuoteEmailError('Failed to submit quote. Please try again.');
-    } finally {
-      setSubmittingQuote(false);
-    }
-  };
-
-  // Handle opening update quote modal
-  const handleOpenUpdateQuote = () => {
-    // Check if driver is assigned - prevent updates if assigned
-    if (driverEmail) {
-      setQuoteEmailError('Quote cannot be updated - driver already assigned');
-      return;
-    }
-
-    const latestQuote = myQuotes[0];
-    if (latestQuote) {
-      setUpdateQuotePrice('');
-      setUpdateQuotePriceError(null);
-      setShowUpdateQuoteModal(true);
-    }
-  };
-
-  // Handle updating quote
-  const handleUpdateQuote = async () => {
-    // Check if driver is assigned - prevent updates if assigned
-    if (driverEmail) {
-      setUpdateQuotePriceError('Quote cannot be updated - driver already assigned');
-      return;
-    }
-
-    setUpdateQuotePriceError(null);
-
-    // Validate price
-    const priceNum = parseFloat(updateQuotePrice);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      setUpdateQuotePriceError('Please enter a valid price greater than 0');
-      return;
-    }
-
-    const latestQuote = myQuotes[0];
-    if (!latestQuote) {
-      setUpdateQuotePriceError('No existing quote found');
-      return;
-    }
-
-    setUpdatingQuote(true);
-
-    try {
-      const response = await fetch('/api/submit-quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripId: tripId,
-          email: quoteEmail.trim() || latestQuote.email,
-          price: priceNum,
-          currency: latestQuote.currency, // Lock to original currency
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        console.log('✅ Quote updated successfully');
-        setShowUpdateQuoteModal(false);
-        setUpdateQuotePrice('');
-        setQuoteSuccessMessage('Quote updated successfully! The trip owner will see your updated offer.');
-        setQuoteSuccess(true);
-
-        // Refresh driver's quotes to show the new latest quote
-        await fetchMyQuotes(quoteEmail.trim() || latestQuote.email);
-
-        // Hide success message after 5 seconds
-        setTimeout(() => setQuoteSuccess(false), 5000);
-      } else {
-        setUpdateQuotePriceError(result.error || 'Failed to update quote');
-      }
-    } catch (error) {
-      setUpdateQuotePriceError('Failed to update quote. Please try again.');
-    } finally {
-      setUpdatingQuote(false);
-    }
-  };
-
-  const handleSendQuoteRequest = async (emailToUse?: string) => {
-    const driverEmail = emailToUse || allocateDriverEmail;
-    if (!tripId || !isOwner || !driverEmail || sendingQuoteRequest) return;
-
-    // Reset errors and success
-    setAllocateDriverEmailError(null);
-    setManualDriverError(null);
-    setQuoteRequestError(null);
-    setQuoteRequestSuccess(null);
-
-    // Basic email format validation (accept personal emails like Gmail)
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(driverEmail.trim())) {
-      setManualDriverError('Please enter a valid email address');
-      return;
-    }
-
-    // Check if already sent to this email
-    const normalizedEmail = driverEmail.trim().toLowerCase();
-    if (sentDriverEmails.some(sent => sent.email.toLowerCase() === normalizedEmail)) {
-      setManualDriverError('Quote request already sent to this email');
-      return;
-    }
-
-    setSendingQuoteRequest(true);
-
-    try {
-      // Get the current session to send auth token
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        setQuoteRequestError('You must be logged in to send quote requests');
-        setSendingQuoteRequest(false);
-        return;
-      }
-
-      const response = await fetch('/api/request-quote', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          tripId: tripId,
-          driverEmail: driverEmail.trim(),
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        // Add to sent emails list
-        setSentDriverEmails([
-          ...sentDriverEmails,
-          {
-            email: driverEmail.trim(),
-            sentAt: new Date().toISOString(),
-          }
-        ]);
-
-        setQuoteRequestSuccess(`Quote request sent to ${driverEmail.trim()}`);
-        // Clear form
-        setManualDriverEmail('');
-        setAllocateDriverEmail('');
-        // Hide success message after 5 seconds
-        setTimeout(() => setQuoteRequestSuccess(null), 5000);
-      } else {
-        setQuoteRequestError(result.error || 'Failed to send quote request');
-      }
-    } catch (err) {
-      console.error('❌ Error sending quote request:', err);
-      setQuoteRequestError('Failed to send quote request. Please try again.');
-    } finally {
-      setSendingQuoteRequest(false);
-    }
-  };
+  // Quote submission handlers handled by useQuoteSubmission hook
 
   const handleDrivaniaQuote = async () => {
     if (!tripId || loadingDrivaniaQuote) {
@@ -2631,121 +2212,7 @@ export default function ResultsPage() {
     router.push('/');
   };
 
-  // Handler for driver to confirm a pending trip
-  const handleDriverConfirmTrip = async () => {
-    // Don't require authentication for assigned drivers - they can use token to accept/reject
-    // Only check authentication if not using token
-    if (!driverToken && !isAuthenticated) {
-      setShowSignupModal(true);
-      return;
-    }
-
-    if (!tripId || confirmingTrip) return;
-
-    // If driver has token and action already taken, show assignment info modal instead
-    if (driverToken && !canTakeAction) {
-      setShowDriverAssignmentInfoModal(true);
-      return;
-    }
-
-    // If driver has token and no quote exists, show message asking to quote first
-    if (driverToken && myQuotes.length === 0) {
-      alert('Please submit a quote for this trip before confirming. Use the quote form above to provide your pricing.');
-      return;
-    }
-
-    // Use validated email from token if available, otherwise use quote email
-    const emailToUse = validatedDriverEmail || quoteEmail;
-    if (!emailToUse) return;
-
-    setConfirmingTrip(true);
-
-    try {
-      console.log('🔄 Driver confirming trip:', tripId, '- Token auth:', !!driverToken);
-
-      const response = await fetch('/api/driver-confirm-trip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripId,
-          driverEmail: emailToUse,
-          token: driverToken, // Include token if present (magic link flow)
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        console.log('✅ Trip confirmed by driver');
-        setShowDriverConfirmDialog(false);
-        setShowDriverAcceptRejectModal(false);
-        // Update local state immediately
-        setTripStatus('confirmed');
-        setDriverResponseStatus('accepted');
-        // Show success message
-        setQuoteSuccess(true);
-        setQuoteSuccessMessage('✅ Trip confirmed! The trip owner has been notified.');
-      } else {
-        console.error('❌ Failed to confirm trip:', result.error);
-        alert(result.error || 'Failed to confirm trip');
-      }
-    } catch (err) {
-      console.error('❌ Error confirming trip:', err);
-      alert('Failed to confirm trip. Please try again.');
-    } finally {
-      setConfirmingTrip(false);
-    }
-  };
-
-  // Handler for driver to reject a pending trip
-  const handleDriverRejectTrip = async () => {
-    if (!tripId || !driverToken || rejectingTrip) return;
-
-    // Block action if token was already used or trip not pending
-    if (!canTakeAction) {
-      alert('This trip has already been responded to or is no longer available.');
-      return;
-    }
-
-    setRejectingTrip(true);
-
-    try {
-      console.log('🔄 Driver rejecting trip:', { tripId });
-
-      const response = await fetch('/api/driver-reject-trip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripId,
-          token: driverToken,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        console.log('✅ Trip rejected by driver');
-        setShowDriverRejectDialog(false); // Close dialog
-        setShowDriverAcceptRejectModal(false);
-        // Update local state immediately
-        setTripStatus('rejected');
-        setDriverResponseStatus('rejected');
-        setDriverEmail(null); // Clear driver assignment
-        // Show success message
-        setQuoteSuccess(true);
-        setQuoteSuccessMessage('Trip declined. The trip owner has been notified.');
-        // Driver view is managed by useDriverTokenValidation hook
-      } else {
-        console.error('❌ Failed to reject trip:', result.error);
-        alert(result.error || 'Failed to reject trip');
-      }
-    } catch (err) {
-      console.error('❌ Error rejecting trip:', err);
-      alert('Failed to reject trip. Please try again.');
-    } finally {
-      setRejectingTrip(false);
-    }
-  };
+  // Driver confirm/reject handlers handled by useDriverActions hook
 
   const getSafetyColor = (score: number) => {
     if (score >= 80) return 'text-[#3ea34b]';
@@ -5889,29 +5356,29 @@ export default function ResultsPage() {
                 try {
                   // Use the hook's handleSetDriver function
                   await handleSetDriver(selectedQuoteDriver);
-                  
-                  // Update status to pending (waiting for driver acceptance)
-                  const statusResponse = await fetch('/api/update-trip-status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      tripId: tripId,
-                      status: 'pending',
-                    }),
-                  });
 
-                  const statusResult = await statusResponse.json();
-                  if (statusResult.success) {
-                    setTripStatus('pending');
-                    console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
-                  }
+                    // Update status to pending (waiting for driver acceptance)
+                    const statusResponse = await fetch('/api/update-trip-status', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        tripId: tripId,
+                        status: 'pending',
+                      }),
+                    });
 
-                  // Note: Email is automatically sent by /api/set-driver route, no need to send here
+                    const statusResult = await statusResponse.json();
+                    if (statusResult.success) {
+                      setTripStatus('pending');
+                      console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
+                    }
 
-                  // Close both modals
-                  setShowFlowAModal(false);
-                  setShowDriverModal(false);
-                  setSelectedQuoteDriver(null);
+                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
+
+                    // Close both modals
+                    setShowFlowAModal(false);
+                    setShowDriverModal(false);
+                    setSelectedQuoteDriver(null);
                 } catch (err) {
                   console.error('❌ Error in Flow A:', err);
                   setManualDriverError('An error occurred');
@@ -5963,31 +5430,31 @@ export default function ResultsPage() {
                 try {
                   // Use the hook's handleSetDriver function
                   await handleSetDriver(directAssignDriver);
-                  
-                  // Update status to pending (waiting for driver acceptance)
-                  const statusResponse = await fetch('/api/update-trip-status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      tripId: tripId,
-                      status: 'pending',
-                    }),
-                  });
 
-                  const statusResult = await statusResponse.json();
-                  if (statusResult.success) {
-                    setTripStatus('pending');
-                    console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
-                  }
+                    // Update status to pending (waiting for driver acceptance)
+                    const statusResponse = await fetch('/api/update-trip-status', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        tripId: tripId,
+                        status: 'pending',
+                      }),
+                    });
 
-                  // Note: Email is automatically sent by /api/set-driver route, no need to send here
+                    const statusResult = await statusResponse.json();
+                    if (statusResult.success) {
+                      setTripStatus('pending');
+                      console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
+                    }
 
-                  // Close both modals
-                  setShowFlowBModal(false);
-                  setShowDriverModal(false);
-                  setAssignOnlyMode(false);
-                  setDirectAssignDriver(null);
-                  setManualDriverEmail('');
+                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
+
+                    // Close both modals
+                    setShowFlowBModal(false);
+                    setShowDriverModal(false);
+                    setAssignOnlyMode(false);
+                    setDirectAssignDriver(null);
+                    setManualDriverEmail('');
                 } catch (err) {
                   console.error('❌ Error in Flow B:', err);
                   setManualDriverError('An error occurred');
