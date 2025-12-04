@@ -93,6 +93,10 @@ import { DriverRejectDialog } from './components/DriverRejectDialog';
 import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import { ConfirmDriverRequiredModal } from './components/ConfirmDriverRequiredModal';
 import { DriverAcceptRejectModal } from './components/DriverAcceptRejectModal';
+import { DriverAssignmentInfoModal } from './components/DriverAssignmentInfoModal';
+import { FlowAModal } from './components/FlowAModal';
+import { FlowBModal } from './components/FlowBModal';
+import { RouteViewMapModal } from './components/RouteViewMapModal';
 
 function SortableEditLocationItem({
   location,
@@ -4967,163 +4971,43 @@ export default function ResultsPage() {
       />
 
       {/* Flow A Confirmation Modal - Selecting driver from quotes */}
-      <Dialog open={showFlowAModal} onOpenChange={setShowFlowAModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign driver</DialogTitle>
-            <DialogDescription>
-              Assigning this driver will set the trip to pending status and send them an acceptance request email.
-            </DialogDescription>
-          </DialogHeader>
-          {/* Flow A is for Supabase driver assignment - Drivania quotes should not be shown here */}
-          {/* (Drivania quotes are only relevant when booking with Drivania, not when assigning Supabase drivers) */}
-          <DialogFooter className="justify-start">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowFlowAModal(false);
-                setSelectedQuoteDriver(null);
-              }}
-              disabled={settingDriver}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={async () => {
-                // Check if user is authenticated - if not, show signup modal
-                if (!isAuthenticated) {
-                  setShowFlowAModal(false);
-                  setShowSignupModal(true);
-                  return;
-                }
-
-                if (!selectedQuoteDriver) return;
-
-                try {
-                  // Use the hook's handleSetDriver function
-                  await handleSetDriver(selectedQuoteDriver);
-
-                    // Update status to pending (waiting for driver acceptance)
-                    const statusResponse = await fetch('/api/update-trip-status', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        status: 'pending',
-                      }),
-                    });
-
-                    const statusResult = await statusResponse.json();
-                    if (statusResult.success) {
-                      setTripStatus('pending');
-                      console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
-                    }
-
-                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
-
-                    // Close both modals
-                    setShowFlowAModal(false);
-                    setShowDriverModal(false);
-                    setSelectedQuoteDriver(null);
-                } catch (err) {
-                  console.error('❌ Error in Flow A:', err);
-                  setManualDriverError('An error occurred');
-                }
-              }}
-              disabled={settingDriver}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-            >
-              {settingDriver ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Confirming...
-                </>
-              ) : (
-                'Confirm trip'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FlowAModal
+        open={showFlowAModal}
+        onOpenChange={setShowFlowAModal}
+        isAuthenticated={isAuthenticated}
+        selectedQuoteDriver={selectedQuoteDriver}
+        settingDriver={settingDriver}
+        tripId={tripId}
+        onDismiss={() => {
+          setShowFlowAModal(false);
+          setSelectedQuoteDriver(null);
+        }}
+        onShowSignup={() => setShowSignupModal(true)}
+        onSetDriver={handleSetDriver}
+        onStatusUpdate={setTripStatus}
+        onCloseDriverModal={() => setShowDriverModal(false)}
+        onError={setManualDriverError}
+      />
 
       {/* Flow B Confirmation Modal - Direct driver assignment */}
-      <Dialog open={showFlowBModal} onOpenChange={setShowFlowBModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign driver</DialogTitle>
-            <DialogDescription>
-              Assigning this driver will set the trip to pending status and send them an acceptance request email.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="justify-start">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowFlowBModal(false);
-                setDirectAssignDriver(null);
-              }}
-              disabled={settingDriver}
-            >
-              Dismiss
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!directAssignDriver) return;
-
-                try {
-                  // Use the hook's handleSetDriver function
-                  await handleSetDriver(directAssignDriver);
-
-                    // Update status to pending (waiting for driver acceptance)
-                    const statusResponse = await fetch('/api/update-trip-status', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tripId: tripId,
-                        status: 'pending',
-                      }),
-                    });
-
-                    const statusResult = await statusResponse.json();
-                    if (statusResult.success) {
-                      setTripStatus('pending');
-                      console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
-                    }
-
-                    // Note: Email is automatically sent by /api/set-driver route, no need to send here
-
-                    // Close both modals
-                    setShowFlowBModal(false);
-                    setShowDriverModal(false);
-                    setAssignOnlyMode(false);
-                    setDirectAssignDriver(null);
-                    setManualDriverEmail('');
-                } catch (err) {
-                  console.error('❌ Error in Flow B:', err);
-                  setManualDriverError('An error occurred');
-                }
-              }}
-              disabled={settingDriver}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-            >
-              {settingDriver ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Confirming...
-                </>
-              ) : (
-                'Yes, confirm'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FlowBModal
+        open={showFlowBModal}
+        onOpenChange={setShowFlowBModal}
+        directAssignDriver={directAssignDriver}
+        settingDriver={settingDriver}
+        tripId={tripId}
+        onDismiss={() => {
+          setShowFlowBModal(false);
+          setDirectAssignDriver(null);
+        }}
+        onSetDriver={handleSetDriver}
+        onStatusUpdate={setTripStatus}
+        onCloseDriverModal={() => setShowDriverModal(false)}
+        onCloseAssignOnlyMode={() => setAssignOnlyMode(false)}
+        onClearDirectAssignDriver={() => setDirectAssignDriver(null)}
+        onClearManualDriverEmail={() => setManualDriverEmail('')}
+        onError={setManualDriverError}
+      />
 
       {/* Booking Preview Modal - Removed: Now handled on /booking/[tripId] page */}
 
@@ -5145,65 +5029,13 @@ export default function ResultsPage() {
       />
 
       {/* Driver Assignment Info Modal - Shows when driver clicks confirmation with token but action already taken */}
-      <Dialog open={showDriverAssignmentInfoModal} onOpenChange={setShowDriverAssignmentInfoModal}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Trip status update</DialogTitle>
-            <DialogDescription>
-              You've already responded to this trip
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Alert className={`mb-4 ${tripStatus === 'confirmed' || tripStatus === 'booked'
-              ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30'
-              : tripStatus === 'rejected'
-                ? 'bg-red-500/10 border-red-500/30'
-                : tripStatus === 'cancelled'
-                  ? 'bg-gray-500/10 border-gray-500/30'
-                  : 'bg-blue-500/10 border-blue-500/30'
-              }`}>
-              <AlertDescription className={`font-medium ${tripStatus === 'confirmed' || tripStatus === 'booked'
-                ? 'text-[#3ea34b]'
-                : tripStatus === 'rejected'
-                  ? 'text-red-600'
-                  : tripStatus === 'cancelled'
-                    ? 'text-gray-600'
-                    : 'text-blue-600'
-                }`}>
-                {tripStatus === 'confirmed' && '✅ You have confirmed this trip'}
-                {tripStatus === 'booked' && '✅ This trip has been booked'}
-                {tripStatus === 'rejected' && '❌ You have rejected this trip'}
-                {tripStatus === 'cancelled' && '🚫 This trip has been cancelled'}
-                {tokenMessage && !['confirmed', 'booked', 'rejected', 'cancelled'].includes(tripStatus) && `ℹ️ ${tokenMessage}`}
-              </AlertDescription>
-            </Alert>
-
-            <div className="bg-muted/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-sm mb-3">
-                <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span className="text-muted-foreground">Assigned to:</span>
-                <span className="font-medium">{validatedDriverEmail === 'drivania' ? 'Drivania' : validatedDriverEmail}</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {tripStatus === 'confirmed' && 'The trip owner has been notified of your acceptance.'}
-                {tripStatus === 'booked' && 'Your booking request has been sent to Drivania.'}
-                {tripStatus === 'rejected' && 'The trip owner has been notified that you declined.'}
-                {tripStatus === 'cancelled' && 'The trip owner has cancelled this trip.'}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={() => setShowDriverAssignmentInfoModal(false)}
-              className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DriverAssignmentInfoModal
+        open={showDriverAssignmentInfoModal}
+        onOpenChange={setShowDriverAssignmentInfoModal}
+        tripStatus={tripStatus}
+        validatedDriverEmail={validatedDriverEmail}
+        tokenMessage={tokenMessage}
+      />
 
       {/* Driver Rejection Dialog */}
       <DriverRejectDialog
@@ -5214,39 +5046,12 @@ export default function ResultsPage() {
       />
 
       {/* Route View Map Modal */}
-      {
-        showMapModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
-            <div className="bg-card dark:bg-[#1f1f21] rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col border border-border/40">
-              <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-                <div>
-                  <h3 className="text-lg font-semibold">Route View</h3>
-                  <p className="text-sm text-muted-foreground">View your trip route on the map</p>
-                </div>
-                <Button
-                  onClick={() => setShowMapModal(false)}
-                  variant="ghost"
-                  size="sm"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </Button>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <div className="w-full h-full">
-                  <GoogleTripMap
-                    locations={mapLocations}
-                    height="100%"
-                    compact={false}
-                    tripDestination={tripDestination}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
+      <RouteViewMapModal
+        open={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        mapLocations={mapLocations}
+        tripDestination={tripDestination}
+      />
 
       {/* Trip Update Notification Modal */}
       <UpdateNotificationModal
