@@ -2015,7 +2015,7 @@ export default function ResultsPage() {
   // Called immediately when tripData loads (parallel to report generation)
   useEffect(() => {
     // Early returns
-    if (!tripId || !isOwner || loading || loadingDrivaniaQuote || drivaniaQuotes) return;
+    if (!tripId || !isOwner || !ownershipChecked || loading || loadingDrivaniaQuote || drivaniaQuotes) return;
     
     // Only fetch if trip is not cancelled/booked and not already assigned to Drivania
     if (tripStatus === 'cancelled' || tripStatus === 'booked' || driverEmail === 'drivania') return;
@@ -2026,7 +2026,7 @@ export default function ResultsPage() {
     // Fetch quotes silently in the background
     handleDrivaniaQuote();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId, isOwner, loading, tripStatus, driverEmail, tripData?.locations]);
+  }, [tripId, isOwner, ownershipChecked, loading, tripStatus, driverEmail, tripData?.locations]);
 
   const handleModifyTrip = () => {
     // For now, just redirect to home
