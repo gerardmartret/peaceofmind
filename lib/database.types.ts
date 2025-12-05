@@ -65,27 +65,36 @@ export type Database = {
       drivers: {
         Row: {
           destination: string
-          full_name: string
+          first_name: string
           id: string
-          imageUrl: string | null
+          image_url: string | null
           level_of_service: string | null
           vehicle_type: string
+          vehicle_brand: string | null
+          vehicle_model: string | null
+          vehicle_age: string | null
         }
         Insert: {
           destination: string
-          full_name: string
+          first_name: string
           id?: string
-          imageUrl?: string | null
+          image_url?: string | null
           level_of_service?: string | null
           vehicle_type: string
+          vehicle_brand?: string | null
+          vehicle_model?: string | null
+          vehicle_age?: string | null
         }
         Update: {
           destination?: string
-          full_name?: string
+          first_name?: string
           id?: string
-          imageUrl?: string | null
+          image_url?: string | null
           level_of_service?: string | null
           vehicle_type?: string
+          vehicle_brand?: string | null
+          vehicle_model?: string | null
+          vehicle_age?: string | null
         }
         Relationships: []
       }

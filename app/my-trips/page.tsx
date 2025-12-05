@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { normalizeTripLocations } from '@/app/results/[id]/utils/location-helpers';
 
 interface Trip {
   id: string;
@@ -22,25 +23,6 @@ interface Trip {
   trip_notes: string | null;
   status: string;
 }
-
-const normalizeTripLocations = (rawLocations: any): any[] => {
-  if (!rawLocations) return [];
-
-  if (Array.isArray(rawLocations)) {
-    return rawLocations;
-  }
-
-  if (typeof rawLocations === 'string') {
-    try {
-      const parsed = JSON.parse(rawLocations);
-      if (Array.isArray(parsed)) return parsed;
-    } catch (error) {
-      console.error('❌ Failed to parse trip locations JSON:', error);
-    }
-  }
-
-  return [];
-};
 
 type SearchCriteria = {
   passengerName?: string;

@@ -12,17 +12,21 @@ import { ArrowLeft } from 'lucide-react';
 import { bookingPreviewInitialState, requiredFields, type BookingPreviewFieldKey } from '@/app/results/[id]/constants';
 import { normalizeMatchKey, matchesDriverToVehicle, vehicleKey } from '@/app/results/[id]/utils/vehicle-helpers';
 import type { DriverRecord } from '@/app/results/[id]/types';
+import { useMatchingDrivers } from '@/app/results/[id]/hooks/useMatchingDrivers';
+import { determineRole } from '@/app/results/[id]/utils/role-determination';
 
 export default function BookingPage() {
   const router = useRouter();
   const params = useParams();
   const tripId = params.tripId as string;
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
 
   // Trip data state
   const [tripData, setTripData] = useState<any>(null);
   const [loadingTripData, setLoadingTripData] = useState(true);
   const [tripError, setTripError] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState<boolean>(false);
+  const [ownershipChecked, setOwnershipChecked] = useState<boolean>(false);
 
   // Drivania quote state
   const [loadingDrivaniaQuote, setLoadingDrivaniaQuote] = useState<boolean>(false);
@@ -35,25 +39,11 @@ export default function BookingPage() {
   const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
   const [vehicleSelections, setVehicleSelections] = useState<Record<string, { isVehicleSelected: boolean; selectedDriverIds: string[] }>>({});
 
-  // Matching drivers state
-  const [matchingDrivers, setMatchingDrivers] = useState<DriverRecord[]>([]);
-  const [loadingMatchingDrivers, setLoadingMatchingDrivers] = useState<boolean>(false);
-  const [matchingDriversError, setMatchingDriversError] = useState<string | null>(null);
-
-  // Debug: Log matchingDrivers state changes
-  useEffect(() => {
-    console.log('📊 matchingDrivers state updated:', {
-      count: matchingDrivers.length,
-      loading: loadingMatchingDrivers,
-      error: matchingDriversError,
-      sample: matchingDrivers[0] ? {
-        id: matchingDrivers[0].id,
-        first_name: matchingDrivers[0].first_name,
-        vehicle_type: matchingDrivers[0].vehicle_type,
-        level_of_service: matchingDrivers[0].level_of_service,
-      } : null,
-    });
-  }, [matchingDrivers, loadingMatchingDrivers, matchingDriversError]);
+  // Fetch matching drivers using existing hook
+  const tripDestination = tripData?.trip_destination || '';
+  const { matchingDrivers, loadingMatchingDrivers, matchingDriversError } = useMatchingDrivers({
+    driverDestination: tripDestination,
+  });
 
   // Booking form state
   const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
@@ -62,13 +52,24 @@ export default function BookingPage() {
   const [bookingSubmissionMessage, setBookingSubmissionMessage] = useState<string>('');
   const [processingTimer, setProcessingTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Load trip data
+  // Load trip data and check ownership
   useEffect(() => {
     const loadTripData = async () => {
       if (!tripId) {
         setTripError('Trip ID is required');
         setLoadingTripData(false);
         return;
+      }
+
+      // Wait for auth to finish loading before checking ownership
+      if (authLoading) {
+        return; // Exit early, will retry when authLoading becomes false
+      }
+
+      // If authenticated but user is null, wait a bit for it to load
+      if (isAuthenticated && !user) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        // If still null after wait, proceed anyway (shouldn't happen if authLoading is working)
       }
 
       try {
@@ -83,6 +84,21 @@ export default function BookingPage() {
         if (!data) {
           setTripError('Trip not found');
           setLoadingTripData(false);
+          setOwnershipChecked(true);
+          return;
+        }
+
+        // Check ownership - only owners can access booking page
+        const tripUserId = data.user_id;
+        const currentUserId = user?.id || null;
+        const roleInfo = determineRole(tripUserId, currentUserId, isAuthenticated, tripId);
+        
+        setIsOwner(roleInfo.isOwner);
+        setOwnershipChecked(true);
+
+        // Redirect non-owners to results page
+        if (!roleInfo.isOwner) {
+          router.push(`/results/${tripId}`);
           return;
         }
 
@@ -108,11 +124,12 @@ export default function BookingPage() {
         console.error('Error loading trip data:', err);
         setTripError(err.message || 'Failed to load trip data');
         setLoadingTripData(false);
+        setOwnershipChecked(true);
       }
     };
 
     loadTripData();
-  }, [tripId]);
+  }, [tripId, user, isAuthenticated, authLoading, router]);
 
   // Fetch Drivania quotes when trip data is loaded
   // Called immediately when tripData loads (optimized for speed)
@@ -204,82 +221,6 @@ export default function BookingPage() {
     fetchDrivaniaQuote();
   }, [tripData, loadingDrivaniaQuote, drivaniaQuotes]);
 
-  // Fetch matching drivers
-  const tripDestination = tripData?.trip_destination || '';
-  const driverDestinationForDrivers = useMemo(() => {
-    return (tripDestination || '').trim();
-  }, [tripDestination]);
-
-  useEffect(() => {
-    let active = true;
-
-    // Wait for tripData to be loaded before fetching drivers
-    console.log('🔄 useEffect triggered:', {
-      hasTripData: !!tripData,
-      tripDestination: tripData?.trip_destination,
-      driverDestinationForDrivers,
-    });
-
-    if (!tripData || !driverDestinationForDrivers) {
-      console.log('⏸️ Skipping driver fetch - missing tripData or destination');
-      setMatchingDrivers([]);
-      setMatchingDriversError(null);
-      setLoadingMatchingDrivers(false);
-      return;
-    }
-
-    const sanitizedDestination = driverDestinationForDrivers.replace(/[%_]/g, '').trim();
-    const destinationPattern = `%${sanitizedDestination}%`;
-    console.log('🔍 Fetching drivers with pattern:', destinationPattern);
-
-    const fetchDrivers = async () => {
-      setLoadingMatchingDrivers(true);
-      setMatchingDriversError(null);
-
-      try {
-        console.log('🔍 Fetching drivers for destination:', destinationPattern);
-        const { data, error } = await supabase
-          .from('drivers')
-          .select('*')
-          .ilike('destination', destinationPattern);
-
-        if (!active) return;
-
-        if (error) {
-          console.error('❌ Supabase error fetching drivers:', error);
-          throw error;
-        }
-
-        console.log('✅ Drivers fetched:', data?.length || 0, 'drivers');
-        if (data && data.length > 0) {
-          console.log('📋 Sample driver:', {
-            id: data[0].id,
-            first_name: data[0].first_name,
-            vehicle_type: data[0].vehicle_type,
-            level_of_service: data[0].level_of_service,
-            destination: data[0].destination,
-          });
-        }
-        setMatchingDrivers(data || []);
-      } catch (err) {
-        console.error('❌ Error fetching matching drivers:', err);
-        if (active) {
-          setMatchingDrivers([]);
-          setMatchingDriversError('Unable to load available drivers.');
-        }
-      } finally {
-        if (active) {
-          setLoadingMatchingDrivers(false);
-        }
-      }
-    };
-
-    fetchDrivers();
-
-    return () => {
-      active = false;
-    };
-  }, [driverDestinationForDrivers, tripData]);
 
   // Vehicle filtering logic
   const preferredVehicleHint = tripData?.vehicle_info || tripData?.preferred_vehicle;
@@ -424,8 +365,8 @@ export default function BookingPage() {
           });
 
           const statusResult = await statusResponse.json();
-          if (statusResult.success) {
-            console.log('Trip status updated to "booked"');
+          if (!statusResult.success) {
+            console.error('Failed to update trip status:', statusResult.error);
           }
         } catch (statusErr) {
           console.error('Error updating trip status:', statusErr);
@@ -464,15 +405,6 @@ export default function BookingPage() {
               vehicle.vehicle_type,
               vehicle.level_of_service,
             );
-            if (matches) {
-              console.log('✅ Driver matched:', {
-                driver: driver.first_name,
-                driverType: driver.vehicle_type,
-                driverLevel: driver.level_of_service,
-                vehicleType: vehicle.vehicle_type,
-                vehicleLevel: vehicle.level_of_service,
-              });
-            }
             return matches;
           });
           
@@ -489,9 +421,6 @@ export default function BookingPage() {
         })()
       : [];
 
-    if (vehicle.vehicle_type && matchingDrivers.length > 0) {
-      console.log('🚗 Vehicle:', vehicle.vehicle_type, vehicle.level_of_service, '- Matched drivers:', vehicleDrivers.length, 'out of', matchingDrivers.length);
-    }
 
     const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
     const selection = vehicleSelections[vehicleId] || { isVehicleSelected: true, selectedDriverIds: [] };
@@ -531,7 +460,11 @@ export default function BookingPage() {
                 <img
                   src={vehicle.vehicle_image}
                   alt={vehicle.vehicle_type}
+                  width={128}
+                  height={128}
                   className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
                   }}
@@ -560,14 +493,6 @@ export default function BookingPage() {
             </div>
           </div>
 
-          {(() => {
-            console.log('🔍 Checking drivers display for vehicle:', vehicle.vehicle_type, {
-              vehicleDriversLength: vehicleDrivers.length,
-              matchingDriversLength: matchingDrivers.length,
-              willShow: vehicleDrivers.length > 0,
-            });
-            return null;
-          })()}
           {vehicleDrivers.length > 0 && (
             <div className="p-5 border border-border rounded-md">
               <div className="text-xs text-muted-foreground space-y-3">
@@ -608,8 +533,12 @@ export default function BookingPage() {
                             <img
                               src={driver.image_url}
                               alt={driver.first_name}
+                              width={48}
+                              height={48}
                               className="h-full w-full object-cover"
                               loading="lazy"
+                              decoding="async"
+                              fetchPriority="low"
                               onError={(event) => {
                                 (event.target as HTMLImageElement).style.display = 'none';
                               }}
@@ -706,8 +635,8 @@ export default function BookingPage() {
   const highlightMissing = (field: BookingPreviewFieldKey) =>
     missingFields.has(field) ? 'border-destructive/70 bg-destructive/10 text-destructive' : '';
 
-  // Loading state
-  if (authLoading || loadingTripData) {
+  // Loading state - wait for auth and ownership check
+  if (authLoading || loadingTripData || !ownershipChecked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -729,6 +658,23 @@ export default function BookingPage() {
               {tripError || 'This trip could not be found.'}
             </p>
             <Button onClick={() => router.push('/')}>Go to Home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Ownership check - redirect if not owner (shouldn't reach here due to redirect in useEffect, but safety check)
+  if (!isOwner) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+            <p className="text-muted-foreground mb-6">
+              Only trip owners can access the booking page.
+            </p>
+            <Button onClick={() => router.push(`/results/${tripId}`)}>View Trip Report</Button>
           </CardContent>
         </Card>
       </div>
