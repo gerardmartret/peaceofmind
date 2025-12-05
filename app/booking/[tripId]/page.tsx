@@ -530,10 +530,10 @@ export default function BookingPage() {
                         }`}
                       >
                         <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full bg-muted/70">
-                          {driver.imageUrl ? (
+                          {driver.image_url ? (
                             <img
-                              src={driver.imageUrl}
-                              alt={driver.full_name}
+                              src={driver.image_url}
+                              alt={driver.first_name}
                               className="h-full w-full object-cover"
                               loading="lazy"
                               onError={(event) => {
@@ -548,7 +548,7 @@ export default function BookingPage() {
                         </div>
                         <div className="flex-1 min-w-0 text-[11px] text-muted-foreground">
                           <p className="text-sm font-semibold text-card-foreground truncate">
-                            {driver.full_name}
+                            {driver.first_name}
                           </p>
                           <p className="truncate">
                             {driver.vehicle_type || 'Vehicle'}

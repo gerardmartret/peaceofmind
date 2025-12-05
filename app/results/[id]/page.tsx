@@ -39,10 +39,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -56,7 +54,7 @@ import type {
 } from './types';
 import { formatTimeForPicker, getDestinationLocalTime, getLondonLocalTime } from './utils/time-helpers';
 import { normalizeTripLocations, isAirportLocation } from './utils/location-helpers';
-import { normalizeVehicleText, normalizeMatchKey, matchesDriverToVehicle, vehicleKey } from './utils/vehicle-helpers';
+import { normalizeMatchKey, matchesDriverToVehicle } from './utils/vehicle-helpers';
 import { formatPriceDisplay, parsePriceInput } from './utils/price-helpers';
 import { calculateCombinedScheduleRisk, calculateTimelineRealism } from './utils/risk-helpers';
 import { extractFlightNumbers, extractServiceIntroduction } from './utils/extraction-helpers';
@@ -96,6 +94,15 @@ import { FlowAModal } from './components/FlowAModal';
 import { FlowBModal } from './components/FlowBModal';
 import { RouteViewMapModal } from './components/RouteViewMapModal';
 import { EditRouteModal } from './components/EditRouteModal';
+import { LoadingState } from './components/LoadingState';
+import { ErrorState } from './components/ErrorState';
+import { useMatchingDrivers } from './hooks/useMatchingDrivers';
+import { useDrivaniaVehicleCalculations } from './hooks/useDrivaniaVehicleCalculations';
+import { useRouteEditing } from './hooks/useRouteEditing';
+import { UpdateTripSection } from './components/UpdateTripSection';
+import { RegenerationLoadingModal } from './components/RegenerationLoadingModal';
+import { DriverQuotesModal } from './components/DriverQuotesModal';
+import { generateRegenerationSteps } from './utils/regeneration-helpers';
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -255,12 +262,8 @@ export default function ResultsPage() {
   const [drivaniaQuotes, setDrivaniaQuotes] = useState<any>(null);
   const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
   const [drivaniaServiceType, setDrivaniaServiceType] = useState<'one-way' | 'hourly' | null>(null);
-  const [showOtherVehicles, setShowOtherVehicles] = useState<boolean>(false);
   const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
   const [showBookingPreview, setShowBookingPreview] = useState<boolean>(false);
-  const [matchingDrivers, setMatchingDrivers] = useState<DriverRecord[]>([]);
-  const [loadingMatchingDrivers, setLoadingMatchingDrivers] = useState<boolean>(false);
-  const [matchingDriversError, setMatchingDriversError] = useState<string | null>(null);
   // Track selection state for each vehicle: { vehicleId: { isVehicleSelected: boolean, selectedDriverIds: string[] } }
   const [vehicleSelections, setVehicleSelections] = useState<Record<string, { isVehicleSelected: boolean; selectedDriverIds: string[] }>>({});
   const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
@@ -359,36 +362,6 @@ export default function ResultsPage() {
   const highlightMissing = (field: BookingPreviewFieldKey) =>
     missingFields.has(field) ? 'border-destructive/70 bg-destructive/10 text-destructive' : '';
 
-
-  const preferredVehicleHint = React.useMemo(() => {
-    return vehicleInfo?.trim() || driverNotes?.trim() || '';
-  }, [vehicleInfo, driverNotes]);
-
-
-
-  const matchesPreferredVehicle = React.useCallback((vehicle: any): boolean => {
-    if (!preferredVehicleHint) return false;
-    const hintNormalized = normalizeVehicleText(preferredVehicleHint);
-    const hintWords = hintNormalized.split(/\s+/).filter(Boolean);
-    const vehicleText = [
-      vehicle.vehicle_type,
-      vehicle.level_of_service,
-      vehicle.vehicle_examples,
-    ]
-      .map(normalizeVehicleText)
-      .join(' ');
-
-    if (!vehicleText) {
-      return false;
-    }
-
-    if (hintWords.length === 0) {
-      return vehicleText.includes(hintNormalized);
-    }
-
-    return hintWords.every((word) => vehicleText.includes(word));
-  }, [preferredVehicleHint]);
-
   useEffect(() => {
     return () => {
       if (processingTimer) {
@@ -397,102 +370,19 @@ export default function ResultsPage() {
     };
   }, [processingTimer]);
 
-  const preferredVehicles = React.useMemo(() => {
-    if (!drivaniaQuotes?.quotes?.vehicles || !preferredVehicleHint) {
-      return [];
-    }
-    return drivaniaQuotes.quotes.vehicles.filter(matchesPreferredVehicle);
-  }, [drivaniaQuotes, preferredVehicleHint, matchesPreferredVehicle]);
-
-  const displayVehicles = React.useMemo(() => {
-    if (preferredVehicles.length > 0) {
-      return preferredVehicles;
-    }
-    return drivaniaQuotes?.quotes?.vehicles || [];
-  }, [preferredVehicles, drivaniaQuotes]);
-
-
-  const otherVehicles = React.useMemo(() => {
-    if (!drivaniaQuotes?.quotes?.vehicles || preferredVehicles.length === 0) {
-      return [];
-    }
-    const preferredKeys = new Set(preferredVehicles.map((vehicle: any) => vehicleKey(vehicle)));
-    return drivaniaQuotes.quotes.vehicles.filter(
-      (vehicle: any) => !preferredKeys.has(vehicleKey(vehicle))
-    );
-  }, [drivaniaQuotes, preferredVehicles]);
-
   const driverDestinationForDrivers = React.useMemo(() => {
     return (tripDestination || tripData?.tripDestination || '').trim();
   }, [tripDestination, tripData?.tripDestination]);
 
-  // Calculate lowest Drivania quote price
-  const lowestDrivaniaPrice = React.useMemo(() => {
-    if (!drivaniaQuotes?.quotes?.vehicles || drivaniaQuotes.quotes.vehicles.length === 0) {
-      return null;
-    }
-    const prices = drivaniaQuotes.quotes.vehicles
-      .map((vehicle: any) => vehicle.sale_price?.price)
-      .filter((price: any) => typeof price === 'number' && !isNaN(price));
-    if (prices.length === 0) return null;
-    return Math.min(...prices);
-  }, [drivaniaQuotes]);
+  // Fetch matching drivers based on destination
+  const { matchingDrivers, loadingMatchingDrivers, matchingDriversError } = useMatchingDrivers({
+    driverDestination: driverDestinationForDrivers,
+  });
 
-  const drivaniaCurrency = drivaniaQuotes?.currency_code || null;
-
-  useEffect(() => {
-    let active = true;
-
-    if (!driverDestinationForDrivers) {
-      setMatchingDrivers([]);
-      setMatchingDriversError(null);
-      setLoadingMatchingDrivers(false);
-      return;
-    }
-
-    const sanitizedDestination = driverDestinationForDrivers.replace(/[%_]/g, '').trim();
-    const destinationPattern = `%${sanitizedDestination}%`;
-
-    const fetchDrivers = async () => {
-      setLoadingMatchingDrivers(true);
-      setMatchingDriversError(null);
-
-      try {
-        const { data, error } = await supabase
-          .from('drivers')
-          .select('*')
-          .ilike('destination', destinationPattern);
-
-        if (!active) return;
-
-        if (error) {
-          throw error;
-        }
-
-        setMatchingDrivers(data || []);
-      } catch (err) {
-        console.error('❌ Error fetching matching drivers:', err);
-        if (active) {
-          setMatchingDrivers([]);
-          setMatchingDriversError('Unable to load available drivers.');
-        }
-      } finally {
-        if (active) {
-          setLoadingMatchingDrivers(false);
-        }
-      }
-    };
-
-    fetchDrivers();
-
-    return () => {
-      active = false;
-    };
-  }, [driverDestinationForDrivers]);
-
-  useEffect(() => {
-    setShowOtherVehicles(false);
-  }, [preferredVehicles]);
+  // Calculate Drivania vehicle-related values
+  const { lowestDrivaniaPrice, drivaniaCurrency } = useDrivaniaVehicleCalculations({
+    drivaniaQuotes,
+  });
 
   // Removed booking preview functions - now handled on booking page
   // openBookingPreview, handleBookingFieldChange, handleReturnToReport, handleBookNow moved to /booking/[tripId]/page.tsx
@@ -759,155 +649,17 @@ export default function ResultsPage() {
 
   // Location name saving handled by useLocationManagement hook
 
-  // Generate regeneration steps (same as home page generateLoadingSteps)
-  const generateRegenerationSteps = (locations: any[], tripDestination?: string) => {
-    const cityConfig = getCityConfig(tripDestination);
-    const steps = [];
-    let stepId = 1;
-
-    // London-specific data sources
-    if (cityConfig.isLondon) {
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Analyzing crime & safety data`,
-        description: `Retrieving safety statistics and crime reports from official UK Police database`,
-        source: 'UK Police National Database',
-        status: 'pending' as const
-      });
-
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Assessing traffic conditions`,
-        description: `Pulling real-time traffic data, road closures, and congestion patterns`,
-        source: 'Transport for London',
-        status: 'pending' as const
-      });
-
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Checking public transport disruptions`,
-        description: `Monitoring Underground, bus, and rail service disruptions`,
-        source: 'TfL Unified API',
-        status: 'pending' as const
-      });
-    }
-
-    // Universal data sources (all cities)
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Analyzing weather conditions`,
-      description: `Gathering meteorological data and forecast models for trip planning`,
-      source: 'Open-Meteo Weather Service',
-      status: 'pending' as const
-    });
-
-    // London-specific parking
-    if (cityConfig.isLondon) {
-      steps.push({
-        id: `step-${stepId++}`,
-        title: `Evaluating parking availability`,
-        description: `Analyzing parking facilities, restrictions, and pricing information`,
-        source: 'TfL Parking Database',
-        status: 'pending' as const
-      });
-    }
-
-    // Universal: Route calculation
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Calculating optimal routes`,
-      description: `Processing route efficiency, travel times, and traffic predictions`,
-      source: 'Google Maps Directions API',
-      status: 'pending' as const
-    });
-
-    // Universal: AI analysis
-    steps.push({
-      id: `step-${stepId++}`,
-      title: `Generating risk assessment`,
-      description: `Synthesizing data into comprehensive executive report with recommendations`,
-      source: 'OpenAI GPT-4 Analysis',
-      status: 'pending' as const
-    });
-
-    return steps;
-  };
-
-  // Edit route modal handlers
-  const handleEditRouteDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      setEditingLocations((items) => {
-        const oldIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === active.id);
-        const newIndex = items.findIndex((item) => (item.placeId || `fallback-${items.indexOf(item)}`) === over.id);
-
-        // Store the times in their current positions before reordering
-        const timesByPosition = items.map(item => item.time);
-
-        // Reorder the locations
-        const reorderedItems = arrayMove(items, oldIndex, newIndex);
-
-        // Reassign times based on new positions (times stay with positions, not locations)
-        const itemsWithSwappedTimes = reorderedItems.map((item, index) => ({
-          ...item,
-          time: timesByPosition[index]
-        }));
-
-        console.log(`🔄 Edit route: Location reordered ${oldIndex + 1} → ${newIndex + 1}`);
-        console.log(`   Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
-
-        return itemsWithSwappedTimes;
-      });
-    }
-  };
-
-  const handleEditLocationSelect = (index: number, location: any) => {
-    const updatedLocations = [...editingLocations];
-    updatedLocations[index] = {
-      ...updatedLocations[index],
-      location: location.name,
-      formattedAddress: location.name,
-      lat: location.lat,
-      lng: location.lng,
-      verified: true,
-      // Keep purpose unchanged
-    };
-    setEditingLocations(updatedLocations);
-    console.log(`✅ Location updated at index ${index}:`, location.name);
-    console.log(`   Purpose preserved: ${updatedLocations[index].purpose}`);
-  };
-
-  const handleEditTimeChange = (index: number, time: string) => {
-    const updatedLocations = [...editingLocations];
-    updatedLocations[index] = {
-      ...updatedLocations[index],
-      time: time,
-    };
-    setEditingLocations(updatedLocations);
-  };
-
-  const handleEditLocationRemove = (index: number) => {
-    if (editingLocations.length > 1) {
-      setEditingLocations(prev => prev.filter((_, idx) => idx !== index));
-    }
-  };
-
-  const handleAddEditLocation = () => {
-    const newIndex = editingLocations.length;
-    const newLocation = {
-      location: '',
-      formattedAddress: '',
-      lat: 0,
-      lng: 0,
-      time: '12:00',
-      purpose: `Location ${newIndex + 1}`, // Default purpose for new locations
-      confidence: 'low',
-      verified: false,
-      placeId: `new-location-${Date.now()}-${Math.random()}`,
-    };
-    setEditingLocations(prev => [...prev, newLocation]);
-  };
+  // Route editing handlers - extracted to hook
+  const {
+    handleEditRouteDragEnd,
+    handleEditLocationSelect,
+    handleEditTimeChange,
+    handleEditLocationRemove,
+    handleAddEditLocation,
+  } = useRouteEditing({
+    editingLocations,
+    setEditingLocations,
+  });
 
   const handleSaveRouteEdits = async (locationsToUse?: any[]) => {
     try {
@@ -2013,9 +1765,10 @@ export default function ResultsPage() {
 
   // Fetch Drivania quotes on page load for owners (to show lowest price in button)
   // Called immediately when tripData loads (parallel to report generation)
+  // Also refetches when locations change (tripData?.locations in dependency array)
   useEffect(() => {
     // Early returns
-    if (!tripId || !isOwner || !ownershipChecked || loading || loadingDrivaniaQuote || drivaniaQuotes) return;
+    if (!tripId || !isOwner || !ownershipChecked || loading || loadingDrivaniaQuote) return;
     
     // Only fetch if trip is not cancelled/booked and not already assigned to Drivania
     if (tripStatus === 'cancelled' || tripStatus === 'booked' || driverEmail === 'drivania') return;
@@ -2024,6 +1777,7 @@ export default function ResultsPage() {
     if (!tripData?.locations || tripData.locations.length < 2) return;
 
     // Fetch quotes silently in the background
+    // Note: Removed drivaniaQuotes check to allow refetching when locations change
     handleDrivaniaQuote();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId, isOwner, ownershipChecked, loading, tripStatus, driverEmail, tripData?.locations]);
@@ -3306,46 +3060,13 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {/* Loading spinner */}
-        <div className={`flex items-center justify-center ${ownershipChecked && !isOwner ? 'pt-32' : ''} min-h-screen`}>
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              Loading your trip brief...
-            </h2>
-            <div className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              <span className="text-muted-foreground">Please wait...</span>
-            </div>
-          </div>
-        </div>
+        <LoadingState ownershipChecked={ownershipChecked} isOwner={isOwner} />
       </div>
     );
   }
 
   if (error || !tripData || !tripData.tripResults) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full shadow-xl">
-          <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold text-card-foreground mb-4">
-              Trip Not Found
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              {error || 'This trip analysis could not be found. It may have been deleted or the link is incorrect.'}
-            </p>
-            <Button
-              onClick={() => router.push('/')}
-              size="lg"
-            >
-              Go to Home
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
 
@@ -3398,294 +3119,33 @@ export default function ResultsPage() {
       />
 
       {/* Update Trip Section - Sticky Bar - Only show for owners and guest creators */}
-      {(isOwner || isGuestCreator) && !isRegenerating && (
-        <div
-          className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
-            }`}
-        >
-          <div className="container mx-auto px-4 pt-8 pb-3">
-
-            <div className="rounded-md px-6 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
-              <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">Trip update</label>
-              <div className="flex gap-4 items-start">
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={updateTextareaRef}
-                    id="update-text"
-                    value={updateText}
-                    onChange={(e) => setUpdateText(e.target.value)}
-                    placeholder={isExtracting && updateProgress.step && !updateProgress.error ? `${updateProgress.step}...` : "Any changes to this trip? Tell updates to the AI planner to paste your email here."}
-                    className="w-full min-h-[51px] h-[51px] px-3 py-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
-                    disabled={isExtracting || isRegenerating}
-                  />
-                </div>
-
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {/* Update Trip Button */}
-                  <Button
-                    variant="default"
-                    className="flex items-center gap-2 h-[51px] bg-[#E5E7EF] text-[#05060A] hover:bg-[#E5E7EF]/90"
-                    onClick={handleExtractUpdates}
-                    disabled={!updateText.trim() || isExtracting || isRegenerating}
-                  >
-                    {isExtracting ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Updating...
-                      </>
-                    ) : (
-                      'Update'
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Enhanced Error Display with Step Information */}
-              {updateProgress.error && (
-                <Alert variant="destructive" className="mt-2">
-                  <AlertDescription>
-                    <div className="space-y-2">
-                      <p className="font-semibold">
-                        ❌ Failed at: {updateProgress.step}
-                      </p>
-                      <p className="text-sm">
-                        {updateProgress.error}
-                      </p>
-                      {updateProgress.canRetry && (
-                        <Button
-                          onClick={handleExtractUpdates}
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                        >
-                          🔄 Retry
-                        </Button>
-                      )}
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <UpdateTripSection
+        updateText={updateText}
+        setUpdateText={setUpdateText}
+        isExtracting={isExtracting}
+        isRegenerating={isRegenerating}
+        updateProgress={updateProgress}
+        updateTextareaRef={updateTextareaRef}
+        handleExtractUpdates={handleExtractUpdates}
+        scrollY={scrollY}
+        isOwner={isOwner}
+        isGuestCreator={isGuestCreator}
+      />
 
       {/* Main Content */}
       <div className={`container mx-auto px-4 pt-32 pb-8`}>
 
         {/* Loading State Modal - Full Screen Overlay (Same as Homepage) */}
-        {isRegenerating && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[80] p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-y-auto flex items-center justify-center">
-              <CardContent className="px-8 py-12 w-full">
-                <div className="space-y-8">
-                  {/* Circular Progress Indicator */}
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="relative w-32 h-32">
-                      {/* Background Circle */}
-                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="54"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          fill="none"
-                          className="text-secondary dark:text-[#2a2a2c]"
-                        />
-                        {/* Progress Circle */}
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="54"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          fill="none"
-                          strokeDasharray="339.292"
-                          strokeDashoffset={339.292 * (1 - regenerationProgress / 100)}
-                          className={regenerationProgress >= 100 ? "text-green-500" : "text-[#05060A] dark:text-[#E5E7EF]"}
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      {/* Percentage Text */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-3xl font-bold">
-                          {Math.round(regenerationProgress)}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <h3 className="text-xl font-semibold mb-1">Updating trip</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {regenerationSteps.filter(s => s.status === 'completed').length} of {regenerationSteps.length} steps completed
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Steps Carousel - Exact Homepage Animation */}
-                  <div className="relative h-[200px] overflow-hidden flex items-center justify-center">
-                    {regenerationProgress >= 100 ? (
-                      // Completion View - Show redirect message
-                      <div className="w-full animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
-                        <div className="flex flex-col items-center justify-center gap-3 mt-8">
-                          <svg className="animate-spin h-12 w-12 text-muted-foreground" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          <h3 className="text-lg font-semibold text-card-foreground">Redirecting to brief</h3>
-                        </div>
-                      </div>
-                    ) : (
-                      // Carousel View - Show current and previous steps only
-                      regenerationSteps.map((step, index) => {
-                        const isActive = step.status === 'loading';
-                        const isCompleted = step.status === 'completed';
-                        const isPending = step.status === 'pending';
-
-                        // Calculate position relative to active step
-                        const activeIndex = regenerationSteps.findIndex(s => s.status === 'loading');
-
-                        // If no active step (all completed), don't render any steps
-                        if (activeIndex === -1) {
-                          return null;
-                        }
-
-                        const position = index - activeIndex;
-
-                        // Determine visibility and styling
-                        let transform = '';
-                        let opacity = 0;
-                        let scale = 0.85;
-                        let zIndex = 0;
-                        let blur = 'blur(4px)';
-
-                        if (position === 0) {
-                          // Active step - center
-                          transform = 'translateY(0)';
-                          opacity = 1;
-                          scale = 1;
-                          zIndex = 30;
-                          blur = 'blur(0)';
-                        } else if (position === -1) {
-                          // Previous step - hide completely (no watermark)
-                          transform = 'translateY(-120px)';
-                          opacity = 0;
-                          scale = 0.85;
-                          zIndex = 10;
-                        } else if (position === 1) {
-                          // Next step - hide completely (no watermark)
-                          transform = 'translateY(120px)';
-                          opacity = 0;
-                          scale = 0.85;
-                          zIndex = 10;
-                        } else if (position < -1) {
-                          // Steps further above
-                          transform = 'translateY(-120px)';
-                          opacity = 0;
-                          scale = 0.85;
-                          zIndex = 10;
-                        } else {
-                          // Steps further below
-                          transform = 'translateY(120px)';
-                          opacity = 0;
-                          scale = 0.85;
-                          zIndex = 10;
-                        }
-
-                        return (
-                          <div
-                            key={step.id}
-                            className="absolute inset-x-0 top-1/2 -translate-y-1/2 transition-all duration-700 ease-in-out"
-                            style={{
-                              transform: `${transform} scale(${scale})`,
-                              opacity: opacity,
-                              zIndex: zIndex,
-                              filter: blur
-                            }}
-                          >
-                            <div
-                              className={`flex items-start gap-4 p-4 rounded-lg border ${isActive
-                                ? 'border-[#05060A] dark:border-[#E5E7EF] bg-[#05060A]/10 dark:bg-[#E5E7EF]/10'
-                                : isCompleted
-                                  ? 'border-green-500/30 bg-green-500/5'
-                                  : 'border-border bg-muted/30'
-                                }`}
-                            >
-                              {/* Status Icon */}
-                              <div className="flex-shrink-0 mt-0.5" style={{ isolation: 'isolate' }}>
-                                {isPending && (
-                                  <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30"></div>
-                                )}
-                                {isActive && (
-                                  <div
-                                    className="w-6 h-6 rounded-full border-2 border-[#05060A] border-t-transparent"
-                                    style={{
-                                      animation: 'spin 1s linear infinite',
-                                      willChange: 'transform'
-                                    }}
-                                  ></div>
-                                )}
-                                {isCompleted && (
-                                  <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Step Content */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                  <h4 className={`text-base font-semibold ${isActive ? 'text-[#05060A] dark:text-[#E5E7EF]' : ''}`}>
-                                    {step.title}
-                                  </h4>
-                                  <span className="text-xs font-medium text-[#05060A] dark:text-[#E5E7EF] bg-secondary dark:bg-[#2a2a2c] px-2 py-1 rounded whitespace-nowrap flex-shrink-0">
-                                    {step.source}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-muted-foreground leading-relaxed">
-                                  {step.description}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* Error Display */}
-                {error && (
-                  <Alert variant="destructive" className="mt-4">
-                    <AlertDescription>
-                      <div className="space-y-2">
-                        <p className="font-semibold">❌ Error during update</p>
-                        <p className="text-sm">{error}</p>
-                        <Button
-                          onClick={() => {
-                            setError(null);
-                            setIsRegenerating(false);
-                            // User can retry by clicking Update again
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                        >
-                          Close
-                        </Button>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <RegenerationLoadingModal
+          isRegenerating={isRegenerating}
+          regenerationProgress={regenerationProgress}
+          regenerationSteps={regenerationSteps}
+          error={error}
+          onClose={() => {
+            setError(null);
+            setIsRegenerating(false);
+          }}
+        />
 
         {/* Preview Modal - REMOVED: Flow now goes directly from comparison to regeneration */}
 
@@ -4344,364 +3804,42 @@ export default function ResultsPage() {
       </div >
 
       {/* Driver & Quotes Modal */}
-      {
-        showDriverModal && (
-          <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-background rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Modal Header */}
-              <div className="p-6 pb-4 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-semibold text-card-foreground">
-                    {assignOnlyMode ? 'Assign driver' : 'Get driver quotes'}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setShowDriverModal(false);
-                      setAssignOnlyMode(false); // Reset assign-only mode
-                    }}
-                    className="p-2 hover:bg-secondary/50 rounded-md transition-colors"
-                    aria-label="Close"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Modal Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {/* Cancelled Trip Warning */}
-                {tripStatus === 'cancelled' && (
-                  <Alert variant="destructive" className="mb-6">
-                    <AlertDescription className="flex items-center gap-2">
-                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <div>
-                        <p className="font-semibold">This trip has been cancelled</p>
-                        <p className="text-sm mt-1">You cannot assign drivers or request quotes for a cancelled trip. Please create a new trip instead.</p>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Driver Management Section - Unified */}
-                <div className="mb-8">
-                  {!assignOnlyMode && (
-                    <p className="text-muted-foreground mb-6">
-                      Request quotes from drivers. After receiving a quote, you can assign that driver to your trip.
-                    </p>
-                  )}
-
-                  {assignOnlyMode && (
-                    <p className="text-muted-foreground mb-6">
-                      Assign a driver to confirm this trip
-                    </p>
-                  )}
-
-                  {/* Success Messages */}
-                  {quoteRequestSuccess && (
-                    <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-                      <AlertDescription className="text-[#3ea34b]">
-                        ✅ {quoteRequestSuccess}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Error Messages */}
-                  {(quoteRequestError || manualDriverError) && (
-                    <Alert variant="destructive" className="mb-4">
-                      <AlertDescription>{quoteRequestError || manualDriverError}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Unified Email Input with Two Buttons */}
-                  <div className="space-y-4">
-                    <div className="flex gap-3 items-center">
-                      <div className="relative flex-1">
-                        <Input
-                          id="driver-email-unified"
-                          type="email"
-                          value={manualDriverEmail}
-                          onChange={(e) => handleManualDriverInputChange(e.target.value)}
-                          onFocus={handleManualDriverInputFocus}
-                          onBlur={() => setTimeout(() => setShowDriverSuggestions(false), 200)}
-                          placeholder="Enter driver email"
-                          disabled={settingDriver || sendingQuoteRequest}
-                          className={(manualDriverError || allocateDriverEmailError) ? 'border-destructive' : ''}
-                        />
-
-                        {/* Autocomplete Dropdown */}
-                        {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
-                          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                            {filteredDriverSuggestions.map((driver, index) => (
-                              <button
-                                key={index}
-                                type="button"
-                                onClick={() => handleSelectDriverSuggestion(driver)}
-                                className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span>{driver}</span>
-                                  {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
-                                    <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
-                                      Current
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show message when no suggestions match */}
-                        {showDriverSuggestions && manualDriverEmail.trim().length > 0 && filteredDriverSuggestions.length === 0 && driverSuggestions.length > 0 && (
-                          <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-4">
-                            <p className="text-sm text-muted-foreground">No matching drivers found</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2">
-                        {/* Request Quote - Hide in assign-only mode */}
-                        {!assignOnlyMode && (
-                          <Button
-                            onClick={() => handleSendQuoteRequest(manualDriverEmail)}
-                            disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver || tripStatus === 'cancelled'}
-                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                          >
-                            {sendingQuoteRequest ? (
-                              <>
-                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Sending...
-                              </>
-                            ) : (
-                              'Request quote'
-                            )}
-                          </Button>
-                        )}
-
-                        {/* Assign Driver - Show alongside Request quote when not in assign-only mode */}
-                        {!assignOnlyMode && (
-                          <Button
-                            onClick={() => {
-                              // Flow B: Show confirmation modal before assigning
-                              if (!manualDriverEmail.trim()) return;
-                              if (tripStatus === 'cancelled') {
-                                alert('This trip has been cancelled. Please create a new trip instead.');
-                                return;
-                              }
-                              setDirectAssignDriver(manualDriverEmail);
+      <DriverQuotesModal
+        open={showDriverModal}
+        onClose={() => setShowDriverModal(false)}
+        assignOnlyMode={assignOnlyMode}
+        onAssignOnlyModeChange={setAssignOnlyMode}
+        tripStatus={tripStatus}
+        tripId={tripId}
+        isOwner={isOwner}
+        driverEmail={driverEmail}
+        manualDriverEmail={manualDriverEmail}
+        manualDriverError={manualDriverError}
+        allocateDriverEmailError={allocateDriverEmailError}
+        showDriverSuggestions={showDriverSuggestions}
+        driverSuggestions={driverSuggestions}
+        filteredDriverSuggestions={filteredDriverSuggestions}
+        onManualDriverInputChange={handleManualDriverInputChange}
+        onManualDriverInputFocus={handleManualDriverInputFocus}
+        onSelectDriverSuggestion={handleSelectDriverSuggestion}
+        settingDriver={settingDriver}
+        sendingQuoteRequest={sendingQuoteRequest}
+        quoteRequestSuccess={quoteRequestSuccess}
+        quoteRequestError={quoteRequestError}
+        quotes={quotes}
+        loadingQuotes={loadingQuotes}
+        sentDriverEmails={sentDriverEmails}
+        onShowFlowAModal={(email) => {
+          setSelectedQuoteDriver(email);
+          setShowFlowAModal(true);
+        }}
+        onShowFlowBModal={(email) => {
+          setDirectAssignDriver(email);
                               setShowFlowBModal(true);
                             }}
-                            disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest || tripStatus === 'cancelled'}
-                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                          >
-                            {settingDriver ? (
-                              <>
-                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Assigning...
-                              </>
-                            ) : (
-                              'Assign driver'
-                            )}
-                          </Button>
-                        )}
-
-
-                        {/* Assign Driver - Only show in assign-only mode (Flow B) */}
-                        {assignOnlyMode && (
-                          <Button
-                            onClick={() => {
-                              // Flow B: Show confirmation modal before assigning
-                              if (!manualDriverEmail.trim()) return;
-                              if (tripStatus === 'cancelled') {
-                                alert('This trip has been cancelled. Please create a new trip instead.');
-                                return;
-                              }
-                              setDirectAssignDriver(manualDriverEmail);
-                              setShowFlowBModal(true);
-                            }}
-                            disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest || tripStatus === 'cancelled'}
-                            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                          >
-                            {settingDriver ? (
-                              <>
-                                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Assigning...
-                              </>
-                            ) : (
-                              'Assign driver & request acceptance'
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Error message below the input row */}
-                    {(manualDriverError || allocateDriverEmailError) && (
-                      <p className="text-sm text-destructive">{manualDriverError || allocateDriverEmailError}</p>
-                    )}
-
-                    {/* List of sent invitations - Hide in assign-only mode */}
-                    {!assignOnlyMode && sentDriverEmails.length > 0 && (
-                      <div className="mt-6 pt-6 border-t">
-                        <h3 className="text-sm font-semibold mb-3">Sent ({sentDriverEmails.length})</h3>
-                        <div className="space-y-2">
-                          {sentDriverEmails.map((sent, index) => {
-                            const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
-                            return (
-                              <div
-                                key={index}
-                                className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
-                              >
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium">{sent.email}</p>
-                                </div>
-                                <div className="text-right flex-shrink-0 ml-4">
-                                  <p className="text-xs text-muted-foreground">
-                                    Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
-                                  </p>
-                                </div>
-                                {hasQuote && (
-                                  <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                    QUOTE RECEIVED
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Received Quotes Section - Hide in assign-only mode */}
-                {!assignOnlyMode && (
-                  <div className="mb-8">
-                    <h3 className="text-xl font-semibold mb-4">Received</h3>
-                    {loadingQuotes ? (
-                      <div className="flex items-center justify-center py-8">
-                        <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <span className="ml-2 text-muted-foreground">Loading quotes...</span>
-                      </div>
-                    ) : quotes.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="border-b">
-                            <tr>
-                              <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
-                              <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
-                              <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
-                              <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
-                              <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {quotes.map((quote) => {
-                              const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
-                              return (
-                                <tr
-                                  key={quote.id}
-                                  className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
-                                    }`}
-                                >
-                                  <td className="py-3 px-4 text-sm">
-                                    {quote.email}
-                                    {isDriver && (
-                                      <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                        DRIVER
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm text-right font-medium">
-                                    {quote.price.toFixed(2)}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm">{quote.currency}</td>
-                                  <td className="py-3 px-4 text-sm text-muted-foreground">
-                                    {new Date(quote.created_at).toLocaleDateString()}
-                                  </td>
-                                  <td className="py-3 px-4 text-center">
-                                    <Button
-                                      size="sm"
-                                      variant={isDriver ? "outline" : "default"}
-                                      onClick={() => {
-                                        // Flow A: Show confirmation modal before assigning from quote
-                                        if (tripStatus === 'cancelled') {
-                                          alert('This trip has been cancelled. Please create a new trip instead.');
-                                          return;
-                                        }
-                                        setSelectedQuoteDriver(quote.email);
-                                        setShowFlowAModal(true);
-                                      }}
-                                      disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
-                                      className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
-                                    >
-                                      {settingDriver ? (
-                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                      ) : isDriver ? (
-                                        '✓ Driver'
-                                      ) : (
-                                        'Select driver'
-                                      )}
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Book with Drivania Section - Link to booking page */}
-                {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
-                  <div className="mb-8">
-                    <div className="rounded-md border border-border bg-muted/40 p-6 text-center">
-                      <h3 className="text-lg font-semibold text-card-foreground mb-2">
-                        Book with Drivania
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Get instant quotes and book your trip with our partner Drivania
-                      </p>
-                              <Button
-                        onClick={() => {
-                          setShowDriverModal(false);
-                          router.push(`/booking/${tripId}`);
-                        }}
-                        className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
-                      >
-                        Book a trip
-                              </Button>
-                                </div>
-                            </div>
-                              )}
-                            </div>
-            </div>
-          </div>
-        )
-      }
+        onSendQuoteRequest={handleSendQuoteRequest}
+        onCloseDriverSuggestions={() => setShowDriverSuggestions(false)}
+      />
 
       {/* Status Change Confirmation Modal */}
       <StatusChangeModal
