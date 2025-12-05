@@ -20,14 +20,54 @@ export const matchesDriverToVehicle = (
 
   if (!normalizedDriver || !normalizedVehicle) return false;
 
-  const vehicleMatches =
-    normalizedDriver.includes(normalizedVehicle) || normalizedVehicle.includes(normalizedDriver);
+  // Vehicle type matching: be strict about exact matches
+  let vehicleMatches = false;
+  
+  // Exact match
+  if (normalizedDriver === normalizedVehicle) {
+    vehicleMatches = true;
+  }
+  // Handle "sedan eco" vs "Sedan Eco" - both have spaces, allow if one contains the other
+  else if (normalizedDriver.includes(' ') && normalizedVehicle.includes(' ')) {
+    // Both have spaces - allow if one fully contains the other (e.g., "sedan eco" contains "sedan eco")
+    vehicleMatches = normalizedDriver.includes(normalizedVehicle) || normalizedVehicle.includes(normalizedDriver);
+  }
+  // Handle "sedan" vs "Sedan" - neither has spaces, allow if they're the same
+  else if (!normalizedDriver.includes(' ') && !normalizedVehicle.includes(' ')) {
+    vehicleMatches = normalizedDriver === normalizedVehicle;
+  }
+  // Mixed case: one has space, one doesn't - only match if they're the same base word
+  // e.g., "sedan eco" should NOT match "sedan" (different vehicle types)
+  else {
+    // Extract base word (first word before space)
+    const driverBase = normalizedDriver.split(' ')[0];
+    const vehicleBase = normalizedVehicle.split(' ')[0];
+    // Only match if base words are the same AND the one with space is a variation
+    // This allows "sedan eco" to potentially match "sedan" if we want, but for now be strict
+    vehicleMatches = false; // Don't match mixed cases - be strict
+  }
 
-  const levelMatches = normalizedVehicleLevel
-    ? normalizedDriverLevel.includes(normalizedVehicleLevel)
-    : true;
+  if (!vehicleMatches) return false;
 
-  return vehicleMatches && levelMatches;
+  // Service level matching: exact match required
+  if (normalizedDriverLevel === normalizedVehicleLevel) {
+    return true;
+  }
+
+  // If vehicle has a service level, driver must match exactly
+  // Don't allow "business premium" driver to match "business" vehicle
+  // Only allow if vehicle level contains driver level (e.g., "business premium" vehicle can match "business premium" driver)
+  if (normalizedVehicleLevel) {
+    // Allow if vehicle level contains driver level (vehicle is more specific or same)
+    if (normalizedVehicleLevel.includes(normalizedDriverLevel)) {
+      return true;
+    }
+    // Don't allow driver level to contain vehicle level (driver is more specific than vehicle)
+    return false;
+  }
+
+  // If vehicle has no service level specified, match any driver
+  return true;
 };
 
 export const vehicleKey = (vehicle: any) =>

@@ -15,8 +15,7 @@ interface UpdateTripSectionProps {
   updateTextareaRef: RefObject<HTMLTextAreaElement | null>;
   handleExtractUpdates: () => void;
   scrollY: number;
-  isOwner: boolean;
-  isGuestCreator: boolean;
+  canUpdateTrip: boolean; // Use role-based permission instead of multiple flags
 }
 
 export function UpdateTripSection({
@@ -28,10 +27,9 @@ export function UpdateTripSection({
   updateTextareaRef,
   handleExtractUpdates,
   scrollY,
-  isOwner,
-  isGuestCreator,
+  canUpdateTrip,
 }: UpdateTripSectionProps) {
-  if (!(isOwner || isGuestCreator) || isRegenerating) {
+  if (!canUpdateTrip || isRegenerating) {
     return null;
   }
 

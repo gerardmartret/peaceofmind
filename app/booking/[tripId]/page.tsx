@@ -40,6 +40,21 @@ export default function BookingPage() {
   const [loadingMatchingDrivers, setLoadingMatchingDrivers] = useState<boolean>(false);
   const [matchingDriversError, setMatchingDriversError] = useState<string | null>(null);
 
+  // Debug: Log matchingDrivers state changes
+  useEffect(() => {
+    console.log('📊 matchingDrivers state updated:', {
+      count: matchingDrivers.length,
+      loading: loadingMatchingDrivers,
+      error: matchingDriversError,
+      sample: matchingDrivers[0] ? {
+        id: matchingDrivers[0].id,
+        first_name: matchingDrivers[0].first_name,
+        vehicle_type: matchingDrivers[0].vehicle_type,
+        level_of_service: matchingDrivers[0].level_of_service,
+      } : null,
+    });
+  }, [matchingDrivers, loadingMatchingDrivers, matchingDriversError]);
+
   // Booking form state
   const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
   const [missingFields, setMissingFields] = useState<Set<BookingPreviewFieldKey>>(new Set());
@@ -198,7 +213,15 @@ export default function BookingPage() {
   useEffect(() => {
     let active = true;
 
-    if (!driverDestinationForDrivers) {
+    // Wait for tripData to be loaded before fetching drivers
+    console.log('🔄 useEffect triggered:', {
+      hasTripData: !!tripData,
+      tripDestination: tripData?.trip_destination,
+      driverDestinationForDrivers,
+    });
+
+    if (!tripData || !driverDestinationForDrivers) {
+      console.log('⏸️ Skipping driver fetch - missing tripData or destination');
       setMatchingDrivers([]);
       setMatchingDriversError(null);
       setLoadingMatchingDrivers(false);
@@ -207,12 +230,14 @@ export default function BookingPage() {
 
     const sanitizedDestination = driverDestinationForDrivers.replace(/[%_]/g, '').trim();
     const destinationPattern = `%${sanitizedDestination}%`;
+    console.log('🔍 Fetching drivers with pattern:', destinationPattern);
 
     const fetchDrivers = async () => {
       setLoadingMatchingDrivers(true);
       setMatchingDriversError(null);
 
       try {
+        console.log('🔍 Fetching drivers for destination:', destinationPattern);
         const { data, error } = await supabase
           .from('drivers')
           .select('*')
@@ -221,12 +246,23 @@ export default function BookingPage() {
         if (!active) return;
 
         if (error) {
+          console.error('❌ Supabase error fetching drivers:', error);
           throw error;
         }
 
+        console.log('✅ Drivers fetched:', data?.length || 0, 'drivers');
+        if (data && data.length > 0) {
+          console.log('📋 Sample driver:', {
+            id: data[0].id,
+            first_name: data[0].first_name,
+            vehicle_type: data[0].vehicle_type,
+            level_of_service: data[0].level_of_service,
+            destination: data[0].destination,
+          });
+        }
         setMatchingDrivers(data || []);
       } catch (err) {
-        console.error('Error fetching matching drivers:', err);
+        console.error('❌ Error fetching matching drivers:', err);
         if (active) {
           setMatchingDrivers([]);
           setMatchingDriversError('Unable to load available drivers.');
@@ -243,7 +279,7 @@ export default function BookingPage() {
     return () => {
       active = false;
     };
-  }, [driverDestinationForDrivers]);
+  }, [driverDestinationForDrivers, tripData]);
 
   // Vehicle filtering logic
   const preferredVehicleHint = tripData?.vehicle_info || tripData?.preferred_vehicle;
@@ -416,16 +452,46 @@ export default function BookingPage() {
   // Render vehicle card
   const renderVehicleCard = (vehicle: any, index: number) => {
     const normalizedVehicleType = normalizeMatchKey(vehicle.vehicle_type);
+    
+    // Filter and deduplicate drivers
     const vehicleDrivers = normalizedVehicleType
-      ? matchingDrivers.filter((driver) =>
-          matchesDriverToVehicle(
-            driver.vehicle_type,
-            driver.level_of_service,
-            vehicle.vehicle_type,
-            vehicle.level_of_service,
-          )
-        )
+      ? (() => {
+          // First filter by matching criteria
+          const matched = matchingDrivers.filter((driver) => {
+            const matches = matchesDriverToVehicle(
+              driver.vehicle_type,
+              driver.level_of_service,
+              vehicle.vehicle_type,
+              vehicle.level_of_service,
+            );
+            if (matches) {
+              console.log('✅ Driver matched:', {
+                driver: driver.first_name,
+                driverType: driver.vehicle_type,
+                driverLevel: driver.level_of_service,
+                vehicleType: vehicle.vehicle_type,
+                vehicleLevel: vehicle.level_of_service,
+              });
+            }
+            return matches;
+          });
+          
+          // Deduplicate by first_name + vehicle_type + level_of_service
+          const seen = new Set<string>();
+          return matched.filter((driver) => {
+            const key = `${driver.first_name}|${driver.vehicle_type}|${driver.level_of_service}`;
+            if (seen.has(key)) {
+              return false;
+            }
+            seen.add(key);
+            return true;
+          });
+        })()
       : [];
+
+    if (vehicle.vehicle_type && matchingDrivers.length > 0) {
+      console.log('🚗 Vehicle:', vehicle.vehicle_type, vehicle.level_of_service, '- Matched drivers:', vehicleDrivers.length, 'out of', matchingDrivers.length);
+    }
 
     const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
     const selection = vehicleSelections[vehicleId] || { isVehicleSelected: true, selectedDriverIds: [] };
@@ -494,6 +560,14 @@ export default function BookingPage() {
             </div>
           </div>
 
+          {(() => {
+            console.log('🔍 Checking drivers display for vehicle:', vehicle.vehicle_type, {
+              vehicleDriversLength: vehicleDrivers.length,
+              matchingDriversLength: matchingDrivers.length,
+              willShow: vehicleDrivers.length > 0,
+            });
+            return null;
+          })()}
           {vehicleDrivers.length > 0 && (
             <div className="p-5 border border-border rounded-md">
               <div className="text-xs text-muted-foreground space-y-3">

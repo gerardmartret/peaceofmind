@@ -8,11 +8,9 @@ import { CURRENCY_OPTIONS } from '../constants';
 
 interface QuoteFormSectionProps {
   scrollY: number;
-  isOwner: boolean;
-  isGuestCreator: boolean;
-  isGuestCreatedTrip: boolean;
-  isDriverView: boolean;
-  driverToken: string | null;
+  canSubmitQuote: boolean; // Use role-based permission instead of multiple flags
+  isDriverView: boolean; // Still needed for email field logic
+  driverToken: string | null; // Still needed for email field logic
   quoteEmail: string;
   quoteDriverName: string;
   quotePrice: string;
@@ -37,9 +35,7 @@ interface QuoteFormSectionProps {
 
 export function QuoteFormSection({
   scrollY,
-  isOwner,
-  isGuestCreator,
-  isGuestCreatedTrip,
+  canSubmitQuote,
   isDriverView,
   driverToken,
   quoteEmail,
@@ -57,9 +53,8 @@ export function QuoteFormSection({
   onCurrencyChange,
   onSubmit,
 }: QuoteFormSectionProps) {
-  // Don't render if user is owner, guest creator, or guest-created trip
-  // Also don't render if driver view without token
-  if (isOwner || isGuestCreator || isGuestCreatedTrip || (isDriverView && !driverToken)) {
+  // Don't render if user doesn't have permission to submit quotes
+  if (!canSubmitQuote) {
     return null;
   }
 

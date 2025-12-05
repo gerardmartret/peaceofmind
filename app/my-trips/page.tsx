@@ -20,6 +20,7 @@ interface Trip {
   lead_passenger_name: string | null;
   vehicle: string | null;
   trip_notes: string | null;
+  status: string;
 }
 
 const normalizeTripLocations = (rawLocations: any): any[] => {
@@ -76,7 +77,7 @@ export default function MyTripsPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from('trips')
-          .select('id, trip_date, created_at, locations, passenger_count, trip_destination, lead_passenger_name, vehicle, trip_notes')
+          .select('id, trip_date, created_at, locations, passenger_count, trip_destination, lead_passenger_name, vehicle, trip_notes, status')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
@@ -317,32 +318,46 @@ export default function MyTripsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Trip date:{' '}
-                  <span className="font-medium text-foreground">
-                    {trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric'
-                    }) : 'N/A'}
-                  </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Trip date:{' '}
+                    <span className="font-medium text-foreground">
+                      {trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      }) : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm">
+                    View report
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm">
-                  View report
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                <div className="flex items-center gap-4 text-sm">
+                  {trip.trip_destination && (
+                    <div className="text-muted-foreground">
+                      Destination:{' '}
+                      <span className="font-medium text-foreground">{trip.trip_destination}</span>
+                    </div>
+                  )}
+                  <div className="text-muted-foreground">
+                    Status:{' '}
+                    <span className="font-medium text-foreground capitalize">{trip.status || 'not confirmed'}</span>
+                  </div>
                 </div>
               </div>
             </CardContent>

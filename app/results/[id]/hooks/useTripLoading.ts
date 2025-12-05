@@ -20,6 +20,7 @@ export interface UseTripLoadingParams {
   tripId: string | undefined;
   user: { id: string } | null | undefined;
   isAuthenticated: boolean;
+  authLoading?: boolean; // Optional: if auth is still loading, wait for it
   onTripDataLoaded: (tripData: TripData) => void;
   onLocationDisplayNamesLoaded: (names: Record<string, string>) => void;
   onRoleDetermined: (role: { isOwner: boolean; isGuestCreator: boolean; isGuestCreatedTrip: boolean }) => void;
@@ -50,6 +51,7 @@ export function useTripLoading({
   tripId,
   user,
   isAuthenticated,
+  authLoading = false,
   onTripDataLoaded,
   onLocationDisplayNamesLoaded,
   onRoleDetermined,
@@ -69,6 +71,18 @@ export function useTripLoading({
         console.log('⚠️ No trip ID provided');
         router.push('/');
         return;
+      }
+
+      // Wait for auth to finish loading before determining role
+      // This prevents race conditions where trip loads before user is available
+      if (authLoading) {
+        return; // Exit early, will retry when authLoading becomes false
+      }
+
+      // If authenticated but user is null, wait a bit for it to load
+      if (isAuthenticated && !user) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        // If still null after wait, proceed anyway (shouldn't happen if authLoading is working)
       }
 
       try {
@@ -169,6 +183,6 @@ export function useTripLoading({
 
     loadTripFromDatabase();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId, user?.id, isAuthenticated]);
+  }, [tripId, user?.id, isAuthenticated, authLoading]);
 }
 
