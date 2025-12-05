@@ -2012,16 +2012,21 @@ export default function ResultsPage() {
   };
 
   // Fetch Drivania quotes on page load for owners (to show lowest price in button)
+  // Called immediately when tripData loads (parallel to report generation)
   useEffect(() => {
-    if (!tripId || !isOwner || !ownershipChecked || loading || loadingDrivaniaQuote || drivaniaQuotes) return;
+    // Early returns
+    if (!tripId || !isOwner || loading || loadingDrivaniaQuote || drivaniaQuotes) return;
     
     // Only fetch if trip is not cancelled/booked and not already assigned to Drivania
     if (tripStatus === 'cancelled' || tripStatus === 'booked' || driverEmail === 'drivania') return;
+    
+    // Validate locations exist before calling (handleDrivaniaQuote will fetch fresh data from DB)
+    if (!tripData?.locations || tripData.locations.length < 2) return;
 
     // Fetch quotes silently in the background
-      handleDrivaniaQuote();
+    handleDrivaniaQuote();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId, isOwner, ownershipChecked, loading, tripStatus, driverEmail]);
+  }, [tripId, isOwner, loading, tripStatus, driverEmail, tripData?.locations]);
 
   const handleModifyTrip = () => {
     // For now, just redirect to home

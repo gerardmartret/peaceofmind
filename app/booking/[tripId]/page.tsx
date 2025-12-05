@@ -100,8 +100,13 @@ export default function BookingPage() {
   }, [tripId]);
 
   // Fetch Drivania quotes when trip data is loaded
+  // Called immediately when tripData loads (optimized for speed)
   useEffect(() => {
+    // Early returns
     if (!tripData || loadingDrivaniaQuote || drivaniaQuotes) return;
+    
+    // Validate locations exist before calling
+    if (!tripData.locations || !Array.isArray(tripData.locations) || tripData.locations.length < 2) return;
 
     const fetchDrivaniaQuote = async () => {
       setDrivaniaError(null);
