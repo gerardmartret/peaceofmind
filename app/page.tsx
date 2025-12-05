@@ -2241,19 +2241,9 @@ export default function Home() {
                   <div className="sm:col-span-1">
                     <Label className="text-primary-foreground dark:text-card-foreground font-medium text-sm mb-2 block">Vehicle</Label>
                     <Input
-                      value={getDisplayVehicle(vehicleInfo, passengerCount)}
+                      value={vehicleInfo || ''}
                       onChange={(e) => {
-                        // Only allow editing if the vehicle is in the whitelist or user is clearing it
                         const newValue = e.target.value;
-                        const { isAllowedVehicle } = require('@/lib/vehicle-helpers');
-
-                        // If user is typing a new value, check if it matches an allowed vehicle pattern
-                        // If not, revert to auto-selected vehicle
-                        if (newValue && newValue.trim() && !isAllowedVehicle(newValue)) {
-                          // User typed something not in whitelist - don't update, keep showing auto-selected
-                          return;
-                        }
-
                         setVehicleInfo(newValue);
                         if (typeof window !== 'undefined' && extractedLocations) {
                           sessionStorage.setItem('extractedTripData', JSON.stringify({

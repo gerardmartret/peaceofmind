@@ -116,8 +116,8 @@ export function getVehicleByPassengerCount(passengerCount: number | null | undef
 
 /**
  * Get the vehicle to display:
- * - If vehicle is empty or not in whitelist, return auto-selected vehicle based on passenger count
- * - If vehicle is in whitelist, return that vehicle
+ * - If vehicle is empty, return auto-selected vehicle based on passenger count
+ * - If vehicle is provided, return that vehicle
  */
 export function getDisplayVehicle(
   requestedVehicle: string | null | undefined,
@@ -128,12 +128,7 @@ export function getDisplayVehicle(
     return getVehicleByPassengerCount(passengerCount);
   }
 
-  // If vehicle is not in the allowed list, use auto-selected vehicle
-  if (!isAllowedVehicle(requestedVehicle)) {
-    return getVehicleByPassengerCount(passengerCount);
-  }
-
-  // Vehicle is in the whitelist, return it
+  // Return the user-provided vehicle
   return requestedVehicle.trim();
 }
 
