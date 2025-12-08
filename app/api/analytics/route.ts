@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/admin-helpers';
+import type { Database } from '@/lib/database.types';
 
 export async function GET(request: Request) {
   try {
@@ -25,31 +27,60 @@ export async function GET(request: Request) {
     previousStartDate.setDate(previousStartDate.getDate() - daysAgo);
     const previousStartDateStr = previousStartDate.toISOString();
 
-    // Fetch all data in parallel
+    // Get service role key to access auth.users
+    const serviceRoleKey = process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      throw new Error('NEXT_SUPABASE_SERVICE_ROLE_KEY environment variable is not set');
+    }
+
+    // Create admin client with service role key to access auth.users
+    const supabaseAdmin = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Fetch auth users from auth.users table
+    const { data: authUsersData, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+    if (authUsersError) {
+      throw new Error(`Failed to fetch auth users: ${authUsersError.message}`);
+    }
+
+    // Filter auth users that have created_at
+    const allAuthUsers = (authUsersData?.users || [])
+      .filter(u => u.created_at !== null && u.created_at !== undefined)
+      .map(u => ({
+        email: u.email,
+        created_at: u.created_at!,
+      }));
+
+    // Filter auth users by time range
+    const currentPeriodAuthUsers = allAuthUsers.filter(u => new Date(u.created_at) >= startDate);
+    const previousPeriodAuthUsers = allAuthUsers.filter(u => {
+      const createdAt = new Date(u.created_at);
+      return createdAt >= previousStartDate && createdAt < startDate;
+    });
+
+    // Create time series data for auth users
+    const authUsersTimeSeries = allAuthUsers
+      .filter(u => new Date(u.created_at) >= startDate)
+      .map(u => ({ created_at: u.created_at }));
+
+    // Fetch all data in parallel (excluding users which we already fetched)
     const [
-      usersResult,
-      previousUsersResult,
       tripsResult,
       previousTripsResult,
       quotesResult,
       previousQuotesResult,
       driverTokensResult,
       tripsByStatusResult,
-      timeSeriesUsersResult,
       timeSeriesTripsResult,
     ] = await Promise.all([
-      // Current period users (count only - no data needed)
-      supabase
-        .from('users')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', startDateStr),
-      
-      // Previous period users (count only - no data needed)
-      supabase
-        .from('users')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', previousStartDateStr)
-        .lt('created_at', startDateStr),
       
       // Current period trips (count only - no data needed)
       supabase
@@ -88,13 +119,6 @@ export async function GET(request: Request) {
         .select('status')
         .gte('created_at', startDateStr),
       
-      // Time series for users
-      supabase
-        .from('users')
-        .select('created_at')
-        .gte('created_at', startDateStr)
-        .order('created_at', { ascending: true }),
-      
       // Time series for trips
       supabase
         .from('trips')
@@ -103,13 +127,12 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: true }),
     ]);
 
-    // Get all users and trips for comprehensive metrics (parallelized)
-    const [allUsersResult, allTripsResult, allQuotesResult] = await Promise.all([
-      supabase.from('users').select('email, created_at'),
+    // Get all trips and quotes for comprehensive metrics (parallelized)
+    // Note: allAuthUsers already fetched above
+    const [allTripsResult, allQuotesResult] = await Promise.all([
       supabase.from('trips').select('id, user_email, locations, version, created_at, status, driver'),
       supabase.from('quotes').select('trip_id, created_at'),
     ]);
-    const allUsers = allUsersResult.data;
     const allTrips = allTripsResult.data;
     const allQuotes = allQuotesResult.data;
     
@@ -125,7 +148,7 @@ export async function GET(request: Request) {
     );
     
     // Calculate conversion funnel for current period
-    const currentPeriodUsers = usersResult.count || 0;
+    const currentPeriodUsers = currentPeriodAuthUsers.length;
     const currentPeriodTrips = tripsResult.count || 0;
     const currentPeriodTripsWithQuotes = currentPeriodTripsData.filter(
       trip => tripsWithQuotes.has(trip.id)
@@ -154,8 +177,8 @@ export async function GET(request: Request) {
     const dropOffQuotesToBookings = currentPeriodTripsWithQuotes - currentPeriodBookings;
 
     // Calculate metrics
-    const totalUsers = allUsers?.length || 0;
-    const previousPeriodUsers = previousUsersResult.count || 0;
+    const totalUsers = allAuthUsers.length;
+    const previousPeriodUsers = previousPeriodAuthUsers.length;
     const userGrowth = previousPeriodUsers > 0 
       ? ((currentPeriodUsers - previousPeriodUsers) / previousPeriodUsers) * 100 
       : 0;
@@ -171,7 +194,7 @@ export async function GET(request: Request) {
     // Calculate reports per user over time
     const reportsPerUserTimeSeries = calculateReportsPerUserOverTime(
       (timeSeriesTripsResult.data || []).filter((t): t is { created_at: string; user_email: string } => t.created_at !== null),
-      (allUsers || []).filter((u): u is { email: string; created_at: string } => u.created_at !== null),
+      allAuthUsers.map(u => ({ email: u.email || '', created_at: u.created_at })),
       daysAgo
     );
 
@@ -211,9 +234,9 @@ export async function GET(request: Request) {
       return acc;
     }, {});
 
-    // Time series data for charts
+    // Time series data for charts (using auth.users)
     const userTimeSeries = aggregateTimeSeries(
-      (timeSeriesUsersResult.data || []).filter((u): u is { created_at: string } => u.created_at !== null), 
+      authUsersTimeSeries,
       daysAgo
     );
     const tripTimeSeries = aggregateTimeSeries(
@@ -253,18 +276,17 @@ export async function GET(request: Request) {
             usageRate: Math.round(driverTokenUsageRate * 10) / 10,
           },
           conversionFunnel: {
-            users: currentPeriodUsers,
             reports: currentPeriodTrips,
             quotes: currentPeriodTripsWithQuotes,
             bookings: currentPeriodBookings,
             conversionRates: {
-              usersToReports: Math.round(usersToReportsRate * 10) / 10,
               reportsToQuotes: Math.round(reportsToQuotesRate * 10) / 10,
               quotesToBookings: Math.round(quotesToBookingsRate * 10) / 10,
-              overall: Math.round(overallConversionRate * 10) / 10,
+              overall: currentPeriodTrips > 0 
+                ? Math.round((currentPeriodBookings / currentPeriodTrips) * 100 * 10) / 10
+                : 0,
             },
             dropOffs: {
-              usersToReports: dropOffUsersToReports,
               reportsToQuotes: dropOffReportsToQuotes,
               quotesToBookings: dropOffQuotesToBookings,
             },

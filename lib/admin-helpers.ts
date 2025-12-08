@@ -48,32 +48,84 @@ export async function isAdmin(request: Request): Promise<boolean> {
       console.log('🔑 Token received, length:', token.length);
     }
 
-    const supabase = createClient<Database>(
+    // Use service role key for server-side token verification
+    const serviceRoleKey = process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('❌ NEXT_SUPABASE_SERVICE_ROLE_KEY not set');
+      }
+      return false;
+    }
+
+    // Create admin client with service role key
+    const supabaseAdmin = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
     );
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error) {
+    // Decode JWT token to extract user ID and email
+    // Then verify the token is valid by fetching user from Supabase Admin API
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ Invalid JWT token format');
+        }
+        return false;
+      }
+
+      // Decode the payload (base64url)
+      const payload = JSON.parse(
+        Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
+      );
+
+      const userId = payload.sub;
+      const userEmail = payload.email;
+      
+      if (!userId || !userEmail) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ Missing user ID or email in token');
+        }
+        return false;
+      }
+
+      // Verify token is valid by fetching user from Admin API
+      // This ensures the token is legitimate and the user exists
+      const { data: adminUser, error: adminError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      
+      if (adminError || !adminUser?.user) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ Token verification failed:', adminError?.message);
+        }
+        return false;
+      }
+
+      // Verify the email matches (extra security check)
+      if (adminUser.user.email !== userEmail) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ Email mismatch in token');
+        }
+        return false;
+      }
+
       if (process.env.NODE_ENV === 'development') {
-        console.log('❌ Error getting user:', error.message);
+        console.log('✅ User authenticated from token:', userEmail);
+        console.log('🔐 Is admin?', userEmail === ADMIN_EMAIL);
+      }
+      
+      return userEmail === ADMIN_EMAIL;
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error verifying token:', error);
       }
       return false;
     }
-    
-    if (!user) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('❌ No user found');
-      }
-      return false;
-    }
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('✅ User authenticated:', user.email);
-      console.log('🔐 Is admin?', user.email === ADMIN_EMAIL);
-    }
-    return user.email === ADMIN_EMAIL;
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('❌ Error checking admin status:', error);

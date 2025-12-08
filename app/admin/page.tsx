@@ -149,6 +149,9 @@ export default function AdminPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authUsers, setAuthUsers] = useState<Array<{ email: string; created_at: string }>>([]);
+  const [authUsersLoading, setAuthUsersLoading] = useState(false);
+  const [authUsersError, setAuthUsersError] = useState<string | null>(null);
   
   // Cache to prevent unnecessary refreshes
   const lastFetchTimeRef = useRef<number>(0);
@@ -181,6 +184,7 @@ export default function AdminPage() {
         lastTimeRangeRef.current = timeRange;
         lastSessionTokenRef.current = session.access_token;
         fetchAnalytics();
+        fetchAuthUsers();
       } else {
         // If we have cached data and don't need to fetch, just set loading to false
         setLoading(false);
@@ -215,6 +219,34 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAuthUsers = async () => {
+    try {
+      setAuthUsersLoading(true);
+      setAuthUsersError(null);
+      
+      if (!session?.access_token) {
+        throw new Error('No active session');
+      }
+      
+      const response = await fetch(`/api/auth-users?timeRange=${timeRange}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch auth users');
+      }
+
+      setAuthUsers(result.data.users || []);
+    } catch (err) {
+      setAuthUsersError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setAuthUsersLoading(false);
     }
   };
 
@@ -399,59 +431,23 @@ export default function AdminPage() {
               <div className="mb-6">
                 <ChartCard
                   title="Conversion funnel"
-                  description="User journey from signup to Drivania booking"
-                  tooltip="Shows the flow of users through the platform: Users → Reports → Quotes → Bookings. Conversion rates show the percentage of users progressing to each stage."
+                  description="Journey from reports to Drivania booking"
+                  tooltip="Shows the flow through the platform: Reports → Quotes → Bookings. Conversion rates show the percentage progressing to each stage."
                 >
                   <div className="space-y-4 py-4 overflow-x-auto">
                     {/* Funnel Stages */}
                     <div className="flex flex-col gap-3 min-w-0">
-                      {/* Users Stage */}
-                      <div className="flex items-center gap-2 sm:gap-4">
-                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Users</div>
-                        <div className="flex-1 relative min-w-0">
-                          <div 
-                            className="h-10 sm:h-12 bg-blue-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
-                            style={{ width: '100%', maxWidth: '100%' }}
-                          >
-                            <span className="truncate">{data.metrics.conversionFunnel.users}</span>
-                            <span className="text-xs opacity-90 shrink-0 ml-2">100%</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Arrow and Conversion Rate */}
-                      <div className="flex items-center gap-2 sm:gap-4">
-                        <div className="w-20 sm:w-24 shrink-0"></div>
-                        <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
-                          <div className="flex-1 h-px bg-border"></div>
-                          <div className="text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
-                            {data.metrics.conversionFunnel.conversionRates.usersToReports.toFixed(1)}% convert
-                          </div>
-                          <div className="flex-1 h-px bg-border"></div>
-                        </div>
-                      </div>
-
                       {/* Reports Stage */}
                       <div className="flex items-center gap-2 sm:gap-4">
                         <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Reports</div>
                         <div className="flex-1 relative min-w-0">
                           <div 
                             className="h-10 sm:h-12 bg-purple-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
-                            style={{ 
-                              width: `${Math.max(10, (data.metrics.conversionFunnel.reports / data.metrics.conversionFunnel.users) * 100)}%`,
-                              maxWidth: '100%'
-                            }}
+                            style={{ width: '100%', maxWidth: '100%' }}
                           >
                             <span className="truncate">{data.metrics.conversionFunnel.reports}</span>
-                            <span className="text-xs opacity-90 shrink-0 ml-2">
-                              {data.metrics.conversionFunnel.conversionRates.usersToReports.toFixed(1)}%
-                            </span>
+                            <span className="text-xs opacity-90 shrink-0 ml-2">100%</span>
                           </div>
-                          {data.metrics.conversionFunnel.dropOffs.usersToReports > 0 && (
-                            <div className="absolute left-0 top-full mt-1 text-xs text-muted-foreground">
-                              {data.metrics.conversionFunnel.dropOffs.usersToReports} dropped off
-                            </div>
-                          )}
                         </div>
                       </div>
 
@@ -474,7 +470,7 @@ export default function AdminPage() {
                           <div 
                             className="h-10 sm:h-12 bg-cyan-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
                             style={{ 
-                              width: `${Math.max(10, (data.metrics.conversionFunnel.quotes / data.metrics.conversionFunnel.users) * 100)}%`,
+                              width: `${Math.max(10, data.metrics.conversionFunnel.reports > 0 ? (data.metrics.conversionFunnel.quotes / data.metrics.conversionFunnel.reports) * 100 : 0)}%`,
                               maxWidth: '100%'
                             }}
                           >
@@ -510,7 +506,7 @@ export default function AdminPage() {
                           <div 
                             className="h-10 sm:h-12 bg-green-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
                             style={{ 
-                              width: `${Math.max(10, (data.metrics.conversionFunnel.bookings / data.metrics.conversionFunnel.users) * 100)}%`,
+                              width: `${Math.max(10, data.metrics.conversionFunnel.reports > 0 ? (data.metrics.conversionFunnel.bookings / data.metrics.conversionFunnel.reports) * 100 : 0)}%`,
                               maxWidth: '100%'
                             }}
                           >
@@ -529,13 +525,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Conversion Metrics Summary */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-foreground">
-                          {data.metrics.conversionFunnel.conversionRates.usersToReports.toFixed(1)}%
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">Users → Reports</div>
-                      </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-border">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-foreground">
                           {data.metrics.conversionFunnel.conversionRates.reportsToQuotes.toFixed(1)}%
@@ -566,7 +556,7 @@ export default function AdminPage() {
               <ChartCard
                 title="Users over time"
                 description="New user signups"
-                tooltip="Shows the daily count of new user registrations. Aggregated by created_at timestamp from the users table."
+                tooltip="Shows the daily count of new user registrations. Aggregated by created_at timestamp from the auth.users table (all authenticated users)."
               >
                 <ChartContainer
                   config={{
@@ -724,6 +714,56 @@ export default function AdminPage() {
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
+              </ChartCard>
+            </div>
+
+            {/* Users Created Section */}
+            <div className="mb-6">
+              <ChartCard
+                title="Users created (in selected time period)"
+                description={`All users who signed up in the ${getTimeRangeLabel(timeRange).toLowerCase()}`}
+                tooltip="Shows all authenticated users who created accounts during the selected time period. Data comes from Supabase auth.users table."
+              >
+                {authUsersError ? (
+                  <div className="py-4 text-center text-red-500">
+                    <p>{authUsersError}</p>
+                  </div>
+                ) : authUsersLoading ? (
+                  <div className="py-4 text-center text-muted-foreground">
+                    <p>Loading users...</p>
+                  </div>
+                ) : authUsers.length === 0 ? (
+                  <div className="py-4 text-center text-muted-foreground">
+                    <p>No users found in the selected time period.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Created At</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {authUsers.map((user, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">{user.email}</TableCell>
+                            <TableCell>
+                              {new Date(user.created_at).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </ChartCard>
             </div>
           </>
