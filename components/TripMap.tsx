@@ -37,7 +37,6 @@ export default function TripMap({ locations }: TripMapProps) {
       });
 
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      console.log('🗺️ Trip map initialized');
     }
 
     // Wait for map to load before adding route
@@ -98,11 +97,9 @@ export default function TripMap({ locations }: TripMapProps) {
         markers.current.push(marker);
       });
 
-      console.log(`✅ Added ${locations.length} marker(s) to map`);
 
       // Fetch and display driving route if there are 2 or more locations
       if (locations.length >= 2) {
-        console.log('🚗 Fetching driving route...');
         
         const coordinates = locations.map(loc => `${loc.lng},${loc.lat}`).join(';');
         const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
@@ -116,7 +113,6 @@ export default function TripMap({ locations }: TripMapProps) {
             const distance = (data.routes[0].distance / 1000).toFixed(1); // km
             const duration = Math.round(data.routes[0].duration / 60); // minutes
 
-            console.log(`✅ Route found: ${distance} km, ${duration} min`);
 
             // Add route as a layer
             if (map.current.getSource('route')) {
@@ -156,10 +152,8 @@ export default function TripMap({ locations }: TripMapProps) {
             locations.forEach(loc => bounds.extend([loc.lng, loc.lat]));
             map.current.fitBounds(bounds, { padding: 80 });
 
-            console.log('🗺️ Driving route displayed on map');
           }
         } catch (error) {
-          console.error('❌ Error fetching route:', error);
         }
       } else {
         // Single location - just center on it

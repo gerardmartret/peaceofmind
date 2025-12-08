@@ -113,17 +113,17 @@ export function DriverQuotesModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-background rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4">
+      <div className="bg-background rounded-none sm:rounded-lg shadow-2xl w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl overflow-hidden flex flex-col">
         {/* Modal Header */}
-        <div className="p-6 pb-4 border-b border-border">
+        <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-card-foreground">
+            <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
               {assignOnlyMode ? 'Assign driver' : 'Get driver quotes'}
             </h2>
             <button
               onClick={handleClose}
-              className="p-2 hover:bg-secondary/50 rounded-md transition-colors"
+              className="p-2 hover:bg-secondary/50 rounded-md transition-colors flex-shrink-0"
               aria-label="Close"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -134,7 +134,7 @@ export function DriverQuotesModal({
         </div>
 
         {/* Modal Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Cancelled Trip Warning */}
           {tripStatus === 'cancelled' && (
             <Alert variant="destructive" className="mb-6">
@@ -145,6 +145,21 @@ export function DriverQuotesModal({
                 <div>
                   <p className="font-semibold">This trip has been cancelled</p>
                   <p className="text-sm mt-1">You cannot assign drivers or request quotes for a cancelled trip. Please create a new trip instead.</p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Currently Assigned Driver Section */}
+          {driverEmail && driverEmail !== 'drivania' && (
+            <Alert className="mb-6 bg-[#3ea34b]/10 border-[#3ea34b]/30">
+              <AlertDescription className="flex items-center gap-3">
+                <svg className="w-5 h-5 flex-shrink-0 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="font-semibold text-[#3ea34b]">Driver assigned</p>
+                  <p className="text-sm mt-1 text-foreground">{driverEmail}</p>
                 </div>
               </AlertDescription>
             </Alert>
@@ -182,8 +197,8 @@ export function DriverQuotesModal({
 
             {/* Unified Email Input with Two Buttons */}
             <div className="space-y-4">
-              <div className="flex gap-3 items-center">
-                <div className="relative flex-1">
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                <div className="relative flex-1 min-w-0">
                   <Input
                     id="driver-email-unified"
                     type="email"
@@ -195,7 +210,7 @@ export function DriverQuotesModal({
                     }, 200)}
                     placeholder="Enter driver email"
                     disabled={settingDriver || sendingQuoteRequest}
-                    className={(manualDriverError || allocateDriverEmailError) ? 'border-destructive' : ''}
+                    className={`text-sm sm:text-base ${(manualDriverError || allocateDriverEmailError) ? 'border-destructive' : ''}`}
                   />
 
                   {/* Autocomplete Dropdown */}
@@ -229,13 +244,13 @@ export function DriverQuotesModal({
                   )}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   {/* Request Quote - Hide in assign-only mode */}
                   {!assignOnlyMode && (
                     <Button
                       onClick={() => onSendQuoteRequest(manualDriverEmail)}
                       disabled={sendingQuoteRequest || !manualDriverEmail.trim() || settingDriver || tripStatus === 'cancelled'}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] w-full sm:w-auto text-sm sm:text-base"
                     >
                       {sendingQuoteRequest ? (
                         <>
@@ -243,7 +258,8 @@ export function DriverQuotesModal({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Sending...
+                          <span className="hidden sm:inline">Sending...</span>
+                          <span className="sm:hidden">Sending</span>
                         </>
                       ) : (
                         'Request quote'
@@ -256,7 +272,7 @@ export function DriverQuotesModal({
                     <Button
                       onClick={() => handleAssignDriver(manualDriverEmail)}
                       disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest || tripStatus === 'cancelled'}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] w-full sm:w-auto text-sm sm:text-base"
                     >
                       {settingDriver ? (
                         <>
@@ -264,7 +280,8 @@ export function DriverQuotesModal({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0 0 14 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Assigning...
+                          <span className="hidden sm:inline">Assigning...</span>
+                          <span className="sm:hidden">Assigning</span>
                         </>
                       ) : (
                         'Assign driver'
@@ -277,7 +294,7 @@ export function DriverQuotesModal({
                     <Button
                       onClick={() => handleAssignDriver(manualDriverEmail)}
                       disabled={settingDriver || !manualDriverEmail.trim() || sendingQuoteRequest || tripStatus === 'cancelled'}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] w-full sm:w-auto text-sm sm:text-base"
                     >
                       {settingDriver ? (
                         <>
@@ -285,10 +302,11 @@ export function DriverQuotesModal({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Assigning...
+                          <span className="hidden sm:inline">Assigning...</span>
+                          <span className="sm:hidden">Assigning</span>
                         </>
                       ) : (
-                        'Assign driver & request acceptance'
+                        <span className="whitespace-normal sm:whitespace-nowrap">Assign driver & request acceptance</span>
                       )}
                     </Button>
                   )}
@@ -310,21 +328,24 @@ export function DriverQuotesModal({
                       return (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
                         >
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{sent.email}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium break-words">{sent.email}</p>
                           </div>
-                          <div className="text-right flex-shrink-0 ml-4">
+                          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-0 flex-shrink-0 sm:ml-4">
+                            <div className="text-left sm:text-right">
                             <p className="text-xs text-muted-foreground">
-                              Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}
+                                <span className="hidden sm:inline">Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}</span>
+                                <span className="sm:hidden">{new Date(sent.sentAt).toLocaleDateString()}</span>
                             </p>
                           </div>
                           {hasQuote && (
-                            <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                              <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded whitespace-nowrap">
                               QUOTE RECEIVED
                             </span>
                           )}
+                          </div>
                         </div>
                       );
                     })}
@@ -337,79 +358,136 @@ export function DriverQuotesModal({
           {/* Received Quotes Section - Hide in assign-only mode */}
           {!assignOnlyMode && (
             <div className="mb-8">
-              <h3 className="text-xl font-semibold mb-4">Received</h3>
+              <h3 className="text-lg sm:text-xl font-semibold mb-4">Received</h3>
               {loadingQuotes ? (
                 <div className="flex items-center justify-center py-8">
                   <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span className="ml-2 text-muted-foreground">Loading quotes...</span>
+                  <span className="ml-2 text-muted-foreground text-sm sm:text-base">Loading quotes...</span>
                 </div>
               ) : quotes.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
+                <p className="text-muted-foreground text-center py-8 text-sm sm:text-base">No quotes received yet</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b">
-                      <tr>
-                        <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
-                        <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
-                        <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
-                        <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
-                        <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="min-w-full inline-block align-middle">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="border-b">
+                            <tr>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
+                              <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
+                              <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {quotes.map((quote) => {
+                              const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
+                              return (
+                                <tr
+                                  key={quote.id}
+                                  className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
+                                    }`}
+                                >
+                                  <td className="py-3 px-4 text-sm">
+                                    {quote.email}
+                                    {isDriver && (
+                                      <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                        DRIVER
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-right font-medium">
+                                    {quote.price.toFixed(2)}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm">{quote.currency}</td>
+                                  <td className="py-3 px-4 text-sm text-muted-foreground">
+                                    {new Date(quote.created_at).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <Button
+                                      size="sm"
+                                      variant={isDriver ? "outline" : "default"}
+                                      onClick={() => handleSelectQuoteDriver(quote.email)}
+                                      disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
+                                      className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
+                                    >
+                                      {settingDriver ? (
+                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                      ) : isDriver ? (
+                                        '✓ Driver'
+                                      ) : (
+                                        'Select driver'
+                                      )}
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Mobile Card View */}
+                  <div className="sm:hidden space-y-3">
                       {quotes.map((quote) => {
                         const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
                         return (
-                          <tr
+                          <div
                             key={quote.id}
-                            className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
-                              }`}
+                            className={`p-4 sm:p-6 rounded-md border ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : 'bg-secondary/50 border-border'}`}
                           >
-                            <td className="py-3 px-4 text-sm">
-                              {quote.email}
-                              {isDriver && (
-                                <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                  DRIVER
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-sm text-right font-medium">
-                              {quote.price.toFixed(2)}
-                            </td>
-                            <td className="py-3 px-4 text-sm">{quote.currency}</td>
-                            <td className="py-3 px-4 text-sm text-muted-foreground">
-                              {new Date(quote.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <Button
-                                size="sm"
-                                variant={isDriver ? "outline" : "default"}
-                                onClick={() => handleSelectQuoteDriver(quote.email)}
-                                disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
-                                className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
-                              >
-                                {settingDriver ? (
-                                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                  </svg>
-                                ) : isDriver ? (
-                                  '✓ Driver'
-                                ) : (
-                                  'Select driver'
+                            <div className="mb-2">
+                              <div className="flex items-start gap-2 mb-1">
+                                <p className="text-sm font-medium break-words flex-1 min-w-0">{quote.email}</p>
+                                {isDriver && (
+                                  <span className="inline-block flex-shrink-0 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                                    DRIVER
+                                  </span>
                                 )}
-                              </Button>
-                            </td>
-                          </tr>
+                              </div>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm mb-3">
+                              <div className="flex-shrink-0">
+                                <span className="text-muted-foreground">Price: </span>
+                                <span className="font-medium">{quote.price.toFixed(2)} {quote.currency}</span>
+                              </div>
+                              <div className="text-muted-foreground text-xs sm:text-sm">
+                                {new Date(quote.created_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant={isDriver ? "outline" : "default"}
+                              onClick={() => handleSelectQuoteDriver(quote.email)}
+                              disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
+                              className={`w-full text-sm ${isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}`}
+                            >
+                              {settingDriver ? (
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                              ) : isDriver ? (
+                                '✓ Driver'
+                              ) : (
+                                'Select driver'
+                              )}
+                            </Button>
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                </>
               )}
             </div>
           )}
@@ -417,11 +495,11 @@ export function DriverQuotesModal({
           {/* Book with Drivania Section - Link to booking page */}
           {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
             <div className="mb-8">
-              <div className="rounded-md border border-border bg-muted/40 p-6 text-center">
-                <h3 className="text-lg font-semibold text-card-foreground mb-2">
+              <div className="rounded-md border border-border bg-muted/40 p-4 sm:p-6 text-center">
+                <h3 className="text-base sm:text-lg font-semibold text-card-foreground mb-2">
                   Book with Drivania
                 </h3>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                   Get instant quotes and book your trip with our partner Drivania
                 </p>
                 <Button
@@ -429,7 +507,7 @@ export function DriverQuotesModal({
                     onClose();
                     router.push(`/booking/${tripId}`);
                   }}
-                  className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+                  className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] w-full sm:w-auto text-sm sm:text-base"
                 >
                   Book a trip
                 </Button>

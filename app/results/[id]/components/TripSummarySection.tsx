@@ -230,19 +230,19 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   return (
     <div className="mb-6 mt-[25px]">
       {/* Trip Summary Box */}
-      <div className="mb-6 bg-card rounded-lg p-8 shadow-none">
-        <div className="flex items-start justify-between gap-6">
+      <div className="mb-6 bg-card rounded-lg p-4 sm:p-6 lg:p-8 shadow-none">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
           <div className="flex-1 min-w-0">
-            <h2 className="text-5xl font-normal text-card-foreground mb-5 leading-tight">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-normal text-card-foreground mb-4 sm:mb-5 leading-tight break-words">
               {leadPassengerName || 'Passenger'} (x{passengerCount || 1}) {tripDuration} in {tripDestination || 'London'}
             </h2>
-            <div className="flex items-center gap-3 mb-3">
-              <svg className="w-5 h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="text-sm font-normal text-card-foreground">
+              <span className="text-xs sm:text-sm font-normal text-card-foreground">
                 Trip Date{' '}
-                <span className="text-xl font-semibold ml-2">
+                <span className="text-base sm:text-lg lg:text-xl font-semibold ml-1 sm:ml-2">
                   {new Date(tripDate).toLocaleDateString('en-US', {
                     weekday: 'long',
                     day: 'numeric',
@@ -252,86 +252,86 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                 </span>
               </span>
             </div>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span className="text-sm font-normal text-card-foreground">
+              <span className="text-xs sm:text-sm font-normal text-card-foreground">
                 Number of Passengers{' '}
-                <span className="text-xl font-semibold ml-2">
+                <span className="text-base sm:text-lg lg:text-xl font-semibold ml-1 sm:ml-2">
                   {passengerCount || 1}
                 </span>
               </span>
             </div>
             {/* Status and Assign Driver buttons - Show for owners only */}
             {isOwner && (
-              <div className="flex items-center gap-3 mt-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3">
                 <div className="relative inline-block">
-                  <TripStatusButton
-                    tripStatus={tripStatus}
-                    driverResponseStatus={driverResponseStatus}
-                    driverEmail={driverEmail}
-                    originalDriverEmail={originalDriverEmail}
-                    quotes={quotes}
-                    sentDriverEmails={sentDriverEmails}
-                    isOwner={isOwner}
-                    quoteEmail={quoteEmail}
-                    driverToken={driverToken}
-                    validatedDriverEmail={validatedDriverEmail}
-                    updatingStatus={updatingStatus}
-                    onStatusToggle={onStatusToggle}
-                  />
-                </div>
-                {!(isDriverView && driverToken) && quoteParam !== 'true' && (
-                  <div className="relative inline-block">
-                    <Button
-                      variant="outline"
+            <TripStatusButton
+              tripStatus={tripStatus}
+              driverResponseStatus={driverResponseStatus}
+              driverEmail={driverEmail}
+              originalDriverEmail={originalDriverEmail}
+              quotes={quotes}
+              sentDriverEmails={sentDriverEmails}
+              isOwner={isOwner}
+              quoteEmail={quoteEmail}
+              driverToken={driverToken}
+              validatedDriverEmail={validatedDriverEmail}
+              updatingStatus={updatingStatus}
+              onStatusToggle={onStatusToggle}
+            />
+      </div>
+                    {!(isDriverView && driverToken) && quoteParam !== 'true' && (
+                        <div className="relative inline-block">
+                          <Button
+                            variant="outline"
                       className={`h-10 ${tripStatus === 'cancelled'
-                        ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                        : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
-                          ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
-                          : driverEmail
-                            ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
-                            : ''
-                          }`}
-                      onClick={() => {
-                        // Check if user is authenticated - if not, show signup modal
-                        if (!isAuthenticated) {
-                          onShowSignupModal();
-                          return;
-                        }
+                              ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
+                              : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
+                                ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                                : driverEmail
+                                  ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
+                                  : ''
+                                }`}
+                            onClick={() => {
+                              // Check if user is authenticated - if not, show signup modal
+                              if (!isAuthenticated) {
+                                onShowSignupModal();
+                                return;
+                              }
 
-                        if (tripStatus === 'cancelled') {
-                          alert('This trip has been cancelled. Please create a new trip instead.');
-                          return;
-                        }
-                        onShowDriverModal();
-                      }}
-                      disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
-                    >
-                      {mounted && driverEmail && (
-                        <img
-                          src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                          alt="Driver"
-                          className="w-4 h-4"
-                        />
-                      )}
-                      {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign driver'}
-                    </Button>
-                    {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
-                      <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
-                        {quotes.length}
-                      </span>
-                    )}
-                  </div>
+                              if (tripStatus === 'cancelled') {
+                                alert('This trip has been cancelled. Please create a new trip instead.');
+                                return;
+                              }
+                              onShowDriverModal();
+                            }}
+                            disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
+                          >
+                            {mounted && driverEmail && (
+                              <img
+                                src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                alt="Driver"
+                                className="w-4 h-4"
+                              />
+                            )}
+                            {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign driver'}
+                          </Button>
+                          {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
+                            <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                              {quotes.length}
+                            </span>
+                          )}
+                        </div>
                 )}
               </div>
             )}
           </div>
-          <div className="flex-shrink-0 flex flex-col items-end gap-3">
+          <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto">
             {/* Book a trip button - Show for owners when not booked/cancelled */}
             {isOwner && tripStatus !== 'cancelled' && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true' && (
-              <div className="w-[220px] min-h-[52px] flex items-center">
+              <div className="w-full sm:w-[220px] min-h-[48px] sm:min-h-[52px] flex items-center">
                 <Button
                   onClick={() => {
                     if (!isAuthenticated) {
@@ -341,51 +341,52 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                     router.push(`/booking/${tripId}`);
                   }}
                   disabled={loadingDrivaniaQuote}
-                  className="w-full !h-auto bg-[#3ea34b] hover:bg-[#2d7a35] text-white disabled:opacity-70 disabled:cursor-not-allowed !px-6 !py-3.5 !text-xl !font-medium min-h-[52px] rounded-lg border border-[#3ea34b] transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="w-full !h-auto bg-[#3ea34b] hover:bg-[#2d7a35] text-white disabled:opacity-70 disabled:cursor-not-allowed !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg border border-[#3ea34b] transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {loadingDrivaniaQuote ? (
-                    <span className="flex items-center justify-center gap-2 whitespace-nowrap">
+                    <span className="flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                      <span>Loading best price</span>
+                      <span className="hidden sm:inline">Loading best price</span>
+                      <span className="sm:hidden">Loading...</span>
                     </span>
                   ) : lowestDrivaniaPrice !== null ? (
-                    <span className="whitespace-nowrap">{`Book for ${drivaniaCurrency ? `${drivaniaCurrency} ` : ''}${lowestDrivaniaPrice.toFixed(2)}`}</span>
+                    <span className="whitespace-nowrap text-sm sm:text-base lg:text-lg">{`Book for ${drivaniaCurrency ? `${drivaniaCurrency} ` : ''}${lowestDrivaniaPrice.toFixed(2)}`}</span>
                   ) : (
-                    'Book a trip'
+                    <span className="text-sm sm:text-base lg:text-lg">Book a trip</span>
                   )}
                 </Button>
-              </div>
-            )}
+                      </div>
+                    )}
           </div>
         </div>
       </div>
 
       {/* Vehicle Image - Show for sedan or SUV services */}
       {vehicleType && (
-        <div className="-mt-8">
+        <div className="-mt-4 sm:-mt-6 lg:-mt-8">
           <Card className="shadow-none border-none mb-6">
             <CardContent className="p-0">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4 gap-y-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4 gap-y-4 lg:gap-y-0">
                 {/* Left Column - Vehicle Box (spans 2 columns) */}
                 <Card className="shadow-none lg:col-span-2 -my-0">
-                  <CardContent className="pl-0 pr-5 pt-0 pb-0 relative flex items-center">
+                  <CardContent className="pl-2 sm:pl-4 lg:pl-0 pr-2 sm:pr-4 lg:pr-5 pt-4 sm:pt-6 lg:pt-0 pb-4 sm:pb-6 lg:pb-0 relative flex items-center">
 
                     {/* Vehicle Image and Info */}
-                    <div className="flex gap-6 items-center w-full m-0">
-                      {/* Vehicle Image on the left */}
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 lg:gap-6 items-center sm:items-center w-full m-0">
+                      {/* Vehicle Image */}
                       <img
                         src={getVehicleImagePath()}
                         alt={getVehicleAltText()}
-                        className="h-[216px] w-auto flex-shrink-0 pl-[10px]"
+                        className="h-[120px] sm:h-[160px] md:h-[180px] lg:h-[216px] w-auto flex-shrink-0 pl-0 sm:pl-2 lg:pl-[10px]"
                       />
 
-                      {/* Vehicle Info on the right */}
-                      <div className="flex flex-col flex-1 min-w-0 pb-0 mt-32">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Car className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                          <span className="text-sm text-muted-foreground font-medium">Vehicle</span>
+                      {/* Vehicle Info */}
+                      <div className="flex flex-col flex-1 min-w-0 pb-0 mt-0 sm:mt-0 lg:mt-32 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3 mb-2">
+                          <Car className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-xs sm:text-sm text-muted-foreground font-medium">Vehicle</span>
                         </div>
-                        <p className="text-3xl font-semibold text-card-foreground break-words">
+                        <p className="text-xl sm:text-2xl md:text-3xl font-semibold text-card-foreground break-words">
                           {getVehicleDisplayName()}
                         </p>
                       </div>
@@ -394,8 +395,8 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                 </Card>
 
                 {/* Right Column - Map Box (1 column) */}
-                <div className="hidden lg:block relative">
-                  <div className="h-full min-h-[200px] rounded-lg overflow-hidden border border-border">
+                <div className="block relative mt-4 lg:mt-0 lg:col-span-1">
+                  <div className="h-[250px] sm:h-[300px] lg:h-full lg:min-h-[200px] rounded-lg overflow-hidden border border-border">
                     <GoogleTripMap
                       locations={mapLocations}
                       height="100%"

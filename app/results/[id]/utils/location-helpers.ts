@@ -50,7 +50,6 @@ export const normalizeTripLocations = (
     const fallback = tryParse(jsonLike);
     if (fallback) return fallback;
 
-    console.warn('⚠️ Unable to parse trip locations JSON, returning empty array');
   }
 
   return [];

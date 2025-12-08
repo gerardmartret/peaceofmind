@@ -84,11 +84,8 @@ export function useQuotes({
       // Handle non-JSON responses
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Failed to fetch quotes:', response.status, response.statusText);
-        console.error('   Response body:', errorText);
         try {
           const errorJson = JSON.parse(errorText);
-          console.error('   Error details:', errorJson);
         } catch {
           // Not JSON, just log the text
         }
@@ -112,18 +109,12 @@ export function useQuotes({
 
         const deduplicatedQuotes = Array.from(quoteMap.values());
         setQuotes(deduplicatedQuotes);
-        console.log(`✅ Fetched ${quotesArray.length} quotes, showing ${deduplicatedQuotes.length} unique driver quotes`);
       } else {
-        console.error('❌ Failed to fetch quotes:', result.error);
         if (result.details) {
-          console.error('   Error details:', result.details);
         }
       }
     } catch (err) {
-      console.error('❌ Error fetching quotes:', err);
       if (err instanceof Error) {
-        console.error('   Error message:', err.message);
-        console.error('   Error stack:', err.stack);
       }
     } finally {
       setLoadingQuotes(false);
@@ -157,12 +148,9 @@ export function useQuotes({
         if (quotesArray.length > 0 && onQuoteEmailSet && !quoteEmail) {
           onQuoteEmailSet(quotesArray[0].email);
         }
-        console.log(`✅ Fetched ${quotesArray.length} of my quotes, using latest: ${quotesArray[0] ? `${quotesArray[0].currency} ${quotesArray[0].price}` : 'none'}`);
       } else {
-        console.error('❌ Failed to fetch my quotes:', result.error);
       }
     } catch (err) {
-      console.error('❌ Error fetching my quotes:', err);
     } finally {
       setLoadingMyQuotes(false);
     }
@@ -190,7 +178,6 @@ export function useQuotes({
   useEffect(() => {
     if (!tripId || !isOwner || loading || !ownershipChecked) return;
 
-    console.log('🔄 Setting up realtime subscription for quote updates');
 
     const quotesChannel = supabase
       .channel(`quotes-${tripId}-${Date.now()}`) // Add timestamp to ensure unique channel
@@ -203,42 +190,30 @@ export function useQuotes({
           filter: `trip_id=eq.${tripId}`,
         },
         (payload) => {
-          console.log('🔄 Realtime quote update received:', payload);
-          console.log('📊 Event type:', payload.eventType);
-          console.log('📊 New/Updated quote:', payload.new);
           // Refresh quotes when any change occurs
           // Use a small delay to ensure database consistency
           setTimeout(() => {
-            console.log('🔄 Refreshing quotes after realtime update...');
             fetchQuotes();
           }, 200);
         }
       )
       .subscribe((status, err) => {
-        console.log('🔄 Subscription status:', status);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Successfully subscribed to quote updates for trip:', tripId);
         } else if (status === 'CHANNEL_ERROR') {
           // Handle channel errors gracefully - connection issues are common and not critical
           if (err) {
-            console.warn('⚠️ Channel subscription error (non-critical):', err.message || err);
           } else {
-            console.warn('⚠️ Channel subscription error (connection issue)');
           }
         } else if (status === 'TIMED_OUT') {
-          console.warn('⚠️ Subscription timed out, retrying...');
         } else if (status === 'CLOSED') {
-          console.log('🔄 Subscription closed');
         }
       });
 
     return () => {
-      console.log('🔄 Cleaning up quotes subscription');
       try {
         supabase.removeChannel(quotesChannel);
       } catch (error) {
         // Silently handle cleanup errors - channel may already be closed
-        console.debug('Channel cleanup:', error);
       }
     };
   }, [tripId, isOwner, loading, ownershipChecked, fetchQuotes]);

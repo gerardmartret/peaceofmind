@@ -21,7 +21,6 @@ export const needsGeocoding = (loc: any): boolean => {
   const hasIncompleteAddress = fullAddr.length < 20 || !fullAddr.includes(',');
 
   if (hasIncompleteAddress) {
-    console.log(`   ⚠️ Location "${loc.name}" has incomplete address: "${fullAddr}" (needs geocoding)`);
   }
 
   return hasIncompleteAddress;
@@ -35,7 +34,6 @@ export const geocodeLocation = async (
   tripDestination: string
 ): Promise<any> => {
   try {
-    console.log(`   Geocoding: ${loc.name || loc.fullAddress || loc.address || 'Unknown location'}`);
 
     // Use Google Maps Geocoding API
     const geocoder = new google.maps.Geocoder();
@@ -43,19 +41,13 @@ export const geocodeLocation = async (
 
     // Diagnostic: Check if query is just city name
     if (query && query.toLowerCase() === (tripDestination || '').toLowerCase()) {
-      console.warn(`⚠️ [GEOCODE-DIAG] WARNING: Geocoding query is just city name "${query}" - this might cause address replacement!`);
-      console.warn(`   - loc.fullAddress: "${loc.fullAddress}"`);
-      console.warn(`   - loc.address: "${loc.address}"`);
-      console.warn(`   - loc.name: "${loc.name}"`);
     }
 
     // Get city configuration for geocoding
     const cityConfig = getCityConfig(tripDestination);
-    console.log(`🌍 [GEOCODING] Using city context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias})`);
 
     return new Promise<typeof loc>((resolve) => {
       const geocodeQuery = `${query}, ${cityConfig.geocodingBias}`;
-      console.log(`🔍 [GEOCODE-DIAG] Geocoding query: "${geocodeQuery}"`);
       geocoder.geocode(
         { address: geocodeQuery, region: cityConfig.geocodingRegion },
         (results, status) => {
@@ -68,18 +60,13 @@ export const geocodeLocation = async (
               lng: result.geometry.location.lng(),
               fullAddress: result.formatted_address || loc.fullAddress || loc.address || loc.name,
             };
-            console.log(`   ✅ [GEOCODE-DIAG] Geocoded: ${geocodedLoc.name} → (${geocodedLoc.lat}, ${geocodedLoc.lng})`);
             if (geocodedLoc.fullAddress !== beforeFullAddress) {
-              console.log(`   - fullAddress changed: "${beforeFullAddress}" → "${geocodedLoc.fullAddress}"`);
               // Check if result is just city center
               if (geocodedLoc.fullAddress && geocodedLoc.fullAddress.toLowerCase().includes((tripDestination || '').toLowerCase()) && !geocodedLoc.fullAddress.includes(',')) {
-                console.warn(`   ⚠️ [GEOCODE-DIAG] WARNING: Geocoded address appears to be just city name: "${geocodedLoc.fullAddress}"`);
               }
             }
             resolve(geocodedLoc);
           } else {
-            console.warn(`   ⚠️ [GEOCODE-DIAG] Geocoding failed for: ${query} (status: ${status})`);
-            console.warn(`   - Keeping original location data`);
             // Keep original location even if geocoding fails
             resolve(loc);
           }
@@ -87,7 +74,6 @@ export const geocodeLocation = async (
       );
     });
   } catch (geocodeError) {
-    console.error(`   ❌ Error geocoding ${loc.name}:`, geocodeError);
     // Keep original location if geocoding fails
     return loc;
   }
@@ -101,19 +87,15 @@ export const geocodeLocations = async (
   tripDestination: string
 ): Promise<any[]> => {
   if (locations.length === 0) {
-    console.log('⚡️ [OPTIMIZATION] No geocoding needed - all locations have valid coordinates!');
     return [];
   }
 
-  console.log('🗺️ [DEBUG] Geocoding locations without valid coordinates...');
   const cityConfig = getCityConfig(tripDestination);
-  console.log(`🌍 [GEOCODING] Using city context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias})`);
 
   const geocodedLocations = await Promise.all(
     locations.map(loc => geocodeLocation(loc, tripDestination))
   );
 
-  console.log(`✅ [DEBUG] Geocoding complete for ${geocodedLocations.length} locations`);
   return geocodedLocations;
 };
 

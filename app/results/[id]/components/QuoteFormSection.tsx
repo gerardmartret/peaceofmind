@@ -60,15 +60,14 @@ export function QuoteFormSection({
 
   return (
     <div
-      className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
-        }`}
+      className={`relative sm:fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'sm:top-0 sm:z-[60]' : 'sm:top-[57px] sm:z-40'}`}
     >
-      <div className="container mx-auto px-4 pt-8 pb-3">
-        <div className={`rounded-md pl-6 pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border'}`}>
+      <div className="container mx-auto px-3 sm:px-4 pt-4 sm:pt-8 pb-3">
+        <div className={`rounded-md pl-3 sm:pl-6 pr-3 sm:pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border'}`}>
           {/* Always show the same structure - fields are disabled when quote exists */}
-          <form onSubmit={onSubmit} className="flex gap-3 items-start">
-            <label className="flex-1">
-              <span className="block text-sm text-white font-medium mb-1">Driver email</span>
+          <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-3 sm:gap-3 items-stretch sm:items-start">
+            <label className="w-full sm:flex-1">
+              <span className="block text-xs sm:text-sm text-white font-medium mb-1">Driver email</span>
               <Input
                 id="quote-email"
                 type="email"
@@ -81,15 +80,15 @@ export function QuoteFormSection({
                 placeholder="your.email@company.com"
                 disabled={myQuotes.length > 0 || submittingQuote || isEmailFromUrl || (isDriverView && !!driverToken)}
                 readOnly={myQuotes.length > 0 || isEmailFromUrl || (isDriverView && !!driverToken)}
-                className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && !!driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
+                className={`h-10 sm:h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors text-sm ${quoteEmailError ? 'border-destructive' : ''} ${(myQuotes.length > 0 || isEmailFromUrl || (isDriverView && !!driverToken)) ? 'cursor-not-allowed opacity-75' : ''}`}
               />
               {quoteEmailError && (
                 <p className="text-xs text-destructive mt-1">{quoteEmailError}</p>
               )}
             </label>
 
-            <label className="flex-[1.5]">
-              <span className="block text-sm text-white font-medium mb-1">Driver name</span>
+            <label className="w-full sm:flex-[1.5]">
+              <span className="block text-xs sm:text-sm text-white font-medium mb-1">Driver name</span>
               <Input
                 id="quote-driver-name"
                 type="text"
@@ -102,12 +101,13 @@ export function QuoteFormSection({
                 placeholder="John Doe"
                 disabled={myQuotes.length > 0 || submittingQuote}
                 readOnly={myQuotes.length > 0}
-                className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                className={`h-10 sm:h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors text-sm ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
               />
             </label>
 
-            <label className="w-[120px]">
-              <span className="block text-sm text-white font-medium mb-1">Total</span>
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+              <label className="flex-1 sm:w-[120px]">
+                <span className="block text-xs sm:text-sm text-white font-medium mb-1">Total</span>
               <Input
                 id="quote-price"
                 type="text"
@@ -121,15 +121,15 @@ export function QuoteFormSection({
                 placeholder="100.00"
                 disabled={myQuotes.length > 0 || submittingQuote}
                 readOnly={myQuotes.length > 0}
-                className={`h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors ${quotePriceError ? 'border-destructive' : ''} ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  className={`h-10 sm:h-[44px] border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 dark:hover:bg-[#323236] transition-colors text-sm ${quotePriceError ? 'border-destructive' : ''} ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
               />
               {quotePriceError && (
                 <p className="text-xs text-destructive mt-1">{quotePriceError}</p>
               )}
             </label>
 
-            <label className="w-[110px]">
-              <span className="block text-sm text-white font-medium mb-1">Currency</span>
+              <label className="w-[100px] sm:w-[110px] flex-shrink-0">
+                <span className="block text-xs sm:text-sm text-white font-medium mb-1">Currency</span>
               <select
                 id="quote-currency"
                 value={myQuotes.length > 0 ? myQuotes[0].currency : quoteCurrency}
@@ -139,21 +139,22 @@ export function QuoteFormSection({
                   }
                 }}
                 disabled={myQuotes.length > 0 || submittingQuote}
-                className={`w-full h-[44px] pl-3 pr-3 rounded-md border border-border bg-background dark:bg-input/30 text-sm text-foreground dark:hover:bg-[#323236] transition-colors appearance-none focus:outline-none focus:ring-0 ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
+                  className={`w-full h-10 sm:h-[44px] pl-2 sm:pl-3 pr-2 sm:pr-3 rounded-md border border-border bg-background dark:bg-input/30 text-xs sm:text-sm text-foreground dark:hover:bg-[#323236] transition-colors appearance-none focus:outline-none focus:ring-0 ${myQuotes.length > 0 ? 'cursor-not-allowed opacity-75' : ''}`}
               >
                 {CURRENCY_OPTIONS.map(currency => (
                   <option key={currency} value={currency}>{currency}</option>
                 ))}
               </select>
             </label>
+            </div>
 
-            <label className="w-[110px]">
-              <span className="block text-sm text-white font-medium mb-1">&nbsp;</span>
+            <label className="w-full sm:w-[110px] flex-shrink-0">
+              <span className="block text-xs sm:text-sm text-white font-medium mb-1 sm:mb-1">&nbsp;</span>
               {myQuotes.length > 0 ? (
                 <Button
                   type="button"
                   disabled={true}
-                  className="w-full h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] cursor-not-allowed opacity-50"
+                  className="w-full h-10 sm:h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] cursor-not-allowed opacity-50 text-sm sm:text-base"
                 >
                   Submitted
                 </Button>
@@ -161,7 +162,7 @@ export function QuoteFormSection({
                 <Button
                   type="submit"
                   disabled={submittingQuote || !quoteEmail || !quotePrice}
-                  className="w-full h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
+                  className="w-full h-10 sm:h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 text-sm sm:text-base"
                 >
                   {submittingQuote ? (
                     <>
@@ -169,10 +170,11 @@ export function QuoteFormSection({
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Submitting...
+                      <span className="hidden sm:inline">Submitting...</span>
+                      <span className="sm:hidden">Submitting</span>
                     </>
                   ) : (
-                    'Submit quote'
+                    <span className="whitespace-nowrap">Submit quote</span>
                   )}
                 </Button>
               )}

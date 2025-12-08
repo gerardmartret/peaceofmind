@@ -46,7 +46,6 @@ export function useLocationManagement({
   const handleSaveLocationName = useCallback(async (locationId: string) => {
     // Security check: Only owners can edit location names
     if (!isOwner) {
-      console.error('❌ Unauthorized: Only trip owners can edit location names');
       setEditingLocationId(null);
       setEditingLocationName('');
       return;
@@ -73,17 +72,10 @@ export function useLocationManagement({
       // This handles cases where user edits notes but hasn't clicked "Save" on the notes field yet
       if (editedDriverNotes !== undefined && editedDriverNotes !== driverNotes) {
         updateData.trip_notes = editedDriverNotes || null; // Allow empty string to be saved
-        console.log('💾 [SAVE-LOCATION] Preserving unsaved trip notes:', editedDriverNotes);
       } else if (driverNotes !== undefined) {
         // If no edits, preserve the current driverNotes to prevent accidental loss
         updateData.trip_notes = driverNotes || null;
-        console.log('💾 [SAVE-LOCATION] Preserving current trip notes:', driverNotes);
       }
-
-      console.log('💾 [SAVE-LOCATION] Updating trip with:', {
-        locations: updatedLocations.length,
-        trip_notes: updateData.trip_notes ? 'preserved' : 'unchanged'
-      });
 
       const { error: updateError } = await supabase
         .from('trips')
@@ -91,7 +83,6 @@ export function useLocationManagement({
         .eq('id', tripId);
 
       if (updateError) {
-        console.error('Error saving location name:', updateError);
         setEditingLocationId(null);
         setEditingLocationName('');
         return;
@@ -111,7 +102,6 @@ export function useLocationManagement({
       setEditingLocationId(null);
       setEditingLocationName('');
     } catch (error) {
-      console.error('Error saving location name:', error);
       setEditingLocationId(null);
       setEditingLocationName('');
     }

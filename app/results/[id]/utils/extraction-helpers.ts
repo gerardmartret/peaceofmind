@@ -2,8 +2,6 @@
 export const extractFlightNumbers = (notes: string): { [locationName: string]: string[] } => {
   if (!notes) return {};
 
-  console.log('🔍 [DEBUG] extractFlightNumbers - Input notes:', notes);
-
   const flightMap: { [locationName: string]: string[] } = {};
 
   // Common flight number patterns - more comprehensive
@@ -23,30 +21,24 @@ export const extractFlightNumbers = (notes: string): { [locationName: string]: s
 
   // Split notes into sentences and look for flight numbers near airport mentions
   const sentences = notes.split(/[.!?]+/);
-  console.log('🔍 [DEBUG] extractFlightNumbers - Sentences:', sentences);
 
   sentences.forEach(sentence => {
     const lowerSentence = sentence.toLowerCase();
-    console.log('🔍 [DEBUG] extractFlightNumbers - Checking sentence:', sentence);
 
     // Check if sentence mentions an airport
     const mentionedAirport = airportKeywords.find(keyword =>
       lowerSentence.includes(keyword)
     );
 
-    console.log('🔍 [DEBUG] extractFlightNumbers - Mentioned airport:', mentionedAirport);
-
     if (mentionedAirport) {
       // Look for flight numbers in this sentence
       flightPatterns.forEach(pattern => {
         const matches = sentence.match(pattern);
         if (matches) {
-          console.log('🔍 [DEBUG] extractFlightNumbers - Found flight matches:', matches);
           matches.forEach(match => {
             // Clean up the flight number
             const flightNumber = match.replace(/flight\s*/gi, '').trim();
             if (flightNumber) {
-              console.log('🔍 [DEBUG] extractFlightNumbers - Cleaned flight number:', flightNumber);
               // Determine airport name based on context
               let airportName = 'Airport';
               if (lowerSentence.includes('heathrow') || lowerSentence.includes('lhr')) {
@@ -61,8 +53,6 @@ export const extractFlightNumbers = (notes: string): { [locationName: string]: s
                 airportName = 'London City Airport';
               }
 
-              console.log('🔍 [DEBUG] extractFlightNumbers - Airport name:', airportName);
-
               if (!flightMap[airportName]) {
                 flightMap[airportName] = [];
               }
@@ -76,7 +66,6 @@ export const extractFlightNumbers = (notes: string): { [locationName: string]: s
     }
   });
 
-  console.log('🔍 [DEBUG] extractFlightNumbers - Final flight map:', flightMap);
   return flightMap;
 };
 

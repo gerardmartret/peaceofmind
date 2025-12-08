@@ -48,7 +48,6 @@ export const usePreviewApplication = (params: UsePreviewApplicationParams) => {
   } = params;
 
   const handleApplyPreview = async () => {
-    console.log('✅ [PREVIEW] Applying changes...');
 
     // Prepare validated locations to pass directly (avoiding React state timing issues)
     // Check all possible location fields: location, formattedAddress, or purpose
@@ -68,7 +67,6 @@ export const usePreviewApplication = (params: UsePreviewApplicationParams) => {
     // This handles cases where only non-location fields (passenger, vehicle) were changed
     let locationsToSave = validatedLocations;
     if (locationsToSave.length === 0 && tripData?.locations && tripData.locations.length > 0) {
-      console.log('⚠️ [PREVIEW] No valid preview locations, falling back to tripData.locations');
       // Convert tripData.locations to manual form format (same as mapExtractedToManualForm does)
       locationsToSave = tripData.locations.map((loc: any, idx: number) => ({
         location: loc.name || (loc as any).fullAddress || '',

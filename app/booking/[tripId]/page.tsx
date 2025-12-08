@@ -108,7 +108,6 @@ export default function BookingPage() {
           try {
             locations = JSON.parse(locations);
           } catch (e) {
-            console.error('Failed to parse locations JSON:', e);
             setTripError('Invalid trip data format');
             setLoadingTripData(false);
             return;
@@ -121,7 +120,6 @@ export default function BookingPage() {
         });
         setLoadingTripData(false);
       } catch (err: any) {
-        console.error('Error loading trip data:', err);
         setTripError(err.message || 'Failed to load trip data');
         setLoadingTripData(false);
         setOwnershipChecked(true);
@@ -211,7 +209,6 @@ export default function BookingPage() {
           setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
         }
       } catch (err) {
-        console.error('Error requesting Drivania quote:', err);
         setDrivaniaError('Failed to request quote from Drivania. Please try again.');
       } finally {
         setLoadingDrivaniaQuote(false);
@@ -366,10 +363,8 @@ export default function BookingPage() {
 
           const statusResult = await statusResponse.json();
           if (!statusResult.success) {
-            console.error('Failed to update trip status:', statusResult.error);
           }
         } catch (statusErr) {
-          console.error('Error updating trip status:', statusErr);
         }
 
         setBookingSubmissionMessage('Your booking has been created with Drivania successfully.');
@@ -384,7 +379,6 @@ export default function BookingPage() {
         setBookingSubmissionMessage(serviceResult.error || 'Failed to create service with Drivania');
       }
     } catch (err) {
-      console.error('Booking submission error', err);
       setBookingSubmissionState('idle');
       setBookingSubmissionMessage('Failed to create service with Drivania. Please try again.');
     }

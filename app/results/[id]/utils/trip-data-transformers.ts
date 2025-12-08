@@ -46,7 +46,6 @@ export function transformTrafficPredictions(raw: any): any | null {
     try {
       rawTrafficPredictions = JSON.parse(rawTrafficPredictions);
     } catch (e) {
-      console.error('❌ Failed to parse traffic_predictions JSON:', e);
       return null;
     }
   }
@@ -73,7 +72,6 @@ export function transformTrafficPredictions(raw: any): any | null {
       };
     } else {
       // Invalid format - set to null to show "Calculating..."
-      console.warn('⚠️ Invalid traffic_predictions format:', rawTrafficPredictions);
       return null;
     }
   }
@@ -90,7 +88,6 @@ export function fixLocationIds(locations: any[]): Array<any & { id: string }> {
   return locations.map((loc: any, idx: number) => {
     // Check if ID is invalid (literal string from AI bug)
     if (!loc.id || loc.id === 'currentLocation.id' || loc.id === 'extractedLocation.id' || loc.id.includes('Location.id')) {
-      console.warn(`⚠️ [FIX] Invalid location ID detected: "${loc.id}", generating unique ID for location ${idx}`);
       const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       usedIds.add(newId);
       return {
@@ -102,7 +99,6 @@ export function fixLocationIds(locations: any[]): Array<any & { id: string }> {
     // Check for duplicate IDs
     if (usedIds.has(loc.id)) {
       const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      console.warn(`⚠️ [FIX] Duplicate location ID detected: "${loc.id}" at index ${idx}, generating unique ID: "${newId}"`);
       usedIds.add(newId);
       return {
         ...loc,
@@ -131,7 +127,6 @@ export function parseJsonFields(
     try {
       tripResultsParsed = JSON.parse(tripResultsParsed);
     } catch (e) {
-      console.error('❌ Failed to parse trip_results JSON:', e);
       tripResultsParsed = [];
     }
   }
@@ -142,7 +137,6 @@ export function parseJsonFields(
     try {
       executiveReportParsed = JSON.parse(executiveReportParsed);
     } catch (e) {
-      console.error('❌ Failed to parse executive_report JSON:', e);
       executiveReportParsed = null;
     }
   }
@@ -178,7 +172,6 @@ export function transformDatabaseTripToTripData(data: DatabaseTrip): Transformed
   const normalizedLocations = normalizeTripLocations(data.locations);
   
   if (normalizedLocations.length === 0 && data.locations) {
-    console.warn('⚠️ Locations normalized to empty array:', data.locations);
   }
 
   const locationsWithValidIds = fixLocationIds(normalizedLocations);

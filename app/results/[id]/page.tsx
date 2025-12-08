@@ -417,8 +417,6 @@ export default function ResultsPage() {
   const extractFlightNumbers = (notes: string): { [locationName: string]: string[] } => {
     if (!notes) return {};
 
-    console.log('🔍 [DEBUG] extractFlightNumbers - Input notes:', notes);
-
     const flightMap: { [locationName: string]: string[] } = {};
 
     // Common flight number patterns - more comprehensive
@@ -438,30 +436,24 @@ export default function ResultsPage() {
 
     // Split notes into sentences and look for flight numbers near airport mentions
     const sentences = notes.split(/[.!?]+/);
-    console.log('🔍 [DEBUG] extractFlightNumbers - Sentences:', sentences);
 
     sentences.forEach(sentence => {
       const lowerSentence = sentence.toLowerCase();
-      console.log('🔍 [DEBUG] extractFlightNumbers - Checking sentence:', sentence);
 
       // Check if sentence mentions an airport
       const mentionedAirport = airportKeywords.find(keyword =>
         lowerSentence.includes(keyword)
       );
 
-      console.log('🔍 [DEBUG] extractFlightNumbers - Mentioned airport:', mentionedAirport);
-
       if (mentionedAirport) {
         // Look for flight numbers in this sentence
         flightPatterns.forEach(pattern => {
           const matches = sentence.match(pattern);
           if (matches) {
-            console.log('🔍 [DEBUG] extractFlightNumbers - Found flight matches:', matches);
             matches.forEach(match => {
               // Clean up the flight number
               const flightNumber = match.replace(/flight\s*/gi, '').trim();
               if (flightNumber) {
-                console.log('🔍 [DEBUG] extractFlightNumbers - Cleaned flight number:', flightNumber);
                 // Determine airport name based on context
                 let airportName = 'Airport';
                 if (lowerSentence.includes('heathrow') || lowerSentence.includes('lhr')) {
@@ -476,8 +468,6 @@ export default function ResultsPage() {
                   airportName = 'London City Airport';
                 }
 
-                console.log('🔍 [DEBUG] extractFlightNumbers - Airport name:', airportName);
-
                 if (!flightMap[airportName]) {
                   flightMap[airportName] = [];
                 }
@@ -491,7 +481,6 @@ export default function ResultsPage() {
       }
     });
 
-    console.log('🔍 [DEBUG] extractFlightNumbers - Final flight map:', flightMap);
     return flightMap;
   };
 
@@ -499,13 +488,8 @@ export default function ResultsPage() {
   // Function to extract car information from driver notes
   const extractCarInfo = (notes: string): string | null => {
     if (!notes) {
-      console.log('🚗 [CAR DEBUG] No driver notes provided');
       return null;
     }
-
-    console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION START =====');
-    console.log('🚗 [CAR DEBUG] Input driver notes:', notes);
-    console.log('🚗 [CAR DEBUG] Notes length:', notes.length);
 
     // Enhanced car patterns - prioritize full specifications (brand + model)
     const carPatterns = [
@@ -529,12 +513,8 @@ export default function ResultsPage() {
       /\b(black|white|silver|grey|gray|blue|red|green|gold|champagne)\s+(car|vehicle|auto)\b/gi
     ];
 
-    console.log('🚗 [CAR DEBUG] Total patterns to check:', carPatterns.length);
-
     // Split notes into sentences and look for car mentions
     const sentences = notes.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    console.log('🚗 [CAR DEBUG] Sentences found:', sentences.length);
-    console.log('🚗 [CAR DEBUG] Sentences:', sentences);
 
     // Track the best match (most complete specification)
     let bestMatch = null;
@@ -542,17 +522,12 @@ export default function ResultsPage() {
 
     for (let i = 0; i < sentences.length; i++) {
       const sentence = sentences[i].trim();
-      console.log(`🚗 [CAR DEBUG] Checking sentence ${i + 1}:`, sentence);
 
       for (let j = 0; j < carPatterns.length; j++) {
         const pattern = carPatterns[j];
-        console.log(`🚗 [CAR DEBUG] Testing pattern ${j + 1}:`, pattern);
 
         const matches = sentence.match(pattern);
         if (matches && matches.length > 0) {
-          console.log('🚗 [CAR DEBUG] ✅ MATCH FOUND!');
-          console.log('🚗 [CAR DEBUG] Matches:', matches);
-          console.log('🚗 [CAR DEBUG] Pattern that matched:', pattern);
 
           // Calculate match score (higher score = more complete specification)
           let matchScore = 0;
@@ -577,13 +552,10 @@ export default function ResultsPage() {
             matchScore += 10;
           }
 
-          console.log('🚗 [CAR DEBUG] Match score:', matchScore);
-
           // Keep the best match
           if (matchScore > bestMatchScore) {
             bestMatch = matches[0].trim();
             bestMatchScore = matchScore;
-            console.log('🚗 [CAR DEBUG] New best match:', bestMatch);
           }
         }
       }
@@ -591,17 +563,11 @@ export default function ResultsPage() {
 
     // Process the best match if found
     if (bestMatch) {
-      console.log('🚗 [CAR DEBUG] ✅ BEST MATCH SELECTED!');
-      console.log('🚗 [CAR DEBUG] Best match:', bestMatch);
-      console.log('🚗 [CAR DEBUG] Best match score:', bestMatchScore);
-
       // Clean up and format the car mention
       let carMention = bestMatch;
-      console.log('🚗 [CAR DEBUG] Raw best match:', carMention);
 
       // Capitalize first letter of each word
       carMention = carMention.replace(/\b\w/g, l => l.toUpperCase());
-      console.log('🚗 [CAR DEBUG] After capitalization:', carMention);
 
       // Clean up common formatting issues
       carMention = carMention.replace(/\s+/g, ' ');
@@ -624,13 +590,9 @@ export default function ResultsPage() {
       carMention = carMention.replace(/\bAudi\s+Q7\b/gi, 'Audi Q7');
       carMention = carMention.replace(/\bAudi\s+Q8\b/gi, 'Audi Q8');
 
-      console.log('🚗 [CAR DEBUG] Final formatted car mention:', carMention);
-      console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION SUCCESS =====');
       return carMention;
     }
 
-    console.log('🚗 [CAR DEBUG] ❌ No car information found in any sentence');
-    console.log('🚗 [CAR DEBUG] ===== CAR EXTRACTION FAILED =====');
     return null;
   };
 
@@ -664,8 +626,6 @@ export default function ResultsPage() {
 
   const handleSaveRouteEdits = async (locationsToUse?: any[]) => {
     try {
-      console.log('💾 Saving route edits and regenerating...');
-
       // Use provided locations or fall back to editingLocations
       // This avoids React state timing issues when called immediately after setState
       const locations = locationsToUse || editingLocations;
@@ -709,11 +669,8 @@ export default function ResultsPage() {
       const tripDateStr = editingTripDate ? editingTripDate.toISOString().split('T')[0] : (tripData?.tripDate || tripDate);
       const days = 7;
 
-      console.log(`🚀 [EDIT-ROUTE] Regenerating for ${validLocations.length} locations`);
-
       // Get city configuration
       const cityConfig = getCityConfig(tripDestination);
-      console.log(`🌍 [EDIT-ROUTE] City: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
 
       // Initialize steps (same as home page)
       const steps = generateRegenerationSteps(validLocations, tripDestination);
@@ -788,8 +745,6 @@ export default function ResultsPage() {
           // Fetch data for all locations (same as existing regeneration logic)
           const results = await Promise.all(
             locationsForDb.map(async (location) => {
-              console.log(`\n🔍 [EDIT-ROUTE] Fetching data for: ${location.name} at ${location.time}`);
-
               const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
               // Universal APIs
@@ -820,14 +775,12 @@ export default function ResultsPage() {
                 for (let i = 0; i < responses.length; i++) {
                   if (!responses[i].ok) {
                     const errorText = await responses[i].text();
-                    console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
                     throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
                   }
                 }
               } else {
                 if (!weatherResponse.ok) {
                   const errorText = await weatherResponse.text();
-                  console.error(`❌ weather API failed:`, weatherResponse.status, errorText);
                   throw new Error(`weather API returned ${weatherResponse.status}: ${errorText}`);
                 }
               }
@@ -855,7 +808,6 @@ export default function ResultsPage() {
                 const cafes = await searchNearbyCafes(location.lat, location.lng, location.name);
                 cafeData = { success: true, data: cafes };
               } catch (cafeError) {
-                console.error(`⚠️ Cafe search failed for ${location.name}:`, cafeError);
                 cafeData = {
                   success: true,
                   data: {
@@ -991,13 +943,11 @@ export default function ResultsPage() {
         throw updateError;
       }
 
-      console.log('✅ [EDIT-ROUTE] Route updated successfully!');
 
       // Reload page to show updated data
       window.location.reload();
 
     } catch (error) {
-      console.error('❌ [EDIT-ROUTE] Error saving route edits:', error);
       setIsRegenerating(false);
       setRegenerationSteps(prev => prev.map(step =>
         step.status === 'loading' ? { ...step, status: 'error' as const } : step
@@ -1137,22 +1087,11 @@ export default function ResultsPage() {
 
     // Security check: Only owners can save notes
     if (!isOwner) {
-      console.error('❌ Unauthorized: Only trip owners can edit driver notes');
       return;
     }
 
     try {
       setIsSavingNotes(true);
-
-      console.log('Saving notes with values:', {
-        editedDriverNotes,
-        leadPassengerName,
-        vehicleInfo,
-        passengerCount,
-        tripDestination,
-        passengerNames,
-        tripId
-      });
 
       const updateData: any = {
         trip_notes: editedDriverNotes
@@ -1174,8 +1113,6 @@ export default function ResultsPage() {
       // Note: passenger_names column doesn't exist in database
       // Passenger names are still used for display but not stored in DB
 
-      console.log('Update data:', updateData);
-
       // First check if the trip exists
       const { data: existingTrip, error: fetchError } = await supabase
         .from('trips')
@@ -1184,12 +1121,10 @@ export default function ResultsPage() {
         .single();
 
       if (fetchError) {
-        console.error('Error fetching trip:', fetchError);
         return;
       }
 
       if (!existingTrip) {
-        console.error('Trip not found with ID:', tripId);
         return;
       }
 
@@ -1199,9 +1134,6 @@ export default function ResultsPage() {
         .eq('id', tripId);
 
       if (updateError) {
-        console.error('Error saving notes:', updateError);
-        console.error('Update data:', updateData);
-        console.error('Trip ID:', tripId);
         return;
       }
 
@@ -1216,7 +1148,7 @@ export default function ResultsPage() {
         setShowNotesSuccess(false);
       }, 3000);
     } catch (error) {
-      console.error('Error saving notes:', error);
+      // Error saving notes
     } finally {
       setIsSavingNotes(false);
     }
@@ -1287,7 +1219,6 @@ export default function ResultsPage() {
 
       // Only clear if locations have actually changed
       if (prevLocationsRef.current && prevLocationsRef.current !== locationsKey) {
-        console.log('🔄 Trip locations changed - clearing old Drivania quotes');
         setDrivaniaQuotes(null);
         setDrivaniaError(null);
         setDrivaniaServiceType(null);
@@ -1327,7 +1258,6 @@ export default function ResultsPage() {
     // DRIVER FLOW: Assigned driver clicking to confirm pending trip (with or without token)
     // Don't require authentication for assigned drivers - they can use token to accept/reject
     if ((isAssignedDriver || (driverToken && validatedDriverEmail)) && tripStatus === 'pending') {
-      console.log('🚗 [DRIVER] Assigned driver clicked confirmation button, opening accept/reject modal');
       // If driver has token and no quote exists, show message asking to quote first
       if (driverToken && myQuotes.length === 0) {
         alert('Please submit a quote for this trip before confirming. Use the quote form above to provide your pricing.');
@@ -1357,14 +1287,12 @@ export default function ResultsPage() {
 
     // Block status toggle for Drivania bookings
     if (driverEmail === 'drivania' && tripStatus === 'booked') {
-      console.log('🚫 Cannot change status for Drivania bookings');
       return;
     }
 
     // If trip is rejected, allow user to request quotes or assign driver again
     // Rejected behaves like "not confirmed" - service is not secured
     if (tripStatus === 'rejected') {
-      console.log('🔄 Trip was rejected, opening driver modal for new assignment');
       setAssignOnlyMode(true);
       setShowDriverModal(true);
       return;
@@ -1374,7 +1302,6 @@ export default function ResultsPage() {
 
     // If confirming without a driver, show popup requiring driver assignment
     if (newStatus === 'confirmed' && !driverEmail) {
-      console.log('🚗 [STATUS] No driver assigned, showing confirmation popup');
       setShowConfirmDriverRequiredModal(true);
       return;
     }
@@ -1577,7 +1504,6 @@ export default function ResultsPage() {
 
     try {
       // Fetch the latest trip data from the database to ensure we use the most recent data
-      console.log('🔄 Fetching latest trip data for Drivania quote...');
       const { data: latestTripData, error: fetchError } = await supabase
         .from('trips')
         .select('locations, trip_date, passenger_count')
@@ -1585,7 +1511,6 @@ export default function ResultsPage() {
         .single();
 
       if (fetchError) {
-        console.error('❌ Error fetching latest trip data:', fetchError);
         setDrivaniaError('Failed to load trip data. Please try again.');
         return;
       }
@@ -1601,7 +1526,6 @@ export default function ResultsPage() {
         try {
           latestLocations = JSON.parse(latestLocations);
         } catch (e) {
-          console.error('❌ Failed to parse locations JSON:', e);
           setDrivaniaError('Invalid trip data format');
           return;
         }
@@ -1633,29 +1557,6 @@ export default function ResultsPage() {
         flightDirection?: 'arrival' | 'departure';
       }>;
 
-      // Log detailed location data for debugging
-      console.log('📍 Latest locations from database:', {
-        count: typedLocations.length,
-        locations: typedLocations.map((loc, idx: number) => ({
-          index: idx,
-          name: loc.name,
-          lat: loc.lat,
-          lng: loc.lng,
-          time: loc.time,
-        })),
-        pickup: {
-          name: typedLocations[0]?.name,
-          lat: typedLocations[0]?.lat,
-          lng: typedLocations[0]?.lng,
-          time: typedLocations[0]?.time,
-        },
-        dropoff: {
-          name: typedLocations[typedLocations.length - 1]?.name,
-          lat: typedLocations[typedLocations.length - 1]?.lat,
-          lng: typedLocations[typedLocations.length - 1]?.lng,
-          time: typedLocations[typedLocations.length - 1]?.time,
-        },
-      });
 
       // Compare with previous tripData if available
       if (tripData?.locations) {
@@ -1674,18 +1575,8 @@ export default function ResultsPage() {
           oldDropoff?.time !== newDropoff?.time ||
           oldDropoff?.name !== newDropoff?.name;
 
-        console.log('🔄 Location comparison:', {
-          pickupChanged,
-          dropoffChanged,
-          oldPickup: oldPickup ? { lat: oldPickup.lat, lng: oldPickup.lng, time: oldPickup.time, name: oldPickup.name } : null,
-          newPickup: newPickup ? { lat: newPickup.lat, lng: newPickup.lng, time: newPickup.time, name: newPickup.name } : null,
-          oldDropoff: oldDropoff ? { lat: oldDropoff.lat, lng: oldDropoff.lng, time: oldDropoff.time, name: oldDropoff.name } : null,
-          newDropoff: newDropoff ? { lat: newDropoff.lat, lng: newDropoff.lng, time: newDropoff.time, name: newDropoff.name } : null,
-        });
-
         if (!pickupChanged && !dropoffChanged) {
-          console.log('⚠️ WARNING: Pickup and dropoff coordinates/times unchanged. Drivania will return the same quote even if intermediate stops changed.');
-          console.log('💡 Note: Drivania API only uses pickup and dropoff for quote calculation. Intermediate stops are not included.');
+          // Pickup and dropoff coordinates/times unchanged
         }
       }
 
@@ -1722,13 +1613,6 @@ export default function ResultsPage() {
         serviceType: serviceType,
       };
 
-      console.log('📤 Sending Drivania quote request with latest trip data:', {
-        locationsCount: typedLocations.length,
-        serviceType,
-        passengerCount: passengerCountValue,
-        tripDate: tripDateValue,
-        payload: quotePayload,
-      });
 
       const response = await fetch('/api/drivania/quote', {
         method: 'POST',
@@ -1740,26 +1624,11 @@ export default function ResultsPage() {
 
       const result = await response.json();
 
-      console.log('📥 Drivania quote response:', {
-        success: result.success,
-        serviceId: result.data?.service_id,
-        vehicleCount: result.data?.quotes?.vehicles?.length || 0,
-        distance: result.data?.distance,
-        driveTime: result.data?.drive_time,
-        currency: result.data?.currency_code,
-        error: result.error,
-      });
 
       if (result.success) {
-        // Log the received quote data for comparison
+        // Service ID comparison
         if (drivaniaQuotes?.service_id && result.data?.service_id) {
           const sameServiceId = drivaniaQuotes.service_id === result.data.service_id;
-          console.log('🔄 Service ID comparison:', {
-            previous: drivaniaQuotes.service_id,
-            current: result.data.service_id,
-            same: sameServiceId,
-            warning: sameServiceId ? '⚠️ Same service_id - Drivania may have returned cached quote' : '✅ New service_id - fresh quote',
-          });
         }
 
         setDrivaniaQuotes(result.data);
@@ -1774,7 +1643,6 @@ export default function ResultsPage() {
         }
       }
     } catch (err) {
-      console.error('❌ Error requesting Drivania quote:', err);
       const errorMsg = err instanceof Error ? err.message : 'Failed to request quote from Drivania. Please try again.';
       // Check if error contains PEAK_PERIOD and provide user-friendly message
       if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period')) {
@@ -2035,7 +1903,6 @@ export default function ResultsPage() {
   });
 
   const handleEditManually = () => {
-    console.log('✏️ [PREVIEW] Opening manual edit form...');
     // Set editingLocations with preview data (pre-filled)
     setEditingLocations(previewLocations);
     // Update driver notes
@@ -2062,7 +1929,6 @@ export default function ResultsPage() {
   };
 
   const handleCancelPreview = () => {
-    console.log('❌ [PREVIEW] Cancelling changes...');
     setShowPreviewModal(false);
     setPreviewLocations([]);
     setPreviewChanges({ removed: [], modified: [], added: [] });
@@ -2104,10 +1970,6 @@ export default function ResultsPage() {
 
   // Transform AI comparison result to our diff format for UI display
   const transformComparisonToDiff = (comparison: any, extractedData: any) => {
-    console.log(`🔍 [TRANSFORM-DIAG] Starting transformation of comparison result`);
-    console.log(`   - Current trip has ${tripData?.locations?.length || 0} locations`);
-    console.log(`   - Comparison has ${comparison.locations?.length || 0} location changes`);
-    console.log(`   - Trip destination: "${tripDestination}"`);
 
     const diff: any = {
       tripDateChanged: comparison.tripDateChanged || false,
@@ -2146,19 +2008,14 @@ export default function ResultsPage() {
       comparison.locations.forEach((locChange: any) => {
         // GUARD: Skip invalid location changes
         if (!locChange || typeof locChange !== 'object') {
-          console.warn('⚠️ Skipping invalid location change (not an object):', locChange);
           return;
         }
 
         if (!locChange.action) {
-          console.warn('⚠️ Skipping location change without action:', locChange);
           return;
         }
 
         if (locChange.action === 'removed') {
-          console.log(`🗑️ [REMOVAL-DIAG] Removing location at index ${locChange.currentIndex}: "${locChange.currentLocation?.name || locChange.currentLocation?.address || 'Unknown'}"`);
-          console.log(`   - fullAddress: "${locChange.currentLocation?.fullAddress || 'MISSING'}"`);
-          console.log(`   - coordinates: (${locChange.currentLocation?.lat || 0}, ${locChange.currentLocation?.lng || 0})`);
           diff.locations.push({
             type: 'removed',
             index: locChange.currentIndex,
@@ -2185,19 +2042,16 @@ export default function ResultsPage() {
 
             // GUARD: Validate finalLocation is a proper object with required fields
             if (!finalLoc || typeof finalLoc !== 'object') {
-              console.error('❌ Invalid finalLocation for added action (not an object):', finalLoc);
               return; // Skip this location
             }
 
             // GUARD: Ensure lat/lng exist and are numbers (allow 0 for now, existing logic handles it)
             if (finalLoc.lat === undefined || finalLoc.lng === undefined) {
-              console.error('❌ Invalid finalLocation for added action (missing lat/lng):', finalLoc);
               return; // Skip this location
             }
 
             // FIX: Validate and fix ID for added locations
             if (!finalLoc.id || finalLoc.id === 'currentLocation.id' || finalLoc.id === 'extractedLocation.id' || finalLoc.id.includes('Location.id')) {
-              console.warn(`⚠️ [FIX] AI returned invalid ID for added location: "${finalLoc.id}", generating new one`);
               finalLoc.id = `location-added-${locChange.extractedIndex}-${Date.now()}`;
             }
 
@@ -2244,7 +2098,6 @@ export default function ResultsPage() {
 
             // Handle insertion logic
             if (isInsertion && insertPos) {
-              console.log(`📌 [INSERT] Adding location ${insertPos.type} reference index ${insertPos.referenceIndex} (${insertPos.referenceName})`);
 
               const insertAtIndex = insertPos.type === 'after' ? insertPos.referenceIndex + 1 : insertPos.referenceIndex;
 
@@ -2266,7 +2119,6 @@ export default function ResultsPage() {
               Object.keys(finalLocationsMap).forEach(key => delete (finalLocationsMap as any)[key]);
               Object.assign(finalLocationsMap, shiftedMap);
 
-              console.log(`✅ [INSERT] Location inserted at index ${insertAtIndex}`);
             } else {
               // Regular append at extracted index
               finalLocationsMap[locChange.extractedIndex] = finalLoc;
@@ -2293,10 +2145,8 @@ export default function ResultsPage() {
 
             // GUARD: Validate finalLocation is a proper object with required fields
             if (!finalLoc || typeof finalLoc !== 'object') {
-              console.error('❌ Invalid finalLocation for modified action (not an object):', finalLoc);
               // Fallback: Use current location if available
               if (currentLoc) {
-                console.log('↩️ Falling back to current location for index', locChange.currentIndex);
                 finalLocationsMap[locChange.currentIndex] = currentLoc;
               }
               return; // Skip to next location
@@ -2304,10 +2154,8 @@ export default function ResultsPage() {
 
             // GUARD: Ensure lat/lng exist (allow 0 for now, existing logic handles it)
             if (finalLoc.lat === undefined || finalLoc.lng === undefined) {
-              console.error('❌ Invalid finalLocation for modified action (missing lat/lng):', finalLoc);
               // Fallback: Use current location if available
               if (currentLoc) {
-                console.log('↩️ Falling back to current location for index', locChange.currentIndex);
                 finalLocationsMap[locChange.currentIndex] = currentLoc;
               }
               return; // Skip to next location
@@ -2315,13 +2163,11 @@ export default function ResultsPage() {
 
             // FIX: Validate and fix ID if AI returned literal string instead of actual value
             if (!finalLoc.id || finalLoc.id === 'currentLocation.id' || finalLoc.id === 'extractedLocation.id' || finalLoc.id.includes('Location.id')) {
-              console.warn(`⚠️ [FIX] AI returned invalid ID: "${finalLoc.id}", using fallback`);
               finalLoc.id = currentLoc?.id || `location-${locChange.currentIndex}-${Date.now()}`;
             }
 
             // FIX: Preserve address fields for time-only changes (prevent address corruption)
             if (locChange.changes?.timeChanged && !locChange.changes?.addressChanged && currentLoc) {
-              console.log(`🔧 [FIX] Time-only change detected, preserving address fields from current location`);
               finalLoc.fullAddress = (currentLoc as any).fullAddress || finalLoc.fullAddress;
               finalLoc.formattedAddress = (currentLoc as any).formattedAddress || finalLoc.formattedAddress;
               finalLoc.address = (currentLoc as any).address || finalLoc.address;
@@ -2354,10 +2200,8 @@ export default function ResultsPage() {
                 finalLoc.address ||
                 finalLoc.name;
               if (finalLoc.fullAddress !== beforeFullAddress) {
-                console.log(`🔍 [ADDRESS-DIAG] Location ${locChange.currentIndex} fullAddress set: "${beforeFullAddress}" → "${finalLoc.fullAddress}" (source: ${locChange.extractedLocation.formattedAddress ? 'formattedAddress' : locChange.extractedLocation.location ? 'location' : finalLoc.address ? 'address' : 'name'})`);
                 // Check if address is just city name
                 if (finalLoc.fullAddress && finalLoc.fullAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
-                  console.warn(`⚠️ [ADDRESS-DIAG] WARNING: Location ${locChange.currentIndex} fullAddress is just city name "${finalLoc.fullAddress}" - this might be a fallback issue!`);
                 }
               }
             }
@@ -2368,9 +2212,7 @@ export default function ResultsPage() {
                 finalLoc.address ||
                 finalLoc.name;
               if (finalLoc.formattedAddress !== beforeFormattedAddress) {
-                console.log(`🔍 [ADDRESS-DIAG] Location ${locChange.currentIndex} formattedAddress set: "${beforeFormattedAddress}" → "${finalLoc.formattedAddress}"`);
                 if (finalLoc.formattedAddress && finalLoc.formattedAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
-                  console.warn(`⚠️ [ADDRESS-DIAG] WARNING: Location ${locChange.currentIndex} formattedAddress is just city name "${finalLoc.formattedAddress}" - this might be a fallback issue!`);
                 }
               }
             }
@@ -2395,7 +2237,6 @@ export default function ResultsPage() {
             // FIX: Validate ID first
             let locationId = currentLoc?.id || (locChange.currentIndex + 1).toString();
             if (locationId === 'currentLocation.id' || locationId === 'extractedLocation.id' || locationId.includes('Location.id')) {
-              console.warn(`⚠️ [FIX] Invalid ID detected: "${locationId}", generating new one`);
               locationId = `location-${locChange.currentIndex}-${Date.now()}`;
             }
 
@@ -2420,12 +2261,6 @@ export default function ResultsPage() {
                 locChange.currentLocation.name);
             // Diagnostic logging for address assignment
             if (fullAddress && fullAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
-              console.warn(`⚠️ [ADDRESS-DIAG] Location ${locChange.currentIndex} fullAddress resolved to just city name "${fullAddress}"`);
-              console.warn(`   - timeOnlyChange: ${timeOnlyChange}, currentFullAddress: "${currentFullAddress}"`);
-              console.warn(`   - extractedLocation.formattedAddress: "${locChange.extractedLocation.formattedAddress}"`);
-              console.warn(`   - extractedLocation.location: "${locChange.extractedLocation.location}"`);
-              console.warn(`   - currentLocation.address: "${locChange.currentLocation.address}"`);
-              console.warn(`   - currentLocation.name: "${locChange.currentLocation.name}"`);
             }
 
             const purpose = locChange.extractedLocation.purpose || locChange.currentLocation.purpose || locChange.currentLocation.name;
@@ -2489,7 +2324,6 @@ export default function ResultsPage() {
       comparison.locations.forEach((loc: any) => {
         if (loc.action === 'removed') {
           removedIndices.add(loc.currentIndex);
-          console.log(`🗑️ [REMOVAL] Marking location ${loc.currentIndex} for removal: ${loc.currentLocation?.name || 'Unknown'}`);
         }
       });
     }
@@ -2500,13 +2334,11 @@ export default function ResultsPage() {
       tripData.locations.forEach((currentLoc: any, idx: number) => {
         // Skip if explicitly removed
         if (removedIndices.has(idx)) {
-          console.log(`⛔ [REMOVAL] Skipping removed location ${idx}: ${currentLoc.name}`);
           return;
         }
 
         // If this location index doesn't exist in finalLocationsMap yet, add it
         if (finalLocationsMap[idx] === undefined) {
-          console.log(`🔄 Preserving missing location at index ${idx}: ${currentLoc.name}`);
           finalLocationsMap[idx] = {
             id: currentLoc.id,
             name: currentLoc.name,
@@ -2523,13 +2355,10 @@ export default function ResultsPage() {
         else if (finalLocationsMap[idx] && (!finalLocationsMap[idx].lat || !finalLocationsMap[idx].lng || finalLocationsMap[idx].lat === 0 || finalLocationsMap[idx].lng === 0)) {
           const beforeLat = finalLocationsMap[idx].lat;
           const beforeLng = finalLocationsMap[idx].lng;
-          console.log(`🔄 [COORD-DIAG] Restoring coordinates for location at index ${idx}: ${currentLoc.name}`);
-          console.log(`   - Before: (${beforeLat}, ${beforeLng}) → After: (${currentLoc.lat}, ${currentLoc.lng})`);
           finalLocationsMap[idx].lat = currentLoc.lat;
           finalLocationsMap[idx].lng = currentLoc.lng;
         } else if (finalLocationsMap[idx]) {
           // Log coordinate state even if not restoring
-          console.log(`🔍 [COORD-DIAG] Location ${idx} "${currentLoc.name}" has coordinates: (${finalLocationsMap[idx].lat}, ${finalLocationsMap[idx].lng})`);
         }
       });
     }
@@ -2540,17 +2369,13 @@ export default function ResultsPage() {
       .filter(idx => !isNaN(idx))
       .sort((a, b) => a - b);
 
-    console.log(`🔍 [FINAL-LOCATIONS-DIAG] Building final locations array from ${sortedIndices.length} indices`);
     diff.finalLocations = sortedIndices.map(idx => {
       const loc = finalLocationsMap[idx];
       // Log each location's state
-      console.log(`   [${idx}] "${loc.name}" - coords: (${loc.lat}, ${loc.lng}), fullAddress: "${loc.fullAddress || 'MISSING'}", formattedAddress: "${loc.formattedAddress || 'MISSING'}"`);
       // Check for issues
       if (loc.lat === 0 && loc.lng === 0) {
-        console.warn(`   ⚠️ [${idx}] Location has invalid coordinates (0, 0)!`);
       }
       if (loc.fullAddress && loc.fullAddress.toLowerCase() === (tripDestination || '').toLowerCase()) {
-        console.warn(`   ⚠️ [${idx}] Location fullAddress is just city name "${loc.fullAddress}"!`);
       }
       return loc;
     });
@@ -2560,7 +2385,6 @@ export default function ResultsPage() {
     diff.finalLocations = diff.finalLocations.map((loc: any, idx: number) => {
       if (usedIds.has(loc.id)) {
         const newId = `location-${idx}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        console.warn(`⚠️ [FIX] Duplicate ID detected: "${loc.id}" at index ${idx}, replacing with: "${newId}"`);
         return { ...loc, id: newId };
       }
       usedIds.add(loc.id);
@@ -2569,7 +2393,6 @@ export default function ResultsPage() {
 
     // If no locations in final (shouldn't happen, but fallback), preserve all current locations
     if (diff.finalLocations.length === 0 && tripData?.locations && tripData.locations.length > 0) {
-      console.log('⚠️ No final locations found, preserving all current locations as fallback');
       diff.finalLocations = tripData.locations.map((loc: any, idx: number) => ({
         id: loc.id,
         name: loc.name,
@@ -2612,17 +2435,11 @@ export default function ResultsPage() {
     try {
       const tripDateStr = tripDateObj.toISOString().split('T')[0];
 
-      console.log(`\n${'='.repeat(80)}`);
-      console.log(`🔄 Regenerating Trip Analysis - Version ${(currentVersion || 1) + 1}`);
-      console.log(`🗓️  Trip Date: ${tripDateStr}`);
-      console.log(`📍 Analyzing ${validLocations.length} location(s)`);
-      console.log(`${'='.repeat(80)}\n`);
 
       const days = 7; // Fixed period for trip planning
 
       // Get city configuration for conditional API calls
       const cityConfig = getCityConfig(tripDestination);
-      console.log(`🌍 [RESULTS] City configuration: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
 
       // Fetch data for all locations in parallel
       // Step 4 is already set to loading from handleRegenerateDirectly
@@ -2630,7 +2447,6 @@ export default function ResultsPage() {
       setRegenerationStep(`Fetching data for ${validLocations.length} location(s)...`);
       const results = await Promise.all(
         validLocations.map(async (location) => {
-          console.log(`\n🔍 Fetching data for Location ${numberToLetter(validLocations.indexOf(location) + 1)}: ${location.name} at ${location.time}`);
 
           const tempDistrictId = `custom-${Date.now()}-${location.id}`;
 
@@ -2664,7 +2480,6 @@ export default function ResultsPage() {
             for (let i = 0; i < responses.length; i++) {
               if (!responses[i].ok) {
                 const errorText = await responses[i].text();
-                console.error(`❌ ${responseNames[i]} API failed:`, responses[i].status, errorText);
                 throw new Error(`${responseNames[i]} API returned ${responses[i].status}: ${errorText}`);
               }
             }
@@ -2672,7 +2487,6 @@ export default function ResultsPage() {
             // For non-London, only check weather API
             if (!weatherResponse.ok) {
               const errorText = await weatherResponse.text();
-              console.error(`❌ weather API failed:`, weatherResponse.status, errorText);
               throw new Error(`weather API returned ${weatherResponse.status}: ${errorText}`);
             }
           }
@@ -2701,7 +2515,6 @@ export default function ResultsPage() {
           try {
             cafeData = await searchNearbyCafes(location.lat, location.lng, location.name);
           } catch (cafeError) {
-            console.error('❌ Error fetching cafes:', cafeError);
             cafeData = {
               location: location.name,
               coordinates: { lat: location.lat, lng: location.lng },
@@ -2715,7 +2528,6 @@ export default function ResultsPage() {
           try {
             emergencyServicesData = await searchEmergencyServices(location.lat, location.lng, location.name);
           } catch (emergencyError) {
-            console.error('❌ Error fetching emergency services:', emergencyError);
             emergencyServicesData = {
               location: location.name,
               coordinates: { lat: location.lat, lng: location.lng },
@@ -2751,12 +2563,10 @@ export default function ResultsPage() {
         s.id === '4' ? { ...s, status: 'completed' as const } :
           s.id === '5' ? { ...s, status: 'loading' as const } : s
       ));
-      console.log('🚦 Fetching traffic predictions...');
       let trafficData = null;
       try {
         trafficData = await getTrafficPredictions(validLocations, tripDateStr, tripDestination);
       } catch (trafficError) {
-        console.error('❌ Traffic prediction error:', trafficError);
         trafficData = {
           success: false,
           error: 'Failed to get traffic predictions',
@@ -2770,7 +2580,6 @@ export default function ResultsPage() {
         s.id === '5' ? { ...s, status: 'completed' as const } :
           s.id === '6' ? { ...s, status: 'loading' as const } : s
       ));
-      console.log('🤖 Generating Executive Peace of Mind Report...');
       let executiveReportData = null;
 
       try {
@@ -2808,10 +2617,8 @@ export default function ResultsPage() {
 
         if (reportResult.success) {
           executiveReportData = reportResult.data;
-          console.log('✅ Executive Report Generated!');
         }
       } catch (reportError) {
-        console.error('⚠️ Could not generate executive report:', reportError);
       }
 
       // Prepare passenger name for database storage
@@ -2853,14 +2660,10 @@ export default function ResultsPage() {
           };
         }
         // If no result found at this index, log warning and keep original location
-        console.warn(`⚠️ No result found at index ${idx} for location ${loc.id} (${loc.name}), keeping original location`);
-        console.warn(`   Results length: ${results.length}, validLocations length: ${validLocations.length}`);
         return loc;
       });
 
-      console.log('💾 [DEBUG] Locations with coordinates before saving:');
       locationsWithCoordinates.forEach((loc, idx) => {
-        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng}) - ${loc.fullAddress}`);
       });
 
       const updateData: any = {
@@ -2886,7 +2689,6 @@ export default function ResultsPage() {
         s.id === '6' ? { ...s, status: 'completed' as const } :
           s.id === '7' ? { ...s, status: 'loading' as const } : s
       ));
-      console.log(`💾 Updating trip ${tripId} with version ${updateData.version}...`);
       const { data: updatedTrip, error: updateError } = await supabase
         .from('trips')
         .update(updateData)
@@ -2895,13 +2697,9 @@ export default function ResultsPage() {
         .single();
 
       if (updateError || !updatedTrip) {
-        console.error('❌ Error updating trip:', updateError);
         throw new Error(`Failed to update trip: ${updateError?.message || 'Unknown error'}`);
       }
 
-      console.log('✅ Trip updated successfully');
-      console.log(`🔗 Trip ID: ${tripId}`);
-      console.log(`📌 Version: ${updateData.version}`);
 
       setRegenerationProgress(100);
       setRegenerationStep('Update complete!');
@@ -2919,19 +2717,15 @@ export default function ResultsPage() {
 
         // Show notification modal if driver is set
         if (driverEmail) {
-          console.log('🔔 [DEBUG] Driver assigned, showing notification modal');
           setTimeout(() => {
-            console.log('🔔 [DEBUG] Setting showUpdateNotificationModal to true');
             setShowUpdateNotificationModal(true);
           }, 500); // Increased delay for modal transition
         } else {
-          console.log('📝 [DEBUG] No driver assigned, reloading page');
           // No driver, just reload
           window.location.reload();
         }
       }, 1000); // Increased to show "Update complete!" clearly
     } catch (err) {
-      console.error('❌ Error regenerating report:', err);
       setError(err instanceof Error ? err.message : 'Failed to regenerate report');
       setIsRegenerating(false);
     }
@@ -3098,6 +2892,7 @@ export default function ResultsPage() {
               tripDestination={tripDestination}
               quoteParam={quoteParam}
               isAuthenticated={isAuthenticated}
+              isOwner={isOwner}
               isTripCompleted={isTripCompleted}
               isTripWithinOneHour={isTripWithinOneHour}
               findClosestLocation={findClosestLocation}
@@ -3234,16 +3029,16 @@ export default function ResultsPage() {
           {executiveReport && (
             <div className="space-y-4 mb-6">
               {/* Top row: Risk Score (33%) and Top Disruptor (66%) */}
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 {/* Risk Score - 33% width */}
-                <Card className="bg-primary dark:bg-[#1f1f21] w-1/3 flex-shrink-0">
-                  <CardContent className="px-3 py-1 pl-6">
-                    <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-2">
+                <Card className="bg-primary dark:bg-[#1f1f21] w-full sm:w-1/3 flex-shrink-0">
+                  <CardContent className="px-3 sm:px-4 py-3 sm:py-4 pl-4 sm:pl-6">
+                    <h4 className="text-lg sm:text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-3 sm:mb-2">
                       Risk score
                     </h4>
-                    <div className="bg-card border border-border rounded-md p-3 text-center">
+                    <div className="bg-card border border-border rounded-md p-3 sm:p-4 text-center">
                       <div
-                        className="text-5xl font-bold mb-1"
+                        className="text-4xl sm:text-5xl font-bold mb-1"
                         style={{
                           color: (() => {
                             const riskScore = Math.max(0, executiveReport.tripRiskScore);
@@ -3255,11 +3050,11 @@ export default function ResultsPage() {
                       >
                         {Math.max(0, executiveReport.tripRiskScore)}
                       </div>
-                      <div className="text-sm text-muted-foreground font-medium mb-2">
+                      <div className="text-xs sm:text-sm text-muted-foreground font-medium mb-2">
                         out of 10
                       </div>
                       <div
-                        className="text-sm font-semibold tracking-wide px-3 py-1 rounded"
+                        className="text-xs sm:text-sm font-semibold tracking-wide px-3 py-1.5 sm:py-1 rounded"
                         style={{
                           backgroundColor: (() => {
                             const riskScore = Math.max(0, executiveReport.tripRiskScore);
@@ -3279,12 +3074,12 @@ export default function ResultsPage() {
                 </Card>
 
                 {/* Top Disruptor - fills remaining space */}
-                <Card className="bg-primary dark:bg-[#1f1f21] flex-1">
-                  <CardContent className="px-3 py-1 pl-6">
-                    <h4 className="text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-3">
+                <Card className="bg-primary dark:bg-[#1f1f21] w-full sm:flex-1">
+                  <CardContent className="px-3 sm:px-4 py-3 sm:py-4 pl-4 sm:pl-6">
+                    <h4 className="text-lg sm:text-xl font-semibold text-primary-foreground dark:text-card-foreground mb-2 sm:mb-3">
                       Top Disruptor
                     </h4>
-                    <p className="text-lg text-primary-foreground/80 dark:text-muted-foreground leading-snug">
+                    <p className="text-base sm:text-lg text-primary-foreground/80 dark:text-muted-foreground leading-snug break-words">
                       {executiveReport.topDisruptor}
                     </p>
                   </CardContent>
@@ -3293,17 +3088,17 @@ export default function ResultsPage() {
 
               {/* Bottom row: Recommendations for the Driver - full width */}
               <Card className="shadow-none">
-                <CardContent className="px-3 py-1 pl-6">
+                <CardContent className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 pl-4 sm:pl-6">
                   <div className="mb-3">
-                    <h4 className="text-xl font-semibold text-card-foreground">Recommendations for the Driver</h4>
+                    <h4 className="text-lg sm:text-xl font-semibold text-card-foreground">Recommendations for the Driver</h4>
                   </div>
-                  <div className="text-lg leading-snug">
+                  <div className="text-base sm:text-lg leading-snug">
                     {executiveReport.recommendations.map((rec: string, idx: number) => (
-                      <div key={idx} className="flex items-start gap-2 mb-0.5">
+                      <div key={idx} className="flex items-start gap-2 mb-1 sm:mb-0.5">
                         <svg className="w-4 h-4 text-card-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
-                        <span>{rec}</span>
+                        <span className="break-words">{rec}</span>
                       </div>
                     ))}
                   </div>
@@ -3315,12 +3110,6 @@ export default function ResultsPage() {
           {/* Executive Report */}
           {executiveReport && (
             <>
-              {/* Debug: Log executive report data */}
-              {console.log('🔍 Executive Report Data:', executiveReport)}
-              {console.log('🔍 Recommendations:', executiveReport.recommendations)}
-              {console.log('🔍 Highlights:', executiveReport.highlights)}
-              {console.log('🔍 Exceptional Info:', executiveReport.exceptionalInformation)}
-              {console.log('🔍 Important Info:', executiveReport.importantInformation)}
 
 
 
@@ -3908,7 +3697,7 @@ export default function ResultsPage() {
 
       {/* Preview Modal for AI-Assisted Updates */}
       <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Review changes</DialogTitle>
             <DialogDescription>

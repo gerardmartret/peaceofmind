@@ -66,7 +66,6 @@ export function FlowAModal({
         const statusResult = await statusResponse.json();
         if (statusResult.success) {
           onStatusUpdate('pending');
-          console.log('✅ [FLOW A] Trip status set to pending (awaiting driver acceptance)');
         }
       }
 
@@ -77,7 +76,6 @@ export function FlowAModal({
       onCloseDriverModal();
       onDismiss();
     } catch (err) {
-      console.error('❌ Error in Flow A:', err);
       onError('An error occurred');
     }
   };

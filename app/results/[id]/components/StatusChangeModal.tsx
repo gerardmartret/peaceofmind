@@ -68,7 +68,6 @@ export function StatusChangeModal({
         const statusResult = await statusResponse.json();
         if (statusResult.success) {
           onStatusUpdate('confirmed');
-          console.log('✅ Trip confirmed');
         }
       }
 
@@ -90,13 +89,11 @@ export function StatusChangeModal({
         });
 
         const notifyResult = await notifyResponse.json();
-        console.log('✅ Confirmation notification response:', notifyResult);
 
         // Show success message
         onStatusModalSuccessUpdate('Confirmation sent to driver successfully!');
       }
     } catch (err) {
-      console.error('❌ Error sending confirmation:', err);
       onStatusModalSuccessUpdate('Failed to send confirmation. Please try again.');
     } finally {
       onResendingConfirmationUpdate(false);
@@ -112,11 +109,9 @@ export function StatusChangeModal({
 
       // Capture driver email BEFORE any operations
       const driverToNotify = driverEmail;
-      console.log('📧 Preparing to notify driver of cancellation');
 
       // STEP 1: Send cancellation notification to driver FIRST (before DB changes)
       if (driverToNotify && tripId) {
-        console.log(`📧 Sending cancellation email to driver`);
         const notifyResponse = await fetch('/api/notify-status-change', {
           method: 'POST',
           headers: {
@@ -134,7 +129,6 @@ export function StatusChangeModal({
         });
 
         const notifyResult = await notifyResponse.json();
-        console.log('✅ Cancellation notification response:', notifyResult);
       }
 
       // STEP 2: Now update trip status to cancelled (clears driver in DB)
@@ -149,12 +143,10 @@ export function StatusChangeModal({
         });
 
         const statusResult = await statusResponse.json();
-        console.log('📊 Status update response:', statusResult);
 
         if (statusResult.success) {
           onStatusUpdate('cancelled');
           onDriverEmailUpdate(null); // Clear driver assignment in UI
-          console.log('✅ Trip cancelled - status set to cancelled, driver cleared');
 
           // Show success message
           if (driverToNotify) {
@@ -163,14 +155,12 @@ export function StatusChangeModal({
             onStatusModalSuccessUpdate('Service cancelled successfully.');
           }
         } else {
-          console.error('❌ Failed to update trip status:', statusResult.error);
           onStatusModalSuccessUpdate(`Failed to cancel trip: ${statusResult.error || 'Unknown error'}`);
           onCancellingTripUpdate(false);
           return;
         }
       }
     } catch (err) {
-      console.error('Error cancelling trip:', err);
       onStatusModalSuccessUpdate('Failed to cancel trip. Please try again.');
     } finally {
       onCancellingTripUpdate(false);

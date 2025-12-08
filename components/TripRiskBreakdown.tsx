@@ -80,7 +80,6 @@ function calculateLocationRisks(locationData: any): {
 } {
   // Add safety checks for data structure
   if (!locationData || !locationData.crime || !locationData.weather || !locationData.disruptions || !locationData.events) {
-    console.error('Missing location data:', locationData);
     return {
       safety: { score: 0, level: 'high', crimes: 0, topCrimes: [] },
       weather: { level: 'high', temp: { min: 0, max: 0 }, precipitation: 0, rainyDays: 0, windSpeed: 0 },

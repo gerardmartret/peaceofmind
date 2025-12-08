@@ -11,7 +11,6 @@ import { isAirportLocation } from './location-helpers';
  * Strips email metadata (headers, command markers) from update text
  */
 export const stripEmailMetadata = (text: string): string => {
-  console.log('🧹 [PRE-PROCESSING] Stripping email headers...');
 
   // Remove standalone email headers ONLY (headers on their own line or with just email/date after colon)
   // Match patterns like "From: email@domain.com\n" or "Subject: Some Subject\n"
@@ -40,7 +39,6 @@ export const stripEmailMetadata = (text: string): string => {
 
   const removedChars = text.length - cleaned.length;
   if (removedChars > 0) {
-    console.log(`✅ [PRE-PROCESSING] Removed ${removedChars} characters of email metadata`);
   }
 
   return cleaned.trim();
@@ -58,7 +56,6 @@ export const detectUnchangedFields = (updateText: string): Set<string> => {
     text.includes('everything else same') || text.includes('rest unchanged');
 
   if (hasSameLanguage) {
-    console.log('🔍 [POST-PROCESSING] Detected "same" language - will validate extracted fields');
 
     // If update doesn't explicitly mention these fields, they should be unchanged
     if (!text.includes('vehicle') && !text.includes('car') && !text.includes('mercedes') &&
@@ -133,10 +130,6 @@ export const mapExtractedToManualForm = (
   currentLocations: any[],
   extractedData: ExtractedData
 ): Omit<ManualFormLocation, 'originalIndex'>[] => {
-  console.log('🔄 [MAP] Mapping extracted data to manual form format...');
-  console.log(`📍 [MAP] Current locations: ${currentLocations.length}`);
-  console.log(`📍 [MAP] Extracted locations: ${extractedData.locations?.length || 0}`);
-  console.log(`🗑️ [MAP] Removals: ${extractedData.removedLocations?.length || 0}`);
 
   // Step 1: Convert current locations to manual form format
   let manualLocations: ManualFormLocation[] = currentLocations.map((loc, idx) => ({
@@ -196,12 +189,10 @@ export const mapExtractedToManualForm = (
           }
           return false;
         });
-        console.log(`🗑️ [MAP] Removing location ${idx + 1}: ${loc.location} (matched: "${matchedRemoval}")`);
       }
 
       return !shouldRemove;
     });
-    console.log(`✅ [MAP] Removed ${beforeCount - manualLocations.length} location(s)`);
   }
 
   // Step 3: Helper function to match extracted location to current
@@ -210,7 +201,6 @@ export const mapExtractedToManualForm = (
     if (extractedLoc.locationIndex !== undefined) {
       const targetIdx = extractedLoc.locationIndex;
       if (targetIdx >= 0 && targetIdx < currentLocs.length) {
-        console.log(`✅ [MAP] Index match: locationIndex ${targetIdx}`);
         return { matched: true, index: targetIdx, confidence: 'high' };
       }
     }
@@ -225,11 +215,9 @@ export const mapExtractedToManualForm = (
     const isDropoff = combinedText.includes('dropoff') || combinedText.includes('drop off') || combinedText.includes('destination');
 
     if (isPickup && currentLocs.length > 0) {
-      console.log(`✅ [MAP] Pickup match: index 0 (from purpose: "${extractedLoc.purpose}")`);
       return { matched: true, index: 0, confidence: 'high' };
     }
     if (isDropoff && currentLocs.length > 0) {
-      console.log(`✅ [MAP] Dropoff match: index ${currentLocs.length - 1} (from purpose: "${extractedLoc.purpose}")`);
       return { matched: true, index: currentLocs.length - 1, confidence: 'high' };
     }
 
@@ -241,11 +229,9 @@ export const mapExtractedToManualForm = (
       combinedText.includes('leaving') || combinedText.includes('leave') || combinedText.includes('departed');
 
     if (isArrival && currentLocs.length > 0) {
-      console.log(`✅ [MAP] Arrival match → Pickup: index 0 (from purpose: "${extractedLoc.purpose}")`);
       return { matched: true, index: 0, confidence: 'high' };
     }
     if (isDeparture && currentLocs.length > 0) {
-      console.log(`✅ [MAP] Departure match → Dropoff: index ${currentLocs.length - 1} (from purpose: "${extractedLoc.purpose}")`);
       return { matched: true, index: currentLocs.length - 1, confidence: 'high' };
     }
 
@@ -259,7 +245,6 @@ export const mapExtractedToManualForm = (
 
       // Exact match
       if (extractedName === currentName || extractedName === currentPurpose) {
-        console.log(`✅ [MAP] Exact name match: index ${i}`);
         return { matched: true, index: i, confidence: 'high' };
       }
 
@@ -270,7 +255,6 @@ export const mapExtractedToManualForm = (
         extractedName.includes(currentPurpose) ||
         currentPurpose.includes(extractedName)
       )) {
-        console.log(`✅ [MAP] Partial name match: index ${i}`);
         return { matched: true, index: i, confidence: 'medium' };
       }
 
@@ -280,7 +264,6 @@ export const mapExtractedToManualForm = (
         extractedPurpose.includes(currentPurpose) ||
         currentPurpose.includes(extractedPurpose)
       )) {
-        console.log(`✅ [MAP] Purpose match: index ${i}`);
         return { matched: true, index: i, confidence: 'medium' };
       }
     }
@@ -309,7 +292,6 @@ export const mapExtractedToManualForm = (
       // If it matches (especially pickup/dropoff), treat as modification regardless of insertion metadata
       if (match.matched && match.index !== undefined) {
         const idx = match.index;
-        console.log(`✏️ [MAP] Modifying location ${idx + 1}: ${manualLocations[idx].location} → ${extractedLoc.location}`);
 
         // Only update time if it was explicitly provided and is different from current
         // Preserve original time if extracted time is empty, same, or appears to be a default
@@ -355,9 +337,7 @@ export const mapExtractedToManualForm = (
         };
 
         if (shouldUpdateTime) {
-          console.log(`⏰ [MAP] Time updated for location ${idx + 1}: ${currentTime} → ${extractedTime}`);
         } else if (timeIsDifferent) {
-          console.log(`⏰ [MAP] Time preserved for location ${idx + 1} (extracted "${extractedTime}" appears to be default, keeping "${currentTime}")`);
         }
       }
     });
@@ -430,13 +410,11 @@ export const mapExtractedToManualForm = (
         const afterMatch = purposeLower.match(/(?:after|following|post)\s+(.+?)(?:\s|$)/);
         if (afterMatch && afterMatch[1]) {
           insertAfter = afterMatch[1].trim();
-          console.log(`🔍 [MAP] Parsed insertAfter from purpose: "${insertAfter}"`);
         }
         // Check for "before [location]" pattern
         const beforeMatch = purposeLower.match(/(?:before|prior to|pre)\s+(.+?)(?:\s|$)/);
         if (beforeMatch && beforeMatch[1]) {
           insertBefore = beforeMatch[1].trim();
-          console.log(`🔍 [MAP] Parsed insertBefore from purpose: "${insertBefore}"`);
         }
       }
 
@@ -463,13 +441,10 @@ export const mapExtractedToManualForm = (
                        isAirportLocation(newLocation.formattedAddress);
 
       if (!hasValidLocation && !isAirport) {
-        console.warn(`⚠️ [MAP] Skipping empty location: location="${newLocation.location}", formattedAddress="${newLocation.formattedAddress}"`);
-        console.warn(`   - This location will not be added to the trip`);
         return; // Skip this location
       }
 
       if (!hasValidCoords && !extractedLoc.verified) {
-        console.warn(`⚠️ [MAP] Location "${newLocation.location}" has no coordinates and is not verified, but adding anyway (will be geocoded later)`);
       }
 
       if (insertAfter) {
@@ -477,10 +452,8 @@ export const mapExtractedToManualForm = (
         const refIndex = findReferenceIndex(insertAfter, manualLocations);
 
         if (refIndex !== -1) {
-          console.log(`➕ [MAP] Inserting after location ${refIndex + 1} (${manualLocations[refIndex].location}): ${extractedLoc.location}`);
           manualLocations.splice(refIndex + 1, 0, newLocation);
         } else {
-          console.log(`⚠️ [MAP] Could not find reference "${insertAfter}", appending at end`);
           manualLocations.push(newLocation);
         }
       } else if (insertBefore) {
@@ -488,15 +461,12 @@ export const mapExtractedToManualForm = (
         const refIndex = findReferenceIndex(insertBefore, manualLocations);
 
         if (refIndex !== -1) {
-          console.log(`➕ [MAP] Inserting before location ${refIndex + 1} (${manualLocations[refIndex].location}): ${extractedLoc.location}`);
           manualLocations.splice(refIndex, 0, newLocation);
         } else {
-          console.log(`⚠️ [MAP] Could not find reference "${insertBefore}", appending at end`);
           manualLocations.push(newLocation);
         }
       } else {
         // Append at end
-        console.log(`➕ [MAP] Adding new location at end: ${extractedLoc.location}`);
         manualLocations.push(newLocation);
       }
     });

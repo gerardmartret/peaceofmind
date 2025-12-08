@@ -28,6 +28,7 @@ interface LocationCardSectionProps {
   tripDestination: string;
   quoteParam: string | null;
   isAuthenticated: boolean;
+  isOwner: boolean;
   
   // Functions
   isTripCompleted: () => boolean;
@@ -55,6 +56,7 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
   tripDestination,
   quoteParam,
   isAuthenticated,
+  isOwner,
   isTripCompleted,
   isTripWithinOneHour,
   findClosestLocation,
@@ -104,7 +106,6 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
           onSetEditingTripDate(dateToSet);
         }
       } catch (e) {
-        console.error('Error parsing trip date:', e);
       }
     }
     
@@ -132,10 +133,10 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
 
   return (
     <Card className="mb-6 shadow-none">
-      <CardContent className="px-6 pt-3 pb-6">
-        <div className="mb-6 flex items-center justify-between gap-4">
+      <CardContent className="px-3 sm:px-4 md:px-6 pt-3 pb-4 sm:pb-6">
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <h3
-            className={`text-xl font-semibold text-card-foreground ${
+            className={`text-lg sm:text-xl font-semibold text-card-foreground ${
               tripCompleted
                 ? 'opacity-50 cursor-not-allowed'
                 : 'cursor-pointer hover:text-primary transition-colors'
@@ -150,28 +151,33 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
           </h3>
 
           {/* Action Buttons - Right Side */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
 
-            {/* Edit trip Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={handleEditTrip}
-            >
-              Edit trip
-            </Button>
+            {/* Edit trip Button - Only shown to owners */}
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm"
+                onClick={handleEditTrip}
+              >
+                <span className="hidden sm:inline">Edit trip</span>
+                <span className="sm:hidden">Edit</span>
+              </Button>
+            )}
 
             {/* View Map Button */}
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-2"
+              className="flex items-center gap-1.5 sm:gap-2 p-2 sm:px-3"
               onClick={onShowMapModal}
+              aria-label="View map"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
+              <span className="hidden sm:inline">Map</span>
             </Button>
           </div>
         </div>
@@ -179,25 +185,23 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
         <div className="relative">
           {/* Connecting Line */}
           <div
-            className="absolute w-px bg-primary/30"
+            className="absolute w-px bg-primary/30 left-[0.625rem] sm:left-3"
             style={{
               height: `${(locations.length - 1) * 4.5}rem - 1.5rem`,
-              left: '0.75rem',
               top: '0.75rem'
             }}
           ></div>
 
           {/* Transparent Line After Drop-off */}
           <div
-            className="absolute w-px bg-transparent"
+            className="absolute w-px bg-transparent left-[0.625rem] sm:left-3"
             style={{
               height: '1.5rem',
-              left: '0.75rem',
               top: `${(locations.length - 1) * 4.5}rem`
             }}
           ></div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 sm:space-y-4">
             {locations.map((location: any, index: number) => {
               // Find realism data for this leg
               const legRealism = timelineRealism.find(r => r.legIndex === index);

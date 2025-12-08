@@ -11,7 +11,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
@@ -26,7 +26,7 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
         }}
       />
       {/* Content */}
-      <div className="relative z-50">
+      <div className="relative z-50 w-full h-full sm:w-auto sm:h-auto">
         {children}
       </div>
     </div>
@@ -41,7 +41,7 @@ function DialogContent({ children, className, ...props }: DialogContentProps) {
   return (
     <div
       className={cn(
-        "bg-background border border-border rounded-lg shadow-lg p-6 max-w-md w-full mx-4",
+        "bg-background border border-border rounded-none sm:rounded-lg shadow-lg p-4 sm:p-6 max-w-md w-full h-full sm:h-auto sm:max-h-[90vh] sm:mx-4 overflow-y-auto",
         className
       )}
       {...props}
@@ -73,7 +73,7 @@ interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
 function DialogTitle({ children, className, ...props }: DialogTitleProps) {
   return (
     <h2
-      className={cn("text-xl font-semibold", className)}
+      className={cn("text-lg sm:text-xl font-semibold", className)}
       {...props}
     >
       {children}
@@ -103,7 +103,7 @@ interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {
 function DialogFooter({ children, className, ...props }: DialogFooterProps) {
   return (
     <div
-      className={cn("flex justify-end gap-3 mt-6", className)}
+      className={cn("flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-4 sm:mt-6", className)}
       {...props}
     >
       {children}

@@ -69,7 +69,6 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
 
   return (
     <Popover open={open} onOpenChange={(newOpen) => {
-      console.log('🔄 [TimePicker] Popover state change:', newOpen, 'value:', value);
       setOpen(newOpen);
     }}>
       <PopoverTrigger asChild>
@@ -78,7 +77,6 @@ export function TimePicker({ value, onChange, className, id }: TimePickerProps) 
           id={id}
           className={cn("w-full justify-start text-left font-normal bg-background", className)}
           onClick={(e) => {
-            console.log('🖱️ [TimePicker] Button clicked, current open state:', open, 'value:', value);
             // Don't prevent default, let PopoverTrigger handle it
           }}
         >

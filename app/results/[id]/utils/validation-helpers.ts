@@ -52,9 +52,6 @@ export const detectCoordinateMismatches = (
         (loc.lng > -0.14 && loc.lng < -0.07);
 
       if (isAirportAddress && inCentralLondon) {
-        console.error(`❌ [VALIDATION] Location ${i} has AIRPORT address but CENTRAL LONDON coords!`);
-        console.error(`   Address: ${loc.fullAddress}`);
-        console.error(`   Coords: ${loc.lat}, ${loc.lng}`);
         inconsistentLocations.push({ loc, index: i, reason: 'airport-central-mismatch' });
       }
 
@@ -67,16 +64,12 @@ export const detectCoordinateMismatches = (
         );
 
         if (distanceFromGatwick > 5) {
-          console.error(`❌ [VALIDATION] Gatwick address but coords are ${distanceFromGatwick.toFixed(1)}km away!`);
-          console.error(`   Address: ${loc.fullAddress}`);
-          console.error(`   Coords: ${loc.lat}, ${loc.lng}`);
           inconsistentLocations.push({ loc, index: i, reason: 'gatwick-distance-mismatch' });
         }
       }
 
       // Check 3: Generic "London, UK" address (likely geocoding fallback)
       if (loc.fullAddress === 'London, UK' || loc.fullAddress.length < 15) {
-        console.warn(`⚠️ [VALIDATION] Location ${i} has generic address: "${loc.fullAddress}"`);
         inconsistentLocations.push({ loc, index: i, reason: 'generic-address' });
       }
     }
@@ -94,11 +87,9 @@ export const regeocodeInconsistentLocations = async (
   tripDestination: string
 ): Promise<void> => {
   if (inconsistentLocations.length === 0) {
-    console.log('✅ [VALIDATION] All locations passed consistency checks');
     return;
   }
 
-  console.log(`🔧 [FIX] Re-geocoding ${inconsistentLocations.length} inconsistent locations...`);
   const cityConfig = getCityConfig(tripDestination);
 
   for (const inconsistent of inconsistentLocations) {
@@ -123,10 +114,8 @@ export const regeocodeInconsistentLocations = async (
         validLocations[inconsistent.index].lat = result.geometry.location.lat();
         validLocations[inconsistent.index].lng = result.geometry.location.lng();
         validLocations[inconsistent.index].fullAddress = result.formatted_address;
-        console.log(`✅ [FIX] Corrected location ${inconsistent.index}: ${result.formatted_address} (${result.geometry.location.lat()}, ${result.geometry.location.lng()})`);
       }
     } catch (err) {
-      console.error(`❌ Failed to re-geocode location ${inconsistent.index}:`, err);
     }
   }
 };

@@ -48,7 +48,6 @@ export function useRealtimeTripUpdates({
   useEffect(() => {
     if (!tripId || !isOwner) return;
 
-    console.log('🔄 Setting up realtime subscription for trip status updates');
 
     const channel = supabase
       .channel(`trip-status-${tripId}`)
@@ -61,31 +60,25 @@ export function useRealtimeTripUpdates({
           filter: `id=eq.${tripId}`,
         },
         (payload) => {
-          console.log('🔄 Realtime trip update received');
           const currentStatus = tripStatusRef.current;
           const currentDriver = driverEmailRef.current;
-          console.log('📊 Current UI state - Status:', currentStatus, 'Has driver:', !!currentDriver);
 
           if (payload.new) {
             const newStatus = payload.new.status;
             const newDriver = payload.new.driver;
 
-            console.log('📊 Database update - New status:', newStatus, 'New driver:', newDriver);
 
             // Update status if changed
             if (newStatus && newStatus !== currentStatus) {
-              console.log(`✅ Trip status updated via realtime: ${currentStatus} → ${newStatus}`);
               onStatusUpdate(newStatus);
 
               // Special case: Auto-confirmation from driver quote submission
               if (currentStatus === 'pending' && newStatus === 'confirmed') {
-                console.log('🎯 Detected Pending → Confirmed transition (likely from driver quote submission)');
               }
             }
 
             // Update driver if changed
             if (newDriver !== undefined && newDriver !== currentDriver) {
-              console.log(`✅ Driver updated via realtime: ${currentDriver ? 'assigned' : 'unassigned'} → ${newDriver ? 'assigned' : 'unassigned'}`);
               onDriverUpdate(newDriver);
             }
           }
@@ -94,7 +87,6 @@ export function useRealtimeTripUpdates({
       .subscribe();
 
     return () => {
-      console.log('🔄 Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [tripId, isOwner, onStatusUpdate, onDriverUpdate]);

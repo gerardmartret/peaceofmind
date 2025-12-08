@@ -107,7 +107,6 @@ export function useTripActions({
 
         // Handle non-JSON responses
         if (!response.ok) {
-          console.error('❌ Failed to fetch driver suggestions:', response.statusText);
           return;
         }
 
@@ -116,12 +115,9 @@ export function useTripActions({
         if (result.success) {
           setDriverSuggestions(result.drivers || []);
           setFilteredDriverSuggestions(result.drivers || []);
-          console.log(`✅ Loaded ${result.drivers?.length || 0} driver suggestions`);
         } else {
-          console.error('❌ Failed to fetch driver suggestions:', result.error);
         }
       } catch (err) {
-        console.error('❌ Error fetching driver suggestions:', err);
       }
     }
 
@@ -140,7 +136,6 @@ export function useTripActions({
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        console.error('❌ No session found');
         return;
       }
 
@@ -159,12 +154,9 @@ export function useTripActions({
       const result = await safeJsonParse(response);
 
       if (result.success) {
-        console.log(`✅ Status change notification sent to driver`);
       } else {
-        console.error('❌ Failed to send status notification:', result.error);
       }
     } catch (err) {
-      console.error('❌ Error sending status notification:', err);
     } finally {
       setSendingStatusNotification(false);
     }
@@ -179,7 +171,6 @@ export function useTripActions({
     try {
       // If changing from confirmed to not confirmed AND notifying driver, send notification FIRST
       if (tripStatus === 'confirmed' && pendingStatus === 'not confirmed' && notifyDriver && driverEmail) {
-        console.log('📧 Sending notification before clearing driver...');
         await sendStatusChangeNotification();
       }
 
@@ -198,12 +189,10 @@ export function useTripActions({
       if (result.success) {
         const oldStatus = tripStatus;
         onStatusUpdate(pendingStatus);
-        console.log(`✅ Trip status updated to: ${pendingStatus}`);
 
         // If changing from confirmed to not confirmed, clear driver in UI
         if (oldStatus === 'confirmed' && pendingStatus === 'not confirmed') {
           onDriverUpdate(null);
-          console.log(`✅ Driver assignment cleared in UI`);
         }
 
         // Send notification for other cases (confirmed -> confirmed, not confirmed -> confirmed)
@@ -215,10 +204,8 @@ export function useTripActions({
         onStatusModalClose();
         onPendingStatusClear();
       } else {
-        console.error('❌ Failed to update status:', result.error);
       }
     } catch (err) {
-      console.error('❌ Error updating trip status:', err);
     } finally {
       setUpdatingStatus(false);
     }
@@ -235,7 +222,6 @@ export function useTripActions({
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        console.error('❌ No session found');
         setManualDriverError('Please log in to set driver');
         setSettingDriver(false);
         return;
@@ -257,13 +243,11 @@ export function useTripActions({
 
       if (result.success) {
         onDriverUpdate(email.toLowerCase());
-        console.log(`✅ Driver set successfully`);
         setManualDriverEmail('');
         setShowDriverSuggestions(false);
         
         // If in assign-only mode, close modal (don't auto-confirm, let user manually confirm)
         if (assignOnlyMode) {
-          console.log('🚗 [ASSIGN-ONLY] Driver assigned, closing modal. Trip status is now Pending.');
           onDriverModalClose();
           onAssignOnlyModeChange(false);
           // User can now click the "Pending" button to manually confirm
@@ -272,7 +256,6 @@ export function useTripActions({
         setManualDriverError(result.error || 'Failed to set driver');
       }
     } catch (err) {
-      console.error('❌ Error setting driver:', err);
       setManualDriverError('An error occurred while setting driver');
     } finally {
       setSettingDriver(false);

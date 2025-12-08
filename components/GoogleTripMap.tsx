@@ -161,13 +161,11 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
-    console.log('🗺️ Google Maps loaded successfully');
 
     // Ensure the map is properly sized and visible
     setTimeout(() => {
       if (map) {
         google.maps.event.trigger(map, 'resize');
-        console.log('🗺️ Map resized and ready');
       }
     }, 100);
   }, []);
@@ -179,21 +177,18 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
   // Calculate route when locations change
   useEffect(() => {
     if (!isLoaded || locations.length === 0) {
-      console.log('⏸️ Google Maps not loaded or no locations');
       return;
     }
 
     const validLocations = locations.filter(loc => loc.lat !== 0 && loc.lng !== 0 && loc.name);
 
     if (validLocations.length === 0) {
-      console.log('⏸️ No valid locations to map');
       setDirectionsResponse(null);
       setRouteInfo(null);
       return;
     }
 
     if (validLocations.length === 1) {
-      console.log('📍 Single location, no route needed');
       setDirectionsResponse(null);
       setRouteInfo(null);
       return;
@@ -202,7 +197,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
     // Add a small delay to ensure the map is fully loaded
     const calculateRoute = () => {
       if (!window.google || !window.google.maps) {
-        console.error('❌ Google Maps API not available');
         return;
       }
 
@@ -220,10 +214,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
         stopover: true,
       }));
 
-      console.log(`🚗 Calculating route: ${validLocations.length} locations`);
-      console.log(`   Origin (${numberToLetter(1)}): ${validLocations[0].name.split(',')[0]}`);
-      console.log(`   Waypoints: ${waypoints.length}`);
-      console.log(`   Destination (${numberToLetter(validLocations.length)}): ${validLocations[validLocations.length - 1].name.split(',')[0]}`);
 
       directionsService.route(
         {
@@ -238,7 +228,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
         },
         (result, status) => {
           if (status === google.maps.DirectionsStatus.OK && result) {
-            console.log('✅ Route calculated successfully');
 
             setDirectionsResponse(result);
 
@@ -260,8 +249,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
               duration: `${durationMin} min`,
             });
 
-            console.log(`   📏 Distance: ${distanceKm} km`);
-            console.log(`   ⏱️  Duration (with traffic): ${durationMin} min`);
 
             // Log if traffic data affected the time
             const normalDuration = result.routes[0].legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
@@ -269,11 +256,9 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
             const trafficDelay = Math.round((trafficDuration - normalDuration) / 60);
 
             if (trafficDelay > 0) {
-              console.log(`   🚦 Traffic delay: +${trafficDelay} min`);
             }
 
           } else {
-            console.error('❌ Directions request failed:', status);
             setDirectionsResponse(null);
             setRouteInfo(null);
           }
@@ -300,7 +285,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
         bottom: 50,
         left: 50
       });
-      console.log('🗺️ Map bounds fitted to show all locations');
     }
   }, [directionsResponse, map, validLocations]);
 
@@ -317,7 +301,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
         bottom: 50,
         left: 50
       });
-      console.log('🗺️ Map bounds fitted to show all locations on load');
     }
   }, [map, validLocations]);
 
@@ -357,7 +340,6 @@ export default function GoogleTripMap({ locations, height = '384px', compact = f
   // Calculate center point to show all locations
   const calculateCenter = () => {
     if (validLocations.length === 0) {
-      console.log(`🗺️ No valid locations, using default center for ${tripDestination || 'London'}`);
       return defaultCenter;
     }
     if (validLocations.length === 1) {

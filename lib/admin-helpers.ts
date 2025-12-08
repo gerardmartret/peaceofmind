@@ -56,7 +56,7 @@ export async function isAdmin(request: Request): Promise<boolean> {
       }
       return false;
     }
-
+    
     // Create admin client with service role key
     const supabaseAdmin = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

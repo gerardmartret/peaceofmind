@@ -35,16 +35,15 @@ export function UpdateTripSection({
 
   return (
     <div
-      className={`fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'top-0 z-[60]' : 'top-[57px] z-40'
-        }`}
+      className={`relative sm:fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'sm:top-0 sm:z-[60]' : 'sm:top-[57px] sm:z-40'}`}
     >
-      <div className="container mx-auto px-4 pt-8 pb-3">
-        <div className="rounded-md px-6 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
+      <div className="container mx-auto px-3 sm:px-4 pt-4 sm:pt-8 pb-3">
+        <div className="rounded-md px-3 sm:px-6 py-3 bg-primary dark:bg-[#1f1f21] border border-border">
           <label className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-3">
             Trip update
           </label>
-          <div className="flex gap-4 items-start">
-            <div className="flex-1 relative">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-start">
+            <div className="flex-1 relative min-w-0">
               <textarea
                 ref={updateTextareaRef}
                 id="update-text"
@@ -55,15 +54,15 @@ export function UpdateTripSection({
                     ? `${updateProgress.step}...`
                     : 'Any changes to this trip? Tell updates to the AI planner to paste your email here.'
                 }
-                className="w-full min-h-[51px] h-[51px] px-3 py-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
+                className="w-full min-h-[80px] sm:min-h-[51px] sm:h-[51px] px-3 py-3 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236] text-sm sm:text-base"
                 disabled={isExtracting || isRegenerating}
               />
             </div>
 
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center justify-end sm:justify-start gap-3 flex-shrink-0">
               <Button
                 variant="default"
-                className="flex items-center gap-2 h-[51px] bg-[#E5E7EF] text-[#05060A] hover:bg-[#E5E7EF]/90"
+                className="flex items-center justify-center gap-2 h-10 sm:h-[51px] w-full sm:w-auto px-4 sm:px-6 bg-[#E5E7EF] text-[#05060A] hover:bg-[#E5E7EF]/90 text-sm sm:text-base"
                 onClick={handleExtractUpdates}
                 disabled={!updateText.trim() || isExtracting || isRegenerating}
               >
@@ -73,7 +72,8 @@ export function UpdateTripSection({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Updating...
+                    <span className="hidden sm:inline">Updating...</span>
+                    <span className="sm:hidden">Updating</span>
                   </>
                 ) : (
                   'Update'

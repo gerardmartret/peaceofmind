@@ -51,7 +51,6 @@ export function useDriverTokenValidation({
 
     if (!token || !tripId || loading) return;
 
-    console.log('🔍 Driver token detected in URL, validating...');
     setDriverToken(token);
 
     async function validateToken() {
@@ -68,15 +67,6 @@ export function useDriverTokenValidation({
         const result = await safeJsonParse(response);
 
         if (result.success) {
-          console.log('✅ Driver token validated successfully');
-          console.log('📊 Token info:', {
-            tokenUsed: result.tokenUsed,
-            canTakeAction: result.canTakeAction,
-            tripStatus: result.tripStatus,
-            hasMessage: !!result.message,
-            driverEmail: result.driverEmail
-          });
-
           // Determine canTakeAction explicitly - be very explicit about the logic
           // API returns canTakeAction: true when trip is pending and token not used
           // If API doesn't return it, calculate it ourselves as fallback
@@ -88,12 +78,6 @@ export function useDriverTokenValidation({
             // Fallback: calculate based on trip status and token usage
             canTakeActionValue = result.tripStatus === 'pending' && !result.tokenUsed;
           }
-          console.log('🎯 Setting canTakeAction to:', canTakeActionValue, {
-            fromAPI: result.canTakeAction,
-            calculated: result.tripStatus === 'pending' && !result.tokenUsed,
-            tripStatus: result.tripStatus,
-            tokenUsed: result.tokenUsed
-          });
 
           setValidatedDriverEmail(result.driverEmail);
           setIsDriverView(true);
@@ -114,12 +98,10 @@ export function useDriverTokenValidation({
             setDriverResponseStatus(null);
           }
         } else {
-          console.error('❌ Token validation failed:', result.error);
           setTokenValidationError(result.error || 'Invalid or expired link');
           setIsDriverView(false);
         }
       } catch (err) {
-        console.error('❌ Error validating token:', err);
         setTokenValidationError('Failed to validate link. Please try again.');
         setIsDriverView(false);
       }

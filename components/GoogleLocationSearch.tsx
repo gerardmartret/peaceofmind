@@ -113,9 +113,7 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
     const bounds = getLocationBounds();
     if (bounds) {
       autocompleteInstance.setBounds(bounds);
-      console.log(`🔍 Google Places Autocomplete loaded for ${cityConfig.cityName} (country: ${countryCode}, with metro area bounds)`);
     } else {
-      console.log(`🔍 Google Places Autocomplete loaded for ${cityConfig.cityName} (country: ${countryCode})`);
     }
   };
 
@@ -131,7 +129,6 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
       const place = autocomplete.getPlace();
       
       if (!place.geometry || !place.geometry.location) {
-        console.log('⚠️ No geometry available for this place');
         return;
       }
 
@@ -156,26 +153,20 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
         lng: place.geometry.location.lng(),
       };
 
-      console.log('📍 Selected:', location.name);
-      console.log('   Coordinates:', location.lat, location.lng);
       
       // Log place types for debugging
       if (place.types) {
         const isPOI = place.types.some(type => 
           ['point_of_interest', 'establishment', 'restaurant', 'cafe', 'store'].includes(type)
         );
-        console.log('   Types:', place.types.join(', '));
         if (isPOI) {
-          console.log('   🏢 Business/POI detected');
         }
       }
 
       // Log additional place details if available
       if (place.rating) {
-        console.log('   ⭐ Rating:', place.rating);
       }
       if (place.business_status) {
-        console.log('   Status:', place.business_status);
       }
 
       // Update the input value with the selected location

@@ -1,7 +1,6 @@
 // Helper function to convert time to HH:MM format for TimePicker
 export const formatTimeForPicker = (time: string | number | undefined): string => {
   if (!time && time !== 0) {
-    console.log('⚠️ [TimePicker] No time value provided, using default 09:00');
     return '09:00';
   }
 
@@ -14,7 +13,6 @@ export const formatTimeForPicker = (time: string | number | undefined): string =
     const validH = Math.max(0, Math.min(23, h));
     const validM = Math.max(0, Math.min(59, m));
     const result = `${validH.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
-    console.log('✅ [TimePicker] Formatted time from string:', time, '→', result);
     return result;
   }
 
@@ -22,7 +20,6 @@ export const formatTimeForPicker = (time: string | number | undefined): string =
   if (typeof time === 'number' || (typeof time === 'string' && !time.includes(':'))) {
     const numTime = typeof time === 'number' ? time : parseFloat(String(time));
     if (isNaN(numTime)) {
-      console.log('⚠️ [TimePicker] Invalid number format:', time, 'using default 09:00');
       return '09:00';
     }
     const hours = Math.floor(Math.abs(numTime));
@@ -31,11 +28,9 @@ export const formatTimeForPicker = (time: string | number | undefined): string =
     const validH = Math.max(0, Math.min(23, hours));
     const validM = Math.max(0, Math.min(59, minutes));
     const result = `${validH.toString().padStart(2, '0')}:${validM.toString().padStart(2, '0')}`;
-    console.log('✅ [TimePicker] Formatted time from number:', time, '→', result);
     return result;
   }
 
-  console.log('⚠️ [TimePicker] Unknown time format:', time, 'using default 09:00');
   return '09:00';
 };
 

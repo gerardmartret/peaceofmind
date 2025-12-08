@@ -68,7 +68,6 @@ export function useTripLoading({
   useEffect(() => {
     async function loadTripFromDatabase() {
       if (!tripId) {
-        console.log('⚠️ No trip ID provided');
         router.push('/');
         return;
       }
@@ -86,7 +85,6 @@ export function useTripLoading({
       }
 
       try {
-        console.log(`📡 Loading trip from database: ${tripId}`);
 
         const { data, error: fetchError } = await supabase
           .from('trips')
@@ -95,20 +93,17 @@ export function useTripLoading({
           .single();
 
         if (fetchError) {
-          console.error('❌ Error loading trip:', fetchError);
           onError('Trip not found');
           onLoadingChange(false);
           return;
         }
 
         if (!data) {
-          console.log('⚠️ Trip not found in database');
           onError('Trip not found');
           onLoadingChange(false);
           return;
         }
 
-        console.log('✅ Trip loaded from database');
 
         // Determine user role using utility function
         const tripUserId = data.user_id;
@@ -118,17 +113,13 @@ export function useTripLoading({
         onRoleDetermined(roleInfo);
 
         if (roleInfo.isOwner) {
-          console.log('🔐 User is the owner of this trip - editing enabled');
         } else {
-          console.log('👁️ User is NOT the owner - read-only mode');
         }
 
         if (roleInfo.isGuestCreatedTrip) {
-          console.log('👤 Trip was created by a guest user');
         }
 
         if (roleInfo.isGuestCreator) {
-          console.log('👤 Guest user created this trip - showing signup CTA');
         }
 
         // Transform database data to match expected TripData format using utility
@@ -175,7 +166,6 @@ export function useTripLoading({
         onOwnershipChecked();
         onLoadingChange(false);
       } catch (err) {
-        console.error('❌ Unexpected error:', err);
         onError('Failed to load trip');
         onLoadingChange(false);
       }

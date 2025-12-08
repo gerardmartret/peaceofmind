@@ -51,7 +51,6 @@ export function useMatchingDrivers({ driverDestination }: UseMatchingDriversPara
 
         setMatchingDrivers(data || []);
       } catch (err) {
-        console.error('❌ Error fetching matching drivers:', err);
         if (active) {
           setMatchingDrivers([]);
           setMatchingDriversError('Unable to load available drivers.');

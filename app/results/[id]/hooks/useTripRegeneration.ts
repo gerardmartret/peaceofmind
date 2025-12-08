@@ -51,7 +51,6 @@ export const useTripRegeneration = (params: UseTripRegenerationParams) => {
 
   const handleRegenerateDirectly = async (comparisonDiff: any, extractedUpdates: any) => {
     if (!comparisonDiff || !extractedUpdates || !tripData) {
-      console.error('❌ Missing required data for regeneration');
       setError('Missing required data for regeneration');
       setIsRegenerating(false);
       return;
@@ -66,10 +65,8 @@ export const useTripRegeneration = (params: UseTripRegenerationParams) => {
 
       // Convert final locations to format expected by performTripAnalysis
       // Log for debugging
-      console.log('🔍 [DEBUG] Final locations before validation:', JSON.stringify(finalLocations, null, 2));
 
       // Filter out locations with invalid coordinates (lat === 0 && lng === 0)
-      console.log(`🔍 [VALIDATION-DIAG] Starting validation with ${finalLocations.length} locations`);
       const validLocations = finalLocations
         .map((loc: any, idx: number) => {
           const location = {
@@ -84,9 +81,6 @@ export const useTripRegeneration = (params: UseTripRegenerationParams) => {
 
           // Log locations with invalid coordinates
           if (location.lat === 0 && location.lng === 0) {
-            console.warn(`⚠️ [VALIDATION-DIAG] Location ${idx + 1} (${location.name}) has invalid coordinates (0, 0)`);
-            console.warn(`   - fullAddress: "${location.fullAddress}"`);
-            console.warn(`   - Original loc data:`, JSON.stringify(loc, null, 2));
           }
 
           return location;
@@ -94,29 +88,21 @@ export const useTripRegeneration = (params: UseTripRegenerationParams) => {
         .filter((loc: any) => {
           const isValid = validateLocationCoordinates(loc);
           if (!isValid) {
-            console.warn(`⚠️ [VALIDATION-DIAG] Filtering out location "${loc.name}" due to invalid coordinates`);
-            console.warn(`   - This location will be removed from the trip`);
           }
           return isValid;
         });
 
-      console.log(`✅ [DEBUG] Valid locations after filtering: ${validLocations.length}`);
       validLocations.forEach((loc: any, idx: number) => {
-        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
       });
 
       // Validate that we have at least 2 valid locations for traffic predictions
       if (validLocations.length < 2) {
-        console.error('❌ Need at least 2 locations with valid coordinates for traffic predictions');
-        console.error(`   Current valid locations: ${validLocations.length}`);
-        console.error(`   Total final locations: ${finalLocations.length}`);
         setError('Need at least 2 locations with valid coordinates to calculate routes. Please ensure all locations have valid addresses.');
         setIsRegenerating(false);
         return;
       }
 
       // VALIDATION: Check for coordinate/address mismatches BEFORE geocoding decision
-      console.log('🔍 [VALIDATION] Checking coordinate/address consistency...');
       const inconsistentLocations = detectCoordinateMismatches(validLocations, tripDestination);
 
       // Re-geocode inconsistent locations
@@ -126,7 +112,6 @@ export const useTripRegeneration = (params: UseTripRegenerationParams) => {
       const locationsNeedingGeocoding = validLocations.filter(needsGeocoding);
       const locationsWithValidData = validLocations.filter((loc: any) => !needsGeocoding(loc));
 
-      console.log(`🗺️ [OPTIMIZATION] Geocoding: ${locationsNeedingGeocoding.length} locations need geocoding, ${locationsWithValidData.length} already have valid data`);
       setRegenerationProgress(35);
       setRegenerationStep(`Geocoding ${locationsNeedingGeocoding.length} location(s)...`);
       // Step 3 is already set to loading from handleExtractUpdates
@@ -145,9 +130,7 @@ export const useTripRegeneration = (params: UseTripRegenerationParams) => {
         return loc; // Already has valid coordinates and complete address
       });
 
-      console.log('✅ [DEBUG] Final locations ready');
       finalValidLocations.forEach((loc: any, idx: number) => {
-        console.log(`   ${idx + 1}. ${loc.name} - (${loc.lat}, ${loc.lng})`);
       });
       setRegenerationProgress(45);
       setRegenerationStep('Fetching updated data for all locations...');
@@ -206,7 +189,6 @@ export const useTripRegeneration = (params: UseTripRegenerationParams) => {
         comparisonDiff
       );
     } catch (err) {
-      console.error('Error regenerating report:', err);
       setError(err instanceof Error ? err.message : 'Failed to regenerate report');
       setIsRegenerating(false);
     }

@@ -30,7 +30,6 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
     try {
-      console.log(`🔍 Searching for: ${query}`);
       
       const response = await fetch(
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
@@ -46,17 +45,14 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
       }
 
       const data = await response.json();
-      console.log(`✅ Found ${data.features.length} suggestions`);
       
       // Log POI details
       const poiResults = data.features.filter((f: SearchResult) => f.place_type.includes('poi'));
       if (poiResults.length > 0) {
-        console.log(`🏢 Including ${poiResults.length} business/POI result(s)`);
       }
       
       setSuggestions(data.features);
     } catch (error) {
-      console.error('❌ Error searching locations:', error);
       setSuggestions([]);
     } finally {
       setLoading(false);
@@ -82,8 +78,6 @@ export default function LocationSearch({ onLocationSelect }: LocationSearchProps
       lng,
     };
 
-    console.log(`📍 Selected location: ${location.name}`);
-    console.log(`📌 Coordinates: ${lat}, ${lng}`);
 
     setSelectedLocation(location);
     setSearchQuery(suggestion.text);

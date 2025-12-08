@@ -86,9 +86,7 @@ export function useGuestActions({
           .is('user_id', null);
 
         if (updateError) {
-          console.error('Error linking trips to user:', updateError);
         } else {
-          console.log('✅ All guest trips linked to new account');
         }
 
         // Clear sessionStorage
@@ -108,7 +106,6 @@ export function useGuestActions({
         setGuestSignupError('Something went wrong. Please try logging in.');
       }
     } catch (err) {
-      console.error('Unexpected signup error:', err);
       setGuestSignupError('An unexpected error occurred. Please try again.');
     } finally {
       setGuestSignupLoading(false);

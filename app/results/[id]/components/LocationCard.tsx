@@ -68,7 +68,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
     if (!fullAddr) {
       // Only if no address exists, show purpose as fallback
       return (
-        <div className="text-lg font-semibold text-card-foreground">
+        <div className="text-base sm:text-lg font-semibold text-card-foreground break-words">
           {location.purpose || location.name || 'Unknown location'}
         </div>
       );
@@ -106,14 +106,14 @@ export const LocationCard: React.FC<LocationCardProps> = ({
 
     return (
       <div>
-        <div className="text-lg font-semibold text-card-foreground">
+        <div className="text-base sm:text-lg font-semibold text-card-foreground break-words">
           {displayBusinessName}
           {shouldShowPurpose && (
-            <span> - {location.purpose}</span>
+            <span className="block sm:inline sm:ml-1"> - {location.purpose}</span>
           )}
         </div>
         {restOfAddress && (
-          <div className="text-sm text-muted-foreground mt-0.5">
+          <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 break-words">
             {restOfAddress}
           </div>
         )}
@@ -123,9 +123,9 @@ export const LocationCard: React.FC<LocationCardProps> = ({
 
   return (
     <div>
-      <div id={`location-${index}`} className="flex items-start gap-3 relative z-10">
+      <div id={`location-${index}`} className="flex items-start gap-2 sm:gap-3 relative z-10">
         <div
-          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold border-2 border-background ${
+          className={`flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold border-2 border-background ${
             isActive
               ? 'animate-live-pulse text-white'
               : 'bg-primary text-primary-foreground'
@@ -133,22 +133,22 @@ export const LocationCard: React.FC<LocationCardProps> = ({
         >
           {String.fromCharCode(65 + index)}
         </div>
-        <div className="flex-1">
-          <div className="flex items-start">
-            <div className="w-32 flex-shrink-0">
-              <div className="text-sm font-medium text-muted-foreground mb-1">
-                {locationType}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-0">
+            <div className="w-full sm:w-28 md:w-32 flex-shrink-0">
+              <div className="text-xs sm:text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span>{locationType}</span>
                 {isActive && (
-                  <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
+                  <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold text-white bg-[#3ea34b] rounded">
                     LIVE
                   </span>
                 )}
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-xs sm:text-sm text-muted-foreground">
                 {getLondonLocalTime(location.time)}
               </div>
             </div>
-            <div className="flex-1 ml-12">
+            <div className="flex-1 min-w-0 sm:ml-8 md:ml-12">
               <button
                 onClick={handleAddressClick}
                 className="text-left hover:text-primary transition-colors cursor-pointer block w-full"

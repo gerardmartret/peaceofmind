@@ -86,19 +86,19 @@ function SortableEditLocationItem({
         {numberToLetter(index + 1)}
       </div>
 
-      <div className="flex items-center gap-3">
-        <div
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted dark:hover:bg-[#181a23] rounded transition-colors flex items-center"
-          title="Drag to reorder"
-        >
-          <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-          </svg>
-        </div>
+        <div className="flex items-start gap-2 sm:gap-3">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted dark:hover:bg-[#181a23] rounded transition-colors flex items-center flex-shrink-0 mt-1"
+            title="Drag to reorder"
+          >
+            <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+          </div>
 
-        <div className="flex-1 grid sm:grid-cols-[140px_1fr] gap-3">
+          <div className="flex-1 min-w-0 grid sm:grid-cols-[140px_1fr] gap-2 sm:gap-3">
           <div>
             <Label className="text-xs font-medium text-secondary-foreground mb-1">
               {getTimeLabel()}
@@ -106,14 +106,13 @@ function SortableEditLocationItem({
             <TimePicker
               value={formatTimeForPicker(location.time)}
               onChange={(value) => {
-                console.log('✅ [TimePicker] onChange triggered:', value, 'for index:', index);
                 onTimeChange(index, value);
               }}
               className="h-9"
             />
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 overflow-hidden">
             <Label className="text-xs font-medium text-secondary-foreground mb-1">Location</Label>
             {editingIndex === index && editingField === 'location' ? (
               <div className="editing-location" data-editing="true">
@@ -130,27 +129,40 @@ function SortableEditLocationItem({
               <div
                 className="relative px-3 py-2 cursor-pointer hover:bg-muted dark:hover:bg-[#181a23] rounded-md border border-input bg-background transition-colors"
                 onClick={() => onEditStart(index, 'location')}
+                title={location.formattedAddress || location.location}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2 sm:gap-3">
                   <svg className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     {(() => {
                       const fullAddr = location.formattedAddress || location.location;
                       const { businessName, restOfAddress } = formatLocationDisplay(fullAddr);
+                      
+                      // Truncate business name if too long
+                      const maxBusinessNameLength = 40;
+                      const displayBusinessName = (businessName || location.location || '').length > maxBusinessNameLength
+                        ? (businessName || location.location || '').substring(0, maxBusinessNameLength) + '...'
+                        : (businessName || location.location || '');
+                      
+                      // Truncate rest of address if too long
+                      const maxRestLength = 50;
+                      const displayRest = restOfAddress && restOfAddress.length > maxRestLength
+                        ? restOfAddress.substring(0, maxRestLength) + '...'
+                        : restOfAddress;
 
                       return (
-                        <>
-                          <div className="text-sm font-semibold text-card-foreground truncate flex-shrink-0">
-                            {businessName || location.location}
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <div className="text-sm font-semibold text-card-foreground truncate" title={businessName || location.location}>
+                            {displayBusinessName}
                           </div>
-                          {restOfAddress && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {restOfAddress}
+                          {displayRest && (
+                            <div className="text-xs text-muted-foreground truncate" title={restOfAddress}>
+                              {displayRest}
                             </div>
                           )}
-                        </>
+                        </div>
                       );
                     })()}
                   </div>
@@ -249,25 +261,27 @@ export function EditRouteModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <div className="flex items-center justify-between mb-4">
-            <DialogTitle>Manual Form</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">Manual Form</DialogTitle>
             <Button
               onClick={() => onOpenChange(false)}
               variant="outline"
               size="sm"
+              className="text-xs sm:text-sm"
             >
-              ← Back
+              <span className="hidden sm:inline">← Back</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-2 sm:py-4">
           {/* Trip Details - Passenger Name, Number of Passengers, Vehicle, Trip Destination */}
-          <div className="rounded-md p-4 mb-6 bg-primary dark:bg-[#202020] border border-border">
+          <div className="rounded-md p-3 sm:p-4 mb-4 sm:mb-6 bg-primary dark:bg-[#202020] border border-border">
             {/* Unified Grid for All Trip Fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 mb-3 sm:mb-4">
               {/* Trip Date - spans 2 columns */}
               <div className="sm:col-span-2">
                 <label htmlFor="tripDate" className="block text-sm font-medium text-primary-foreground dark:text-card-foreground mb-2">
@@ -437,7 +451,7 @@ export function EditRouteModal({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

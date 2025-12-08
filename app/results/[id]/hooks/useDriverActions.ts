@@ -91,7 +91,6 @@ export function useDriverActions({
     setConfirmingTrip(true);
 
     try {
-      console.log('🔄 Driver confirming trip:', tripId, '- Token auth:', !!driverToken);
 
       const response = await fetch('/api/driver-confirm-trip', {
         method: 'POST',
@@ -106,7 +105,6 @@ export function useDriverActions({
       const result = await response.json();
 
       if (result.success) {
-        console.log('✅ Trip confirmed by driver');
         onShowDriverConfirmDialogClose();
         onShowDriverAcceptRejectModalClose();
         // Update local state immediately
@@ -116,11 +114,9 @@ export function useDriverActions({
         onQuoteSuccessUpdate(true);
         onQuoteSuccessMessageUpdate('✅ Trip confirmed! The trip owner has been notified.');
       } else {
-        console.error('❌ Failed to confirm trip:', result.error);
         alert(result.error || 'Failed to confirm trip');
       }
     } catch (err) {
-      console.error('❌ Error confirming trip:', err);
       alert('Failed to confirm trip. Please try again.');
     } finally {
       setConfirmingTrip(false);
@@ -157,7 +153,6 @@ export function useDriverActions({
     setRejectingTrip(true);
 
     try {
-      console.log('🔄 Driver rejecting trip:', { tripId });
 
       const response = await fetch('/api/driver-reject-trip', {
         method: 'POST',
@@ -171,7 +166,6 @@ export function useDriverActions({
       const result = await response.json();
 
       if (result.success) {
-        console.log('✅ Trip rejected by driver');
         onShowDriverRejectDialogClose();
         onShowDriverAcceptRejectModalClose();
         // Update local state immediately
@@ -182,11 +176,9 @@ export function useDriverActions({
         onQuoteSuccessUpdate(true);
         onQuoteSuccessMessageUpdate('Trip declined. The trip owner has been notified.');
       } else {
-        console.error('❌ Failed to reject trip:', result.error);
         alert(result.error || 'Failed to reject trip');
       }
     } catch (err) {
-      console.error('❌ Error rejecting trip:', err);
       alert('Failed to reject trip. Please try again.');
     } finally {
       setRejectingTrip(false);

@@ -58,7 +58,6 @@ export function useUrlParams({
       if (emailRegex.test(decodedEmail)) {
         onEmailChange(decodedEmail);
         setIsEmailFromUrl(true);
-        console.log('📧 Email pre-filled from URL:', decodedEmail);
       }
     }
   }, [quoteParam, emailParam, isOwner, isGuestCreator, isGuestCreatedTrip, loading, quoteFormRef, onEmailChange]);

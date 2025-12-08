@@ -61,7 +61,6 @@ export function FlowBModal({
         const statusResult = await statusResponse.json();
         if (statusResult.success) {
           onStatusUpdate('pending');
-          console.log('✅ [FLOW B] Trip status set to pending (awaiting driver acceptance)');
         }
       }
 
@@ -74,7 +73,6 @@ export function FlowBModal({
       onClearDirectAssignDriver();
       onClearManualDriverEmail();
     } catch (err) {
-      console.error('❌ Error in Flow B:', err);
       onError('An error occurred');
     }
   };

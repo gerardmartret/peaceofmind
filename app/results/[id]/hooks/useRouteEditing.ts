@@ -42,8 +42,6 @@ export const useRouteEditing = (params: UseRouteEditingParams) => {
           time: timesByPosition[index]
         }));
 
-        console.log(`🔄 Edit route: Location reordered ${oldIndex + 1} → ${newIndex + 1}`);
-        console.log(`   Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
 
         return itemsWithSwappedTimes;
       });
@@ -62,8 +60,6 @@ export const useRouteEditing = (params: UseRouteEditingParams) => {
         verified: true,
         // Keep purpose unchanged
       };
-      console.log(`✅ Location updated at index ${index}:`, location.name);
-      console.log(`   Purpose preserved: ${updatedLocations[index].purpose}`);
       return updatedLocations;
     });
   }, [setEditingLocations]);

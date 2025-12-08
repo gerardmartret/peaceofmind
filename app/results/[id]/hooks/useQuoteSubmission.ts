@@ -149,7 +149,6 @@ export function useQuoteSubmission({
 
       if (result.success) {
         const action = result.isUpdate ? 'updated' : 'submitted';
-        console.log(`✅ Quote ${action} successfully`);
         const submittedEmail = quoteEmail.trim();
         setQuoteSuccessMessage(
           result.isUpdate
@@ -171,7 +170,6 @@ export function useQuoteSubmission({
         setQuoteEmailError(result.error || 'Failed to submit quote');
       }
     } catch (err) {
-      console.error('❌ Error submitting quote:', err);
       setQuoteEmailError('Failed to submit quote. Please try again.');
     } finally {
       setSubmittingQuote(false);
@@ -234,7 +232,6 @@ export function useQuoteSubmission({
       const result = await response.json();
 
       if (result.success) {
-        console.log('✅ Quote updated successfully');
         setShowUpdateQuoteModal(false);
         setUpdateQuotePrice('');
         setQuoteSuccessMessage('Quote updated successfully! The trip owner will see your updated offer.');
@@ -325,7 +322,6 @@ export function useQuoteSubmission({
         setQuoteRequestError(result.error || 'Failed to send quote request');
       }
     } catch (err) {
-      console.error('❌ Error sending quote request:', err);
       setQuoteRequestError('Failed to send quote request. Please try again.');
     } finally {
       setSendingQuoteRequest(false);
