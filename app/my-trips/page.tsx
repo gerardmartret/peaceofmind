@@ -46,6 +46,7 @@ export default function MyTripsPage() {
   const [searchFeedback, setSearchFeedback] = useState<string | null>(null);
   const [searchError, setSearchError] = useState('');
   const [searchCriteria, setSearchCriteria] = useState<SearchCriteria | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
   // Handle theme mounting
   useEffect(() => {
@@ -302,25 +303,23 @@ export default function MyTripsPage() {
     setSearchError('');
   };
 
+  // Get unique statuses from trips
+  const getUniqueStatuses = (): string[] => {
+    const statuses = new Set<string>();
+    trips.forEach((trip) => {
+      statuses.add(trip.status || 'not confirmed');
+    });
+    return Array.from(statuses).sort();
+  };
+
   const renderTripCards = (tripList: Trip[]) => (
     <div className="flex flex-col gap-6">
       {tripList.map((trip) => (
         <Link key={trip.id} href={`/results/${trip.id}`} className="block">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-primary/50">
-            <CardHeader>
-              <div className="flex items-start gap-4">
-                {/* Vehicle Image - Left Side */}
-                {mounted && (
-                  <div className="flex-shrink-0 py-0">
-                    <img
-                      src={getVehicleImagePath(trip)}
-                      alt="Vehicle"
-                      className="h-[85px] sm:h-[102px] w-auto"
-                    />
-                  </div>
-                )}
-                {/* Trip Info - Middle */}
-                <div className="flex-1 min-w-0">
+            <CardHeader className="relative">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
                   <CardTitle className="text-lg">
                     {generateTripName(trip)}
                   </CardTitle>
@@ -339,9 +338,17 @@ export default function MyTripsPage() {
                       </span>
                     </span>
                   </div>
+                  {mounted && (
+                    <div className="flex items-end pt-0 pb-0 mt-0">
+                      <img
+                        src={getVehicleImagePath(trip)}
+                        alt="Vehicle"
+                        className="h-[102px] sm:h-[119px] w-auto"
+                      />
+                    </div>
+                  )}
                 </div>
-                {/* Status Badge - Right Side */}
-                <div className="flex-shrink-0">
+                <div className="flex flex-col items-end">
                   {(() => {
                     const statusBadge = getStatusBadge(trip);
                     // Determine colors based on variant (matching FlowHoverButton)
@@ -395,11 +402,9 @@ export default function MyTripsPage() {
                   })()}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-end">
-                <div className="flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm">
-                  View report
+              {mounted && (
+                <div className={`absolute right-6 flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm ${mounted ? 'bottom-[102px] sm:bottom-[119px]' : ''}`}>
+                  View trip
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -414,8 +419,8 @@ export default function MyTripsPage() {
                     />
                   </svg>
                 </div>
-              </div>
-            </CardContent>
+              )}
+            </CardHeader>
           </Card>
         </Link>
       ))}
@@ -423,7 +428,13 @@ export default function MyTripsPage() {
   );
 
   const searchActive = searchResults !== null;
-  const displayedTrips = searchActive ? (searchResults || []) : trips;
+  const tripsToFilter = searchActive ? (searchResults || []) : trips;
+  
+  // Filter trips by status if a status is selected
+  const displayedTrips = selectedStatus
+    ? tripsToFilter.filter((trip) => (trip.status || 'not confirmed') === selectedStatus)
+    : tripsToFilter;
+  
   const hasDisplayedTrips = displayedTrips.length > 0;
   const criteriaParts = searchCriteria
     ? [
@@ -484,6 +495,44 @@ export default function MyTripsPage() {
               <AlertDescription>{searchError}</AlertDescription>
             </Alert>
           )}
+        </div>
+
+        {/* Status Filter */}
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant={selectedStatus === null ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedStatus(null)}
+              className="text-sm"
+            >
+              All
+            </Button>
+            {getUniqueStatuses().map((status) => {
+              const statusBadge = getStatusBadge({ status } as Trip);
+              const colors = statusBadge.variant === 'confirmed' 
+                ? { bg: 'bg-[#3ea34b]', border: 'border-[#3ea34b]', text: 'text-white' }
+                : statusBadge.variant === 'pending'
+                ? { bg: 'bg-[#e77500]', border: 'border-[#e77500]', text: 'text-white' }
+                : statusBadge.variant === 'cancelled'
+                ? { bg: 'bg-[#9e201b]', border: 'border-[#9e201b]', text: 'text-white' }
+                : statusBadge.variant === 'rejected'
+                ? { bg: 'bg-[#c41e3a]', border: 'border-[#c41e3a]', text: 'text-white' }
+                : { bg: 'bg-background dark:bg-input/30', border: 'border-border dark:border-input', text: 'text-foreground' };
+              
+              return (
+                <Button
+                  key={status}
+                  variant={selectedStatus === status ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedStatus(status)}
+                  className={`text-sm ${selectedStatus === status ? `${colors.bg} ${colors.border} ${colors.text} hover:opacity-90` : ''}`}
+                >
+                  {statusBadge.text}
+                </Button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Error Alert */}
