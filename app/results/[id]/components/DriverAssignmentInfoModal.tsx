@@ -53,7 +53,7 @@ export function DriverAssignmentInfoModal({
 
   const getStatusMessage = () => {
     if (tripStatus === 'confirmed') return '✅ You have confirmed this trip';
-    if (tripStatus === 'booked') return '✅ This trip has been booked';
+    if (tripStatus === 'booked') return '✅ This trip has been booked with Drivania';
     if (tripStatus === 'rejected') return '❌ You have rejected this trip';
     if (tripStatus === 'cancelled') return '🚫 This trip has been cancelled';
     if (tokenMessage && !['confirmed', 'booked', 'rejected', 'cancelled'].includes(tripStatus || '')) {

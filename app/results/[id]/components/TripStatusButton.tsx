@@ -75,7 +75,7 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
       driverResponseStatus === 'accepted' ? 'Trip accepted' :
         tripStatus === 'rejected' ? 'Rejected' :
           tripStatus === 'confirmed' ? 'Trip confirmed' :
-            tripStatus === 'booked' ? 'Booked' :
+            tripStatus === 'booked' ? 'Booked with Drivania' :
               isDriverViewingPending ? 'Accept trip' :
                 driverEmail ? 'Pending' : 'Not confirmed';
 

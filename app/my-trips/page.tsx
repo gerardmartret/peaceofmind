@@ -208,7 +208,7 @@ export default function MyTripsPage() {
         return 'Trip confirmed';
       }
       if (status === 'booked') {
-        return 'Booked';
+        return 'Booked with Drivania';
       }
       if (status === 'pending') {
         return 'Pending';
