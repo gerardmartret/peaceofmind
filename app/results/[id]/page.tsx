@@ -381,7 +381,7 @@ export default function ResultsPage() {
   });
 
   // Calculate Drivania vehicle-related values
-  const { lowestDrivaniaPrice, drivaniaCurrency } = useDrivaniaVehicleCalculations({
+  const { lowestDrivaniaPrice, drivaniaCurrency, lowestExtraHourPrice } = useDrivaniaVehicleCalculations({
     drivaniaQuotes,
   });
 
@@ -2895,6 +2895,7 @@ export default function ResultsPage() {
               onShowSignupModal={() => setShowSignupModal(true)}
               lowestDrivaniaPrice={lowestDrivaniaPrice}
               drivaniaCurrency={drivaniaCurrency}
+              lowestExtraHourPrice={lowestExtraHourPrice}
               loadingDrivaniaQuote={loadingDrivaniaQuote}
             />
 
@@ -3542,6 +3543,10 @@ export default function ResultsPage() {
                             }}
         onSendQuoteRequest={handleSendQuoteRequest}
         onCloseDriverSuggestions={() => setShowDriverSuggestions(false)}
+        lowestDrivaniaPrice={lowestDrivaniaPrice}
+        drivaniaCurrency={drivaniaCurrency}
+        lowestExtraHourPrice={lowestExtraHourPrice}
+        loadingDrivaniaQuote={loadingDrivaniaQuote}
       />
 
       {/* Status Change Confirmation Modal */}

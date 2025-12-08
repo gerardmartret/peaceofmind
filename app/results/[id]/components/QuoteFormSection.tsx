@@ -63,7 +63,7 @@ export function QuoteFormSection({
       className={`relative sm:fixed left-0 right-0 bg-background transition-all duration-300 ${scrollY > 0 ? 'sm:top-0 sm:z-[60]' : 'sm:top-[57px] sm:z-40'}`}
     >
       <div className="container mx-auto px-3 sm:px-4 pt-4 sm:pt-8 pb-3">
-        <div className={`rounded-md pl-3 sm:pl-6 pr-3 sm:pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border'}`}>
+        <div className={`rounded-md pl-3 sm:pl-6 pr-3 sm:pr-4 py-3 bg-primary dark:bg-[#1f1f21] border ${myQuotes.length > 0 ? 'border-[#3ea34b]' : myQuotes.length === 0 && (!quotePrice || quotePrice.trim() === '') ? 'border-[#e77500]' : 'border-border'}`}>
           {/* Always show the same structure - fields are disabled when quote exists */}
           <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-3 sm:gap-3 items-stretch sm:items-start">
             <label className="w-full sm:flex-1">
@@ -154,7 +154,7 @@ export function QuoteFormSection({
                 <Button
                   type="button"
                   disabled={true}
-                  className="w-full h-10 sm:h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] cursor-not-allowed opacity-50 text-sm sm:text-base"
+                  className="w-full h-10 sm:h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] cursor-not-allowed opacity-50 text-xs sm:text-sm"
                 >
                   Submitted
                 </Button>
@@ -162,11 +162,11 @@ export function QuoteFormSection({
                 <Button
                   type="submit"
                   disabled={submittingQuote || !quoteEmail || !quotePrice}
-                  className="w-full h-10 sm:h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 text-sm sm:text-base"
+                  className="w-full h-12 sm:h-[52px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
                   {submittingQuote ? (
                     <>
-                      <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                      <svg className="animate-spin h-5 w-5 flex-shrink-0" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>

@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       `;
     } else if (newStatus === 'confirmed') {
       // Flow A: Confirmation email (from quotes)
-      emailSubject = `Trip Confirmed - ${tripDate}`;
+      emailSubject = `Confirmed - ${tripDate}`;
       emailTitle = 'Service Confirmed';
       statusDisplay = 'Confirmed';
       statusColor = '#3ea34b';

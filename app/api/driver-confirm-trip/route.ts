@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('✅ Trip confirmed by driver:', tripId);
+      console.log('✅ Confirmed by driver:', tripId);
     }
 
     // Send confirmation email to driver
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: 'Chauffs <info@trips.chauffs.com>',
           to: [normalizedDriverEmail],
-          subject: `Trip confirmed - ${tripDate}`,
+          subject: `Confirmed - ${tripDate}`,
           html: `
             <!DOCTYPE html>
             <html>
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
                     <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff;">
                       <tr>
                         <td style="background-color: #05060A; padding: 24px; border-radius: 8px 8px 0 0;">
-                          <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">Trip confirmed</h1>
+                          <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">Confirmed</h1>
                         </td>
                       </tr>
                       <tr>
@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Trip confirmed successfully'
+      message: 'Confirmed successfully'
     });
 
   } catch (error) {

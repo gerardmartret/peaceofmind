@@ -293,9 +293,9 @@ export default function AdminPage() {
             </div>
             <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
               <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
-                <TabsTrigger value="7d" className="dark:data-[state=active]:bg-[#323236]">Week</TabsTrigger>
-                <TabsTrigger value="30d" className="dark:data-[state=active]:bg-[#323236]">Month</TabsTrigger>
-                <TabsTrigger value="90d" className="dark:data-[state=active]:bg-[#323236]">Quarter</TabsTrigger>
+                <TabsTrigger value="7d" className="dark:data-[state=active]:bg-[#05060A]">Week</TabsTrigger>
+                <TabsTrigger value="30d" className="dark:data-[state=active]:bg-[#05060A]">Month</TabsTrigger>
+                <TabsTrigger value="90d" className="dark:data-[state=active]:bg-[#05060A]">Quarter</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>

@@ -104,6 +104,9 @@ export const LocationCard: React.FC<LocationCardProps> = ({
 
     // Always show name/purpose if available
     const hasPurpose = nameOrPurpose && nameOrPurpose.trim() !== '';
+    
+    // Combine business name and rest of address into single line
+    const fullAddress = restOfAddress ? `${displayBusinessName}, ${restOfAddress}` : displayBusinessName;
 
     return (
       <div>
@@ -112,14 +115,9 @@ export const LocationCard: React.FC<LocationCardProps> = ({
             {nameOrPurpose}
           </div>
         )}
-        <div className={`${hasPurpose ? 'text-sm' : 'text-base sm:text-lg'} font-semibold text-card-foreground break-words`}>
-          {displayBusinessName}
+        <div className="text-xs sm:text-sm text-muted-foreground break-words">
+          {fullAddress}
         </div>
-        {restOfAddress && (
-          <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 break-words">
-            {restOfAddress}
-          </div>
-        )}
       </div>
     );
   };

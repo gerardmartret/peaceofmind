@@ -73,7 +73,7 @@ export function DriverAcceptRejectModal({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:justify-end">
+        <DialogFooter className="gap-2 sm:gap-3 sm:justify-end">
           <Button
             variant="outline"
             onClick={async () => {

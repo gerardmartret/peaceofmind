@@ -10,8 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { normalizeTripLocations } from '@/app/results/[id]/utils/location-helpers';
 import { determineVehicleType, extractCarInfo } from '@/app/results/[id]/utils/vehicle-detection-helpers';
+import { getDisplayVehicle } from '@/lib/vehicle-helpers';
 
 interface Trip {
   id: string;
@@ -24,13 +26,16 @@ interface Trip {
   vehicle: string | null;
   trip_notes: string | null;
   status: string;
+  driver: string | null;
 }
 
-type SearchCriteria = {
-  passengerName?: string;
-  tripDate?: string;
-  location?: string;
-};
+interface Quote {
+  id: string;
+  trip_id: string;
+  email: string;
+  price: number;
+  currency: string;
+}
 
 export default function MyTripsPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -40,13 +45,11 @@ export default function MyTripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchText, setSearchText] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState<Trip[] | null>(null);
-  const [searchFeedback, setSearchFeedback] = useState<string | null>(null);
-  const [searchError, setSearchError] = useState('');
-  const [searchCriteria, setSearchCriteria] = useState<SearchCriteria | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'drivania' | 'other-drivers'>('drivania');
+  const [drivaniaSearchText, setDrivaniaSearchText] = useState('');
+  const [otherDriversSearchText, setOtherDriversSearchText] = useState('');
+  const [selectedOtherDriversStatus, setSelectedOtherDriversStatus] = useState<string | null>(null);
+  const [quotes, setQuotes] = useState<Map<string, Quote>>(new Map());
 
   // Handle theme mounting
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function MyTripsPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Fetch user's trips
+  // Fetch user's trips and quotes
   useEffect(() => {
     async function fetchTrips() {
       if (!user?.id) return;
@@ -69,7 +72,7 @@ export default function MyTripsPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from('trips')
-          .select('id, trip_date, created_at, locations, passenger_count, trip_destination, lead_passenger_name, vehicle, trip_notes, status')
+          .select('id, trip_date, created_at, locations, passenger_count, trip_destination, lead_passenger_name, vehicle, trip_notes, status, driver')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
@@ -82,6 +85,36 @@ export default function MyTripsPage() {
             locations: normalizeTripLocations(trip.locations),
           }));
           setTrips(normalizedData);
+
+          // Fetch quotes for confirmed trips, pending trips with assigned drivers, and booked trips with Drivania
+          const tripsWithQuotes = normalizedData.filter(trip => 
+            ((trip.status === 'confirmed' || trip.status === 'pending') && trip.driver) ||
+            (trip.status === 'booked' && trip.driver === 'drivania')
+          );
+          if (tripsWithQuotes.length > 0) {
+            const tripIds = tripsWithQuotes.map(trip => trip.id);
+            const { data: quotesData, error: quotesError } = await supabase
+              .from('quotes')
+              .select('id, trip_id, email, price, currency')
+              .in('trip_id', tripIds);
+
+            if (!quotesError && quotesData) {
+              // Create a map of quotes by trip_id and driver email
+              const quotesMap = new Map<string, Quote>();
+              tripsWithQuotes.forEach(trip => {
+                // For Drivania bookings, find quote with email 'drivania'
+                // For other trips, find quote matching the driver email
+                const quote = quotesData.find(q => 
+                  q.trip_id === trip.id && 
+                  (trip.driver === 'drivania' ? q.email === 'drivania' : q.email === trip.driver)
+                );
+                if (quote) {
+                  quotesMap.set(trip.id, quote);
+                }
+              });
+              setQuotes(quotesMap);
+            }
+          }
         }
       } catch (err) {
         console.error('Unexpected error:', err);
@@ -205,10 +238,10 @@ export default function MyTripsPage() {
         return 'Rejected';
       }
       if (status === 'confirmed') {
-        return 'Trip confirmed';
+        return 'Confirmed';
       }
       if (status === 'booked') {
-        return 'Booked with Drivania';
+        return 'Booked with Drivania™';
       }
       if (status === 'pending') {
         return 'Pending';
@@ -249,161 +282,253 @@ export default function MyTripsPage() {
     return `${passengerName} (x${passengerCount}) ${tripDuration} in ${tripDestination}`;
   };
 
-  const handleAiSearch = async () => {
-    if (!searchText.trim()) {
-      setSearchError('Please describe the ride you are trying to find (name, date, stop, etc.).');
-      return;
+  // Filter trips by tab, search text, and status (for other drivers tab)
+  const filterTripsByTabAndSearch = (tripList: Trip[], tab: 'drivania' | 'other-drivers', searchText: string, statusFilter?: string | null): Trip[] => {
+    // First filter by tab
+    let filtered = tripList.filter((trip) => {
+      if (tab === 'drivania') {
+        return trip.status === 'booked';
+      } else {
+        return trip.status !== 'booked';
+      }
+    });
+
+    // Filter by status if provided (for other drivers tab)
+    if (tab === 'other-drivers' && statusFilter) {
+      filtered = filtered.filter((trip) => (trip.status || 'not confirmed') === statusFilter);
     }
 
-    setSearchLoading(true);
-    setSearchError('');
-    setSearchFeedback(null);
-
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      if (sessionError || !token) {
-        throw new Error('Authentication needed. Please refresh the page or log in again.');
-      }
-
-      const response = await fetch('/api/trip-search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ query: searchText.trim() }),
+    // Then filter by search text if provided
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase();
+      filtered = filtered.filter((trip) => {
+        const passengerName = (trip.lead_passenger_name || '').toLowerCase();
+        const tripDate = trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB').toLowerCase() : '';
+        const destination = (trip.trip_destination || '').toLowerCase();
+        const tripName = generateTripName(trip).toLowerCase();
+        
+        // Check if search text matches any of these fields
+        return passengerName.includes(searchLower) ||
+               tripDate.includes(searchLower) ||
+               destination.includes(searchLower) ||
+               tripName.includes(searchLower);
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || 'Trip search failed');
-      }
-
-      const payload = await response.json();
-      const matches = Array.isArray(payload.matches) ? payload.matches : [];
-
-      setSearchResults(matches);
-      setSearchCriteria(payload.criteria ?? null);
-      setSearchFeedback(matches.length
-        ? `Found ${matches.length} trip${matches.length === 1 ? '' : 's'}`
-        : 'No trips matched that description.');
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Unable to search trips right now.');
-    } finally {
-      setSearchLoading(false);
     }
+
+    return filtered;
   };
 
-  const clearSearch = () => {
-    setSearchResults(null);
-    setSearchFeedback(null);
-    setSearchCriteria(null);
-    setSearchError('');
-  };
-
-  // Get unique statuses from trips
-  const getUniqueStatuses = (): string[] => {
+  // Get unique statuses from other drivers trips (excluding 'booked')
+  const getOtherDriversStatuses = (): string[] => {
     const statuses = new Set<string>();
     trips.forEach((trip) => {
-      statuses.add(trip.status || 'not confirmed');
+      if (trip.status !== 'booked') {
+        statuses.add(trip.status || 'not confirmed');
+      }
     });
-    return Array.from(statuses).sort();
+    
+    // Define the desired order
+    const statusOrder: { [key: string]: number } = {
+      'not confirmed': 0,
+      'confirmed': 1,
+      'pending': 2,
+      'cancelled': 3,
+      'rejected': 4,
+    };
+    
+    return Array.from(statuses).sort((a, b) => {
+      const orderA = statusOrder[a] ?? 999;
+      const orderB = statusOrder[b] ?? 999;
+      return orderA - orderB;
+    });
   };
 
-  const renderTripCards = (tripList: Trip[]) => (
+  const renderTripCards = (tripList: Trip[], showPrice: boolean = false) => (
     <div className="flex flex-col gap-6">
-      {tripList.map((trip) => (
-        <Link key={trip.id} href={`/results/${trip.id}`} className="block">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-primary/50">
-            <CardHeader className="relative">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-lg">
-                    {generateTripName(trip)}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 mt-2">
-                    <svg className="w-4 h-4 flex-shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      Trip date{' '}
-                      <span className="text-base font-semibold text-foreground ml-1">
-                        {trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        }) : 'N/A'}
+      {tripList.map((trip) => {
+        const quote = showPrice && (trip.status === 'confirmed' || trip.status === 'pending') ? quotes.get(trip.id) : null;
+        const drivaniaQuote = trip.status === 'booked' && trip.driver === 'drivania' ? quotes.get(trip.id) : null;
+        const formatPrice = (price: number, currency: string) => {
+          const formattedNumber = new Intl.NumberFormat('en-GB', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }).format(price);
+          return `${formattedNumber} ${currency || 'GBP'}`;
+        };
+
+        return (
+          <Link key={trip.id} href={`/results/${trip.id}`} className="block">
+            <Card className="relative cursor-pointer shadow-none">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">
+                      {generateTripName(trip)}
+                    </CardTitle>
+                    <div className="flex items-center gap-2 mt-2">
+                      <svg className="w-4 h-4 flex-shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        Trip date{' '}
+                        <span className="text-base font-semibold text-foreground ml-1">
+                          {trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          }) : 'N/A'}
+                        </span>
                       </span>
-                    </span>
-                  </div>
-                  {mounted && (
-                    <div className="flex items-end pt-0 pb-0 mt-0">
-                      <img
-                        src={getVehicleImagePath(trip)}
-                        alt="Vehicle"
-                        className="h-[102px] sm:h-[119px] w-auto"
-                      />
                     </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-end">
-                  {(() => {
-                    const statusBadge = getStatusBadge(trip);
-                    // Determine colors based on variant (matching FlowHoverButton)
-                    const colors = statusBadge.variant === 'confirmed' 
-                      ? {
-                          bg: 'bg-[#3ea34b]',
-                          border: 'border-[#3ea34b]',
-                          text: 'text-white',
-                        }
-                      : statusBadge.variant === 'pending'
-                      ? {
-                          bg: 'bg-[#e77500]',
-                          border: 'border-[#e77500]',
-                          text: 'text-white',
-                        }
-                      : statusBadge.variant === 'cancelled'
-                      ? {
-                          bg: 'bg-[#9e201b]',
-                          border: 'border-[#9e201b]',
-                          text: 'text-white',
-                        }
-                      : statusBadge.variant === 'rejected'
-                      ? {
-                          bg: 'bg-[#c41e3a]',
-                          border: 'border-[#c41e3a]',
-                          text: 'text-white',
-                        }
-                      : statusBadge.variant === 'request-quote-style'
-                      ? {
-                          bg: 'bg-background dark:bg-input/30',
-                          border: 'border-border dark:border-input',
-                          text: 'text-foreground',
-                        }
-                      : {
-                          bg: 'bg-[#9e201b]',
-                          border: 'border-[#9e201b]',
-                          text: 'text-white',
-                        };
-                    
-                    const shadowClass = statusBadge.variant === 'request-quote-style' ? 'shadow-xs' : '';
-                    
-                    return (
-                      <div
-                        className={`relative z-0 flex items-center justify-center gap-2 overflow-hidden 
-                          border ${colors.border} ${colors.bg} ${shadowClass}
-                          h-10 px-4 py-2 text-sm font-medium rounded-md ${colors.text} cursor-default`}
-                      >
-                        <span>{statusBadge.text}</span>
+                    {mounted && (
+                      <div className="flex items-end gap-6 pt-0 pb-0 mt-0">
+                        <img
+                          src={getVehicleImagePath(trip)}
+                          alt="Vehicle"
+                          className="h-[102px] sm:h-[119px] w-auto"
+                        />
+                        <div className="flex flex-col gap-2 pb-1">
+                          {/* Passenger Count */}
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 flex-shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span className="text-sm font-normal text-muted-foreground">
+                              Number of Passengers{' '}
+                              <span className="text-base font-semibold text-foreground ml-1">
+                                {trip.passenger_count || 1}
+                              </span>
+                            </span>
+                          </div>
+                          {/* Vehicle */}
+                          <div className="flex items-center gap-1.5">
+                            {(() => {
+                              const vehicleInfo = trip.vehicle || '';
+                              const driverNotes = trip.trip_notes || '';
+                              const passengerCount = trip.passenger_count || 1;
+                              const vehicleType = determineVehicleType(vehicleInfo, driverNotes, passengerCount);
+                              
+                              // Get vehicle display name matching TripSummarySection logic
+                              const getVehicleDisplayName = (): string => {
+                                // If signature sedan, check if specific brand/model was mentioned
+                                if (vehicleType === 'signature-sedan') {
+                                  const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes) || '';
+                                  const vehicleText = (vehicleInfo || driverNotes || '').toLowerCase();
+                                  
+                                  // Check if specific luxury models are mentioned
+                                  const hasSpecificModel = 
+                                    /(?:mercedes|merc)\s*maybach\s*s/i.test(vehicleText) ||
+                                    /rolls\s*royce\s*ghost/i.test(vehicleText) ||
+                                    /rolls\s*royce\s*phantom/i.test(vehicleText);
+                                  
+                                  // If specific model mentioned, show it; otherwise show "Signature Sedan"
+                                  if (hasSpecificModel && requestedVehicle) {
+                                    return getDisplayVehicle(requestedVehicle, passengerCount);
+                                  } else {
+                                    return 'Signature Sedan';
+                                  }
+                                }
+                                
+                                // First, try to get vehicle from vehicleInfo field or driverNotes
+                                const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
+
+                                // Use the helper to determine what to display:
+                                // - If vehicle is empty or not in whitelist, show auto-selected vehicle
+                                // - If vehicle is in whitelist, show that vehicle
+                                return getDisplayVehicle(requestedVehicle, passengerCount);
+                              };
+                              
+                              const vehicleDisplayName = getVehicleDisplayName();
+                              
+                              return (
+                                <>
+                                  <svg className="w-4 h-4 flex-shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                                  </svg>
+                                  <span className="text-sm font-normal text-muted-foreground">
+                                    Vehicle{' '}
+                                    <span className="text-base font-semibold text-foreground ml-1">
+                                      {vehicleDisplayName}
+                                    </span>
+                                  </span>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
                       </div>
-                    );
-                  })()}
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    {(() => {
+                      const statusBadge = getStatusBadge(trip);
+                      // Determine colors based on variant (matching FlowHoverButton)
+                      const colors = statusBadge.variant === 'confirmed' 
+                        ? {
+                            bg: 'bg-[#3ea34b]',
+                            border: 'border-[#3ea34b]',
+                            text: 'text-white',
+                          }
+                        : statusBadge.variant === 'pending'
+                        ? {
+                            bg: 'bg-[#e77500]',
+                            border: 'border-[#e77500]',
+                            text: 'text-white',
+                          }
+                        : statusBadge.variant === 'cancelled'
+                        ? {
+                            bg: 'bg-[#9e201b]',
+                            border: 'border-[#9e201b]',
+                            text: 'text-white',
+                          }
+                        : statusBadge.variant === 'rejected'
+                        ? {
+                            bg: 'bg-black dark:bg-black',
+                            border: 'border-black dark:border-black',
+                            text: 'text-white',
+                          }
+                        : statusBadge.variant === 'request-quote-style'
+                        ? {
+                            bg: 'bg-background dark:bg-input/30',
+                            border: 'border-border dark:border-input',
+                            text: 'text-foreground',
+                          }
+                        : {
+                            bg: 'bg-[#9e201b]',
+                            border: 'border-[#9e201b]',
+                            text: 'text-white',
+                          };
+                      
+                      const shadowClass = statusBadge.variant === 'request-quote-style' ? 'shadow-xs' : '';
+                      
+                      return (
+                        <>
+                          <div
+                            className={`relative z-0 flex items-center justify-center gap-2 overflow-hidden 
+                              border ${colors.border} ${colors.bg} ${shadowClass}
+                              h-10 px-4 py-2 text-sm font-medium rounded-md ${colors.text} cursor-pointer`}
+                          >
+                            <span>{statusBadge.text}</span>
+                          </div>
+                          {showPrice && quote && (
+                            <div className="text-lg font-medium text-foreground">
+                              {formatPrice(quote.price, quote.currency)}
+                            </div>
+                          )}
+                          {(trip.status === 'booked' && trip.driver === 'drivania') && drivaniaQuote && (
+                            <div className="text-lg font-medium text-foreground">
+                              {formatPrice(drivaniaQuote.price, drivaniaQuote.currency)}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
+              </CardHeader>
               {mounted && (
-                <div className={`absolute right-6 flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm ${mounted ? 'bottom-[102px] sm:bottom-[119px]' : ''}`}>
+                <div className="absolute bottom-4 right-6 flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm">
                   View trip
                   <svg
                     className="w-4 h-4"
@@ -420,137 +545,113 @@ export default function MyTripsPage() {
                   </svg>
                 </div>
               )}
-            </CardHeader>
-          </Card>
-        </Link>
-      ))}
+            </Card>
+          </Link>
+        );
+      })}
     </div>
   );
 
-  const searchActive = searchResults !== null;
-  const tripsToFilter = searchActive ? (searchResults || []) : trips;
-  
-  // Filter trips by status if a status is selected
-  const displayedTrips = selectedStatus
-    ? tripsToFilter.filter((trip) => (trip.status || 'not confirmed') === selectedStatus)
-    : tripsToFilter;
-  
-  const hasDisplayedTrips = displayedTrips.length > 0;
-  const criteriaParts = searchCriteria
-    ? [
-        searchCriteria.passengerName ? `passenger ${searchCriteria.passengerName}` : null,
-        searchCriteria.tripDate ? `date ${searchCriteria.tripDate}` : null,
-        searchCriteria.location ? `location ${searchCriteria.location}` : null,
-      ].filter(Boolean)
-    : [];
-  const criteriaSummary = criteriaParts.join(' • ');
+  // Get trips for each tab
+  const drivaniaTrips = filterTripsByTabAndSearch(trips, 'drivania', drivaniaSearchText);
+  const otherDriversTrips = filterTripsByTabAndSearch(trips, 'other-drivers', otherDriversSearchText, selectedOtherDriversStatus);
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background pt-8 pb-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-medium text-foreground mb-2">My trips</h1>
-          <p className="text-muted-foreground">
-            View all your driver briefs
-          </p>
+          <h1 className="text-3xl font-medium text-foreground">My trips</h1>
         </div>
 
-        {/* AI search */}
-        <div className="mb-6 space-y-3">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Input
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder="Ask for a trip by passenger, date, or stop..."
-              className="flex-1"
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  handleAiSearch();
-                }
-              }}
-            />
-            <Button
-              onClick={handleAiSearch}
-              disabled={searchLoading}
-              className="whitespace-nowrap"
-            >
-              {searchLoading ? 'Searching...' : 'Ask AI to find it'}
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Tell the AI the traveler, date or stop and we’ll look through your trips.
-          </p>
-          {searchFeedback && (
-            <p className="text-sm text-primary">{searchFeedback}</p>
-          )}
-          {criteriaSummary && (
-            <p className="text-xs text-muted-foreground">
-              Looking for: {criteriaSummary}
-            </p>
-          )}
-          {searchError && (
-            <Alert variant="destructive">
-              <AlertDescription>{searchError}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        {/* Status Filter */}
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant={selectedStatus === null ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedStatus(null)}
-              className="text-sm"
-            >
-              All
-            </Button>
-            {getUniqueStatuses().map((status) => {
-              const statusBadge = getStatusBadge({ status } as Trip);
-              const colors = statusBadge.variant === 'confirmed' 
-                ? { bg: 'bg-[#3ea34b]', border: 'border-[#3ea34b]', text: 'text-white' }
-                : statusBadge.variant === 'pending'
-                ? { bg: 'bg-[#e77500]', border: 'border-[#e77500]', text: 'text-white' }
-                : statusBadge.variant === 'cancelled'
-                ? { bg: 'bg-[#9e201b]', border: 'border-[#9e201b]', text: 'text-white' }
-                : statusBadge.variant === 'rejected'
-                ? { bg: 'bg-[#c41e3a]', border: 'border-[#c41e3a]', text: 'text-white' }
-                : { bg: 'bg-background dark:bg-input/30', border: 'border-border dark:border-input', text: 'text-foreground' };
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'drivania' | 'other-drivers')} className="mb-6">
+          <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
+            <TabsTrigger value="drivania" className="dark:data-[state=active]:bg-[#05060A]">Drivania™ Bookings</TabsTrigger>
+            <TabsTrigger value="other-drivers" className="dark:data-[state=active]:bg-[#05060A]">Other trips</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="drivania" className="mt-6">
+            <div className="mb-6">
+              <Input
+                value={drivaniaSearchText}
+                onChange={(event) => setDrivaniaSearchText(event.target.value)}
+                placeholder="Search trips..."
+                className="w-full"
+              />
+            </div>
+            {drivaniaTrips.length > 0 && renderTripCards(drivaniaTrips, false)}
+            {drivaniaTrips.length === 0 && !loading && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <h3 className="text-lg font-semibold mb-2">No trips found</h3>
+                  <p className="text-muted-foreground">
+                    {drivaniaSearchText.trim() 
+                      ? 'No trips match your search. Try a different search term.'
+                      : 'No trips booked with Drivania yet.'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="other-drivers" className="mt-6">
+            <div className="mb-6 space-y-4">
+              <Input
+                value={otherDriversSearchText}
+                onChange={(event) => setOtherDriversSearchText(event.target.value)}
+                placeholder="Search trips..."
+                className="w-full"
+              />
               
-              return (
+              {/* Status Filter */}
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  key={status}
-                  variant={selectedStatus === status ? 'default' : 'outline'}
+                  variant={selectedOtherDriversStatus === null ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedStatus(status)}
-                  className={`text-sm ${selectedStatus === status ? `${colors.bg} ${colors.border} ${colors.text} hover:opacity-90` : ''}`}
+                  onClick={() => setSelectedOtherDriversStatus(null)}
+                  className="text-sm"
                 >
-                  {statusBadge.text}
+                  All
                 </Button>
-              );
-            })}
-          </div>
-        </div>
+                {getOtherDriversStatuses().map((status) => {
+                  const statusBadge = getStatusBadge({ status } as Trip);
+                  
+                  return (
+                    <Button
+                      key={status}
+                      variant={selectedOtherDriversStatus === status ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSelectedOtherDriversStatus(status)}
+                      className="text-sm"
+                    >
+                      {statusBadge.text}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+            {otherDriversTrips.length > 0 && renderTripCards(otherDriversTrips, true)}
+            {otherDriversTrips.length === 0 && !loading && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <h3 className="text-lg font-semibold mb-2">No trips found</h3>
+                  <p className="text-muted-foreground">
+                    {otherDriversSearchText.trim() || selectedOtherDriversStatus
+                      ? 'No trips match your filters. Try adjusting your search or status filter.'
+                      : 'No other trips yet.'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* Error Alert */}
         {error && (
           <Alert variant="destructive" className="mb-6">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-        )}
-
-        {searchActive && (
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {searchFeedback ?? 'Showing AI search results.'}
-            </p>
-            <Button variant="ghost" size="sm" onClick={clearSearch}>
-              Clear search
-            </Button>
-          </div>
         )}
 
         {/* Loading State */}
@@ -561,48 +662,32 @@ export default function MyTripsPage() {
           </div>
         )}
 
-        {/* Results */}
-        {!loading && hasDisplayedTrips && renderTripCards(displayedTrips)}
-
-        {!loading && !hasDisplayedTrips && (
-          searchActive ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <h3 className="text-lg font-semibold mb-2">Nothing matched</h3>
-                <p className="text-muted-foreground mb-4">
-                  Try a different description or clear the AI search to see all trips.
-                </p>
-                <Button variant="outline" onClick={clearSearch}>
-                  Clear search
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <svg
-                  className="w-16 h-16 mx-auto mb-4 text-muted-foreground"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-                  />
-                </svg>
-                <h3 className="text-lg font-semibold mb-2">No trips yet</h3>
-                <p className="text-muted-foreground mb-6">
-                  Start by creating your first trip analysis
-                </p>
-                <Link href="/">
-                  <Button>Create your first trip</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          )
+        {/* Empty state when no trips at all */}
+        {!loading && trips.length === 0 && (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <svg
+                className="w-16 h-16 mx-auto mb-4 text-muted-foreground"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                />
+              </svg>
+              <h3 className="text-lg font-semibold mb-2">No trips yet</h3>
+              <p className="text-muted-foreground mb-6">
+                Start by creating your first trip analysis
+              </p>
+              <Link href="/">
+                <Button>Create your first trip</Button>
+              </Link>
+            </CardContent>
+          </Card>
         )}
 
         {/* Back to Home Button */}

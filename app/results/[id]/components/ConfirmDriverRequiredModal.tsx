@@ -29,7 +29,7 @@ export function ConfirmDriverRequiredModal({
             To confirm the trip, a driver must be assigned.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="gap-2 sm:justify-end">
+        <DialogFooter className="gap-2 sm:gap-3 sm:justify-end">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

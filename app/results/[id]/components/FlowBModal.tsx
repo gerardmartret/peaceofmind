@@ -86,7 +86,7 @@ export function FlowBModal({
             Assigning this driver will set the trip to pending status and send them an acceptance request email.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="justify-start">
+        <DialogFooter className="gap-2 sm:gap-3">
           <Button
             variant="outline"
             onClick={onDismiss}
@@ -97,7 +97,8 @@ export function FlowBModal({
           <Button
             onClick={handleConfirm}
             disabled={settingDriver}
-            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A]"
+            variant="default"
+            className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
           >
             {settingDriver ? (
               <>

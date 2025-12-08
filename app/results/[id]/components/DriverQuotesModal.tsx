@@ -3,6 +3,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface DriverQuotesModalProps {
   open: boolean;
@@ -54,6 +56,12 @@ interface DriverQuotesModalProps {
   // Handlers
   onSendQuoteRequest: (email: string) => void;
   onCloseDriverSuggestions: () => void;
+  
+  // Drivania quote info
+  lowestDrivaniaPrice: number | null;
+  drivaniaCurrency: string | null;
+  lowestExtraHourPrice: number | null;
+  loadingDrivaniaQuote: boolean;
 }
 
 export function DriverQuotesModal({
@@ -85,14 +93,18 @@ export function DriverQuotesModal({
   onShowFlowBModal,
   onSendQuoteRequest,
   onCloseDriverSuggestions,
+  lowestDrivaniaPrice,
+  drivaniaCurrency,
+  lowestExtraHourPrice,
+  loadingDrivaniaQuote,
 }: DriverQuotesModalProps) {
   const router = useRouter();
 
-  if (!open) return null;
-
-  const handleClose = () => {
-    onClose();
-    onAssignOnlyModeChange(false); // Reset assign-only mode
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose();
+      onAssignOnlyModeChange(false); // Reset assign-only mode
+    }
   };
 
   const handleAssignDriver = (email: string) => {
@@ -113,25 +125,13 @@ export function DriverQuotesModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4">
-      <div className="bg-background rounded-none sm:rounded-lg shadow-2xl w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-4xl overflow-hidden flex flex-col">
-        {/* Modal Header */}
-        <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
-              {assignOnlyMode ? 'Assign driver' : 'Get driver quotes'}
-            </h2>
-            <button
-              onClick={handleClose}
-              className="p-2 hover:bg-secondary/50 rounded-md transition-colors flex-shrink-0"
-              aria-label="Close"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
+          <DialogTitle className="text-lg sm:text-2xl">
+            {assignOnlyMode ? 'Assign driver' : 'Assign my driver'}
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Modal Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -179,15 +179,6 @@ export function DriverQuotesModal({
               </p>
             )}
 
-            {/* Success Messages */}
-            {quoteRequestSuccess && (
-              <Alert className="mb-4 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-                <AlertDescription className="text-[#3ea34b]">
-                  ✅ {quoteRequestSuccess}
-                </AlertDescription>
-              </Alert>
-            )}
-
             {/* Error Messages */}
             {(quoteRequestError || manualDriverError) && (
               <Alert variant="destructive" className="mb-4">
@@ -214,25 +205,27 @@ export function DriverQuotesModal({
                   />
 
                   {/* Autocomplete Dropdown */}
-                  {showDriverSuggestions && filteredDriverSuggestions.length > 0 && (
+                  {showDriverSuggestions && filteredDriverSuggestions.length > 0 && filteredDriverSuggestions.some(driver => driver.toLowerCase() !== manualDriverEmail.trim().toLowerCase()) && (
                     <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                      {filteredDriverSuggestions.map((driver, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => onSelectDriverSuggestion(driver)}
-                          className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>{driver}</span>
-                            {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
-                              <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
-                                Current
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      ))}
+                      {filteredDriverSuggestions
+                        .filter(driver => driver.toLowerCase() !== manualDriverEmail.trim().toLowerCase())
+                        .map((driver, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => onSelectDriverSuggestion(driver)}
+                            className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{driver}</span>
+                              {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
+                                <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
                     </div>
                   )}
 
@@ -244,7 +237,7 @@ export function DriverQuotesModal({
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto sm:ml-auto sm:justify-end">
                   {/* Request Quote - Hide in assign-only mode */}
                   {!assignOnlyMode && (
                     <Button
@@ -326,27 +319,31 @@ export function DriverQuotesModal({
                     {sentDriverEmails.map((sent, index) => {
                       const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
                       return (
-                        <div
+                        <Card
                           key={index}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-3 rounded-md bg-secondary/50 border border-[#3ea34b]"
+                          className="border-[#3ea34b] shadow-sm"
                         >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium break-words">{sent.email}</p>
-                          </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-0 flex-shrink-0 sm:ml-4">
-                            <div className="text-left sm:text-right">
-                            <p className="text-xs text-muted-foreground">
-                                <span className="hidden sm:inline">Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}</span>
-                                <span className="sm:hidden">{new Date(sent.sentAt).toLocaleDateString()}</span>
-                            </p>
-                          </div>
-                          {hasQuote && (
-                              <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded whitespace-nowrap">
-                              QUOTE RECEIVED
-                            </span>
-                          )}
-                          </div>
-                        </div>
+                          <CardContent className="p-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium break-words">{sent.email}</p>
+                              </div>
+                              <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 flex-shrink-0 sm:ml-4">
+                                <div className="text-left sm:text-right">
+                                  <p className="text-xs text-muted-foreground">
+                                    <span className="hidden sm:inline">Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}</span>
+                                    <span className="sm:hidden">{new Date(sent.sentAt).toLocaleDateString()}</span>
+                                  </p>
+                                </div>
+                                {hasQuote && (
+                                  <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded whitespace-nowrap">
+                                    QUOTE RECEIVED
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
                       );
                     })}
                   </div>
@@ -368,7 +365,7 @@ export function DriverQuotesModal({
                   <span className="ml-2 text-muted-foreground text-sm sm:text-base">Loading quotes...</span>
                 </div>
               ) : quotes.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8 text-sm sm:text-base">No quotes received yet</p>
+                <p className="text-muted-foreground text-left py-8 text-sm sm:text-base">No quotes received yet</p>
               ) : (
                 <>
                   {/* Desktop Table View */}
@@ -442,10 +439,11 @@ export function DriverQuotesModal({
                       {quotes.map((quote) => {
                         const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
                         return (
-                          <div
+                          <Card
                             key={quote.id}
-                            className={`p-4 sm:p-6 rounded-md border ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : 'bg-secondary/50 border-border'}`}
+                            className={`shadow-sm ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''}`}
                           >
+                            <CardContent className="p-4 sm:p-6">
                             <div className="mb-2">
                               <div className="flex items-start gap-2 mb-1">
                                 <p className="text-sm font-medium break-words flex-1 min-w-0">{quote.email}</p>
@@ -483,7 +481,8 @@ export function DriverQuotesModal({
                                 'Select driver'
                               )}
                             </Button>
-                          </div>
+                            </CardContent>
+                          </Card>
                         );
                       })}
                     </div>
@@ -495,28 +494,57 @@ export function DriverQuotesModal({
           {/* Book with Drivania Section - Link to booking page */}
           {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
             <div className="mb-8">
-              <div className="rounded-md border border-border bg-muted/40 p-4 sm:p-6 text-center">
-                <h3 className="text-base sm:text-lg font-semibold text-card-foreground mb-2">
-                  Book with Drivania
-                </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground mb-4">
-                  Get instant quotes and book your trip with our partner Drivania
-                </p>
-                <Button
-                  onClick={() => {
-                    onClose();
-                    router.push(`/booking/${tripId}`);
-                  }}
-                  className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] w-full sm:w-auto text-sm sm:text-base"
-                >
-                  Book a trip
-                </Button>
-              </div>
+              <Card className="shadow-sm">
+                <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center">
+                    <h3 className="text-base sm:text-lg font-semibold text-card-foreground">
+                      Book with Drivania™
+                    </h3>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-lg sm:text-xl font-medium text-foreground">
+                          {(() => {
+                            const formattedNumber = new Intl.NumberFormat('en-GB', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }).format(lowestDrivaniaPrice);
+                            return `${formattedNumber} ${drivaniaCurrency || 'USD'}`;
+                          })()}
+                        </div>
+                        {lowestExtraHourPrice !== null && (
+                          <div className="text-xs sm:text-sm font-medium text-muted-foreground">
+                            {(() => {
+                              const formattedNumber = new Intl.NumberFormat('en-GB', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }).format(lowestExtraHourPrice);
+                              return `${formattedNumber} ${drivaniaCurrency || 'USD'} per extra hour`;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => {
+                        onClose();
+                        router.push(`/booking/${tripId}`);
+                      }}
+                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 w-full sm:w-auto text-sm sm:text-base"
+                    >
+                      Book now
+                    </Button>
+                  </div>
+                </div>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

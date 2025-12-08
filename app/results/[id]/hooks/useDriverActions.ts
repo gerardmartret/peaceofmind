@@ -112,7 +112,7 @@ export function useDriverActions({
         onDriverResponseStatusUpdate('accepted');
         // Show success message
         onQuoteSuccessUpdate(true);
-        onQuoteSuccessMessageUpdate('✅ Trip confirmed! The trip owner has been notified.');
+        onQuoteSuccessMessageUpdate('✅ Confirmed! The trip owner has been notified.');
       } else {
         alert(result.error || 'Failed to confirm trip');
       }

@@ -2,6 +2,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { FlowHoverButton } from '@/components/ui/flow-hover-button';
 import { Car, Maximize2, Loader2 } from 'lucide-react';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import { TripStatusButton } from './TripStatusButton';
@@ -51,6 +52,7 @@ interface TripSummarySectionProps {
   // Drivania quote info
   lowestDrivaniaPrice: number | null;
   drivaniaCurrency: string | null;
+  lowestExtraHourPrice: number | null;
   loadingDrivaniaQuote: boolean;
 }
 
@@ -87,6 +89,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   onShowSignupModal,
   lowestDrivaniaPrice,
   drivaniaCurrency,
+  lowestExtraHourPrice,
   loadingDrivaniaQuote,
 }) => {
   const router = useRouter();
@@ -236,7 +239,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-normal text-card-foreground mb-4 sm:mb-5 leading-tight break-words">
               {leadPassengerName || 'Passenger'} (x{passengerCount || 1}) {tripDuration} in {tripDestination || 'London'}
             </h2>
-            <div className="flex items-center gap-2 sm:gap-3 mb-3">
+            <div className="flex items-center gap-2 sm:gap-3 mb-1.5">
               <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -263,25 +266,27 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                 </span>
               </span>
             </div>
-            {/* Status and Assign Driver buttons - Show for owners only */}
-            {isOwner && (
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3">
-                <div className="relative inline-block">
-            <TripStatusButton
-              tripStatus={tripStatus}
-              driverResponseStatus={driverResponseStatus}
-              driverEmail={driverEmail}
-              originalDriverEmail={originalDriverEmail}
-              quotes={quotes}
-              sentDriverEmails={sentDriverEmails}
-              isOwner={isOwner}
-              quoteEmail={quoteEmail}
-              driverToken={driverToken}
-              validatedDriverEmail={validatedDriverEmail}
-              updatingStatus={updatingStatus}
-              onStatusToggle={onStatusToggle}
-            />
-      </div>
+            {/* Status and Assign Driver buttons - Show for owners and drivers with token */}
+            {(isOwner || (driverToken && validatedDriverEmail)) && (
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-5">
+                {((tripStatus !== 'not confirmed' && tripStatus !== 'pending' && tripStatus !== 'confirmed') || (driverToken && validatedDriverEmail && tripStatus === 'pending')) ? (
+                  <div className="relative inline-block">
+                    <TripStatusButton
+                      tripStatus={tripStatus}
+                      driverResponseStatus={driverResponseStatus}
+                      driverEmail={driverEmail}
+                      originalDriverEmail={originalDriverEmail}
+                      quotes={quotes}
+                      sentDriverEmails={sentDriverEmails}
+                      isOwner={isOwner}
+                      quoteEmail={quoteEmail}
+                      driverToken={driverToken}
+                      validatedDriverEmail={validatedDriverEmail}
+                      updatingStatus={updatingStatus}
+                      onStatusToggle={onStatusToggle}
+                    />
+                  </div>
+                ) : null}
                     {!(isDriverView && driverToken) && quoteParam !== 'true' && (
                         <div className="relative inline-block">
                           <Button
@@ -316,7 +321,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                                 className="w-4 h-4"
                               />
                             )}
-                            {tripStatus === 'cancelled' ? 'Trip cancelled' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign driver'}
+                            {tripStatus === 'cancelled' ? 'Driver released' : driverEmail && tripStatus === 'pending' ? 'Driver requested' : driverEmail && (tripStatus === 'confirmed' || tripStatus === 'booked') ? 'Driver assigned' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign my driver'}
                           </Button>
                           {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
                             <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
@@ -329,34 +334,97 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             )}
           </div>
           <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto">
-            {/* Book a trip button - Show for owners when not booked/cancelled */}
-            {isOwner && tripStatus !== 'cancelled' && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true' && (
-              <div className="w-full sm:w-[220px] min-h-[48px] sm:min-h-[52px] flex items-center">
-                <Button
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      onShowSignupModal();
-                      return;
-                    }
-                    router.push(`/booking/${tripId}`);
-                  }}
-                  disabled={loadingDrivaniaQuote}
-                  className="w-full !h-auto bg-[#3ea34b] hover:bg-[#2d7a35] text-white disabled:opacity-70 disabled:cursor-not-allowed !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg border border-[#3ea34b] transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  {loadingDrivaniaQuote ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                      <span className="hidden sm:inline">Loading best price</span>
-                      <span className="sm:hidden">Loading...</span>
-                    </span>
-                  ) : lowestDrivaniaPrice !== null ? (
-                    <span className="whitespace-nowrap text-sm sm:text-base lg:text-lg">{`Book for ${drivaniaCurrency ? `${drivaniaCurrency} ` : ''}${lowestDrivaniaPrice.toFixed(2)}`}</span>
-                  ) : (
-                    <span className="text-sm sm:text-base lg:text-lg">Book a trip</span>
-                  )}
-                </Button>
+            {/* Show confirmation button with driver quote when driver is selected, otherwise show Book with Drivania */}
+            {isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true' && (
+              <div className="w-full sm:w-[220px] flex flex-col items-stretch sm:items-end gap-2">
+                {driverEmail ? (
+                  <>
+                    <div className="w-full">
+                      <TripStatusButton
+                        tripStatus={tripStatus}
+                        driverResponseStatus={driverResponseStatus}
+                        driverEmail={driverEmail}
+                        originalDriverEmail={originalDriverEmail}
+                        quotes={quotes}
+                        sentDriverEmails={sentDriverEmails}
+                        isOwner={isOwner}
+                        quoteEmail={quoteEmail}
+                        driverToken={driverToken}
+                        validatedDriverEmail={validatedDriverEmail}
+                        updatingStatus={updatingStatus}
+                        onStatusToggle={onStatusToggle}
+                        className="w-full !h-auto !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg"
+                      />
+                    </div>
+                    {(() => {
+                      const driverQuote = quotes.find((q: any) => q.email.toLowerCase() === driverEmail.toLowerCase());
+                      return driverQuote ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="text-2xl font-medium text-foreground text-right">
+                            {(() => {
+                              const formattedNumber = new Intl.NumberFormat('en-GB', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }).format(driverQuote.price);
+                              return `${formattedNumber} ${driverQuote.currency || 'USD'}`;
+                            })()}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                  </>
+                ) : (
+                  <>
+                    <FlowHoverButton
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          onShowSignupModal();
+                          return;
+                        }
+                        router.push(`/booking/${tripId}`);
+                      }}
+                      disabled={loadingDrivaniaQuote}
+                      variant="rejected"
+                      className="w-full !h-auto disabled:opacity-70 disabled:cursor-not-allowed !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg !bg-[#05060A] dark:!bg-[#E5E7EF] !border-[#05060A] dark:!border-[#E5E7EF] !text-white dark:!text-[#05060A] hover:!bg-[#05060A]/90 dark:hover:!bg-[#E5E7EF]/90 before:!bg-[#05060A]/80 dark:before:!bg-[#E5E7EF]/80"
+                    >
+                      {loadingDrivaniaQuote ? (
+                        <span className="flex items-center justify-center gap-2 text-sm sm:text-base lg:text-lg">
+                          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                          <span className="hidden sm:inline">Quoting trip</span>
+                          <span className="sm:hidden">Quoting...</span>
+                        </span>
+                      ) : (
+                        <span className="text-sm sm:text-base lg:text-lg">Book with Drivania™</span>
+                      )}
+                    </FlowHoverButton>
+                    {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="text-2xl font-medium text-foreground text-right">
+                          {(() => {
+                            const formattedNumber = new Intl.NumberFormat('en-GB', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }).format(lowestDrivaniaPrice);
+                            return `${formattedNumber} ${drivaniaCurrency || 'USD'}`;
+                          })()}
+                        </div>
+                        {lowestExtraHourPrice !== null && (
+                          <div className="text-sm font-medium text-muted-foreground text-right">
+                            {(() => {
+                              const formattedNumber = new Intl.NumberFormat('en-GB', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }).format(lowestExtraHourPrice);
+                              return `${formattedNumber} ${drivaniaCurrency || 'USD'} per extra hour`;
+                            })()}
+                          </div>
+                        )}
                       </div>
                     )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

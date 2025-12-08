@@ -451,7 +451,7 @@ export function EditRouteModal({
           </div>
         </div>
 
-        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-3">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

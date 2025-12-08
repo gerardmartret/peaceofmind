@@ -91,7 +91,7 @@ export function FlowAModal({
         </DialogHeader>
         {/* Flow A is for Supabase driver assignment - Drivania quotes should not be shown here */}
         {/* (Drivania quotes are only relevant when booking with Drivania, not when assigning Supabase drivers) */}
-        <DialogFooter className="justify-start">
+        <DialogFooter className="gap-2 sm:gap-3">
           <Button
             variant="outline"
             onClick={onDismiss}

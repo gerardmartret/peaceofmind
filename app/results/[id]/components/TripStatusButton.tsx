@@ -14,6 +14,7 @@ interface TripStatusButtonProps {
   validatedDriverEmail: string | null;
   updatingStatus: boolean;
   onStatusToggle: () => void;
+  className?: string;
 }
 
 export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
@@ -29,6 +30,7 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
   validatedDriverEmail,
   updatingStatus,
   onStatusToggle,
+  className,
 }) => {
   // Determine if there was any activity (driver assigned, quotes requested, or quotes received)
   // Check both current state and original data to ensure we catch activity even if state changes
@@ -43,8 +45,12 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
   const isAssignedDriver = !isOwner && driverEmail && quoteEmail &&
     driverEmail.toLowerCase().trim() === quoteEmail.toLowerCase().trim();
 
+  // Check if driver is viewing via token and matches assigned driver
+  const isDriverViaToken = !isOwner && driverToken && validatedDriverEmail && driverEmail &&
+    validatedDriverEmail.toLowerCase().trim() === driverEmail.toLowerCase().trim();
+
   // Check if driver is viewing and trip is pending
-  const isDriverViewingPending = (isAssignedDriver || !!(driverToken && validatedDriverEmail)) && tripStatus === 'pending';
+  const isDriverViewingPending = (isAssignedDriver || isDriverViaToken || !!(driverToken && validatedDriverEmail)) && tripStatus === 'pending';
   
   // Determine variant based on status and activity
   const getButtonVariant = () => {
@@ -74,7 +80,7 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
     driverResponseStatus === 'rejected' ? 'Rejected' :
       driverResponseStatus === 'accepted' ? 'Trip accepted' :
         tripStatus === 'rejected' ? 'Rejected' :
-          tripStatus === 'confirmed' ? 'Trip confirmed' :
+          tripStatus === 'confirmed' ? 'Confirmed' :
             tripStatus === 'booked' ? 'Booked with Drivania' :
               isDriverViewingPending ? 'Accept trip' :
                 driverEmail ? 'Pending' : 'Not confirmed';
@@ -85,6 +91,7 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
       size="sm"
       onClick={onStatusToggle}
       disabled={!!(updatingStatus || isCancelledWithActivity || (driverEmail === 'drivania' && tripStatus === 'booked') || (isDriverViewingPending && driverResponseStatus !== null))}
+      className={className}
       icon={
         isCancelledWithActivity ? undefined : // No icon for cancelled
           driverResponseStatus === 'accepted' ? undefined : // No icon when driver accepted

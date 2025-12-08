@@ -43,10 +43,10 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
       }
     : variant === 'rejected'
     ? {
-        bg: 'bg-[#c41e3a]',
-        border: 'border-[#c41e3a]',
+        bg: 'bg-black dark:bg-black',
+        border: 'border-black dark:border-black',
         text: 'text-white',
-        hoverBg: 'before:bg-[#9e1830]', // Darker red for hover
+        hoverBg: 'before:bg-black dark:before:bg-black', // Black for hover
         hoverText: 'hover:text-white'
       }
     : variant === 'request-quote-style'

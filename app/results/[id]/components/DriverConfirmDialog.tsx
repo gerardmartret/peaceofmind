@@ -60,7 +60,7 @@ export function DriverConfirmDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="gap-2 sm:gap-3">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
