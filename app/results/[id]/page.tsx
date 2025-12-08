@@ -1765,11 +1765,23 @@ export default function ResultsPage() {
         setDrivaniaQuotes(result.data);
         setDrivaniaServiceType(result.serviceType);
       } else {
-        setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
+        const errorMsg = result.error || result.message || 'Failed to get quote from Drivania';
+        // Check if error contains PEAK_PERIOD and provide user-friendly message
+        if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period')) {
+          setDrivaniaError('We are expecting a high demand for this day, and online booking is not available. Please contact us at info@drivania.com and we will assist you.');
+        } else {
+          setDrivaniaError(errorMsg);
+        }
       }
     } catch (err) {
       console.error('❌ Error requesting Drivania quote:', err);
-      setDrivaniaError('Failed to request quote from Drivania. Please try again.');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to request quote from Drivania. Please try again.';
+      // Check if error contains PEAK_PERIOD and provide user-friendly message
+      if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period')) {
+        setDrivaniaError('We are expecting a high demand for this day, and online booking is not available. Please contact us at info@drivania.com and we will assist you.');
+      } else {
+        setDrivaniaError(errorMsg);
+      }
     } finally {
       setLoadingDrivaniaQuote(false);
     }

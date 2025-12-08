@@ -82,6 +82,7 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
   return (
     <FlowHoverButton
       variant={buttonVariant}
+      size="sm"
       onClick={onStatusToggle}
       disabled={!!(updatingStatus || isCancelledWithActivity || (driverEmail === 'drivania' && tripStatus === 'booked') || (isDriverViewingPending && driverResponseStatus !== null))}
       icon={

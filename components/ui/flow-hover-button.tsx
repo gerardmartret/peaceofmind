@@ -5,12 +5,14 @@ interface FlowHoverButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElem
   icon?: React.ReactNode
   children?: React.ReactNode
   variant?: 'confirmed' | 'pending' | 'not-confirmed' | 'cancelled' | 'rejected' | 'request-quote-style'
+  size?: 'default' | 'sm'
 }
 
 export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({ 
   icon, 
   children, 
   variant = 'not-confirmed',
+  size = 'default',
   className,
   ...props 
 }) => {
@@ -75,12 +77,17 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
         before:rounded-[100%] ${colors.hoverBg} before:transition-transform before:duration-1000 before:content-[""]
         hover:scale-105 hover:before:translate-x-[0%] hover:before:translate-y-[0%] active:scale-95`;
 
+  // Size-based classes
+  const sizeClasses = size === 'sm'
+    ? 'h-10 px-4 py-2 text-sm font-medium rounded-md'
+    : 'px-6 py-3.5 text-xl font-medium rounded-lg';
+
   return (
     <button
       className={cn(
-        `relative ${cursorClass} z-0 flex items-center justify-center gap-2 overflow-hidden rounded-lg 
+        `relative ${cursorClass} z-0 flex items-center justify-center gap-2 overflow-hidden 
         border ${colors.border} ${colors.bg} ${shadowClass}
-        px-6 py-3.5 text-xl font-medium ${colors.text} transition-all duration-500
+        ${sizeClasses} ${colors.text} transition-all duration-500
         ${animationClasses}
         ${colors.hoverText}`,
         className

@@ -742,7 +742,19 @@ export default function BookingPage() {
         <div className="mb-8">
           {drivaniaError && (
             <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{drivaniaError}</AlertDescription>
+              <AlertDescription>
+                {drivaniaError.includes('PEAK_PERIOD') || drivaniaError.includes('Peak period') ? (
+                  <>
+                    We are expecting a high demand for this day, and online booking is not available. Please contact us at{' '}
+                    <a href="mailto:info@drivania.com" className="underline hover:text-primary">
+                      info@drivania.com
+                    </a>{' '}
+                    and we will assist you.
+                  </>
+                ) : (
+                  drivaniaError
+                )}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -793,7 +805,17 @@ export default function BookingPage() {
           ) : drivaniaQuotes && drivaniaQuotes.quotes?.unavailable_reason ? (
             <Alert className="mb-4">
               <AlertDescription>
-                Quote unavailable: {drivaniaQuotes.quotes.unavailable_reason}
+                {drivaniaQuotes.quotes.unavailable_reason === 'PEAK_PERIOD' ? (
+                  <>
+                    We are expecting a high demand for this day, and online booking is not available. Please contact us at{' '}
+                    <a href="mailto:info@drivania.com" className="underline hover:text-primary">
+                      info@drivania.com
+                    </a>{' '}
+                    and we will assist you.
+                  </>
+                ) : (
+                  `Quote unavailable: ${drivaniaQuotes.quotes.unavailable_reason}`
+                )}
               </AlertDescription>
             </Alert>
           ) : null}
