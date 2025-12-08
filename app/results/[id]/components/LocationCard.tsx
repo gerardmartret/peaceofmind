@@ -63,13 +63,17 @@ export const LocationCard: React.FC<LocationCardProps> = ({
 
   // Format location display with flight numbers
   const formatLocationDisplayWithFlights = () => {
+    // Get name/purpose
+    const nameOrPurpose = location.purpose || location.name;
+    
     // Always use fullAddress for display - never fall back to name (purpose)
     const fullAddr = location.formattedAddress || location.fullAddress || location.address;
+    
+    // If no address exists, show only name/purpose
     if (!fullAddr) {
-      // Only if no address exists, show purpose as fallback
       return (
         <div className="text-base sm:text-lg font-semibold text-card-foreground break-words">
-          {location.purpose || location.name || 'Unknown location'}
+          {nameOrPurpose || 'Unknown location'}
         </div>
       );
     }
@@ -98,19 +102,18 @@ export const LocationCard: React.FC<LocationCardProps> = ({
       }
     }
 
-    // Only show purpose if it's different from the address and meaningful
-    const shouldShowPurpose = location.purpose && 
-      location.purpose.trim() !== '' &&
-      fullAddr.toLowerCase() !== location.purpose.toLowerCase() &&
-      businessName.toLowerCase() !== location.purpose.toLowerCase();
+    // Always show name/purpose if available
+    const hasPurpose = nameOrPurpose && nameOrPurpose.trim() !== '';
 
     return (
       <div>
-        <div className="text-base sm:text-lg font-semibold text-card-foreground break-words">
+        {hasPurpose && (
+          <div className="text-base sm:text-lg font-semibold text-card-foreground break-words mb-0.5">
+            {nameOrPurpose}
+          </div>
+        )}
+        <div className={`${hasPurpose ? 'text-sm' : 'text-base sm:text-lg'} font-semibold text-card-foreground break-words`}>
           {displayBusinessName}
-          {shouldShowPurpose && (
-            <span className="block sm:inline sm:ml-1"> - {location.purpose}</span>
-          )}
         </div>
         {restOfAddress && (
           <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 break-words">

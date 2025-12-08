@@ -84,6 +84,7 @@ export default function Home() {
   const [locations, setLocations] = useState<Array<{
     id: string;
     name: string;
+    fullAddress?: string;
     lat: number;
     lng: number;
     time: string;
@@ -415,9 +416,15 @@ export default function Home() {
     }
   };
 
-  const updateLocation = (id: string, data: { name: string; lat: number; lng: number }) => {
+  const updateLocation = (id: string, data: { name: string; lat: number; lng: number; formattedAddress?: string }) => {
     setLocations(locations.map(loc =>
-      loc.id === id ? { ...loc, ...data } : loc
+      loc.id === id ? { 
+        ...loc, 
+        name: data.name,
+        lat: data.lat,
+        lng: data.lng,
+        fullAddress: data.formattedAddress || loc.fullAddress // Store formattedAddress as fullAddress
+      } : loc
     ));
   };
 
@@ -1069,10 +1076,16 @@ export default function Home() {
       // Get the display vehicle (auto-selected if vehicle is empty or not in whitelist)
       const displayVehicle = getDisplayVehicle(vehicleInfo, passengerCount);
 
+      // Ensure all locations have fullAddress (consistent storage format)
+      const locationsWithFullAddress = validLocations.map(loc => ({
+        ...loc,
+        fullAddress: loc.fullAddress || loc.name, // Use fullAddress if available, fallback to name
+      }));
+
       const tripInsertData: any = {
         user_email: emailToUse,
         trip_date: tripDateStr,
-        locations: validLocations as any,
+        locations: locationsWithFullAddress as any,
         trip_results: results as any,
         traffic_predictions: trafficData as any,
         executive_report: executiveReportData as any,

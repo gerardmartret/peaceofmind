@@ -6,6 +6,7 @@
  */
 
 import { isAirportLocation } from '../utils/location-helpers';
+import type { TripData } from '../types';
 
 interface UsePreviewApplicationParams {
   previewLocations: any[];
@@ -16,7 +17,7 @@ interface UsePreviewApplicationParams {
     passengerCount?: number;
     tripDestination?: string;
   };
-  tripData: any;
+  tripData: TripData | null;
   driverNotes: string;
   setEditingLocations: (locations: any[]) => void;
   setEditedDriverNotes: (notes: string) => void;
@@ -68,7 +69,7 @@ export const usePreviewApplication = (params: UsePreviewApplicationParams) => {
     let locationsToSave = validatedLocations;
     if (locationsToSave.length === 0 && tripData?.locations && tripData.locations.length > 0) {
       // Convert tripData.locations to manual form format (same as mapExtractedToManualForm does)
-      locationsToSave = tripData.locations.map((loc, idx) => ({
+      locationsToSave = tripData.locations.map((loc: TripData['locations'][number], idx: number) => ({
         location: loc.name || loc.fullAddress || loc.formattedAddress || loc.address || '',
         formattedAddress: loc.fullAddress || loc.formattedAddress || loc.address || '', // Never fall back to name (purpose)
         lat: loc.lat || 0,

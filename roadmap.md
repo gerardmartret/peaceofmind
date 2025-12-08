@@ -1,7 +1,4 @@
-address printing 
-
-update trip from manual form
-
+booking and confirmation pages 
 
 
 
