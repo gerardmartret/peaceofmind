@@ -628,7 +628,17 @@ export default function ResultsPage() {
     try {
       // Use provided locations or fall back to editingLocations
       // This avoids React state timing issues when called immediately after setState
-      const locations = locationsToUse || editingLocations;
+      // Ensure locations is always an array
+      const locations = Array.isArray(locationsToUse) 
+        ? locationsToUse 
+        : (Array.isArray(editingLocations) ? editingLocations : []);
+
+      // Guard: If locations is empty or not an array, show error
+      if (!Array.isArray(locations) || locations.length === 0) {
+        alert('No locations to save. Please add at least one location.');
+        setIsRegenerating(false);
+        return;
+      }
 
       // Validate all locations have valid coordinates
       // Use the 'locations' variable (which may be from parameter) instead of 'editingLocations' state
@@ -906,10 +916,10 @@ export default function ResultsPage() {
 
       // Update database with new locations and all other fields
       const updateData: any = {
-        locations: JSON.stringify(locationsForDb),
-        trip_results: JSON.stringify(backgroundResults),
-        traffic_predictions: JSON.stringify(backgroundTrafficData),
-        executive_report: JSON.stringify(backgroundReportData),
+        locations: locationsForDb,
+        trip_results: backgroundResults,
+        traffic_predictions: backgroundTrafficData,
+        executive_report: backgroundReportData,
         trip_notes: editedDriverNotes || driverNotes || null, // Update with edited notes if available
         updated_at: new Date().toISOString(),
         version: (currentVersion || 0) + 1,
@@ -940,19 +950,21 @@ export default function ResultsPage() {
         .eq('id', tripId);
 
       if (updateError) {
+        console.error('❌ [UPDATE] Supabase error:', updateError);
+        console.error('❌ [UPDATE] Update data:', JSON.stringify(updateData, null, 2));
         throw updateError;
       }
-
 
       // Reload page to show updated data
       window.location.reload();
 
     } catch (error) {
+      console.error('❌ [UPDATE] Error updating route:', error);
       setIsRegenerating(false);
       setRegenerationSteps(prev => prev.map(step =>
         step.status === 'loading' ? { ...step, status: 'error' as const } : step
       ));
-      alert('Failed to update route. Please try again.');
+      alert(`Failed to update route: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     }
   };
 
@@ -1540,6 +1552,9 @@ export default function ResultsPage() {
       const typedLocations = latestLocations.map((loc: any, idx: number) => ({
         id: loc.id || `location-${idx + 1}`, // Ensure id is always present
         name: loc.name || '',
+        fullAddress: loc.fullAddress,
+        formattedAddress: loc.formattedAddress,
+        address: loc.address,
         lat: loc.lat || 0,
         lng: loc.lng || 0,
         time: loc.time || '12:00',
@@ -1549,6 +1564,9 @@ export default function ResultsPage() {
       })) as Array<{
         id: string;
         name: string;
+        fullAddress?: string;
+        formattedAddress?: string;
+        address?: string;
         displayName?: string;
         lat: number;
         lng: number;
@@ -2168,12 +2186,12 @@ export default function ResultsPage() {
 
             // FIX: Preserve address fields for time-only changes (prevent address corruption)
             if (locChange.changes?.timeChanged && !locChange.changes?.addressChanged && currentLoc) {
-              finalLoc.fullAddress = (currentLoc as any).fullAddress || finalLoc.fullAddress;
-              finalLoc.formattedAddress = (currentLoc as any).formattedAddress || finalLoc.formattedAddress;
-              finalLoc.address = (currentLoc as any).address || finalLoc.address;
+              finalLoc.fullAddress = currentLoc.fullAddress || finalLoc.fullAddress;
+              finalLoc.formattedAddress = currentLoc.formattedAddress || finalLoc.formattedAddress;
+              finalLoc.address = currentLoc.address || finalLoc.address;
               // Reconstruct name with preserved address
-              if (finalLoc.purpose && (currentLoc as any).fullAddress) {
-                finalLoc.name = `${finalLoc.purpose}, ${(currentLoc as any).fullAddress}`;
+              if (finalLoc.purpose && currentLoc.fullAddress) {
+                finalLoc.name = `${finalLoc.purpose}, ${currentLoc.fullAddress}`;
               }
             }
 
@@ -2251,7 +2269,7 @@ export default function ResultsPage() {
             // CRITICAL FIX: Ensure fullAddress is properly set for display
             // For time-only changes, preserve the original fullAddress from currentLoc
             const timeOnlyChange = locChange.changes?.timeChanged && !locChange.changes?.addressChanged;
-            const currentFullAddress = (currentLoc as any)?.fullAddress;
+            const currentFullAddress = currentLoc?.fullAddress;
             const fullAddress = timeOnlyChange && currentFullAddress
               ? currentFullAddress
               : (locChange.extractedLocation.formattedAddress ||
@@ -2296,13 +2314,13 @@ export default function ResultsPage() {
             finalLocationsMap[locChange.currentIndex] = {
               id: currentLoc.id,
               name: currentLoc.name,
-              formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || '', // Never fall back to name (purpose)
+              formattedAddress: currentLoc.formattedAddress || currentLoc.fullAddress || currentLoc.address || '', // Never fall back to name (purpose)
               address: currentLoc.name,
               time: currentLoc.time,
               purpose: currentLoc.name,
               lat: currentLoc.lat,
               lng: currentLoc.lng,
-              fullAddress: (currentLoc as any).fullAddress || currentLoc.name,
+              fullAddress: currentLoc.fullAddress || currentLoc.formattedAddress || currentLoc.address || currentLoc.name,
             };
           } else if (locChange.finalLocation) {
             // Fallback to finalLocation only if currentLoc doesn't exist
@@ -2342,13 +2360,13 @@ export default function ResultsPage() {
           finalLocationsMap[idx] = {
             id: currentLoc.id,
             name: currentLoc.name,
-            formattedAddress: (currentLoc as any).formattedAddress || (currentLoc as any).fullAddress || currentLoc.name,
+            formattedAddress: currentLoc.formattedAddress || currentLoc.fullAddress || currentLoc.address || currentLoc.name,
             address: currentLoc.name,
             time: currentLoc.time,
             purpose: currentLoc.name,
             lat: currentLoc.lat,
             lng: currentLoc.lng,
-            fullAddress: (currentLoc as any).fullAddress || currentLoc.name,
+            fullAddress: currentLoc.fullAddress || currentLoc.formattedAddress || currentLoc.address || currentLoc.name,
           };
         }
         // Also ensure existing entries have valid coordinates

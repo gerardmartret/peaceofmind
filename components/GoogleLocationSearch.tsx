@@ -8,6 +8,7 @@ import { getCityConfig } from '@/lib/city-helpers';
 
 interface SearchResult {
   name: string;
+  formattedAddress?: string; // Full formatted address from Google Places
   lat: number;
   lng: number;
 }
@@ -149,6 +150,7 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
 
       const location: SearchResult = {
         name: displayName,
+        formattedAddress: place.formatted_address || undefined, // Return formatted address separately
         lat: place.geometry.location.lat(),
         lng: place.geometry.location.lng(),
       };

@@ -191,6 +191,9 @@ export interface TripData {
     id: string;
     name: string;
     displayName?: string; // Custom user-defined name
+    fullAddress?: string; // Full formatted address from database
+    formattedAddress?: string; // Alternative formatted address field
+    address?: string; // Alternative address field
     lat: number;
     lng: number;
     time: string;

@@ -85,9 +85,15 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
     }
 
     // Pre-fill modal with current trip data - preserve name (purpose) and fullAddress
+    // Guard: Ensure locations is an array
+    if (!Array.isArray(locations) || locations.length === 0) {
+      console.error('❌ [LocationCardSection] locations is not an array or is empty:', locations);
+      return;
+    }
+    
     onSetEditingLocations(locations.map((loc, idx) => ({
-      location: (loc as any).fullAddress || loc.name,
-      formattedAddress: (loc as any).fullAddress || (loc as any).formattedAddress || '', // Never fall back to name (purpose)
+      location: loc.fullAddress || loc.formattedAddress || loc.address || loc.name,
+      formattedAddress: loc.fullAddress || loc.formattedAddress || loc.address || '', // Never fall back to name (purpose)
       lat: loc.lat,
       lng: loc.lng,
       time: loc.time,

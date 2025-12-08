@@ -68,9 +68,9 @@ export const usePreviewApplication = (params: UsePreviewApplicationParams) => {
     let locationsToSave = validatedLocations;
     if (locationsToSave.length === 0 && tripData?.locations && tripData.locations.length > 0) {
       // Convert tripData.locations to manual form format (same as mapExtractedToManualForm does)
-      locationsToSave = tripData.locations.map((loc: any, idx: number) => ({
-        location: loc.name || (loc as any).fullAddress || '',
-        formattedAddress: (loc as any).fullAddress || (loc as any).formattedAddress || '', // Never fall back to name (purpose)
+      locationsToSave = tripData.locations.map((loc, idx) => ({
+        location: loc.name || loc.fullAddress || loc.formattedAddress || loc.address || '',
+        formattedAddress: loc.fullAddress || loc.formattedAddress || loc.address || '', // Never fall back to name (purpose)
         lat: loc.lat || 0,
         lng: loc.lng || 0,
         time: loc.time || '12:00',

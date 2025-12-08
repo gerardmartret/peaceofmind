@@ -54,7 +54,7 @@ export const useRouteEditing = (params: UseRouteEditingParams) => {
       updatedLocations[index] = {
         ...updatedLocations[index],
         location: location.name,
-        formattedAddress: location.name,
+        formattedAddress: location.formattedAddress || location.name, // Use formattedAddress if available, fallback to name
         lat: location.lat,
         lng: location.lng,
         verified: true,
