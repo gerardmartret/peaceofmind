@@ -67,7 +67,7 @@ export function VehicleList({
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mr-3"></div>
-        <span className="text-muted-foreground">Loading Drivania quotes...</span>
+        <span className="text-muted-foreground">Searching for vehicles...</span>
       </div>
     );
   }

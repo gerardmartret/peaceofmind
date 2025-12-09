@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, Calendar, Users } from 'lucide-react';
+import { Calendar, Users } from 'lucide-react';
 
 interface Vehicle {
   vehicle_type: string;
@@ -18,27 +18,25 @@ interface TripData {
   locations?: Array<{ time?: string }>;
 }
 
-interface BookingSummaryCardProps {
+interface ConfirmationSummaryCardProps {
   selectedVehicle: Vehicle | null;
   tripData: TripData | null;
   currencyCode?: string;
-  onRemove: () => void;
-  onContinue: () => void;
+  onBookNow: () => void;
   buttonLabel?: string;
   buttonDisabled?: boolean;
   buttonLoading?: boolean;
 }
 
-export function BookingSummaryCard({
+export function ConfirmationSummaryCard({
   selectedVehicle,
   tripData,
   currencyCode,
-  onRemove,
-  onContinue,
-  buttonLabel = 'Continue',
+  onBookNow,
+  buttonLabel = 'Book Now',
   buttonDisabled = false,
   buttonLoading = false,
-}: BookingSummaryCardProps) {
+}: ConfirmationSummaryCardProps) {
   const formatPrice = (price: number) => {
     return currencyCode ? `${currencyCode} ${price.toFixed(2)}` : price.toFixed(2);
   };
@@ -145,24 +143,13 @@ export function BookingSummaryCard({
         {/* Vehicle Info - Only shown when vehicle is selected */}
         {selectedVehicle && (
           <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-border">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1">
-                <h3 className="font-semibold text-card-foreground text-base sm:text-lg">
-                  {selectedVehicle.vehicle_type}
-                </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  {selectedVehicle.level_of_service}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onRemove}
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive flex-shrink-0"
-                aria-label="Remove selected vehicle"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+            <div>
+              <h3 className="font-semibold text-card-foreground text-base sm:text-lg">
+                {selectedVehicle.vehicle_type}
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {selectedVehicle.level_of_service}
+              </p>
             </div>
 
             <div className="pt-3 sm:pt-4 border-t border-border">
@@ -176,7 +163,7 @@ export function BookingSummaryCard({
 
             <Button
               className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] text-sm sm:text-base"
-              onClick={onContinue}
+              onClick={onBookNow}
               disabled={buttonDisabled}
             >
               {buttonLoading ? (

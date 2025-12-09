@@ -2,28 +2,33 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
 import { ArrowLeft } from 'lucide-react';
 import { bookingPreviewInitialState, requiredFields, type BookingPreviewFieldKey } from '@/app/results/[id]/constants';
-import { determineRole } from '@/app/results/[id]/utils/role-determination';
+import { ConfirmationSummaryCard } from './components/ConfirmationSummaryCard';
+import { BookingForm } from './components/BookingForm';
+import { useTripData } from '@/app/booking/[tripId]/hooks/useTripData';
+import { useBookingForm } from './hooks/useBookingForm';
+import { LoadingState } from '@/app/booking/[tripId]/components/LoadingState';
+import { ErrorState } from '@/app/booking/[tripId]/components/ErrorState';
 
 export default function ConfirmationPage() {
   const router = useRouter();
   const params = useParams();
   const tripId = params.tripId as string;
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { loading: authLoading } = useAuth();
 
-  // Trip data state
-  const [tripData, setTripData] = useState<any>(null);
-  const [loadingTripData, setLoadingTripData] = useState(true);
-  const [tripError, setTripError] = useState<string | null>(null);
-  const [isOwner, setIsOwner] = useState<boolean>(false);
-  const [ownershipChecked, setOwnershipChecked] = useState<boolean>(false);
+  // Load trip data using shared hook
+  const {
+    tripData,
+    loadingTripData,
+    tripError,
+    isOwner,
+    ownershipChecked,
+    authLoading: authLoadingFromHook,
+  } = useTripData(tripId);
 
   // Drivania quote state
   const [loadingDrivaniaQuote, setLoadingDrivaniaQuote] = useState<boolean>(false);
@@ -32,100 +37,33 @@ export default function ConfirmationPage() {
   const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
 
   // Booking form state
-  const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
-  const [missingFields, setMissingFields] = useState<Set<BookingPreviewFieldKey>>(new Set());
+  const {
+    bookingPreviewFields,
+    setBookingPreviewFields,
+    missingFields,
+    setMissingFields,
+    phoneError,
+    setPhoneError,
+    handleBookingFieldChange,
+    validatePhone,
+    getPhoneFieldClassName,
+    highlightMissing,
+  } = useBookingForm();
+
   const [bookingSubmissionState, setBookingSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
   const [bookingSubmissionMessage, setBookingSubmissionMessage] = useState<string>('');
-  const [processingTimer, setProcessingTimer] = useState<NodeJS.Timeout | null>(null);
   const [hasStoredVehicle, setHasStoredVehicle] = useState<boolean | null>(null);
 
   // Redirect to booking page if no vehicle is stored in sessionStorage - check early to prevent glitch
   useEffect(() => {
-    if (!authLoading && typeof window !== 'undefined') {
+    if (!authLoadingFromHook && typeof window !== 'undefined') {
       const storedVehicle = sessionStorage.getItem(`selectedVehicle_${tripId}`);
       setHasStoredVehicle(!!storedVehicle);
       if (!storedVehicle) {
         router.replace(`/booking/${tripId}`);
       }
     }
-  }, [tripId, router, authLoading]);
-
-  // Load trip data and check ownership
-  useEffect(() => {
-    const loadTripData = async () => {
-      if (!tripId) {
-        setTripError('Trip ID is required');
-        setLoadingTripData(false);
-        return;
-      }
-
-      // Wait for auth to finish loading before checking ownership
-      if (authLoading) {
-        return; // Exit early, will retry when authLoading becomes false
-      }
-
-      // If authenticated but user is null, wait a bit for it to load
-      if (isAuthenticated && !user) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        // If still null after wait, proceed anyway (shouldn't happen if authLoading is working)
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('trips')
-          .select('*')
-          .eq('id', tripId)
-          .single();
-
-        if (error) throw error;
-
-        if (!data) {
-          setTripError('Trip not found');
-          setLoadingTripData(false);
-          setOwnershipChecked(true);
-          return;
-        }
-
-        // Check ownership - only owners can access confirmation page
-        const tripUserId = data.user_id;
-        const currentUserId = user?.id || null;
-        const roleInfo = determineRole(tripUserId, currentUserId, isAuthenticated, tripId);
-        
-        setIsOwner(roleInfo.isOwner);
-        setOwnershipChecked(true);
-
-        // Redirect non-owners to results page
-        if (!roleInfo.isOwner) {
-          router.replace(`/results/${tripId}`);
-          return;
-        }
-
-        // Parse locations if stored as JSON string
-        let locations = data.locations;
-        if (typeof locations === 'string') {
-          try {
-            locations = JSON.parse(locations);
-          } catch (e) {
-            setTripError('Invalid trip data format');
-            setLoadingTripData(false);
-            return;
-          }
-        }
-
-        setTripData({
-          ...data,
-          locations,
-        });
-        setLoadingTripData(false);
-      } catch (err: any) {
-        setTripError(err.message || 'Failed to load trip data');
-        setLoadingTripData(false);
-        setOwnershipChecked(true);
-      }
-    };
-
-    loadTripData();
-  }, [tripId, user, isAuthenticated, authLoading, router]);
+  }, [tripId, router, authLoadingFromHook]);
 
   // Fetch Drivania quotes when trip data is loaded
   useEffect(() => {
@@ -333,20 +271,6 @@ export default function ConfirmationPage() {
     fetchDrivaniaQuote();
   }, [tripData, loadingDrivaniaQuote, drivaniaQuotes, tripId, router]);
 
-  // Handle booking field changes
-  const handleBookingFieldChange = (field: BookingPreviewFieldKey, value: string | number) => {
-    setBookingPreviewFields(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-    if (missingFields.has(field)) {
-      setMissingFields((prev) => {
-        const next = new Set(prev);
-        next.delete(field);
-        return next;
-      });
-    }
-  };
 
   // Refresh quotes if expired
   const refreshQuotesIfNeeded = async (): Promise<boolean> => {
@@ -452,6 +376,14 @@ export default function ConfirmationPage() {
   const handleBookNow = async () => {
     if (!selectedDrivaniaVehicle) return;
 
+    // Validate phone number first
+    const phoneValidationError = validatePhone(bookingPreviewFields.contactPhone);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      setBookingSubmissionState('idle');
+      return;
+    }
+
     const missing = requiredFields.filter((field) => {
       const value = bookingPreviewFields[field];
       if (typeof value === 'number') {
@@ -465,8 +397,8 @@ export default function ConfirmationPage() {
       return;
     }
 
+    setPhoneError(null);
     setBookingSubmissionState('loading');
-    setBookingSubmissionMessage('We are processing your booking');
 
     // Refresh quotes if expired before submitting
     const quotesValid = await refreshQuotesIfNeeded();
@@ -489,10 +421,6 @@ export default function ConfirmationPage() {
       pickup_location: tripData?.locations?.[0],
       trip_id: tripId,
     };
-
-    if (processingTimer) {
-      clearTimeout(processingTimer);
-    }
 
     try {
       const serviceResponse = await fetch('/api/drivania/create-service', {
@@ -521,20 +449,43 @@ export default function ConfirmationPage() {
         } catch (statusErr) {
         }
 
-        setBookingSubmissionMessage('Your booking has been created with Drivania successfully.');
-        setMissingFields(new Set());
-        const timer = setTimeout(() => {
-          setBookingSubmissionState('success');
-          setProcessingTimer(null);
-        }, 5000);
-        setProcessingTimer(timer);
+        // Store success message in sessionStorage to show on results page
+        sessionStorage.setItem(`bookingSuccess_${tripId}`, 'true');
+        
+        // Redirect to results page immediately
+        router.push(`/results/${tripId}`);
       } else {
         setBookingSubmissionState('idle');
         // Check if error is about expired quotes
         if (serviceResult.error?.includes('cannot be confirmed') || serviceResult.error?.includes('service_ID')) {
           setBookingSubmissionMessage('Quotes have expired. Please refresh the page and try again.');
         } else {
-          setBookingSubmissionMessage(serviceResult.error || 'Failed to create service with Drivania');
+          // Check if error is phone-related
+          const errorMessage = serviceResult.error || 'Failed to create service with Drivania';
+          if (errorMessage.toLowerCase().includes('contact_phone') || 
+              errorMessage.toLowerCase().includes('phone') ||
+              errorMessage.toLowerCase().includes('sms')) {
+            // Convert technical error messages to user-friendly ones
+            let friendlyMessage = errorMessage;
+            if (errorMessage.toLowerCase().includes('contact_phone is required') || 
+                errorMessage.toLowerCase().includes('phone is required')) {
+              friendlyMessage = 'Phone number is required';
+            } else if (errorMessage.toLowerCase().includes('invalid phone number')) {
+              // Extract the phone number from error if present
+              const phoneMatch = errorMessage.match(/invalid phone number\s+([^\s]+)/i);
+              if (phoneMatch) {
+                friendlyMessage = `Please enter a valid phone number with country code (e.g., +1234567890)`;
+              } else {
+                friendlyMessage = 'Please enter a valid phone number with country code (e.g., +1234567890)';
+              }
+            } else if (errorMessage.toLowerCase().includes('phone')) {
+              friendlyMessage = 'Please enter a valid phone number with country code';
+            }
+            setPhoneError(friendlyMessage);
+            setBookingSubmissionMessage('');
+          } else {
+            setBookingSubmissionMessage(errorMessage);
+          }
         }
       }
     } catch (err) {
@@ -543,105 +494,53 @@ export default function ConfirmationPage() {
     }
   };
 
-  const highlightMissing = (field: BookingPreviewFieldKey) =>
-    missingFields.has(field) ? 'border-destructive/70 bg-destructive/10 text-destructive' : '';
 
 
   // Loading state - wait for auth and ownership check
-  if (authLoading || loadingTripData || !ownershipChecked || hasStoredVehicle === null) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+  if (authLoadingFromHook || loadingTripData || !ownershipChecked || hasStoredVehicle === null) {
+    return <LoadingState />;
   }
 
   // Error state
   if (tripError || !tripData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">Trip Not Found</h2>
-            <p className="text-muted-foreground mb-6">
-              {tripError || 'This trip could not be found.'}
-            </p>
-            <Button onClick={() => router.push('/')}>Go to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <ErrorState
+        title="Trip Not Found"
+        message={tripError || 'This trip could not be found.'}
+        actionLabel="Go to Home"
+        onAction={() => router.push('/')}
+      />
     );
   }
 
   // Ownership check - redirect if not owner (shouldn't reach here due to redirect in useEffect, but safety check)
   if (!isOwner) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
-            <p className="text-muted-foreground mb-6">
-              Only trip owners can access the confirmation page.
-            </p>
-            <Button onClick={() => router.push(`/results/${tripId}`)}>View Trip Report</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <ErrorState
+        title="Access Denied"
+        message="Only trip owners can access the confirmation page."
+        actionLabel="View Trip Report"
+        onAction={() => router.push(`/results/${tripId}`)}
+      />
     );
   }
 
+  // Transform selectedDrivaniaVehicle to match BookingSummaryCard Vehicle interface
+  const summaryVehicle = selectedDrivaniaVehicle ? {
+    vehicle_type: selectedDrivaniaVehicle.vehicle_type,
+    level_of_service: selectedDrivaniaVehicle.level_of_service || '',
+    vehicle_image: selectedDrivaniaVehicle.vehicle_image,
+    max_seating_capacity: selectedDrivaniaVehicle.max_seating_capacity,
+    sale_price: selectedDrivaniaVehicle.sale_price,
+  } : null;
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
         {/* Header */}
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/booking/${tripId}`)}
-            className="mb-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Vehicle Selection
-          </Button>
-          <h1 className="text-3xl font-bold">Confirm Your Reservation</h1>
-          <p className="text-muted-foreground mt-2">
-            Review your booking details and send a quote to Drivania
-          </p>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold">Confirm Your Reservation</h1>
         </div>
-
-        {/* Success Message */}
-        {bookingSubmissionState === 'success' && (
-          <Alert className="mb-6 bg-green-500/10 border-green-500/30">
-            <AlertDescription className="text-green-700 dark:text-green-400">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="font-semibold">{bookingSubmissionMessage}</span>
-              </div>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => router.push(`/results/${tripId}`)}
-              >
-                Return to Trip Report
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Loading State */}
-        {bookingSubmissionState === 'loading' && (
-          <Alert className="mb-6">
-            <AlertDescription className="flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-              {bookingSubmissionMessage}
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Error Message */}
         {bookingSubmissionState === 'idle' && bookingSubmissionMessage && (
@@ -677,152 +576,46 @@ export default function ConfirmationPage() {
           </Alert>
         )}
 
-        {/* Booking Form */}
+        {/* Two Column Layout */}
         {selectedDrivaniaVehicle && bookingSubmissionState !== 'success' && (
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <h2 className="text-2xl font-semibold mb-6">Booking Details</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 sm:gap-6">
+            {/* Left Column - 70% */}
+            <div className="lg:col-span-7 order-2 lg:order-1">
+              <BookingForm
+                bookingFields={bookingPreviewFields}
+                missingFields={missingFields}
+                phoneError={phoneError}
+                onFieldChange={handleBookingFieldChange}
+                getPhoneFieldClassName={getPhoneFieldClassName}
+                highlightMissing={highlightMissing}
+              />
+              
+              {/* Back Button */}
+              <Button
+                variant="ghost"
+                onClick={() => router.push(`/booking/${tripId}`)}
+                className="mb-4"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Vehicle Selection
+              </Button>
+            </div>
 
-              {/* Selected Vehicle Info */}
-              <div className="rounded-md border border-border bg-muted/40 p-4 mb-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase tracking-wide">Selected vehicle</p>
-                    <p className="text-lg font-semibold text-card-foreground">{selectedDrivaniaVehicle.vehicle_type}</p>
-                    {selectedDrivaniaVehicle.level_of_service && (
-                      <p className="text-xs text-muted-foreground">{selectedDrivaniaVehicle.level_of_service}</p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Estimated fare</p>
-                    <p className="text-2xl font-bold text-card-foreground">
-                      {drivaniaQuotes?.currency_code
-                        ? `${drivaniaQuotes.currency_code} ${selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
-                        : selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}
-                    </p>
-                  </div>
-                </div>
+            {/* Right Column - 30% */}
+            <div className="lg:col-span-3 order-1 lg:order-2">
+              <div className="lg:sticky lg:top-8">
+                <ConfirmationSummaryCard
+                  selectedVehicle={summaryVehicle}
+                  tripData={tripData}
+                  currencyCode={drivaniaQuotes?.currency_code}
+                  onBookNow={handleBookNow}
+                  buttonLabel="Book Now"
+                  buttonDisabled={bookingSubmissionState === 'loading'}
+                  buttonLoading={bookingSubmissionState === 'loading'}
+                />
               </div>
-
-              {/* Booking Form Fields */}
-              <div className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Passenger name
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('passengerName')}`}
-                      value={bookingPreviewFields.passengerName}
-                      onChange={(e) => handleBookingFieldChange('passengerName', e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Contact email
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('contactEmail')}`}
-                      value={bookingPreviewFields.contactEmail}
-                      onChange={(e) => handleBookingFieldChange('contactEmail', e.target.value)}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Contact phone
-                    <Input
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.contactPhone}
-                      onChange={(e) => handleBookingFieldChange('contactPhone', e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Flight number
-                    <Input
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.flightNumber}
-                      onChange={(e) => handleBookingFieldChange('flightNumber', e.target.value)}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Flight direction
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('flightDirection')}`}
-                      value={bookingPreviewFields.flightDirection}
-                      onChange={(e) => handleBookingFieldChange('flightDirection', e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Passenger count
-                    <Input
-                      type="number"
-                      min={1}
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.passengerCount}
-                      onChange={(e) => handleBookingFieldChange('passengerCount', Number(e.target.value))}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Child seats
-                    <Input
-                      type="number"
-                      min={0}
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.childSeats}
-                      onChange={(e) => handleBookingFieldChange('childSeats', Number(e.target.value))}
-                    />
-                  </label>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Pickup time
-                      <Input
-                        className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('pickupTime')}`}
-                        value={bookingPreviewFields.pickupTime}
-                        onChange={(e) => handleBookingFieldChange('pickupTime', e.target.value)}
-                      />
-                    </label>
-                    <label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Dropoff time
-                      <Input
-                        className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('dropoffTime')}`}
-                        value={bookingPreviewFields.dropoffTime}
-                        onChange={(e) => handleBookingFieldChange('dropoffTime', e.target.value)}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Notes</label>
-                  <textarea
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    rows={3}
-                    value={bookingPreviewFields.notes}
-                    onChange={(e) => handleBookingFieldChange('notes', e.target.value)}
-                  />
-                </div>
-
-                <Button
-                  onClick={handleBookNow}
-                  className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] transition-transform duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-lg"
-                  disabled={bookingSubmissionState === 'loading'}
-                >
-                  {bookingSubmissionState === 'loading' ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    'Book Now'
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
       </div>
     </div>
