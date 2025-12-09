@@ -600,7 +600,7 @@ export default function ConfirmationPage() {
                   tripData={tripData}
                   currencyCode={drivaniaQuotes?.currency_code}
                   onBookNow={handleBookNow}
-                  buttonLabel="Book Now"
+                  buttonLabel="Book this trip"
                   buttonDisabled={bookingSubmissionState === 'loading'}
                   buttonLoading={bookingSubmissionState === 'loading'}
                 />

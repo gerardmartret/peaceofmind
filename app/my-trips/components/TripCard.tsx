@@ -135,11 +135,24 @@ export function TripCard({ trip, quote, drivaniaQuote, showPrice, theme, mounted
             </div>
             <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-3 flex-shrink-0">
               <div
-                className={`relative z-0 flex items-center justify-center gap-2 overflow-hidden 
+                className={`relative z-0 flex items-center justify-center gap-1.5 overflow-hidden 
                   border ${colors.border} ${colors.bg} ${shadowClass}
-                  h-9 sm:h-10 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md ${colors.text} cursor-pointer whitespace-nowrap`}
+                  h-9 sm:h-10 px-3 sm:px-4 py-2 ${trip.status === 'booked' && trip.driver === 'drivania' ? 'text-[11.2px] sm:text-[12.8px]' : 'text-xs sm:text-sm'} font-medium rounded-md ${colors.text} cursor-pointer whitespace-nowrap`}
               >
-                <span className="truncate">{statusBadge.text}</span>
+                {trip.status === 'booked' && trip.driver === 'drivania' ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    {statusBadge.text}
+                    {mounted && (
+                      <img 
+                        src="/logo-drivania-neg.png" 
+                        alt="Drivania" 
+                        className="h-[10.56px] w-auto"
+                      />
+                    )}
+                  </span>
+                ) : (
+                  <span className="truncate">{statusBadge.text}</span>
+                )}
               </div>
               {showPrice && quote && (
                 <div className="text-base sm:text-lg font-medium text-foreground whitespace-nowrap">

@@ -1,5 +1,7 @@
 import React from 'react';
 import { FlowHoverButton } from '@/components/ui/flow-hover-button';
+import { useTheme } from 'next-themes';
+import Image from 'next/image';
 
 interface TripStatusButtonProps {
   tripStatus: string;
@@ -32,6 +34,12 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
   onStatusToggle,
   className,
 }) => {
+  const { theme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   // Determine if there was any activity (driver assigned, quotes requested, or quotes received)
   // Check both current state and original data to ensure we catch activity even if state changes
   const hasDriverInState = !!driverEmail;
@@ -81,7 +89,7 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
       driverResponseStatus === 'accepted' ? 'Trip accepted' :
         tripStatus === 'rejected' ? 'Rejected' :
           tripStatus === 'confirmed' ? 'Confirmed' :
-            tripStatus === 'booked' ? 'Booked with Drivania' :
+            tripStatus === 'booked' ? 'Booked with' :
               isDriverViewingPending ? 'Accept trip' :
                 driverEmail ? 'Pending' : 'Not confirmed';
 
@@ -99,14 +107,24 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-            ) : tripStatus === 'booked' ? (
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            ) : undefined
+            ) : tripStatus === 'booked' ? undefined : // No icon for booked with Drivania
+              undefined
       }
     >
-      {buttonText}
+      {tripStatus === 'booked' ? (
+        <span className="flex items-center justify-center gap-1.5">
+          {buttonText}
+          {mounted && (
+            <img 
+              src="/logo-drivania-neg.png" 
+              alt="Drivania" 
+              className="h-[13.2px] w-auto"
+            />
+          )}
+        </span>
+      ) : (
+        buttonText
+      )}
     </FlowHoverButton>
   );
 };

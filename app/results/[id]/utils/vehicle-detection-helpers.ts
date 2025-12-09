@@ -160,7 +160,7 @@ export const extractSUVInfo = (text: string | null): boolean => {
 export const extractVanInfo = (text: string | null): boolean => {
   if (!text) return false;
   const vanPatterns = [
-    /\b(?:van|v-class|vclass)\b/i,
+    /\b(?:van|v-class|vclass|minivan)\b/i,
     /(?:Mercedes|Merc)\s*(?:V-Class|VClass)/i,
     /\bBusiness\s+Van\b/i,
   ];
@@ -246,32 +246,54 @@ export const determineVehicleType = (
     ? 1 
     : (numberOfPassengers != null ? numberOfPassengers : 0);
 
+  // PRIORITIZE vehicleInfo over driverNotes: If vehicleInfo has a value, ONLY check vehicleInfo
+  // Only check driverNotes if vehicleInfo is empty/null
+  // This ensures vehicle updates take precedence over old vehicle mentions in driverNotes
+  
   // Check for van/V-Class first (highest priority)
-  const hasVanPattern = extractVanInfo(vehicleInfo || '') || extractVanInfo(driverNotes || '');
+  const hasVanPattern = hasVehicleInfo 
+    ? extractVanInfo(vehicleInfo || '') 
+    : extractVanInfo(driverNotes || '');
 
   // Check for minibus/sprinter
-  const hasMinibusPattern = extractMinibusInfo(vehicleInfo || '') || extractMinibusInfo(driverNotes || '');
+  const hasMinibusPattern = hasVehicleInfo 
+    ? extractMinibusInfo(vehicleInfo || '') 
+    : extractMinibusInfo(driverNotes || '');
 
   // Check for luxury SUV (Range Rover images) - check before regular SUV
-  const hasLuxurySUVPattern = extractLuxurySUVInfo(vehicleInfo || '') || extractLuxurySUVInfo(driverNotes || '');
+  const hasLuxurySUVPattern = hasVehicleInfo 
+    ? extractLuxurySUVInfo(vehicleInfo || '') 
+    : extractLuxurySUVInfo(driverNotes || '');
 
   // Check for SUV (priority) - check text patterns regardless of passenger count
-  const hasSUVPattern = extractSUVInfo(vehicleInfo || '') || extractSUVInfo(driverNotes || '');
+  const hasSUVPattern = hasVehicleInfo 
+    ? extractSUVInfo(vehicleInfo || '') 
+    : extractSUVInfo(driverNotes || '');
 
   // Check for signature sedan (ultra-luxury cars and specific models) - highest sedan priority
-  const hasSignatureSedanPattern = extractSignatureSedanInfo(vehicleInfo || '') || extractSignatureSedanInfo(driverNotes || '');
+  const hasSignatureSedanPattern = hasVehicleInfo 
+    ? extractSignatureSedanInfo(vehicleInfo || '') 
+    : extractSignatureSedanInfo(driverNotes || '');
 
   // Check for premium sedan (luxury cars and specific models)
-  const hasPremiumSedanPattern = extractPremiumSedanInfo(vehicleInfo || '') || extractPremiumSedanInfo(driverNotes || '');
+  const hasPremiumSedanPattern = hasVehicleInfo 
+    ? extractPremiumSedanInfo(vehicleInfo || '') 
+    : extractPremiumSedanInfo(driverNotes || '');
 
   // Check for comfort sedan (affordable cars and specific models) - only when explicitly requested
-  const hasComfortSedanPattern = extractComfortSedanInfo(vehicleInfo || '') || extractComfortSedanInfo(driverNotes || '');
+  const hasComfortSedanPattern = hasVehicleInfo 
+    ? extractComfortSedanInfo(vehicleInfo || '') 
+    : extractComfortSedanInfo(driverNotes || '');
 
   // Check for sedan patterns (but exclude S-Class which should be premium sedan)
-  const hasSedanPattern = extractCarInfo(vehicleInfo || '') || extractCarInfo(driverNotes || '');
+  const hasSedanPattern = hasVehicleInfo 
+    ? extractCarInfo(vehicleInfo || '') 
+    : extractCarInfo(driverNotes || '');
 
   // Check for generic car terms (normal, regular, any car) - these should NOT trigger SUV
-  const hasGenericCarPattern = extractGenericCarInfo(vehicleInfo || '') || extractGenericCarInfo(driverNotes || '');
+  const hasGenericCarPattern = hasVehicleInfo 
+    ? extractGenericCarInfo(vehicleInfo || '') 
+    : extractGenericCarInfo(driverNotes || '');
 
   // Check if any vehicle info exists (brand/model/type)
   const hasAnyVehicleInfo = hasVehicleInfo || hasSUVPattern || hasLuxurySUVPattern || hasSedanPattern || hasPremiumSedanPattern || hasSignatureSedanPattern || hasComfortSedanPattern || hasMinibusPattern || hasVanPattern;
@@ -286,12 +308,19 @@ export const determineVehicleType = (
   const isMiddleEast = isMiddleEastTrip(tripDestination);
   const isEurope = isEuropeTrip(tripDestination);
 
+  // PRIORITY LOGIC:
+  // - Larger vehicles (van, minibus, SUV): Always honor if requested, regardless of passenger count (luggage/space needs)
+  // - Sedans: Only honor if passenger count fits (typically ≤3-4). If too many passengers, use passenger count logic
+  
   if (hasVanPattern) {
+    // Van: Always honor if requested (can accommodate luggage even with few passengers)
     vehicleType = 'van';
   } else if (hasMinibusPattern) {
+    // Minibus: Always honor if requested (can accommodate luggage even with few passengers)
     vehicleType = 'minibus';
   } else if (hasLuxurySUVPattern) {
-    // If luxury SUV requested, apply location override
+    // Luxury SUV: Always honor if requested (can accommodate luggage even with few passengers)
+    // Apply location override
     if (isEurope) {
       vehicleType = 'luxury-suv'; // Range Rover
     } else if (isUSCanadaPR || isMiddleEast) {
@@ -300,7 +329,8 @@ export const determineVehicleType = (
       vehicleType = 'luxury-suv'; // Range Rover (default)
     }
   } else if (hasSUVPattern) {
-    // If regular SUV requested, apply location override
+    // SUV: Always honor if requested (can accommodate luggage even with few passengers)
+    // Apply location override
     if (isEurope) {
       vehicleType = 'luxury-suv'; // Range Rover (override regular SUV to luxury SUV)
     } else if (isUSCanadaPR || isMiddleEast) {
@@ -308,15 +338,34 @@ export const determineVehicleType = (
     } else {
       vehicleType = 'suv'; // Escalade (default)
     }
-  } else if (hasSignatureSedanPattern && normalizedPassengerCount <= 3) {
-    vehicleType = 'signature-sedan';
-  } else if (hasPremiumSedanPattern && normalizedPassengerCount <= 3) {
-    vehicleType = 'premium-sedan';
-  } else if (hasComfortSedanPattern && normalizedPassengerCount <= 3) {
-    // Comfort sedan only shows when explicitly requested (affordable terms or specific models)
-    vehicleType = 'comfort-sedan';
+  } else if (hasSignatureSedanPattern) {
+    // Signature Sedan: Only honor if passenger count fits (≤3 passengers)
+    // Sedans cannot accommodate more than 3-4 passengers comfortably
+    if (normalizedPassengerCount <= 3) {
+      vehicleType = 'signature-sedan';
+    }
+    // If passenger count > 3, fall through to else block (use passenger count logic)
+  } else if (hasPremiumSedanPattern) {
+    // Premium Sedan: Only honor if passenger count fits (≤3 passengers)
+    // Sedans cannot accommodate more than 3-4 passengers comfortably
+    if (normalizedPassengerCount <= 3) {
+      vehicleType = 'premium-sedan';
+    }
+    // If passenger count > 3, fall through to else block (use passenger count logic)
+  } else if (hasComfortSedanPattern) {
+    // Comfort Sedan: Only honor if passenger count fits (≤3 passengers)
+    // Sedans cannot accommodate more than 3-4 passengers comfortably
+    if (normalizedPassengerCount <= 3) {
+      vehicleType = 'comfort-sedan';
+    }
+    // If passenger count > 3, fall through to else block (use passenger count logic)
   } else if (hasSedanPattern) {
-    vehicleType = 'sedan';
+    // Regular Sedan: Only honor if passenger count fits (≤3 passengers)
+    // Sedans cannot accommodate more than 3-4 passengers comfortably
+    if (normalizedPassengerCount <= 3) {
+      vehicleType = 'sedan';
+    }
+    // If passenger count > 3, fall through to else block (use passenger count logic)
   } else {
     // Fallback to passenger count with location-based logic
     if (normalizedPassengerCount >= 7) {

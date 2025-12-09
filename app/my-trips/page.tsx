@@ -167,7 +167,7 @@ export default function MyTripsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'drivania' | 'other-drivers')} className="mb-6">
           <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
-            <TabsTrigger value="other-drivers" className="dark:data-[state=active]:bg-[#05060A]">My drivers</TabsTrigger>
+            <TabsTrigger value="other-drivers" className="dark:data-[state=active]:bg-[#05060A]">My own drivers</TabsTrigger>
             <TabsTrigger value="drivania" className="dark:data-[state=active]:bg-[#05060A]">Drivania Chauffeurs™</TabsTrigger>
           </TabsList>
           

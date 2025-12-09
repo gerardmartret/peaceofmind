@@ -534,7 +534,7 @@ export function DriverQuotesModal({
                       }}
                       className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 w-full sm:w-auto text-sm sm:text-base"
                     >
-                      Book Now
+                      Book this trip
                     </Button>
                   </div>
                 </div>

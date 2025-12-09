@@ -33,7 +33,7 @@ export function ConfirmationSummaryCard({
   tripData,
   currencyCode,
   onBookNow,
-  buttonLabel = 'Book Now',
+  buttonLabel = 'Book this trip',
   buttonDisabled = false,
   buttonLoading = false,
 }: ConfirmationSummaryCardProps) {

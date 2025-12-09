@@ -237,7 +237,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   return (
     <div className="mb-6 mt-[25px]">
       {/* Trip Summary Box */}
-      <div className="mb-6 bg-card rounded-lg p-4 sm:p-6 lg:p-8 shadow-none">
+      <div className="mb-4 bg-card rounded-lg p-4 sm:p-6 lg:p-8 shadow-none">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-normal text-card-foreground mb-4 sm:mb-5 leading-tight break-words">
@@ -272,7 +272,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             </div>
             {/* Status and Assign Driver buttons - Show for owners and drivers with token */}
             {(isOwner || (driverToken && validatedDriverEmail)) && (
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-5">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-6 sm:mt-7">
                 {((tripStatus !== 'not confirmed' && tripStatus !== 'pending' && tripStatus !== 'confirmed' && !(tripStatus === 'booked' && driverEmail === 'drivania')) || (driverToken && validatedDriverEmail && tripStatus === 'pending')) ? (
                   <div className="relative inline-block">
                     <TripStatusButton
@@ -349,27 +349,28 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             )}
           </div>
           <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto">
-            {/* Show status badge for booked Drivania trips at top right (consistent with other reports) */}
-            {tripStatus === 'booked' && driverEmail === 'drivania' && (
-              <TripStatusButton
-                tripStatus={tripStatus}
-                driverResponseStatus={driverResponseStatus}
-                driverEmail={driverEmail}
-                originalDriverEmail={originalDriverEmail}
-                quotes={quotes}
-                sentDriverEmails={sentDriverEmails}
-                isOwner={isOwner}
-                quoteEmail={quoteEmail}
-                driverToken={driverToken}
-                validatedDriverEmail={validatedDriverEmail}
-                updatingStatus={updatingStatus}
-                onStatusToggle={onStatusToggle}
-              />
-            )}
-            {/* Show confirmation button with driver quote when driver is selected, otherwise show Book with Drivania */}
-            {isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true' && (
-              <div className="w-full sm:w-[220px] flex flex-col items-stretch sm:items-end gap-2">
-                {driverEmail ? (
+            {/* Show confirmation button with driver quote when driver is selected, or Booked with Drivania button */}
+            {(isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true') || (tripStatus === 'booked' && driverEmail === 'drivania') ? (
+              <div className={`w-full ${tripStatus === 'booked' && driverEmail === 'drivania' ? 'sm:w-[275px]' : 'sm:w-[220px]'} flex flex-col items-stretch sm:items-end gap-2`}>
+                {tripStatus === 'booked' && driverEmail === 'drivania' ? (
+                  <div className="w-full">
+                    <TripStatusButton
+                      tripStatus={tripStatus}
+                      driverResponseStatus={driverResponseStatus}
+                      driverEmail={driverEmail}
+                      originalDriverEmail={originalDriverEmail}
+                      quotes={quotes}
+                      sentDriverEmails={sentDriverEmails}
+                      isOwner={isOwner}
+                      quoteEmail={quoteEmail}
+                      driverToken={driverToken}
+                      validatedDriverEmail={validatedDriverEmail}
+                      updatingStatus={updatingStatus}
+                      onStatusToggle={onStatusToggle}
+                      className={`w-full !h-auto !px-4 sm:!px-6 !py-3 sm:!py-3.5 ${tripStatus === 'booked' && driverEmail === 'drivania' ? '!text-sm sm:!text-base lg:!text-lg' : '!text-base sm:!text-lg lg:!text-xl'} !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg whitespace-nowrap`}
+                    />
+                  </div>
+                ) : driverEmail ? (
                   <>
                     <div className="w-full">
                       <TripStatusButton
@@ -392,7 +393,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                       const driverQuote = quotes.find((q: any) => q.email.toLowerCase() === driverEmail.toLowerCase());
                       return driverQuote ? (
                         <div className="flex flex-col items-end gap-1">
-                          <div className="text-2xl font-semibold text-foreground text-right">
+                          <div className="text-[1.8rem] font-medium text-foreground text-right">
                             {(() => {
                               const formattedNumber = new Intl.NumberFormat('en-GB', {
                                 minimumFractionDigits: 2,
@@ -426,12 +427,12 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                           <span className="sm:hidden">Quoting...</span>
                         </span>
                       ) : (
-                        <span className="text-[1.15rem] sm:text-[1.29375rem] lg:text-[1.4375rem]">Book Now</span>
+                        <span className="text-[1.15rem] sm:text-[1.29375rem] lg:text-[1.4375rem]">Book this trip</span>
                       )}
                     </FlowHoverButton>
                     {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
                       <div className="flex flex-col items-end gap-1">
-                        <div className="text-2xl font-semibold text-foreground text-right">
+                        <div className="text-[1.8rem] font-medium text-foreground text-right">
                           {(() => {
                             const formattedNumber = new Intl.NumberFormat('en-GB', {
                               minimumFractionDigits: 2,
@@ -456,7 +457,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                   </>
                 )}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
