@@ -104,6 +104,37 @@ export function isUSCanadaPuertoRicoTrip(tripDestination?: string | null): boole
 }
 
 /**
+ * Determines if a trip destination is in the Middle East
+ * @param tripDestination - The trip destination city
+ * @returns true if destination is in Middle East
+ */
+export function isMiddleEastTrip(tripDestination?: string | null): boolean {
+  if (!tripDestination) return false;
+  
+  // Middle East cities (add as needed - currently none in ALLOWED_TRIP_DESTINATIONS)
+  // Examples: Dubai, Abu Dhabi, Riyadh, Doha, Kuwait City, Manama, Muscat, etc.
+  const middleEastCities: string[] = [];
+  
+  const normalizedDestination = tripDestination.trim();
+  return middleEastCities.includes(normalizedDestination);
+}
+
+/**
+ * Determines if a trip destination is in Europe
+ * @param tripDestination - The trip destination city
+ * @returns true if destination is in Europe
+ */
+export function isEuropeTrip(tripDestination?: string | null): boolean {
+  if (!tripDestination) return false;
+  
+  // European cities
+  const europeanCities = ['London', 'Frankfurt', 'Paris', 'Zurich'];
+  
+  const normalizedDestination = tripDestination.trim();
+  return europeanCities.includes(normalizedDestination);
+}
+
+/**
  * Gets city-specific configuration for API calls, geocoding, and analysis
  * @param tripDestination - The trip destination city
  * @returns Configuration object with city-specific settings

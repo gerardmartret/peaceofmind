@@ -71,7 +71,7 @@ export function SortableExtractedLocationItem({
   const getTimeLabel = () => {
     if (index === 0) return 'Pickup time';
     if (index === totalLocations - 1) return 'Dropoff time';
-    return 'Resume at';
+    return 'Stop at';
   };
 
   const hasNonSpecificLocation = isNonSpecificLocation(location, tripDestination);

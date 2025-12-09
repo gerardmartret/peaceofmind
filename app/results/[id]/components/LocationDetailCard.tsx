@@ -140,7 +140,7 @@ export function LocationDetailCard({
           {getLondonLocalTime(result.time)}
         </div>
         <div className="text-sm text-muted-foreground ml-2">
-          {index === 0 ? 'Pick up' : index === tripResultsLength - 1 ? 'Drop off' : 'Resume'}
+          {index === 0 ? 'Pick up' : index === tripResultsLength - 1 ? 'Drop off' : 'Stop'}
         </div>
       </div>
       <div className="flex-1">

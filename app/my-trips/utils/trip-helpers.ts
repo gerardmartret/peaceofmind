@@ -66,8 +66,8 @@ export function getVehicleImagePath(
     /(?:mercedes|merc)\s*maybach\s*s(?:[\s-]*class)?/i.test(vehicleText) ||
     /maybach\s*(?:mercedes|merc)\s*s(?:[\s-]*class)?/i.test(vehicleText);
   
-  // Determine vehicle type
-  const vehicleType = determineVehicleType(vehicleInfo, driverNotes, passengerCount);
+  // Determine vehicle type (pass tripDestination for location-based logic)
+  const vehicleType = determineVehicleType(vehicleInfo, driverNotes, passengerCount, trip.trip_destination);
   
   // If it's Maybach S-Class, use S-Class image
   if (isMaybachSClass) {
@@ -80,13 +80,17 @@ export function getVehicleImagePath(
     ? (isLight ? "/Vehicles/light-brief-vclass-web.png" : "/Vehicles/dark-brief-vclass-web.webp")
     : vehicleType === 'minibus' 
       ? (isLight ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.webp")
-      : vehicleType === 'suv' 
-        ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.webp")
-        : vehicleType === 'signature-sedan'
-          ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
-          : vehicleType === 'premium-sedan'
-            ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
-            : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
+      : vehicleType === 'luxury-suv'
+        ? (isLight ? "/Vehicles/light-brief-range-web.png" : "/Vehicles/dark-brief-range-web.webp")
+        : vehicleType === 'suv' 
+          ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.webp")
+          : vehicleType === 'signature-sedan'
+            ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
+            : vehicleType === 'premium-sedan'
+              ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
+              : vehicleType === 'comfort-sedan'
+                ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.webp")
+                : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
 }
 
 /**
@@ -247,7 +251,7 @@ export function getVehicleDisplayName(trip: Trip): string {
   const vehicleInfo = trip.vehicle || '';
   const driverNotes = trip.trip_notes || '';
   const passengerCount = trip.passenger_count || 1;
-  const vehicleType = determineVehicleType(vehicleInfo, driverNotes, passengerCount);
+  const vehicleType = determineVehicleType(vehicleInfo, driverNotes, passengerCount, trip.trip_destination);
   
   // If signature sedan, check if specific brand/model was mentioned
   if (vehicleType === 'signature-sedan') {

@@ -45,7 +45,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
     ? 'Pickup' 
     : index === totalLocations - 1 
       ? 'Drop-off' 
-      : 'Resume at';
+      : 'Stop at';
 
   const handleAddressClick = () => {
     const address = location.formattedAddress || location.fullAddress || location.address || location.name || '';

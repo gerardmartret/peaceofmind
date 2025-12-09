@@ -68,7 +68,7 @@ export function SortableLocationItem({
   const getTimeLabel = () => {
     if (index === 0) return 'Pickup time';
     if (index === totalLocations - 1) return 'Dropoff time';
-    return 'Resume at';
+    return 'Stop at';
   };
 
   return (

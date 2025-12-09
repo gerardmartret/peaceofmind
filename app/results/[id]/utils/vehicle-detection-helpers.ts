@@ -5,9 +5,9 @@
  * Used to determine which vehicle image and display name to show.
  */
 
-import { isUSCanadaPuertoRicoTrip } from '@/lib/city-helpers';
+import { isUSCanadaPuertoRicoTrip, isMiddleEastTrip, isEuropeTrip } from '@/lib/city-helpers';
 
-export type VehicleType = 'suv' | 'sedan' | 'premium-sedan' | 'signature-sedan' | 'minibus' | 'van' | 'comfort-sedan' | null;
+export type VehicleType = 'suv' | 'luxury-suv' | 'sedan' | 'premium-sedan' | 'signature-sedan' | 'minibus' | 'van' | 'comfort-sedan' | null;
 
 /**
  * Checks if text contains comfort sedan patterns (affordable/cheap car terms or specific models)
@@ -93,23 +93,56 @@ export const extractCarInfo = (text: string | null): string | null => {
 };
 
 /**
+ * Checks if text contains luxury SUV patterns (Range Rover images)
+ * These are premium/luxury full-size SUVs that show Range Rover images
+ */
+export const extractLuxurySUVInfo = (text: string | null): boolean => {
+  if (!text) return false;
+  const luxurySUVPatterns = [
+    // Mercedes luxury SUVs
+    /(?:Mercedes|Merc)\s*(?:GLS|GL|G[\s-]*Class)/i,
+    // BMW luxury SUVs
+    /BMW\s*(?:X[5-9]|XM)/i,
+    // Audi luxury SUVs
+    /Audi\s*(?:Q7|Q8)/i,
+    // Range Rover
+    /Range\s*Rover/i,
+    // Lexus luxury SUVs
+    /Lexus\s*(?:LX|GX)/i,
+    // Volvo luxury SUVs
+    /Volvo\s*(?:XC70|XC90)/i,
+  ];
+  return luxurySUVPatterns.some(pattern => pattern.test(text));
+};
+
+/**
  * Checks if text contains SUV patterns
  * Only includes full-size/large SUVs - compact and mid-size SUVs are excluded
+ * Luxury SUVs (Range Rover images) are handled separately
  */
 export const extractSUVInfo = (text: string | null): boolean => {
   if (!text) return false;
   const suvPatterns = [
     /\bSUV\b/i,
     /\b(?:sport\s*utility|sport\s*ute)\b/i,
-    // Mercedes - only full-size: GLS, GL, G-Class (removed GLE, GLC)
-    /(?:Mercedes|Merc)\s*(?:GLS|GL|G[\s-]*Class)/i,
-    // BMW - only large/full-size: X5, X6, X7, X8, X9, XM (removed X1-X4)
-    /BMW\s*(?:X[5-9]|XM)/i,
-    // Audi - only large/full-size: Q7, Q8 (removed Q3-Q6)
-    /Audi\s*(?:Q7|Q8)/i,
-    /Range\s*Rover/i,
-    /Cadillac\s*(?:Escalade|XT[4-6])/i,
-    /Lincoln\s*(?:Navigator|Aviator)/i,
+    /Cadillac\s*(?:Escalade|Escalade\s*ESV|XT[4-6])/i,
+    /Lincoln\s*(?:Navigator|Navigator\s*L|Aviator)/i,
+    /Ford\s*Expedition/i,
+    /Ford\s*Expedition\s*MAX/i,
+    /Chevrolet\s*Suburban/i,
+    /Chevrolet\s*Tahoe/i,
+    /Chevy\s*Suburban/i,
+    /Chevy\s*Tahoe/i,
+    /GMC\s*Yukon/i,
+    /GMC\s*Yukon\s*XL/i,
+    /GMC\s*Denali/i,
+    /Toyota\s*Sequoia/i,
+    /Nissan\s*Armada/i,
+    /Infiniti\s*QX80/i,
+    /Jeep\s*Grand\s*Wagoneer/i,
+    /Jeep\s*Wagoneer/i,
+    /Land\s*Rover\s*Defender/i,
+    /Land\s*Rover\s*Discovery/i,
     // Lexus - only large/full-size: LX, GX (removed RX, NX)
     /Lexus\s*(?:LX|GX)/i,
     // Porsche - removed (Cayenne and Macan are mid-size/compact)
@@ -219,6 +252,9 @@ export const determineVehicleType = (
   // Check for minibus/sprinter
   const hasMinibusPattern = extractMinibusInfo(vehicleInfo || '') || extractMinibusInfo(driverNotes || '');
 
+  // Check for luxury SUV (Range Rover images) - check before regular SUV
+  const hasLuxurySUVPattern = extractLuxurySUVInfo(vehicleInfo || '') || extractLuxurySUVInfo(driverNotes || '');
+
   // Check for SUV (priority) - check text patterns regardless of passenger count
   const hasSUVPattern = extractSUVInfo(vehicleInfo || '') || extractSUVInfo(driverNotes || '');
 
@@ -238,19 +274,40 @@ export const determineVehicleType = (
   const hasGenericCarPattern = extractGenericCarInfo(vehicleInfo || '') || extractGenericCarInfo(driverNotes || '');
 
   // Check if any vehicle info exists (brand/model/type)
-  const hasAnyVehicleInfo = hasVehicleInfo || hasSUVPattern || hasSedanPattern || hasPremiumSedanPattern || hasSignatureSedanPattern || hasComfortSedanPattern || hasMinibusPattern || hasVanPattern;
+  const hasAnyVehicleInfo = hasVehicleInfo || hasSUVPattern || hasLuxurySUVPattern || hasSedanPattern || hasPremiumSedanPattern || hasSignatureSedanPattern || hasComfortSedanPattern || hasMinibusPattern || hasVanPattern;
 
-  // Determine vehicle type: van takes highest priority, then minibus, then SUV, then signature sedan, then premium sedan, then comfort sedan, then regular sedan
+  // Determine vehicle type: van takes highest priority, then minibus, then luxury SUV, then regular SUV, then signature sedan, then premium sedan, then comfort sedan, then regular sedan
   // Otherwise use passenger count as fallback
   // Default to sedan for < 3 passengers when no vehicle specified
   let vehicleType: VehicleType = null;
+
+  // Check location for overrides
+  const isUSCanadaPR = isUSCanadaPuertoRicoTrip(tripDestination);
+  const isMiddleEast = isMiddleEastTrip(tripDestination);
+  const isEurope = isEuropeTrip(tripDestination);
 
   if (hasVanPattern) {
     vehicleType = 'van';
   } else if (hasMinibusPattern) {
     vehicleType = 'minibus';
+  } else if (hasLuxurySUVPattern) {
+    // If luxury SUV requested, apply location override
+    if (isEurope) {
+      vehicleType = 'luxury-suv'; // Range Rover
+    } else if (isUSCanadaPR || isMiddleEast) {
+      vehicleType = 'suv'; // Escalade (override luxury SUV to regular SUV)
+    } else {
+      vehicleType = 'luxury-suv'; // Range Rover (default)
+    }
   } else if (hasSUVPattern) {
-    vehicleType = 'suv';
+    // If regular SUV requested, apply location override
+    if (isEurope) {
+      vehicleType = 'luxury-suv'; // Range Rover (override regular SUV to luxury SUV)
+    } else if (isUSCanadaPR || isMiddleEast) {
+      vehicleType = 'suv'; // Escalade
+    } else {
+      vehicleType = 'suv'; // Escalade (default)
+    }
   } else if (hasSignatureSedanPattern && normalizedPassengerCount <= 3) {
     vehicleType = 'signature-sedan';
   } else if (hasPremiumSedanPattern && normalizedPassengerCount <= 3) {
@@ -266,23 +323,40 @@ export const determineVehicleType = (
       vehicleType = 'minibus';
     } else if (normalizedPassengerCount >= 3 && normalizedPassengerCount <= 6) {
       // For 3-6 passengers: check location and explicit SUV requests
-      const isUSCanadaPR = isUSCanadaPuertoRicoTrip(tripDestination);
-      
       // If generic car terms (normal, regular, any car), don't use SUV/Escalade
       // These will trigger a different vehicle image (not yet uploaded)
       if (hasGenericCarPattern) {
         // For now, use sedan - will be replaced with new vehicle image later
         vehicleType = 'sedan';
       }
-      // If explicitly requesting SUV, use SUV regardless of location
+      // If explicitly requesting luxury SUV, apply location override
+      else if (hasLuxurySUVPattern) {
+        if (isEurope) {
+          vehicleType = 'luxury-suv'; // Range Rover
+        } else if (isUSCanadaPR || isMiddleEast) {
+          vehicleType = 'suv'; // Escalade
+        } else {
+          vehicleType = 'luxury-suv'; // Range Rover (default)
+        }
+      }
+      // If explicitly requesting regular SUV, apply location override
       else if (hasSUVPattern) {
-        vehicleType = 'suv';
+        if (isEurope) {
+          vehicleType = 'luxury-suv'; // Range Rover
+        } else if (isUSCanadaPR || isMiddleEast) {
+          vehicleType = 'suv'; // Escalade
+        } else {
+          vehicleType = 'suv'; // Escalade (default)
+        }
       } 
-      // If in US, Canada, or Puerto Rico, default to SUV
-      else if (isUSCanadaPR) {
-        vehicleType = 'suv';
+      // LOCATION-BASED OVERRIDES: Escalade for US/Canada/Middle East, Range Rover for Europe
+      else if (isUSCanadaPR || isMiddleEast) {
+        vehicleType = 'suv'; // Escalade
       } 
-      // If NOT in US/Canada/PR, default to van (unless explicitly requesting SUV)
+      else if (isEurope) {
+        vehicleType = 'luxury-suv'; // Range Rover
+      }
+      // If NOT in US/Canada/PR/Middle East/Europe, default to van
       else {
         vehicleType = 'van';
       }
@@ -294,6 +368,17 @@ export const determineVehicleType = (
       } else {
         vehicleType = 'sedan';
       }
+    }
+  }
+
+  // LOCATION-BASED OVERRIDES: Apply after all other logic for fallback cases
+  // For 3-6 passengers without explicit vehicle request, apply location-based defaults
+  if (!hasAnyVehicleInfo && normalizedPassengerCount >= 3 && normalizedPassengerCount <= 6 && vehicleType === 'van') {
+    // Override van to SUV based on location
+    if (isEurope) {
+      vehicleType = 'luxury-suv'; // Range Rover
+    } else if (isUSCanadaPR || isMiddleEast) {
+      vehicleType = 'suv'; // Escalade
     }
   }
 

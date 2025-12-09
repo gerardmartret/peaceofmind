@@ -212,7 +212,7 @@ export function StatusChangeModal({
               <Button
                 onClick={handleCancelTrip}
                 disabled={resendingConfirmation || cancellingTrip}
-                variant="outline"
+                variant={tripStatus === 'confirmed' ? 'destructive' : 'outline'}
               >
                 {cancellingTrip ? (
                   <>

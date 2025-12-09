@@ -182,15 +182,17 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
       ? (isLight ? "/Vehicles/light-brief-vclass-web.png" : "/Vehicles/dark-brief-vclass-web.webp")
       : vehicleType === 'minibus' 
         ? (isLight ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.webp")
-        : vehicleType === 'suv' 
-          ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.webp")
-          : vehicleType === 'signature-sedan'
-            ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
-            : vehicleType === 'premium-sedan'
-              ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
-              : vehicleType === 'comfort-sedan'
-                ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.webp")
-                : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
+        : vehicleType === 'luxury-suv'
+          ? (isLight ? "/Vehicles/light-brief-range-web.png" : "/Vehicles/dark-brief-range-web.webp")
+          : vehicleType === 'suv' 
+            ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.webp")
+            : vehicleType === 'signature-sedan'
+              ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
+              : vehicleType === 'premium-sedan'
+                ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
+                : vehicleType === 'comfort-sedan'
+                  ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.webp")
+                  : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
   };
 
   // Get vehicle display name

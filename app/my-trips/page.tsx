@@ -31,7 +31,7 @@ export default function MyTripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'drivania' | 'other-drivers'>('drivania');
+  const [activeTab, setActiveTab] = useState<'drivania' | 'other-drivers'>('other-drivers');
   const [drivaniaSearchText, setDrivaniaSearchText] = useState('');
   const [otherDriversSearchText, setOtherDriversSearchText] = useState('');
   const [selectedOtherDriversStatus, setSelectedOtherDriversStatus] = useState<string | null>(null);
@@ -167,33 +167,9 @@ export default function MyTripsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'drivania' | 'other-drivers')} className="mb-6">
           <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
-            <TabsTrigger value="drivania" className="dark:data-[state=active]:bg-[#05060A]">Drivania™ Bookings</TabsTrigger>
-            <TabsTrigger value="other-drivers" className="dark:data-[state=active]:bg-[#05060A]">Other trips</TabsTrigger>
+            <TabsTrigger value="other-drivers" className="dark:data-[state=active]:bg-[#05060A]">My drivers</TabsTrigger>
+            <TabsTrigger value="drivania" className="dark:data-[state=active]:bg-[#05060A]">Drivania Chauffeurs™</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="drivania" className="mt-6">
-            <div className="mb-6">
-              <Input
-                value={drivaniaSearchText}
-                onChange={(event) => setDrivaniaSearchText(event.target.value)}
-                placeholder="Search trips..."
-                className="w-full"
-              />
-            </div>
-            {drivaniaTrips.length > 0 && renderTripCards(drivaniaTrips, false)}
-            {drivaniaTrips.length === 0 && !loading && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <h3 className="text-lg font-semibold mb-2">No trips found</h3>
-                  <p className="text-muted-foreground">
-                    {drivaniaSearchText.trim() 
-                      ? 'No trips match your search. Try a different search term.'
-                      : 'No trips booked with Drivania yet.'}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
           
           <TabsContent value="other-drivers" className="mt-6">
             <div className="mb-6 space-y-4">
@@ -240,6 +216,30 @@ export default function MyTripsPage() {
                     {otherDriversSearchText.trim() || selectedOtherDriversStatus
                       ? 'No trips match your filters. Try adjusting your search or status filter.'
                       : 'No other trips yet.'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="drivania" className="mt-6">
+            <div className="mb-6">
+              <Input
+                value={drivaniaSearchText}
+                onChange={(event) => setDrivaniaSearchText(event.target.value)}
+                placeholder="Search trips..."
+                className="w-full"
+              />
+            </div>
+            {drivaniaTrips.length > 0 && renderTripCards(drivaniaTrips, false)}
+            {drivaniaTrips.length === 0 && !loading && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <h3 className="text-lg font-semibold mb-2">No trips found</h3>
+                  <p className="text-muted-foreground">
+                    {drivaniaSearchText.trim() 
+                      ? 'No trips match your search. Try a different search term.'
+                      : 'No trips booked with Drivania yet.'}
                   </p>
                 </CardContent>
               </Card>
