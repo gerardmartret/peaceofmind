@@ -369,11 +369,6 @@ export default function ResultsPage() {
         setShowBookingSuccess(true);
         // Remove the flag so it only shows once
         sessionStorage.removeItem(`bookingSuccess_${tripId}`);
-        // Auto-hide after 10 seconds
-        const timer = setTimeout(() => {
-          setShowBookingSuccess(false);
-        }, 10000);
-        return () => clearTimeout(timer);
       }
     }
   }, [tripId]);
@@ -2858,36 +2853,33 @@ export default function ResultsPage() {
         canUpdateTrip={userRole.canUpdateTrip}
       />
 
-      {/* Booking Success Message - Sticky below UpdateTripSection */}
-      {showBookingSuccess && (
-        <div
-          className={`relative sm:fixed left-0 right-0 bg-background transition-all duration-300 sm:z-[55] ${
-            userRole.canUpdateTrip
-              ? scrollY > 0
-                ? 'sm:top-[80px]'
-                : 'sm:top-[137px]'
-              : scrollY > 0
-                ? 'sm:top-0'
-                : 'sm:top-[57px]'
-          }`}
-        >
-          <div className="container mx-auto px-4 py-3">
-            <Alert className="bg-green-500/10 border-green-500/30">
-              <AlertDescription className="text-green-700 dark:text-green-400">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="font-semibold">Your booking has been confirmed! You will receive a confirmation email in your inbox.</span>
-                </div>
-              </AlertDescription>
-            </Alert>
-          </div>
-        </div>
-      )}
+      {/* Booking Success Modal */}
+      <Dialog open={showBookingSuccess} onOpenChange={setShowBookingSuccess}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Booking Confirmed!
+            </DialogTitle>
+            <DialogDescription className="text-base text-foreground pt-2">
+              Your booking has been confirmed! You will receive a confirmation email in your inbox.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowBookingSuccess(false)}
+              className="w-full sm:w-auto"
+            >
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content */}
-      <div className={`container mx-auto px-4 ${showBookingSuccess ? (userRole.canUpdateTrip ? 'pt-40 sm:pt-44' : 'pt-24 sm:pt-32') : 'pt-32'} pb-8`}>
+      <div className="container mx-auto px-4 pt-32 pb-8">
 
         {/* Loading State Modal - Full Screen Overlay (Same as Homepage) */}
         <RegenerationLoadingModal

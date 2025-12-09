@@ -271,7 +271,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             {/* Status and Assign Driver buttons - Show for owners and drivers with token */}
             {(isOwner || (driverToken && validatedDriverEmail)) && (
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-5">
-                {((tripStatus !== 'not confirmed' && tripStatus !== 'pending' && tripStatus !== 'confirmed') || (driverToken && validatedDriverEmail && tripStatus === 'pending')) ? (
+                {((tripStatus !== 'not confirmed' && tripStatus !== 'pending' && tripStatus !== 'confirmed' && !(tripStatus === 'booked' && driverEmail === 'drivania')) || (driverToken && validatedDriverEmail && tripStatus === 'pending')) ? (
                   <div className="relative inline-block">
                     <TripStatusButton
                       tripStatus={tripStatus}
@@ -289,16 +289,16 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                     />
                   </div>
                 ) : null}
-                    {!(isDriverView && driverToken) && quoteParam !== 'true' && (
+                    {!(isDriverView && driverToken) && quoteParam !== 'true' && !(tripStatus === 'booked' && driverEmail === 'drivania') && (
                         <div className="relative inline-block">
                           <Button
                             variant="outline"
                       className={`h-10 ${tripStatus === 'cancelled'
                               ? 'border !border-gray-400 opacity-50 cursor-not-allowed'
-                              : (tripStatus === 'confirmed' || tripStatus === 'booked') && driverEmail
-                                ? 'border !border-[#3ea34b] hover:bg-[#3ea34b]/10'
+                              : driverEmail && tripStatus === 'pending'
+                                ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
                                 : driverEmail
-                                  ? 'border !border-[#e77500] hover:bg-[#e77500]/10'
+                                  ? ''
                                   : ''
                                 }`}
                             onClick={() => {
@@ -331,18 +331,29 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                               {quotes.length}
                             </span>
                           )}
-                          {/* Show badge for driver confirmed/assigned */}
-                          {driverEmail && (tripStatus === 'confirmed' || tripStatus === 'booked') && (
-                            <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#3ea34b] rounded-full animate-pulse">
-                              1
-                            </span>
-                          )}
                         </div>
                 )}
               </div>
             )}
           </div>
           <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto">
+            {/* Show status badge for booked Drivania trips at top right (consistent with other reports) */}
+            {tripStatus === 'booked' && driverEmail === 'drivania' && (
+              <TripStatusButton
+                tripStatus={tripStatus}
+                driverResponseStatus={driverResponseStatus}
+                driverEmail={driverEmail}
+                originalDriverEmail={originalDriverEmail}
+                quotes={quotes}
+                sentDriverEmails={sentDriverEmails}
+                isOwner={isOwner}
+                quoteEmail={quoteEmail}
+                driverToken={driverToken}
+                validatedDriverEmail={validatedDriverEmail}
+                updatingStatus={updatingStatus}
+                onStatusToggle={onStatusToggle}
+              />
+            )}
             {/* Show confirmation button with driver quote when driver is selected, otherwise show Book with Drivania */}
             {isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true' && (
               <div className="w-full sm:w-[220px] flex flex-col items-stretch sm:items-end gap-2">

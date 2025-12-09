@@ -376,24 +376,11 @@ export default function ConfirmationPage() {
   const handleBookNow = async () => {
     if (!selectedDrivaniaVehicle) return;
 
-    // Validate phone number first
+    // Validate phone number first (only required field in the form now)
     const phoneValidationError = validatePhone(bookingPreviewFields.contactPhone);
     if (phoneValidationError) {
       setPhoneError(phoneValidationError);
       setBookingSubmissionState('idle');
-      return;
-    }
-
-    const missing = requiredFields.filter((field) => {
-      const value = bookingPreviewFields[field];
-      if (typeof value === 'number') {
-        return value === null || value === undefined;
-      }
-      return !value || value.toString().trim() === '';
-    });
-
-    if (missing.length > 0) {
-      setMissingFields(new Set(missing));
       return;
     }
 
@@ -408,17 +395,21 @@ export default function ConfirmationPage() {
       return;
     }
 
+    // Get data from tripData for fields that are no longer in the form
+    const pickup = tripData?.locations?.[0];
+    const dropoff = tripData?.locations?.[tripData.locations.length - 1];
+    
     const payload = {
       service_id: drivaniaQuotes?.service_id,
       vehicle_id: selectedDrivaniaVehicle.vehicle_id,
-      passenger_name: bookingPreviewFields.passengerName,
-      contact_email: bookingPreviewFields.contactEmail,
+      passenger_name: tripData?.lead_passenger_name || '',
+      contact_email: tripData?.user_email || '',
       contact_phone: bookingPreviewFields.contactPhone,
       notes: bookingPreviewFields.notes,
       child_seats: bookingPreviewFields.childSeats || 0,
       flight_number: bookingPreviewFields.flightNumber,
-      flight_direction: bookingPreviewFields.flightDirection,
-      pickup_location: tripData?.locations?.[0],
+      flight_direction: tripData?.trip_destination || pickup?.flightDirection || '',
+      pickup_location: pickup,
       trip_id: tripId,
     };
 

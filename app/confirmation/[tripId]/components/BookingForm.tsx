@@ -39,25 +39,6 @@ export function BookingForm({
         <div className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-xs font-semibold uppercase text-muted-foreground">
-              Passenger name
-              <Input
-                className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('passengerName')}`}
-                value={bookingFields.passengerName}
-                onChange={(e) => onFieldChange('passengerName', e.target.value)}
-              />
-            </label>
-            <label className="text-xs font-semibold uppercase text-muted-foreground">
-              Contact email
-              <Input
-                className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('contactEmail')}`}
-                value={bookingFields.contactEmail}
-                onChange={(e) => onFieldChange('contactEmail', e.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-xs font-semibold uppercase text-muted-foreground">
               Contact phone
               <Input
                 className={getPhoneFieldClassName()}
@@ -82,27 +63,6 @@ export function BookingForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-xs font-semibold uppercase text-muted-foreground">
-              Flight direction
-              <Input
-                className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('flightDirection')}`}
-                value={bookingFields.flightDirection}
-                onChange={(e) => onFieldChange('flightDirection', e.target.value)}
-              />
-            </label>
-            <label className="text-xs font-semibold uppercase text-muted-foreground">
-              Passenger count
-              <Input
-                type="number"
-                min={1}
-                className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                value={bookingFields.passengerCount}
-                onChange={(e) => onFieldChange('passengerCount', Number(e.target.value))}
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-xs font-semibold uppercase text-muted-foreground">
               Child seats
               <Input
                 type="number"
@@ -112,31 +72,13 @@ export function BookingForm({
                 onChange={(e) => onFieldChange('childSeats', Number(e.target.value))}
               />
             </label>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Pickup time
-                <Input
-                  className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('pickupTime')}`}
-                  value={bookingFields.pickupTime}
-                  onChange={(e) => onFieldChange('pickupTime', e.target.value)}
-                />
-              </label>
-              <label className="text-xs font-semibold uppercase text-muted-foreground">
-                Dropoff time
-                <Input
-                  className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('dropoffTime')}`}
-                  value={bookingFields.dropoffTime}
-                  onChange={(e) => onFieldChange('dropoffTime', e.target.value)}
-                />
-              </label>
-            </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase text-muted-foreground">Notes</label>
             <textarea
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              rows={3}
+              rows={6}
               value={bookingFields.notes}
               onChange={(e) => onFieldChange('notes', e.target.value)}
             />
