@@ -29,12 +29,12 @@ export function DriverSelection({
   if (drivers.length === 0) return null;
 
   return (
-    <div className="p-3 sm:p-5 border border-border rounded-md">
-      <div className="text-xs text-muted-foreground space-y-2 sm:space-y-3">
-        <p className="uppercase tracking-wider text-[10px] font-semibold text-muted-foreground/80 text-center sm:text-left">
+    <div className="p-2.5 sm:p-3 border border-border rounded-md">
+      <div className="text-xs text-muted-foreground space-y-2 sm:space-y-2">
+        <p className="uppercase tracking-wider text-[10px] sm:text-[10px] font-semibold text-muted-foreground/80 text-center sm:text-left">
           Or select individual drivers
         </p>
-        <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+        <div className="flex flex-wrap gap-2 sm:gap-2 justify-center sm:justify-start">
           {drivers.map((driver) => {
             const isDriverSelected = selection.selectedDriverIds.includes(driver.id);
             return (
@@ -44,13 +44,13 @@ export function DriverSelection({
                   e.stopPropagation();
                   onDriverToggle(vehicleId, driver.id);
                 }}
-                className={`flex items-center gap-2 sm:gap-3 rounded-md border-2 px-2 sm:px-3 py-1.5 sm:py-2 cursor-pointer transition-all w-full sm:w-auto ${
+                className={`flex items-center gap-2.5 sm:gap-3 rounded-md border-2 px-3 sm:px-3 py-2 sm:py-2 cursor-pointer transition-all w-full sm:w-auto min-h-[56px] sm:min-h-0 ${
                   isDriverSelected
                     ? 'border-primary bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/30 dark:ring-primary/40 shadow-md dark:shadow-primary/20'
                     : 'border-border/60 bg-muted/60 hover:border-primary/50 dark:hover:border-primary/40'
                 }`}
               >
-                <div className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 overflow-hidden rounded-full bg-muted/70">
+                <div className="h-12 w-12 sm:h-12 sm:w-12 flex-shrink-0 overflow-hidden rounded-full bg-muted/70">
                   {driver.image_url ? (
                     <img
                       src={driver.image_url}
@@ -71,17 +71,14 @@ export function DriverSelection({
                     </span>
                   )}
                 </div>
-                <div className="flex-1 min-w-0 text-[10px] sm:text-[11px] text-muted-foreground">
-                  <p className="text-xs sm:text-sm font-semibold text-card-foreground truncate">
+                <div className="flex-1 min-w-0 text-xs sm:text-[11px] text-muted-foreground">
+                  <p className="text-sm sm:text-sm font-semibold text-card-foreground truncate">
                     {driver.first_name}
                   </p>
-                  <p className="truncate text-[10px] sm:text-[11px]">
+                  <p className="truncate text-xs sm:text-[11px]">
                     {driver.vehicle_type || 'Vehicle'}
                     {driver.vehicle_type && driver.destination ? ' • ' : ''}
                     {driver.destination}
-                  </p>
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wide text-muted-foreground/60">
-                    Supabase driver
                   </p>
                 </div>
               </div>

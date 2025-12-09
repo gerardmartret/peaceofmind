@@ -141,20 +141,7 @@ export default function BookingPage() {
       <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
         {/* Header */}
         <div className="mb-4 sm:mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/results/${tripId}`)}
-            className="mb-3 sm:mb-4"
-            size="sm"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Back to Trip Report</span>
-            <span className="sm:hidden">Back</span>
-          </Button>
           <h1 className="text-2xl sm:text-3xl font-bold">Book Your Trip</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
-            Select a vehicle and complete your booking details
-          </p>
         </div>
 
         {/* Two Column Layout */}
@@ -174,10 +161,12 @@ export default function BookingPage() {
                 matchingDrivers={matchingDrivers}
                 vehicleSelections={vehicleSelections}
                 currencyCode={drivaniaQuotes?.currency_code}
+                selectedVehicle={selectedVehicle}
                 onToggleOtherVehicles={() => setShowOtherVehicles(prev => !prev)}
                 onDriverToggle={handleDriverToggle}
                 onSelectVehicle={handleVehicleSelect}
                 calculatePrice={calculatePrice}
+                onBackToTripReport={() => router.push(`/results/${tripId}`)}
               />
             </div>
           </div>
@@ -187,6 +176,7 @@ export default function BookingPage() {
             <div className="lg:sticky lg:top-8">
               <BookingSummaryCard
                 selectedVehicle={selectedVehicle}
+                tripData={tripData}
                 currencyCode={drivaniaQuotes?.currency_code}
                 onRemove={() => setSelectedVehicle(null)}
                 onContinue={handleContinue}

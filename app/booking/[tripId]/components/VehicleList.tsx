@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowLeft } from 'lucide-react';
 import { VehicleCard } from './VehicleCard';
 import type { VehicleSelection } from '../hooks/useVehicleSelection';
 
@@ -35,10 +36,12 @@ interface VehicleListProps {
   matchingDrivers: Driver[];
   vehicleSelections: Record<string, VehicleSelection>;
   currencyCode?: string;
+  selectedVehicle: Vehicle | null;
   onToggleOtherVehicles: () => void;
   onDriverToggle: (vehicleId: string, driverId: string) => void;
   onSelectVehicle: (vehicle: Vehicle) => void;
   calculatePrice: (basePrice: number, driverCount: number) => { extraFare: number; totalPrice: number };
+  onBackToTripReport: () => void;
 }
 
 export function VehicleList({
@@ -53,10 +56,12 @@ export function VehicleList({
   matchingDrivers,
   vehicleSelections,
   currencyCode,
+  selectedVehicle,
   onToggleOtherVehicles,
   onDriverToggle,
   onSelectVehicle,
   calculatePrice,
+  onBackToTripReport,
 }: VehicleListProps) {
   if (loading) {
     return (
@@ -112,13 +117,13 @@ export function VehicleList({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {preferredVehicleHint && preferredVehiclesCount === 0 && (
-        <p className="text-xs sm:text-sm text-muted-foreground">
+        <p className="text-xs sm:text-sm text-muted-foreground mb-2">
           Preferred vehicle ("{preferredVehicleHint}") not found; showing all available options.
         </p>
       )}
-      <div className="space-y-3 sm:space-y-4">
+      <div className="space-y-2 sm:space-y-3">
         {displayVehicles.map((vehicle, index) => {
           const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
           const selection = vehicleSelections[vehicleId] || { isVehicleSelected: true, selectedDriverIds: [] };
@@ -131,6 +136,7 @@ export function VehicleList({
               matchingDrivers={matchingDrivers}
               selection={selection}
               currencyCode={currencyCode}
+              selectedVehicle={selectedVehicle}
               onDriverToggle={onDriverToggle}
               onSelect={onSelectVehicle}
               calculatePrice={calculatePrice}
@@ -139,7 +145,7 @@ export function VehicleList({
         })}
       </div>
       {preferredVehiclesCount > 0 && otherVehicles.length > 0 && (
-        <div className="space-y-2 sm:space-y-3">
+        <div className="space-y-1.5 sm:space-y-2">
           <Button
             variant="outline"
             onClick={onToggleOtherVehicles}
@@ -149,7 +155,7 @@ export function VehicleList({
             {showOtherVehicles ? 'Hide other vehicles' : 'Show other vehicles'}
           </Button>
           {showOtherVehicles && (
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-2 sm:space-y-3">
               {otherVehicles.map((vehicle, index) => {
                 const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
                 const selection = vehicleSelections[vehicleId] || { isVehicleSelected: true, selectedDriverIds: [] };
@@ -162,6 +168,7 @@ export function VehicleList({
                     matchingDrivers={matchingDrivers}
                     selection={selection}
                     currencyCode={currencyCode}
+                    selectedVehicle={selectedVehicle}
                     onDriverToggle={onDriverToggle}
                     onSelect={onSelectVehicle}
                     calculatePrice={calculatePrice}
@@ -172,6 +179,20 @@ export function VehicleList({
           )}
         </div>
       )}
+      
+      {/* Back to Trip Report Button */}
+      <div className="pt-4">
+        <Button
+          variant="ghost"
+          onClick={onBackToTripReport}
+          size="sm"
+          className="w-full sm:w-auto"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          <span className="hidden sm:inline">Back to Trip Report</span>
+          <span className="sm:hidden">Back</span>
+        </Button>
+      </div>
     </div>
   );
 }

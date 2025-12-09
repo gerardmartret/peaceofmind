@@ -30,6 +30,7 @@ interface VehicleCardProps {
   matchingDrivers: Driver[];
   selection: VehicleSelection;
   currencyCode?: string;
+  selectedVehicle: Vehicle | null;
   onDriverToggle: (vehicleId: string, driverId: string) => void;
   onSelect: (vehicle: Vehicle) => void;
   calculatePrice: (basePrice: number, driverCount: number) => { extraFare: number; totalPrice: number };
@@ -41,10 +42,17 @@ export function VehicleCard({
   matchingDrivers,
   selection,
   currencyCode,
+  selectedVehicle,
   onDriverToggle,
   onSelect,
   calculatePrice,
 }: VehicleCardProps) {
+  const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
+  const isSelected = selectedVehicle ? (
+    selectedVehicle.vehicle_id === vehicle.vehicle_id ||
+    (selectedVehicle.vehicle_type === vehicle.vehicle_type && 
+     selectedVehicle.level_of_service === vehicle.level_of_service)
+  ) : false;
   const normalizedVehicleType = normalizeMatchKey(vehicle.vehicle_type);
   
   // Filter and deduplicate drivers
@@ -74,7 +82,6 @@ export function VehicleCard({
       })()
     : [];
 
-  const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
   const basePrice = vehicle.sale_price?.price || 0;
   const { extraFare, totalPrice } = calculatePrice(basePrice, selection.selectedDriverIds.length);
 
@@ -83,17 +90,15 @@ export function VehicleCard({
   };
 
   return (
-    <Card className="shadow-none w-full">
-      <CardContent className="flex flex-col gap-4 sm:gap-6 py-4 sm:py-6">
-        <div className="p-3 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-4 border-2 rounded-md border-border">
+    <Card className="shadow-none w-full transition-all border-2 border-border hover:border-primary/50 dark:hover:border-primary/40">
+      <CardContent className="flex flex-col gap-2 sm:gap-3 py-2 sm:py-3 px-3 sm:px-3">
+        <div className="p-2 sm:p-3 flex flex-col sm:flex-row gap-2.5 sm:gap-3 border rounded-md border-border/50 bg-muted/30">
           {vehicle.vehicle_image && (
-            <div className="h-24 w-24 sm:h-32 sm:w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60 mx-auto sm:mx-0">
+            <div className="h-24 w-full sm:h-28 sm:w-40 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60 sm:mx-0">
               <img
                 src={vehicle.vehicle_image}
                 alt={vehicle.vehicle_type}
-                width={128}
-                height={128}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
                 loading="lazy"
                 decoding="async"
                 onError={(e) => {
@@ -102,24 +107,35 @@ export function VehicleCard({
               />
             </div>
           )}
-          <div className="flex flex-1 flex-col gap-2 sm:gap-3 text-center sm:text-left">
-            <div>
-              <h4 className="text-base sm:text-lg font-semibold text-card-foreground">
-                {vehicle.vehicle_type}
-              </h4>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                {vehicle.level_of_service}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 text-xs sm:text-sm text-muted-foreground">
-              <div className="flex gap-4 justify-center sm:justify-start text-xs">
-                {vehicle.max_seating_capacity != null && (
-                  <span>Seats: {vehicle.max_seating_capacity}</span>
-                )}
-                {vehicle.max_cargo_capacity != null && (
-                  <span>Cargo: {vehicle.max_cargo_capacity}</span>
+          <div className="flex flex-1 flex-col gap-1.5 sm:gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-2">
+              <div className="flex-1">
+                <h4 className="text-lg sm:text-lg font-semibold text-card-foreground">
+                  {vehicle.vehicle_type}
+                </h4>
+                <p className="text-sm sm:text-sm text-muted-foreground">
+                  {vehicle.level_of_service}
+                </p>
+              </div>
+              <div className="text-left sm:text-right">
+                <div className="text-lg sm:text-lg font-semibold text-card-foreground">
+                  {formatPrice(basePrice)}
+                </div>
+                {selection.isVehicleSelected && (
+                  <span className="text-xs sm:text-xs text-green-600 dark:text-green-400">Discounted</span>
                 )}
               </div>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              {vehicle.max_seating_capacity != null && (
+                <span>Seats: {vehicle.max_seating_capacity}</span>
+              )}
+              {vehicle.max_cargo_capacity != null && (
+                <>
+                  <span className="text-muted-foreground/40">•</span>
+                  <span>Cargo: {vehicle.max_cargo_capacity}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -133,37 +149,34 @@ export function VehicleCard({
           onDriverToggle={onDriverToggle}
         />
 
-        <div className="flex flex-col gap-2 text-xs sm:text-sm text-muted-foreground px-3 sm:px-5">
-          <div className="flex items-center justify-between text-card-foreground font-semibold">
-            <span className="text-sm sm:text-base">Fare</span>
-            <div className="flex items-center gap-2">
-              <span className="text-base sm:text-lg">{formatPrice(basePrice)}</span>
-              {selection.isVehicleSelected && (
-                <span className="text-[10px] sm:text-xs text-muted-foreground">(Discounted fare)</span>
-              )}
-            </div>
+        {(selection.selectedDriverIds.length > 0 || vehicle.extra_hour) && (
+          <div className="flex flex-col gap-1 text-xs sm:text-sm text-muted-foreground px-1 sm:px-2">
+            {selection.selectedDriverIds.length > 0 && extraFare > 0 && (
+              <div className="flex items-center justify-between text-xs sm:text-xs">
+                <span>Extra fare</span>
+                <span>{formatPrice(extraFare)}</span>
+              </div>
+            )}
+            {selection.selectedDriverIds.length > 0 && (
+              <div className="flex items-center justify-between text-card-foreground font-semibold border-t border-border pt-1.5">
+                <span className="text-sm sm:text-sm">Total</span>
+                <span className="text-base sm:text-base">{formatPrice(totalPrice)}</span>
+              </div>
+            )}
+            {vehicle.extra_hour && (
+              <div className="text-xs sm:text-xs text-muted-foreground/80">
+                Extra hour: {vehicle.extra_hour.toFixed(2)} {currencyCode}
+              </div>
+            )}
           </div>
-          {selection.selectedDriverIds.length > 0 && extraFare > 0 && (
-            <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
-              <span>Extra fare</span>
-              <span>{formatPrice(extraFare)}</span>
-            </div>
-          )}
-          {selection.selectedDriverIds.length > 0 && (
-            <div className="flex items-center justify-between text-card-foreground font-semibold border-t border-border pt-2">
-              <span className="text-sm sm:text-base">Total</span>
-              <span className="text-base sm:text-lg">{formatPrice(totalPrice)}</span>
-            </div>
-          )}
-          {vehicle.extra_hour && (
-            <div className="text-[10px] sm:text-xs text-muted-foreground">
-              Extra hour: {vehicle.extra_hour.toFixed(2)} {currencyCode}
-            </div>
-          )}
+        )}
+        
+        <div className="flex items-center justify-end sm:justify-end pt-0.5">
           <Button
             size="sm"
             type="button"
-            className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] text-sm sm:text-base"
+            disabled={isSelected}
+            className="w-full sm:w-auto bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] text-sm sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[120px] h-10 sm:h-8"
             onClick={() => {
               const vehicleWithTotal = {
                 ...vehicle,
@@ -175,7 +188,7 @@ export function VehicleCard({
               onSelect(vehicleWithTotal);
             }}
           >
-            Select Vehicle
+            {isSelected ? 'Selected' : 'Select'}
           </Button>
         </div>
       </CardContent>
