@@ -173,26 +173,26 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
     
     // If it's Maybach S-Class, use S-Class image
     if (isMaybachSClass) {
-      return theme === 'light' ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass-web.webp";
+      return theme === 'light' ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass-web.png";
     }
     
     // Otherwise, use normal logic (default to dark if theme is undefined)
     const isLight = theme === 'light';
     return vehicleType === 'van' 
-      ? (isLight ? "/Vehicles/light-brief-vclass-web.png" : "/Vehicles/dark-brief-vclass-web.webp")
+      ? (isLight ? "/Vehicles/light-brief-vclass-web.png" : "/Vehicles/dark-brief-vclass-web.png")
       : vehicleType === 'minibus' 
-        ? (isLight ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.webp")
+        ? (isLight ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.png")
         : vehicleType === 'luxury-suv'
-          ? (isLight ? "/Vehicles/light-brief-range-web.png" : "/Vehicles/dark-brief-range-web.webp")
+          ? (isLight ? "/Vehicles/light-brief-range-web.png" : "/Vehicles/dark-brief-range-web.png")
           : vehicleType === 'suv' 
-            ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.webp")
+            ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.png")
             : vehicleType === 'signature-sedan'
-              ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
+              ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom-web.png")
               : vehicleType === 'premium-sedan'
-                ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
+                ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass-web.png")
                 : vehicleType === 'comfort-sedan'
-                  ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.webp")
-                  : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
+                  ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.png")
+                  : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.png");
   };
 
   // Get vehicle display name
@@ -318,14 +318,24 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                             }}
                             disabled={tripStatus === 'cancelled' || driverEmail === 'drivania'}
                           >
-                            {mounted && driverEmail && (
-                              <img
-                                src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                alt="Driver"
-                                className="w-4 h-4"
-                              />
+                            {mounted && (
+                              <>
+                                {driverEmail ? (
+                                  <img
+                                    src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                    alt="Driver"
+                                    className="w-4 h-4"
+                                  />
+                                ) : (
+                                  <img
+                                    src={theme === 'dark' ? "/driver-fav-light.svg" : "/driver-fav-dark.svg"}
+                                    alt="Driver"
+                                    className="w-4 h-4"
+                                  />
+                                )}
+                              </>
                             )}
-                            {tripStatus === 'cancelled' ? 'Driver released' : driverEmail && tripStatus === 'pending' ? 'Driver requested' : driverEmail && (tripStatus === 'confirmed' || tripStatus === 'booked') ? 'Driver assigned' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign my driver'}
+                            {tripStatus === 'cancelled' ? 'Driver released' : driverEmail && tripStatus === 'pending' ? 'Driver requested' : driverEmail && (tripStatus === 'confirmed' || tripStatus === 'booked') ? 'Driver assigned' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign my own driver'}
                           </Button>
                           {/* Show badge for quotes when no driver assigned */}
                           {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
@@ -382,7 +392,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                       const driverQuote = quotes.find((q: any) => q.email.toLowerCase() === driverEmail.toLowerCase());
                       return driverQuote ? (
                         <div className="flex flex-col items-end gap-1">
-                          <div className="text-2xl font-medium text-foreground text-right">
+                          <div className="text-2xl font-semibold text-foreground text-right">
                             {(() => {
                               const formattedNumber = new Intl.NumberFormat('en-GB', {
                                 minimumFractionDigits: 2,
@@ -416,12 +426,12 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                           <span className="sm:hidden">Quoting...</span>
                         </span>
                       ) : (
-                        <span className="text-sm sm:text-base lg:text-lg">Book with Drivania™</span>
+                        <span className="text-[1.15rem] sm:text-[1.29375rem] lg:text-[1.4375rem]">Book Now</span>
                       )}
                     </FlowHoverButton>
                     {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
                       <div className="flex flex-col items-end gap-1">
-                        <div className="text-2xl font-medium text-foreground text-right">
+                        <div className="text-2xl font-semibold text-foreground text-right">
                           {(() => {
                             const formattedNumber = new Intl.NumberFormat('en-GB', {
                               minimumFractionDigits: 2,

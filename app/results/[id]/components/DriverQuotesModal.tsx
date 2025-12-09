@@ -129,7 +129,7 @@ export function DriverQuotesModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
           <DialogTitle className="text-lg sm:text-2xl">
-            {assignOnlyMode ? 'Assign driver' : 'Assign my driver'}
+            {assignOnlyMode ? 'Assign driver' : 'Assign my own driver'}
           </DialogTitle>
         </DialogHeader>
 
@@ -534,7 +534,7 @@ export function DriverQuotesModal({
                       }}
                       className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 w-full sm:w-auto text-sm sm:text-base"
                     >
-                      Book now
+                      Book Now
                     </Button>
                   </div>
                 </div>

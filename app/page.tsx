@@ -1940,7 +1940,7 @@ export default function Home() {
           {!extractedLocations && !showManualForm && (
             <div className="mb-24 text-center -mt-40">
               {/* <img
-                src="/chauffs-logo-neutral.png"
+                src="/chauffs-logo-new-neutral.png"
                 alt="Chauffs"
                 className="mx-auto h-7 w-auto mb-12"
               /> */}
