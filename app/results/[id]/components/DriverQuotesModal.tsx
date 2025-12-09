@@ -1,10 +1,13 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
+import { determineVehicleType, extractCarInfo } from '../utils/vehicle-detection-helpers';
+import { getDisplayVehicle } from '@/lib/vehicle-helpers';
 
 interface DriverQuotesModalProps {
   open: boolean;
@@ -62,6 +65,17 @@ interface DriverQuotesModalProps {
   drivaniaCurrency: string | null;
   lowestExtraHourPrice: number | null;
   loadingDrivaniaQuote: boolean;
+  
+  // Vehicle info
+  vehicleInfo: string;
+  driverNotes: string;
+  passengerCount: number;
+  tripDestination: string;
+  
+  // Trip info
+  leadPassengerName: string;
+  tripDate: string;
+  locations: Array<{ id?: string; name?: string; time: string; [key: string]: any }>;
 }
 
 export function DriverQuotesModal({
@@ -97,8 +111,97 @@ export function DriverQuotesModal({
   drivaniaCurrency,
   lowestExtraHourPrice,
   loadingDrivaniaQuote,
+  vehicleInfo,
+  driverNotes,
+  passengerCount,
+  tripDestination,
+  leadPassengerName,
+  tripDate,
+  locations,
 }: DriverQuotesModalProps) {
   const router = useRouter();
+  const { theme } = useTheme();
+  
+  const vehicleType = determineVehicleType(vehicleInfo, driverNotes, passengerCount, tripDestination);
+  const numberOfPassengers = passengerCount || 1;
+
+  // Calculate trip duration
+  const calculateTripDuration = (): string => {
+    if (locations && locations.length >= 2) {
+      const pickupTime = parseInt(locations[0]?.time) || 0;
+      const dropoffTime = parseInt(locations[locations.length - 1]?.time) || 0;
+      const duration = dropoffTime - pickupTime;
+
+      if (duration > 0) {
+        const hours = Math.floor(duration);
+        const minutes = Math.round((duration - hours) * 60);
+        return `${hours}h ${minutes}m`;
+      } else {
+        return 'Same day';
+      }
+    }
+    return 'N/A';
+  };
+
+  // Get vehicle display name
+  const getVehicleDisplayName = (): string => {
+    // If signature sedan, check if specific brand/model was mentioned
+    if (vehicleType === 'signature-sedan') {
+      const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes) || '';
+      const vehicleText = (vehicleInfo || driverNotes || '').toLowerCase();
+      
+      // Check if specific luxury models are mentioned
+      const hasSpecificModel = 
+        /(?:mercedes|merc)\s*maybach\s*s/i.test(vehicleText) ||
+        /rolls\s*royce\s*ghost/i.test(vehicleText) ||
+        /rolls\s*royce\s*phantom/i.test(vehicleText);
+      
+      // If specific model mentioned, show it; otherwise show "Signature Sedan"
+      if (hasSpecificModel && requestedVehicle) {
+        return getDisplayVehicle(requestedVehicle, numberOfPassengers);
+      } else {
+        return 'Signature Sedan';
+      }
+    }
+    
+    // First, try to get vehicle from vehicleInfo field or driverNotes
+    const requestedVehicle = vehicleInfo || extractCarInfo(driverNotes);
+
+    // Use the helper to determine what to display:
+    // - If vehicle is empty or not in whitelist, show auto-selected vehicle
+    // - If vehicle is in whitelist, show that vehicle
+    return getDisplayVehicle(requestedVehicle, numberOfPassengers);
+  };
+
+  // Get vehicle image path (always dark mode)
+  const getVehicleImagePath = (): string => {
+    const vehicleText = (vehicleInfo || driverNotes || '').toLowerCase();
+    const isMaybachSClass = 
+      /(?:mercedes|merc)\s*maybach\s*s(?:[\s-]*class)?/i.test(vehicleText) ||
+      /maybach\s*(?:mercedes|merc)\s*s(?:[\s-]*class)?/i.test(vehicleText);
+    
+    // If it's Maybach S-Class, use S-Class image
+    if (isMaybachSClass) {
+      return "/Vehicles/dark-brief-sclass-web.png";
+    }
+    
+    // Always use dark mode images
+    return vehicleType === 'van' 
+      ? "/Vehicles/dark-brief-vclass-web.png"
+      : vehicleType === 'minibus' 
+        ? "/Vehicles/dark-brief-sprinter-web.png"
+        : vehicleType === 'luxury-suv'
+          ? "/Vehicles/dark-brief-range-web.png"
+          : vehicleType === 'suv' 
+            ? "/Vehicles/dark-brief-escalade-web.png"
+            : vehicleType === 'signature-sedan'
+              ? "/Vehicles/dark-brief-phantom-web.png"
+              : vehicleType === 'premium-sedan'
+                ? "/Vehicles/dark-brief-sclass-web.png"
+                : vehicleType === 'comfort-sedan'
+                  ? "/Vehicles/dark-brief-camry-web.png"
+                  : "/Vehicles/dark-brief-eclass-web.png";
+  };
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -126,15 +229,31 @@ export function DriverQuotesModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
-          <DialogTitle className="text-lg sm:text-2xl">
-            {assignOnlyMode ? 'Assign driver' : 'Assign my own driver'}
+      <DialogContent className="max-w-[1800px] max-h-[90vh] overflow-hidden flex flex-col p-0 relative">
+        <DialogHeader className="relative p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
+          {/* Driver assigned indicator - Top Right */}
+          {driverEmail && driverEmail !== 'drivania' && (
+            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 z-10">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm sm:text-base font-medium text-[#3ea34b]">Driver assigned</span>
+            </div>
+          )}
+          <DialogTitle className="text-lg sm:text-2xl flex items-center gap-2">
+            {!assignOnlyMode && (
+              <img
+                src={theme === 'dark' ? "/driver-fav-light.svg" : "/driver-fav-dark.svg"}
+                alt="Driver"
+                className="w-[24px] h-[24px] sm:w-[28.8px] sm:h-[28.8px] flex-shrink-0"
+              />
+            )}
+            {assignOnlyMode ? 'Assign driver' : 'Assign your own driver'}
           </DialogTitle>
         </DialogHeader>
 
         {/* Modal Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-0">
           {/* Cancelled Trip Warning */}
           {tripStatus === 'cancelled' && (
             <Alert variant="destructive" className="mb-6">
@@ -150,29 +269,9 @@ export function DriverQuotesModal({
             </Alert>
           )}
 
-          {/* Currently Assigned Driver Section */}
-          {driverEmail && driverEmail !== 'drivania' && (
-            <Alert className="mb-6 bg-[#3ea34b]/10 border-[#3ea34b]/30">
-              <AlertDescription className="flex items-center gap-3">
-                <svg className="w-5 h-5 flex-shrink-0 text-[#3ea34b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div className="flex-1">
-                  <p className="font-semibold text-[#3ea34b]">Driver assigned</p>
-                  <p className="text-sm mt-1 text-foreground">{driverEmail}</p>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
 
           {/* Driver Management Section - Unified */}
           <div className="mb-8">
-            {!assignOnlyMode && (
-              <p className="text-muted-foreground mb-6">
-                Request quotes from drivers. After receiving a quote, you can assign that driver to your trip.
-              </p>
-            )}
-
             {assignOnlyMode && (
               <p className="text-muted-foreground mb-6">
                 Assign a driver to confirm this trip
@@ -311,232 +410,346 @@ export function DriverQuotesModal({
                 <p className="text-sm text-destructive">{manualDriverError || allocateDriverEmailError}</p>
               )}
 
-              {/* List of sent invitations - Hide in assign-only mode */}
-              {!assignOnlyMode && sentDriverEmails.length > 0 && (
+              {/* Unified Drivers List - Hide in assign-only mode */}
+              {!assignOnlyMode && (sentDriverEmails.length > 0 || quotes.length > 0) && (
                 <div className="mt-6 pt-6 border-t">
-                  <h3 className="text-sm font-semibold mb-3">Sent ({sentDriverEmails.length})</h3>
-                  <div className="space-y-2">
-                    {sentDriverEmails.map((sent, index) => {
-                      const hasQuote = quotes.some(q => q.email.toLowerCase() === sent.email.toLowerCase());
-                      return (
-                        <Card
-                          key={index}
-                          className="border-[#3ea34b] shadow-sm"
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium break-words">{sent.email}</p>
-                              </div>
-                              <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 flex-shrink-0 sm:ml-4">
-                                <div className="text-left sm:text-right">
-                                  <p className="text-xs text-muted-foreground">
-                                    <span className="hidden sm:inline">Sent {new Date(sent.sentAt).toLocaleDateString()} at {new Date(sent.sentAt).toLocaleTimeString()}</span>
-                                    <span className="sm:hidden">{new Date(sent.sentAt).toLocaleDateString()}</span>
-                                  </p>
+                  <h3 className="text-lg sm:text-xl font-semibold mb-4">
+                    Drivers ({sentDriverEmails.length + quotes.filter(q => !sentDriverEmails.some(s => s.email.toLowerCase() === q.email.toLowerCase())).length})
+                  </h3>
+                  {loadingQuotes ? (
+                    <div className="flex items-center justify-center py-8">
+                      <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span className="ml-2 text-muted-foreground text-sm sm:text-base">Loading quotes...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
+                        <div className="min-w-full inline-block align-middle">
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="border-b">
+                                <tr>
+                                  <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
+                                  <th className="text-left py-3 px-4 font-semibold text-sm">Status</th>
+                                  <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
+                                  <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
+                                  <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
+                                  <th className="text-center py-3 px-4 font-semibold text-sm">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {/* Combine sent invitations and quotes into unified list */}
+                                {(() => {
+                                  // Create a map of all drivers
+                                  const driverMap = new Map<string, {
+                                    email: string;
+                                    sentAt?: string;
+                                    quote?: typeof quotes[0];
+                                    isDriver: boolean;
+                                  }>();
+
+                                  // Add sent invitations
+                                  sentDriverEmails.forEach(sent => {
+                                    driverMap.set(sent.email.toLowerCase(), {
+                                      email: sent.email,
+                                      sentAt: sent.sentAt,
+                                      isDriver: driverEmail?.toLowerCase() === sent.email.toLowerCase() || false,
+                                    });
+                                  });
+
+                                  // Add or update with quotes
+                                  quotes.forEach(quote => {
+                                    const existing = driverMap.get(quote.email.toLowerCase());
+                                    if (existing) {
+                                      existing.quote = quote;
+                                    } else {
+                                      driverMap.set(quote.email.toLowerCase(), {
+                                        email: quote.email,
+                                        quote: quote,
+                                        isDriver: driverEmail?.toLowerCase() === quote.email.toLowerCase() || false,
+                                      });
+                                    }
+                                  });
+
+                                  // Convert to array and sort: quotes first, then by sent date
+                                  return Array.from(driverMap.values()).sort((a, b) => {
+                                    // Drivers with quotes first
+                                    if (a.quote && !b.quote) return -1;
+                                    if (!a.quote && b.quote) return 1;
+                                    // Then by date (most recent first)
+                                    const aDate = a.quote?.created_at || a.sentAt || '';
+                                    const bDate = b.quote?.created_at || b.sentAt || '';
+                                    return bDate.localeCompare(aDate);
+                                  });
+                                })().map((driver) => {
+                                  const hasQuote = !!driver.quote;
+                                  const isDriver = driver.isDriver;
+                                  return (
+                                    <tr
+                                      key={driver.email}
+                                      className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
+                                        }`}
+                                    >
+                                      <td className="py-3 px-4 text-sm">
+                                        {driver.email}
+                                      </td>
+                                      <td className="py-3 px-4 text-sm">
+                                        {hasQuote ? (
+                                          <span className={`px-2 py-1 text-xs font-bold text-white rounded whitespace-nowrap ${isDriver ? 'bg-[#3ea34b]' : 'bg-[#e77500]'}`}>
+                                            Quote received
+                                          </span>
+                                        ) : (
+                                          <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-card-foreground bg-muted dark:bg-muted rounded whitespace-nowrap">
+                                            Sent
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-4 text-sm text-right font-medium">
+                                        {hasQuote ? driver.quote!.price.toFixed(2) : '-'}
+                                      </td>
+                                      <td className="py-3 px-4 text-sm">
+                                        {hasQuote ? driver.quote!.currency : '-'}
+                                      </td>
+                                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                                        {hasQuote 
+                                          ? new Date(driver.quote!.created_at).toLocaleDateString()
+                                          : driver.sentAt 
+                                            ? new Date(driver.sentAt).toLocaleDateString()
+                                            : '-'
+                                        }
+                                      </td>
+                                      <td className="py-3 px-4 text-center">
+                                        {isDriver ? (
+                                          <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded whitespace-nowrap">
+                                            DRIVER
+                                          </span>
+                                        ) : hasQuote ? (
+                                          <Button
+                                            size="sm"
+                                            variant="default"
+                                            onClick={() => handleSelectQuoteDriver(driver.email)}
+                                            disabled={settingDriver || tripStatus === 'cancelled'}
+                                          >
+                                            {settingDriver ? (
+                                              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                              </svg>
+                                            ) : (
+                                              'Select driver'
+                                            )}
+                                          </Button>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">Waiting for quote</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Mobile Card View */}
+                      <div className="sm:hidden space-y-3">
+                        {(() => {
+                          // Create a map of all drivers (same logic as desktop)
+                          const driverMap = new Map<string, {
+                            email: string;
+                            sentAt?: string;
+                            quote?: typeof quotes[0];
+                            isDriver: boolean;
+                          }>();
+
+                          sentDriverEmails.forEach(sent => {
+                            driverMap.set(sent.email.toLowerCase(), {
+                              email: sent.email,
+                              sentAt: sent.sentAt,
+                              isDriver: driverEmail?.toLowerCase() === sent.email.toLowerCase() || false,
+                            });
+                          });
+
+                          quotes.forEach(quote => {
+                            const existing = driverMap.get(quote.email.toLowerCase());
+                            if (existing) {
+                              existing.quote = quote;
+                            } else {
+                              driverMap.set(quote.email.toLowerCase(), {
+                                email: quote.email,
+                                quote: quote,
+                                isDriver: driverEmail?.toLowerCase() === quote.email.toLowerCase() || false,
+                              });
+                            }
+                          });
+
+                          return Array.from(driverMap.values()).sort((a, b) => {
+                            if (a.quote && !b.quote) return -1;
+                            if (!a.quote && b.quote) return 1;
+                            const aDate = a.quote?.created_at || a.sentAt || '';
+                            const bDate = b.quote?.created_at || b.sentAt || '';
+                            return bDate.localeCompare(aDate);
+                          });
+                        })().map((driver) => {
+                          const hasQuote = !!driver.quote;
+                          const isDriver = driver.isDriver;
+                          return (
+                            <Card
+                              key={driver.email}
+                              className={`shadow-sm ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : hasQuote ? 'border-[#3ea34b]' : ''}`}
+                            >
+                              <CardContent className="p-4 sm:p-6">
+                                <div className="mb-2">
+                                  <div className="flex items-start gap-2 mb-1">
+                                    <p className="text-sm font-medium break-words flex-1 min-w-0">{driver.email}</p>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {hasQuote ? (
+                                        <span className={`px-2 py-1 text-xs font-bold text-white rounded whitespace-nowrap ${isDriver ? 'bg-[#3ea34b]' : 'bg-[#e77500]'}`}>
+                                          Quote received
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-card-foreground bg-muted dark:bg-muted rounded whitespace-nowrap">
+                                          Sent
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                                 {hasQuote && (
-                                  <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded whitespace-nowrap">
-                                    QUOTE RECEIVED
-                                  </span>
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm mb-3">
+                                    <div className="flex-shrink-0">
+                                      <span className="text-muted-foreground">Price: </span>
+                                      <span className="font-medium">{driver.quote!.price.toFixed(2)} {driver.quote!.currency}</span>
+                                    </div>
+                                    <div className="text-muted-foreground text-xs sm:text-sm">
+                                      {new Date(driver.quote!.created_at).toLocaleDateString()}
+                                    </div>
+                                  </div>
                                 )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
+                                {!hasQuote && driver.sentAt && (
+                                  <div className="text-xs text-muted-foreground mb-3">
+                                    Sent {new Date(driver.sentAt).toLocaleDateString()}
+                                  </div>
+                                )}
+                                {isDriver ? (
+                                  <div className="flex justify-center">
+                                    <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded whitespace-nowrap">
+                                      DRIVER
+                                    </span>
+                                  </div>
+                                ) : hasQuote ? (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleSelectQuoteDriver(driver.email)}
+                                    disabled={settingDriver || tripStatus === 'cancelled'}
+                                    className="w-full text-sm"
+                                  >
+                                    {settingDriver ? (
+                                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                      </svg>
+                                    ) : (
+                                      'Select driver'
+                                    )}
+                                  </Button>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground text-center py-2">
+                                    Waiting for quote
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Received Quotes Section - Hide in assign-only mode */}
-          {!assignOnlyMode && (
-            <div className="mb-8">
-              <h3 className="text-lg sm:text-xl font-semibold mb-4">Received</h3>
-              {loadingQuotes ? (
-                <div className="flex items-center justify-center py-8">
-                  <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span className="ml-2 text-muted-foreground text-sm sm:text-base">Loading quotes...</span>
-                </div>
-              ) : quotes.length === 0 ? (
-                <p className="text-muted-foreground text-left py-8 text-sm sm:text-base">No quotes received yet</p>
-              ) : (
-                <>
-                  {/* Desktop Table View */}
-                  <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
-                    <div className="min-w-full inline-block align-middle">
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="border-b">
-                            <tr>
-                              <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
-                              <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
-                              <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
-                              <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
-                              <th className="text-center py-3 px-4 font-semibold text-sm">Driver</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {quotes.map((quote) => {
-                              const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
-                              return (
-                                <tr
-                                  key={quote.id}
-                                  className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
-                                    }`}
-                                >
-                                  <td className="py-3 px-4 text-sm">
-                                    {quote.email}
-                                    {isDriver && (
-                                      <span className="ml-2 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                        DRIVER
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm text-right font-medium">
-                                    {quote.price.toFixed(2)}
-                                  </td>
-                                  <td className="py-3 px-4 text-sm">{quote.currency}</td>
-                                  <td className="py-3 px-4 text-sm text-muted-foreground">
-                                    {new Date(quote.created_at).toLocaleDateString()}
-                                  </td>
-                                  <td className="py-3 px-4 text-center">
-                                    <Button
-                                      size="sm"
-                                      variant={isDriver ? "outline" : "default"}
-                                      onClick={() => handleSelectQuoteDriver(quote.email)}
-                                      disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
-                                      className={isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}
-                                    >
-                                      {settingDriver ? (
-                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                      ) : isDriver ? (
-                                        '✓ Driver'
-                                      ) : (
-                                        'Select driver'
-                                      )}
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Mobile Card View */}
-                  <div className="sm:hidden space-y-3">
-                      {quotes.map((quote) => {
-                        const isDriver = driverEmail && driverEmail.toLowerCase() === quote.email.toLowerCase();
-                        return (
-                          <Card
-                            key={quote.id}
-                            className={`shadow-sm ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''}`}
-                          >
-                            <CardContent className="p-4 sm:p-6">
-                            <div className="mb-2">
-                              <div className="flex items-start gap-2 mb-1">
-                                <p className="text-sm font-medium break-words flex-1 min-w-0">{quote.email}</p>
-                                {isDriver && (
-                                  <span className="inline-block flex-shrink-0 px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded">
-                                    DRIVER
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm mb-3">
-                              <div className="flex-shrink-0">
-                                <span className="text-muted-foreground">Price: </span>
-                                <span className="font-medium">{quote.price.toFixed(2)} {quote.currency}</span>
-                              </div>
-                              <div className="text-muted-foreground text-xs sm:text-sm">
-                                {new Date(quote.created_at).toLocaleDateString()}
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant={isDriver ? "outline" : "default"}
-                              onClick={() => handleSelectQuoteDriver(quote.email)}
-                              disabled={settingDriver || isDriver || tripStatus === 'cancelled'}
-                              className={`w-full text-sm ${isDriver ? "border-[#3ea34b] text-[#3ea34b] hover:bg-[#3ea34b]/10" : ""}`}
-                            >
-                              {settingDriver ? (
-                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                              ) : isDriver ? (
-                                '✓ Driver'
-                              ) : (
-                                'Select driver'
-                              )}
-                            </Button>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                </>
-              )}
-            </div>
-          )}
-
           {/* Book with Drivania Section - Link to booking page */}
           {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
-            <div className="mb-8">
-              <Card className="shadow-sm">
-                <CardContent className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div className="flex items-center">
-                    <h3 className="text-base sm:text-lg font-semibold text-card-foreground">
-                      Book with Drivania™
-                    </h3>
+            <div className="mt-12 mb-0 -mx-4 sm:-mx-6">
+              <Card className="shadow-none bg-[#161820] dark:bg-[#161820] relative w-full">
+                <CardContent className="pt-0 pb-0 px-2 sm:pt-1 sm:pb-0 sm:px-3">
+                <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-2 flex-shrink-0 -mt-4 sm:-mt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14.4px] sm:text-[16.2px] font-semibold text-primary-foreground dark:text-card-foreground pl-1">
+                        Book with
+                      </span>
+                      <img
+                        src="/logo-drivania-neg.png"
+                        alt="Drivania"
+                        className="h-[11.52px] sm:h-[14.4px] w-auto"
+                      />
+                    </div>
+                    {/* Vehicle Image */}
+                    <div className="flex justify-center sm:justify-start mt-0.5 sm:mt-1 -mb-2 sm:-mb-3 pb-0">
+                      <img
+                        src={getVehicleImagePath()}
+                        alt="Vehicle"
+                        className="h-[99.83px] sm:h-[133.1px] lg:h-[145.2px] w-auto object-contain"
+                        style={{ maxWidth: 'none' }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                    {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
-                      <div className="flex flex-col gap-1">
-                        <div className="text-lg sm:text-xl font-medium text-foreground">
-                          {(() => {
-                            const formattedNumber = new Intl.NumberFormat('en-GB', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }).format(lowestDrivaniaPrice);
-                            return `${formattedNumber} ${drivaniaCurrency || 'USD'}`;
-                          })()}
-                        </div>
-                        {lowestExtraHourPrice !== null && (
-                          <div className="text-xs sm:text-sm font-medium text-muted-foreground">
-                            {(() => {
-                              const formattedNumber = new Intl.NumberFormat('en-GB', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }).format(lowestExtraHourPrice);
-                              return `${formattedNumber} ${drivaniaCurrency || 'USD'} per extra hour`;
-                            })()}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  {/* Button - Top Right */}
+                  <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
                     <Button
                       onClick={() => {
                         onClose();
                         router.push(`/booking/${tripId}`);
                       }}
-                      className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 w-full sm:w-auto text-sm sm:text-base"
+                      className="bg-[#E5E7EF] dark:bg-[#E5E7EF] text-[#05060A] dark:text-[#05060A] hover:bg-[#E5E7EF]/90 dark:hover:bg-[#E5E7EF]/90 text-sm sm:text-base"
                     >
                       Book this trip
                     </Button>
                   </div>
+                  {/* Price - Bottom Right */}
+                  {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
+                    <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 flex flex-col gap-1 items-end">
+                      <div className="text-xl sm:text-[1.62rem] font-medium text-primary-foreground dark:text-foreground">
+                        {(() => {
+                          const formattedNumber = new Intl.NumberFormat('en-GB', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }).format(lowestDrivaniaPrice);
+                          return `${formattedNumber} ${drivaniaCurrency || 'USD'}`;
+                        })()}
+                      </div>
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-medium text-primary-foreground/80 dark:text-muted-foreground">
+                        <svg className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>
+                          Trip duration{' '}
+                          <span className="text-xs sm:text-sm font-semibold ml-1 sm:ml-2 text-primary-foreground dark:text-card-foreground">
+                            {calculateTripDuration()}
+                          </span>
+                        </span>
+                      </div>
+                      {lowestExtraHourPrice !== null && (
+                        <div className="text-xs sm:text-sm font-medium text-white">
+                          {(() => {
+                            const formattedNumber = new Intl.NumberFormat('en-GB', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }).format(lowestExtraHourPrice);
+                            return `${formattedNumber} ${drivaniaCurrency || 'USD'} per extra hour`;
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 </CardContent>
               </Card>

@@ -143,11 +143,8 @@ export function useTripLoading({
           driverEmail: data.driver || null,
         });
 
-        // Set validated driver email for display
-        const driverEmail = data.driver || null;
-        onValidatedDriverEmailSet(driverEmail);
-        
         // Store original driver email for activity check
+        const driverEmail = data.driver || null;
         if (originalDriverEmailRef && originalDriverEmailRef.current !== undefined) {
           originalDriverEmailRef.current = driverEmail;
         }

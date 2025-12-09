@@ -7,6 +7,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export interface DriverAcceptRejectModalProps {
   open: boolean;
@@ -28,52 +29,46 @@ export function DriverAcceptRejectModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader className="relative">
-          <button
-            onClick={() => onOpenChange(false)}
-            disabled={confirmingTrip || rejectingTrip}
-            className="absolute right-0 top-0 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            <span className="sr-only">Close</span>
-          </button>
+        <DialogHeader>
           <DialogTitle>Accept or reject trip</DialogTitle>
           <DialogDescription>
             You've been assigned as the driver to this trip
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-6">
-          <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#e77500]/10 flex items-center justify-center">
-              <svg
-                className="w-5 h-5 text-[#e77500]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">
-                You can accept or reject this trip assignment.
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                If you accept, the trip status will change to Confirmed. If you reject, the trip owner will be notified.
-              </p>
-            </div>
-          </div>
+        <div className="py-4">
+          <Card className="shadow-none bg-muted/50 border-border">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#e77500]/10 flex items-center justify-center">
+                  <svg
+                    className="w-5 h-5 text-[#e77500]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    You can accept or reject this trip assignment.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    If you accept, the trip status will change to Confirmed. If you reject, the trip owner will be notified.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-3 sm:justify-end">
+        <DialogFooter className="gap-2 sm:gap-3">
           <Button
             variant="outline"
             onClick={async () => {
@@ -100,6 +95,7 @@ export function DriverAcceptRejectModal({
               await onAccept();
             }}
             disabled={confirmingTrip || rejectingTrip}
+            variant="default"
             className="bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90"
           >
             {confirmingTrip ? (

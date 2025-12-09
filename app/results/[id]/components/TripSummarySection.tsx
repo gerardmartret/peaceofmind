@@ -393,7 +393,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                       const driverQuote = quotes.find((q: any) => q.email.toLowerCase() === driverEmail.toLowerCase());
                       return driverQuote ? (
                         <div className="flex flex-col items-end gap-1">
-                          <div className="text-[1.8rem] font-medium text-foreground text-right">
+                          <div className="text-[1.8rem] font-semibold text-foreground text-right">
                             {(() => {
                               const formattedNumber = new Intl.NumberFormat('en-GB', {
                                 minimumFractionDigits: 2,
@@ -432,7 +432,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                     </FlowHoverButton>
                     {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
                       <div className="flex flex-col items-end gap-1">
-                        <div className="text-[1.8rem] font-medium text-foreground text-right">
+                        <div className="text-[1.8rem] font-semibold text-foreground text-right">
                           {(() => {
                             const formattedNumber = new Intl.NumberFormat('en-GB', {
                               minimumFractionDigits: 2,

@@ -178,28 +178,16 @@ export function useQuoteSubmission({
 
   // Handle opening update quote modal
   const handleOpenUpdateQuote = useCallback(() => {
-    // Check if driver is assigned - prevent updates if assigned
-    if (driverEmail) {
-      setQuoteEmailError('Quote cannot be updated - driver already assigned');
-      return;
-    }
-
     const latestQuote = myQuotes[0];
     if (latestQuote) {
       setUpdateQuotePrice('');
       setUpdateQuotePriceError(null);
       setShowUpdateQuoteModal(true);
     }
-  }, [driverEmail, myQuotes]);
+  }, [myQuotes]);
 
   // Handle updating quote
   const handleUpdateQuote = useCallback(async () => {
-    // Check if driver is assigned - prevent updates if assigned
-    if (driverEmail) {
-      setUpdateQuotePriceError('Quote cannot be updated - driver already assigned');
-      return;
-    }
-
     setUpdateQuotePriceError(null);
 
     // Validate price
@@ -250,7 +238,7 @@ export function useQuoteSubmission({
     } finally {
       setUpdatingQuote(false);
     }
-  }, [tripId, driverEmail, updateQuotePrice, myQuotes, quoteEmail, fetchMyQuotes]);
+  }, [tripId, updateQuotePrice, myQuotes, quoteEmail, fetchMyQuotes]);
 
   // Handle sending quote request (owner inviting drivers)
   const handleSendQuoteRequest = useCallback(async (emailToUse?: string) => {

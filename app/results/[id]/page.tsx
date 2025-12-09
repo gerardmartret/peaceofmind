@@ -3585,6 +3585,13 @@ export default function ResultsPage() {
         drivaniaCurrency={drivaniaCurrency}
         lowestExtraHourPrice={lowestExtraHourPrice}
         loadingDrivaniaQuote={loadingDrivaniaQuote}
+        vehicleInfo={vehicleInfo}
+        driverNotes={driverNotes}
+        passengerCount={passengerCount}
+        tripDestination={tripDestination}
+        leadPassengerName={leadPassengerName}
+        tripDate={tripData?.tripDate || ''}
+        locations={locations}
       />
 
       {/* Status Change Confirmation Modal */}

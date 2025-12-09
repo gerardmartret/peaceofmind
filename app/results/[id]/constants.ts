@@ -21,5 +21,5 @@ export const requiredFields: BookingPreviewFieldKey[] = [
   'dropoffTime',
 ];
 
-export const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF'] as const;
+export const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'SGD'] as const;
 

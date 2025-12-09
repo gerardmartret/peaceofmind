@@ -162,7 +162,7 @@ export function QuoteFormSection({
                 <Button
                   type="submit"
                   disabled={submittingQuote || !quoteEmail || !quotePrice}
-                  className="w-full h-12 sm:h-[52px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 text-xs sm:text-sm flex items-center justify-center gap-2"
+                  className="w-full h-10 sm:h-[44px] bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] hover:bg-[#05060A]/90 dark:hover:bg-[#E5E7EF]/90 text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
                   {submittingQuote ? (
                     <>

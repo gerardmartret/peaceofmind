@@ -152,6 +152,11 @@ export function generateTripName(trip: Trip): string {
   // Calculate trip duration from locations (matching TripSummarySection logic)
   const calculateTripDuration = (): string => {
     if (trip.locations && Array.isArray(trip.locations) && trip.locations.length >= 2) {
+      // If trip only has 2 locations (pickup and dropoff), return "Transfer"
+      if (trip.locations.length === 2) {
+        return 'Transfer';
+      }
+      
       const pickupTime = parseInt(trip.locations[0]?.time) || 0;
       const dropoffTime = parseInt(trip.locations[trip.locations.length - 1]?.time) || 0;
       const duration = dropoffTime - pickupTime;

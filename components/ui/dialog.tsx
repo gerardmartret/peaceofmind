@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
@@ -7,7 +9,7 @@ interface DialogProps {
   children: React.ReactNode
 }
 
-function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children }: DialogProps) {
   if (!open) return null
 
   return (
@@ -37,11 +39,11 @@ interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-function DialogContent({ children, className, ...props }: DialogContentProps) {
+export function DialogContent({ children, className, ...props }: DialogContentProps) {
   return (
     <div
       className={cn(
-        "bg-background border border-border rounded-none sm:rounded-lg shadow-lg p-4 sm:p-6 max-w-md w-full h-full sm:h-auto sm:max-h-[90vh] sm:mx-4 overflow-y-auto",
+        "bg-background border border-border rounded-md shadow-lg p-4 sm:p-6 max-w-md w-full h-full sm:h-auto sm:max-h-[90vh] sm:mx-4 overflow-y-auto",
         className
       )}
       {...props}
@@ -55,7 +57,7 @@ interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-function DialogHeader({ children, className, ...props }: DialogHeaderProps) {
+export function DialogHeader({ children, className, ...props }: DialogHeaderProps) {
   return (
     <div
       className={cn("mb-4", className)}
@@ -70,7 +72,7 @@ interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
   children: React.ReactNode
 }
 
-function DialogTitle({ children, className, ...props }: DialogTitleProps) {
+export function DialogTitle({ children, className, ...props }: DialogTitleProps) {
   return (
     <h2
       className={cn("text-lg sm:text-xl font-semibold", className)}
@@ -85,7 +87,7 @@ interface DialogDescriptionProps extends React.HTMLAttributes<HTMLParagraphEleme
   children: React.ReactNode
 }
 
-function DialogDescription({ children, className, ...props }: DialogDescriptionProps) {
+export function DialogDescription({ children, className, ...props }: DialogDescriptionProps) {
   return (
     <p
       className={cn("text-sm text-muted-foreground", className)}
@@ -100,7 +102,7 @@ interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
 
-function DialogFooter({ children, className, ...props }: DialogFooterProps) {
+export function DialogFooter({ children, className, ...props }: DialogFooterProps) {
   return (
     <div
       className={cn("flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-4 sm:mt-6", className)}
@@ -111,5 +113,4 @@ function DialogFooter({ children, className, ...props }: DialogFooterProps) {
   )
 }
 
-export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter }
 
