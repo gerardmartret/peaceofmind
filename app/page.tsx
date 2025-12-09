@@ -11,6 +11,7 @@ import GoogleLocationSearch from '@/components/GoogleLocationSearch';
 import GoogleTripMap from '@/components/GoogleTripMap';
 import { SortableLocationItem } from '@/components/trip/SortableLocationItem';
 import { SortableExtractedLocationItem } from '@/components/trip/SortableExtractedLocationItem';
+import DestinationCarousel from '@/components/DestinationCarousel';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,6 +115,7 @@ export default function Home() {
 
   // Email/text extraction state
   const [extractionText, setExtractionText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [lastExtractedText, setLastExtractedText] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
@@ -240,6 +242,14 @@ export default function Home() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [editingExtractedIndex]);
+
+  // Set initial textarea height based on screen size
+  useEffect(() => {
+    if (textareaRef.current) {
+      const isMobile = window.innerWidth < 640; // sm breakpoint
+      textareaRef.current.style.height = isMobile ? '120px' : '86px';
+    }
+  }, []);
 
   // View toggle state
   const [showManualForm, setShowManualForm] = useState(false);
@@ -1946,7 +1956,17 @@ export default function Home() {
           {/* Email/Text Import Section */}
           {!showManualForm && !extractedLocations && (
             <div className="mb-8 flex justify-center">
-              <div className="space-y-4 w-[85%]">
+              <div className="space-y-4 w-[92%] sm:w-[85%]">
+                {/* Available in Section */}
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground text-center font-light">
+                    Available in
+                  </p>
+                  <div className="w-full">
+                    <DestinationCarousel />
+                  </div>
+                </div>
+
                 {/* Textarea with Dark Container */}
                 <div>
                   <div
@@ -1957,6 +1977,7 @@ export default function Home() {
                     onDrop={handleDrop}
                   >
                     <textarea
+                      ref={textareaRef}
                       value={extractionText}
                       onChange={(e) => {
                         setExtractionText(e.target.value);
@@ -1966,8 +1987,7 @@ export default function Home() {
                         textarea.style.height = Math.min(textarea.scrollHeight, 240) + 'px';
                       }}
                       placeholder="Enter your trip itinerary here"
-                      className="w-full min-h-[86px] max-h-[240px] p-3 pb-10 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
-                      style={{ height: '86px' }}
+                      className="w-full min-h-[120px] sm:min-h-[86px] max-h-[240px] p-3 pb-10 rounded-md border border-border bg-background dark:bg-input/30 text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus-visible:border-ring resize-none overflow-y-auto dark:hover:bg-[#323236] transition-colors dark:focus-visible:border-[#323236]"
                     />
 
                     {/* Drag and Drop Overlay */}
