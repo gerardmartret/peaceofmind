@@ -7,11 +7,8 @@ import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
 import { ArrowLeft } from 'lucide-react';
-import { bookingPreviewInitialState, requiredFields, type BookingPreviewFieldKey } from '@/app/results/[id]/constants';
 import { normalizeMatchKey, matchesDriverToVehicle, vehicleKey } from '@/app/results/[id]/utils/vehicle-helpers';
-import type { DriverRecord } from '@/app/results/[id]/types';
 import { useMatchingDrivers } from '@/app/results/[id]/hooks/useMatchingDrivers';
 import { determineRole } from '@/app/results/[id]/utils/role-determination';
 
@@ -36,7 +33,6 @@ export default function BookingPage() {
   const [showOtherVehicles, setShowOtherVehicles] = useState<boolean>(false);
 
   // Vehicle selection state
-  const [selectedDrivaniaVehicle, setSelectedDrivaniaVehicle] = useState<any>(null);
   const [vehicleSelections, setVehicleSelections] = useState<Record<string, { isVehicleSelected: boolean; selectedDriverIds: string[] }>>({});
 
   // Fetch matching drivers using existing hook
@@ -44,13 +40,6 @@ export default function BookingPage() {
   const { matchingDrivers, loadingMatchingDrivers, matchingDriversError } = useMatchingDrivers({
     driverDestination: tripDestination,
   });
-
-  // Booking form state
-  const [bookingPreviewFields, setBookingPreviewFields] = useState(bookingPreviewInitialState);
-  const [missingFields, setMissingFields] = useState<Set<BookingPreviewFieldKey>>(new Set());
-  const [bookingSubmissionState, setBookingSubmissionState] = useState<'idle' | 'loading' | 'success'>('idle');
-  const [bookingSubmissionMessage, setBookingSubmissionMessage] = useState<string>('');
-  const [processingTimer, setProcessingTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Load trip data and check ownership
   useEffect(() => {
@@ -264,125 +253,25 @@ export default function BookingPage() {
     setShowOtherVehicles(false);
   }, [preferredVehicles]);
 
-  // Handle vehicle selection
+  // Handle vehicle selection - redirect to confirmation page
   const handleVehicleSelect = (vehicle: any) => {
-    const pickup = tripData?.locations?.[0];
-    const dropoff = tripData?.locations?.[tripData.locations.length - 1];
-
-    setSelectedDrivaniaVehicle(vehicle);
-    setBookingPreviewFields(prev => ({
-      ...prev,
-      passengerName: tripData?.lead_passenger_name || '',
-      contactEmail: tripData?.user_email || '',
-      contactPhone: prev.contactPhone,
-      flightNumber: pickup?.flightNumber || '',
-      flightDirection: tripDestination || pickup?.flightDirection || '',
-      passengerCount: tripData?.passenger_count || 1,
-      pickupTime: pickup?.time || '',
-      dropoffTime: dropoff?.time || '',
-      notes: tripData?.driver_notes || '',
-    }));
-    setMissingFields(new Set());
-    setBookingSubmissionState('idle');
-    setBookingSubmissionMessage('');
+    // Store vehicle data in sessionStorage along with service_id for validation
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`selectedVehicle_${tripId}`, JSON.stringify({
+        vehicle_id: vehicle.vehicle_id,
+        vehicle_type: vehicle.vehicle_type,
+        level_of_service: vehicle.level_of_service,
+        sale_price: vehicle.sale_price,
+        vehicle_image: vehicle.vehicle_image,
+        max_seating_capacity: vehicle.max_seating_capacity,
+        max_cargo_capacity: vehicle.max_cargo_capacity,
+        extra_hour: vehicle.extra_hour,
+        service_id: drivaniaQuotes?.service_id, // Store service_id to validate later
+      }));
+    }
+    router.push(`/confirmation/${tripId}`);
   };
 
-  // Handle booking field changes
-  const handleBookingFieldChange = (field: BookingPreviewFieldKey, value: string | number) => {
-    setBookingPreviewFields(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-    if (missingFields.has(field)) {
-      setMissingFields((prev) => {
-        const next = new Set(prev);
-        next.delete(field);
-        return next;
-      });
-    }
-  };
-
-  // Handle booking submission
-  const handleBookNow = async () => {
-    if (!selectedDrivaniaVehicle) return;
-
-    const missing = requiredFields.filter((field) => {
-      const value = bookingPreviewFields[field];
-      if (typeof value === 'number') {
-        return value === null || value === undefined;
-      }
-      return !value || value.toString().trim() === '';
-    });
-
-    if (missing.length > 0) {
-      setMissingFields(new Set(missing));
-      return;
-    }
-
-    setBookingSubmissionState('loading');
-    setBookingSubmissionMessage('We are processing your booking');
-
-    const payload = {
-      service_id: drivaniaQuotes?.service_id,
-      vehicle_id: selectedDrivaniaVehicle.vehicle_id,
-      passenger_name: bookingPreviewFields.passengerName,
-      contact_email: bookingPreviewFields.contactEmail,
-      contact_phone: bookingPreviewFields.contactPhone,
-      notes: bookingPreviewFields.notes,
-      child_seats: bookingPreviewFields.childSeats || 0,
-      flight_number: bookingPreviewFields.flightNumber,
-      flight_direction: bookingPreviewFields.flightDirection,
-      pickup_location: tripData?.locations?.[0],
-      trip_id: tripId,
-    };
-
-    if (processingTimer) {
-      clearTimeout(processingTimer);
-    }
-
-    try {
-      const serviceResponse = await fetch('/api/drivania/create-service', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const serviceResult = await serviceResponse.json();
-
-      if (serviceResult.success) {
-        // Update trip status to "booked" and assign driver to "drivania"
-        try {
-          const statusResponse = await fetch('/api/update-trip-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tripId: tripId,
-              status: 'booked',
-              driver: 'drivania',
-            }),
-          });
-
-          const statusResult = await statusResponse.json();
-          if (!statusResult.success) {
-          }
-        } catch (statusErr) {
-        }
-
-        setBookingSubmissionMessage('Your booking has been created with Drivania successfully.');
-        setMissingFields(new Set());
-        const timer = setTimeout(() => {
-          setBookingSubmissionState('success');
-          setProcessingTimer(null);
-        }, 5000);
-        setProcessingTimer(timer);
-      } else {
-        setBookingSubmissionState('idle');
-        setBookingSubmissionMessage(serviceResult.error || 'Failed to create service with Drivania');
-      }
-    } catch (err) {
-      setBookingSubmissionState('idle');
-      setBookingSubmissionMessage('Failed to create service with Drivania. Please try again.');
-    }
-  };
 
   // Render vehicle card
   const renderVehicleCard = (vehicle: any, index: number) => {
@@ -436,18 +325,13 @@ export default function BookingPage() {
     }
 
     const totalPrice = basePrice + extraFare;
-    const isSelected = selectedDrivaniaVehicle?.vehicle_id === vehicle.vehicle_id;
 
     return (
       <Card key={vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`} className="shadow-none w-full">
         <CardContent className="flex flex-col gap-6 py-6">
           <div
             onClick={() => handleVehicleSelect(vehicle)}
-            className={`p-5 flex gap-4 border-2 rounded-md cursor-pointer transition-all ${
-              isSelected
-                ? 'border-primary bg-primary/10 dark:bg-primary/20 ring-2 ring-primary/30 dark:ring-primary/40 shadow-md dark:shadow-primary/20'
-                : 'border-border hover:border-primary/50 dark:hover:border-primary/40'
-            }`}
+            className="p-5 flex gap-4 border-2 rounded-md cursor-pointer transition-all border-border hover:border-primary/50 dark:hover:border-primary/40"
           >
             {vehicle.vehicle_image && (
               <div className="h-32 w-32 flex-shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/60">
@@ -618,16 +502,13 @@ export default function BookingPage() {
                 handleVehicleSelect(vehicleWithTotal);
               }}
             >
-              {isSelected ? 'Selected' : 'Select Vehicle'}
+              Select Vehicle
             </Button>
           </div>
         </CardContent>
       </Card>
     );
   };
-
-  const highlightMissing = (field: BookingPreviewFieldKey) =>
-    missingFields.has(field) ? 'border-destructive/70 bg-destructive/10 text-destructive' : '';
 
   // Loading state - wait for auth and ownership check
   if (authLoading || loadingTripData || !ownershipChecked) {
@@ -693,44 +574,6 @@ export default function BookingPage() {
             Select a vehicle and complete your booking details
           </p>
         </div>
-
-        {/* Success Message */}
-        {bookingSubmissionState === 'success' && (
-          <Alert className="mb-6 bg-green-500/10 border-green-500/30">
-            <AlertDescription className="text-green-700 dark:text-green-400">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="font-semibold">{bookingSubmissionMessage}</span>
-              </div>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => router.push(`/results/${tripId}`)}
-              >
-                Return to Trip Report
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Loading State */}
-        {bookingSubmissionState === 'loading' && (
-          <Alert className="mb-6">
-            <AlertDescription className="flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-              {bookingSubmissionMessage}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Error Message */}
-        {bookingSubmissionState === 'idle' && bookingSubmissionMessage && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{bookingSubmissionMessage}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Drivania Quotes Section */}
         <div className="mb-8">
@@ -815,153 +658,6 @@ export default function BookingPage() {
           ) : null}
         </div>
 
-        {/* Booking Form */}
-        {selectedDrivaniaVehicle && bookingSubmissionState !== 'success' && (
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <h2 className="text-2xl font-semibold mb-6">Booking Details</h2>
-
-              {/* Selected Vehicle Info */}
-              <div className="rounded-md border border-border bg-muted/40 p-4 mb-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div>
-                    <p className="text-sm text-muted-foreground uppercase tracking-wide">Selected vehicle</p>
-                    <p className="text-lg font-semibold text-card-foreground">{selectedDrivaniaVehicle.vehicle_type}</p>
-                    {selectedDrivaniaVehicle.level_of_service && (
-                      <p className="text-xs text-muted-foreground">{selectedDrivaniaVehicle.level_of_service}</p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Estimated fare</p>
-                    <p className="text-2xl font-bold text-card-foreground">
-                      {drivaniaQuotes?.currency_code
-                        ? `${drivaniaQuotes.currency_code} ${selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}`
-                        : selectedDrivaniaVehicle.sale_price?.price?.toFixed(2) || 'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Booking Form Fields */}
-              <div className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Passenger name
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('passengerName')}`}
-                      value={bookingPreviewFields.passengerName}
-                      onChange={(e) => handleBookingFieldChange('passengerName', e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Contact email
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('contactEmail')}`}
-                      value={bookingPreviewFields.contactEmail}
-                      onChange={(e) => handleBookingFieldChange('contactEmail', e.target.value)}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Contact phone
-                    <Input
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.contactPhone}
-                      onChange={(e) => handleBookingFieldChange('contactPhone', e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Flight number
-                    <Input
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.flightNumber}
-                      onChange={(e) => handleBookingFieldChange('flightNumber', e.target.value)}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Flight direction
-                    <Input
-                      className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('flightDirection')}`}
-                      value={bookingPreviewFields.flightDirection}
-                      onChange={(e) => handleBookingFieldChange('flightDirection', e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Passenger count
-                    <Input
-                      type="number"
-                      min={1}
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.passengerCount}
-                      onChange={(e) => handleBookingFieldChange('passengerCount', Number(e.target.value))}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">
-                    Child seats
-                    <Input
-                      type="number"
-                      min={0}
-                      className="mt-2 w-full border border-border rounded-md px-3 py-2"
-                      value={bookingPreviewFields.childSeats}
-                      onChange={(e) => handleBookingFieldChange('childSeats', Number(e.target.value))}
-                    />
-                  </label>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Pickup time
-                      <Input
-                        className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('pickupTime')}`}
-                        value={bookingPreviewFields.pickupTime}
-                        onChange={(e) => handleBookingFieldChange('pickupTime', e.target.value)}
-                      />
-                    </label>
-                    <label className="text-xs font-semibold uppercase text-muted-foreground">
-                      Dropoff time
-                      <Input
-                        className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('dropoffTime')}`}
-                        value={bookingPreviewFields.dropoffTime}
-                        onChange={(e) => handleBookingFieldChange('dropoffTime', e.target.value)}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase text-muted-foreground">Notes</label>
-                  <textarea
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    rows={3}
-                    value={bookingPreviewFields.notes}
-                    onChange={(e) => handleBookingFieldChange('notes', e.target.value)}
-                  />
-                </div>
-
-                <Button
-                  onClick={handleBookNow}
-                  className="w-full bg-[#05060A] dark:bg-[#E5E7EF] text-white dark:text-[#05060A] transition-transform duration-150 ease-in-out hover:-translate-y-0.5 hover:shadow-lg"
-                  disabled={bookingSubmissionState === 'loading'}
-                >
-                  {bookingSubmissionState === 'loading' ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    'Book Now'
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

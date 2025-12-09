@@ -323,9 +323,16 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                             )}
                             {tripStatus === 'cancelled' ? 'Driver released' : driverEmail && tripStatus === 'pending' ? 'Driver requested' : driverEmail && (tripStatus === 'confirmed' || tripStatus === 'booked') ? 'Driver assigned' : driverEmail ? 'Driver assigned' : quotes.length > 0 ? 'Quoted' : sentDriverEmails.length > 0 ? 'Quote requested' : 'Assign my driver'}
                           </Button>
+                          {/* Show badge for quotes when no driver assigned */}
                           {quotes.length > 0 && !driverEmail && tripStatus !== 'cancelled' && (
-                            <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full">
+                            <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#9e201b] rounded-full animate-pulse">
                               {quotes.length}
+                            </span>
+                          )}
+                          {/* Show badge for driver confirmed/assigned */}
+                          {driverEmail && (tripStatus === 'confirmed' || tripStatus === 'booked') && (
+                            <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold text-white bg-[#3ea34b] rounded-full animate-pulse">
+                              1
                             </span>
                           )}
                         </div>
