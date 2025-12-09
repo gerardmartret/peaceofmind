@@ -1,0 +1,177 @@
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { VehicleCard } from './VehicleCard';
+import type { VehicleSelection } from '../hooks/useVehicleSelection';
+
+interface Driver {
+  id: string;
+  first_name: string;
+  vehicle_type: string;
+  level_of_service: string | null;
+  destination?: string;
+  image_url?: string | null;
+}
+
+interface Vehicle {
+  vehicle_id?: string;
+  vehicle_type: string;
+  level_of_service: string;
+  sale_price?: { price: number };
+  vehicle_image?: string;
+  max_seating_capacity?: number;
+  max_cargo_capacity?: number;
+  extra_hour?: number;
+}
+
+interface VehicleListProps {
+  loading: boolean;
+  error: string | null;
+  quotes: any;
+  displayVehicles: Vehicle[];
+  otherVehicles: Vehicle[];
+  showOtherVehicles: boolean;
+  preferredVehicleHint?: string | null;
+  preferredVehiclesCount: number;
+  matchingDrivers: Driver[];
+  vehicleSelections: Record<string, VehicleSelection>;
+  currencyCode?: string;
+  onToggleOtherVehicles: () => void;
+  onDriverToggle: (vehicleId: string, driverId: string) => void;
+  onSelectVehicle: (vehicle: Vehicle) => void;
+  calculatePrice: (basePrice: number, driverCount: number) => { extraFare: number; totalPrice: number };
+}
+
+export function VehicleList({
+  loading,
+  error,
+  quotes,
+  displayVehicles,
+  otherVehicles,
+  showOtherVehicles,
+  preferredVehicleHint,
+  preferredVehiclesCount,
+  matchingDrivers,
+  vehicleSelections,
+  currencyCode,
+  onToggleOtherVehicles,
+  onDriverToggle,
+  onSelectVehicle,
+  calculatePrice,
+}: VehicleListProps) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mr-3"></div>
+        <span className="text-muted-foreground">Loading Drivania quotes...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertDescription>
+          {error.includes('PEAK_PERIOD') || error.includes('Peak period') ? (
+            <>
+              We are expecting a high demand for this day, and online booking is not available. Please contact us at{' '}
+              <a href="mailto:info@drivania.com" className="underline hover:text-primary">
+                info@drivania.com
+              </a>{' '}
+              and we will assist you.
+            </>
+          ) : (
+            error
+          )}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (quotes && quotes.quotes?.unavailable_reason) {
+    return (
+      <Alert className="mb-4">
+        <AlertDescription>
+          {quotes.quotes.unavailable_reason === 'PEAK_PERIOD' ? (
+            <>
+              We are expecting a high demand for this day, and online booking is not available. Please contact us at{' '}
+              <a href="mailto:info@drivania.com" className="underline hover:text-primary">
+                info@drivania.com
+              </a>{' '}
+              and we will assist you.
+            </>
+          ) : (
+            `Quote unavailable: ${quotes.quotes.unavailable_reason}`
+          )}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!quotes || !quotes.quotes?.vehicles) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {preferredVehicleHint && preferredVehiclesCount === 0 && (
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Preferred vehicle ("{preferredVehicleHint}") not found; showing all available options.
+        </p>
+      )}
+      <div className="space-y-3 sm:space-y-4">
+        {displayVehicles.map((vehicle, index) => {
+          const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
+          const selection = vehicleSelections[vehicleId] || { isVehicleSelected: true, selectedDriverIds: [] };
+          
+          return (
+            <VehicleCard
+              key={vehicleId}
+              vehicle={vehicle}
+              index={index}
+              matchingDrivers={matchingDrivers}
+              selection={selection}
+              currencyCode={currencyCode}
+              onDriverToggle={onDriverToggle}
+              onSelect={onSelectVehicle}
+              calculatePrice={calculatePrice}
+            />
+          );
+        })}
+      </div>
+      {preferredVehiclesCount > 0 && otherVehicles.length > 0 && (
+        <div className="space-y-2 sm:space-y-3">
+          <Button
+            variant="outline"
+            onClick={onToggleOtherVehicles}
+            size="sm"
+            className="w-full sm:w-auto text-xs sm:text-sm"
+          >
+            {showOtherVehicles ? 'Hide other vehicles' : 'Show other vehicles'}
+          </Button>
+          {showOtherVehicles && (
+            <div className="space-y-3 sm:space-y-4">
+              {otherVehicles.map((vehicle, index) => {
+                const vehicleId = vehicle.vehicle_id || `${vehicle.vehicle_type}-${index}`;
+                const selection = vehicleSelections[vehicleId] || { isVehicleSelected: true, selectedDriverIds: [] };
+                
+                return (
+                  <VehicleCard
+                    key={vehicleId}
+                    vehicle={vehicle}
+                    index={index}
+                    matchingDrivers={matchingDrivers}
+                    selection={selection}
+                    currencyCode={currencyCode}
+                    onDriverToggle={onDriverToggle}
+                    onSelect={onSelectVehicle}
+                    calculatePrice={calculatePrice}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
