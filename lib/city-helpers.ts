@@ -83,6 +83,27 @@ export function getDestinationTimezone(tripDestination?: string | null): string 
 }
 
 /**
+ * Determines if a trip destination is in the US, Puerto Rico, or Canada
+ * @param tripDestination - The trip destination city
+ * @returns true if destination is in US, Puerto Rico, or Canada
+ */
+export function isUSCanadaPuertoRicoTrip(tripDestination?: string | null): boolean {
+  if (!tripDestination) return false;
+  
+  // US cities
+  const usCities = ['New York', 'Boston'];
+  // Canada cities (add as needed)
+  const canadaCities: string[] = [];
+  // Puerto Rico cities (add as needed)
+  const puertoRicoCities: string[] = [];
+  
+  const normalizedDestination = tripDestination.trim();
+  return usCities.includes(normalizedDestination) || 
+         canadaCities.includes(normalizedDestination) || 
+         puertoRicoCities.includes(normalizedDestination);
+}
+
+/**
  * Gets city-specific configuration for API calls, geocoding, and analysis
  * @param tripDestination - The trip destination city
  * @returns Configuration object with city-specific settings

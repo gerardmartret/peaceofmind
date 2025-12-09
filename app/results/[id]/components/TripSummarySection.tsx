@@ -94,7 +94,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
 }) => {
   const router = useRouter();
   const numberOfPassengers = passengerCount || 1;
-  const vehicleType = determineVehicleType(vehicleInfo, driverNotes, numberOfPassengers);
+  const vehicleType = determineVehicleType(vehicleInfo, driverNotes, numberOfPassengers, tripDestination);
 
   // Calculate trip duration for header
   const tripDuration = (() => {
@@ -188,7 +188,9 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom.webp")
             : vehicleType === 'premium-sedan'
               ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass.webp")
-              : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
+              : vehicleType === 'comfort-sedan'
+                ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.webp")
+                : (isLight ? "/Vehicles/light-brief-eclass-web.png" : "/Vehicles/dark-brief-eclass-web.webp");
   };
 
   // Get vehicle display name
