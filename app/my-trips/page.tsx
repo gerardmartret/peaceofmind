@@ -344,7 +344,7 @@ export default function MyTripsPage() {
   };
 
   const renderTripCards = (tripList: Trip[], showPrice: boolean = false) => (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6">
       {tripList.map((trip) => {
         const quote = showPrice && (trip.status === 'confirmed' || trip.status === 'pending') ? quotes.get(trip.id) : null;
         const drivaniaQuote = trip.status === 'booked' && trip.driver === 'drivania' ? quotes.get(trip.id) : null;
@@ -359,49 +359,49 @@ export default function MyTripsPage() {
         return (
           <Link key={trip.id} href={`/results/${trip.id}`} className="block">
             <Card className="relative cursor-pointer shadow-none">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">
+              <CardHeader className="px-3 sm:px-4 md:px-6 pt-3 sm:pt-4 pb-3 sm:pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base sm:text-lg font-semibold break-words">
                       {generateTripName(trip)}
                     </CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2 sm:mt-3">
                       <svg className="w-4 h-4 flex-shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-sm font-normal text-muted-foreground">
+                      <span className="hidden sm:inline text-xs sm:text-sm font-normal text-muted-foreground">
                         Trip date{' '}
-                        <span className="text-base font-semibold text-foreground ml-1">
-                          {trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          }) : 'N/A'}
-                        </span>
+                      </span>
+                      <span className="text-sm sm:text-base font-semibold text-foreground sm:ml-1">
+                        {trip.trip_date ? new Date(trip.trip_date).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
                       </span>
                     </div>
                     {mounted && (
-                      <div className="flex items-end gap-6 pt-0 pb-0 mt-0">
+                      <div className="flex items-end gap-3 sm:gap-6 pt-3 sm:pt-4">
                         <img
                           src={getVehicleImagePath(trip)}
                           alt="Vehicle"
-                          className="h-[102px] sm:h-[119px] w-auto"
+                          className="h-[60px] sm:h-[102px] md:h-[119px] w-auto flex-shrink-0"
                         />
-                        <div className="flex flex-col gap-2 pb-1">
+                        <div className="flex flex-col gap-2 pb-1 min-w-0">
                           {/* Passenger Count */}
                           <div className="flex items-center gap-2">
                             <svg className="w-4 h-4 flex-shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
-                            <span className="text-sm font-normal text-muted-foreground">
+                            <span className="hidden sm:inline text-xs sm:text-sm font-normal text-muted-foreground truncate">
                               Number of Passengers{' '}
-                              <span className="text-base font-semibold text-foreground ml-1">
-                                {trip.passenger_count || 1}
-                              </span>
+                            </span>
+                            <span className="text-sm sm:text-base font-semibold text-foreground sm:ml-1">
+                              {trip.passenger_count || 1}
                             </span>
                           </div>
                           {/* Vehicle */}
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             {(() => {
                               const vehicleInfo = trip.vehicle || '';
                               const driverNotes = trip.trip_notes || '';
@@ -446,11 +446,11 @@ export default function MyTripsPage() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                                   </svg>
-                                  <span className="text-sm font-normal text-muted-foreground">
+                                  <span className="hidden sm:inline text-xs sm:text-sm font-normal text-muted-foreground truncate">
                                     Vehicle{' '}
-                                    <span className="text-base font-semibold text-foreground ml-1">
-                                      {vehicleDisplayName}
-                                    </span>
+                                  </span>
+                                  <span className="text-sm sm:text-base font-semibold text-foreground sm:ml-1">
+                                    {vehicleDisplayName}
                                   </span>
                                 </>
                               );
@@ -460,7 +460,7 @@ export default function MyTripsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-3 flex-shrink-0">
                     {(() => {
                       const statusBadge = getStatusBadge(trip);
                       // Determine colors based on variant (matching FlowHoverButton)
@@ -507,17 +507,17 @@ export default function MyTripsPage() {
                           <div
                             className={`relative z-0 flex items-center justify-center gap-2 overflow-hidden 
                               border ${colors.border} ${colors.bg} ${shadowClass}
-                              h-10 px-4 py-2 text-sm font-medium rounded-md ${colors.text} cursor-pointer`}
+                              h-9 sm:h-10 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md ${colors.text} cursor-pointer whitespace-nowrap`}
                           >
-                            <span>{statusBadge.text}</span>
+                            <span className="truncate">{statusBadge.text}</span>
                           </div>
                           {showPrice && quote && (
-                            <div className="text-lg font-medium text-foreground">
+                            <div className="text-base sm:text-lg font-medium text-foreground whitespace-nowrap">
                               {formatPrice(quote.price, quote.currency)}
                             </div>
                           )}
                           {(trip.status === 'booked' && trip.driver === 'drivania') && drivaniaQuote && (
-                            <div className="text-lg font-medium text-foreground">
+                            <div className="text-base sm:text-lg font-medium text-foreground whitespace-nowrap">
                               {formatPrice(drivaniaQuote.price, drivaniaQuote.currency)}
                             </div>
                           )}
@@ -528,10 +528,11 @@ export default function MyTripsPage() {
                 </div>
               </CardHeader>
               {mounted && (
-                <div className="absolute bottom-4 right-6 flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-sm">
-                  View trip
+                <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-6 flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-xs sm:text-sm">
+                  <span className="hidden sm:inline">View trip</span>
+                  <span className="sm:hidden">View</span>
                   <svg
-                    className="w-4 h-4"
+                    className="w-3 h-3 sm:w-4 sm:h-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
