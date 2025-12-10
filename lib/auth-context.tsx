@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
@@ -20,85 +20,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  // Use ref instead of state to prevent race conditions - refs update synchronously
-  const hasAttemptedWelcomeEmailRef = useRef<Set<string>>(new Set());
-  const isSendingWelcomeEmailRef = useRef<Set<string>>(new Set());
 
-  // Send welcome email when email is confirmed (only once per user)
-  useEffect(() => {
-    const sendWelcomeEmailIfNeeded = async (currentUser: User | null) => {
-      if (!currentUser || !currentUser.email_confirmed_at) {
-        return;
-      }
-
-      // Check if we've already attempted to send welcome email for this user in this session
-      if (hasAttemptedWelcomeEmailRef.current.has(currentUser.id)) {
-        console.log(`⏭️ [AUTH-CONTEXT] Already attempted welcome email for ${currentUser.id}`);
-        return;
-      }
-
-      // Check if we're currently sending (prevents concurrent calls)
-      if (isSendingWelcomeEmailRef.current.has(currentUser.id)) {
-        console.log(`⏳ [AUTH-CONTEXT] Welcome email send already in progress for ${currentUser.id}`);
-        return;
-      }
-
-      try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!currentSession) {
-          return;
-        }
-
-        // Mark as sending immediately (synchronous ref update prevents race conditions)
-        isSendingWelcomeEmailRef.current.add(currentUser.id);
-        console.log(`📧 [AUTH-CONTEXT] Attempting to send welcome email for ${currentUser.id}`);
-
-        const response = await fetch('/api/send-welcome-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${currentSession.access_token}`,
-          },
-          body: JSON.stringify({ userId: currentUser.id }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          // Mark as attempted (email was sent or already sent)
-          hasAttemptedWelcomeEmailRef.current.add(currentUser.id);
-          if (result.alreadySent) {
-            console.log('⚠️ [AUTH-CONTEXT] Welcome email was already sent previously');
-          } else {
-            console.log('✅ [AUTH-CONTEXT] Welcome email sent successfully');
-          }
-        } else {
-          // If it failed, remove from sending set so we can retry later if needed
-          isSendingWelcomeEmailRef.current.delete(currentUser.id);
-          // Don't log errors for welcome email - it's not critical
-          if (process.env.NODE_ENV === 'development') {
-            const result = await response.json();
-            console.log('⚠️ Welcome email not sent:', result.error);
-          }
-        }
-      } catch (error) {
-        // If it failed, remove from sending set so we can retry later if needed
-        isSendingWelcomeEmailRef.current.delete(currentUser.id);
-        // Silently fail - welcome email is not critical
-        if (process.env.NODE_ENV === 'development') {
-          console.log('⚠️ Failed to send welcome email:', error);
-        }
-      } finally {
-        // Always remove from sending set when done
-        isSendingWelcomeEmailRef.current.delete(currentUser.id);
-      }
-    };
-
-    if (user && user.email_confirmed_at) {
-      sendWelcomeEmailIfNeeded(user);
-    }
-    // Only depend on user, not hasAttemptedWelcomeEmail to avoid re-runs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  // Welcome email is now sent during signup - no need for this useEffect
 
   useEffect(() => {
     // Get initial session
@@ -161,15 +84,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
       
-      // Sync to users table if signup successful
+      // Sync to users table and send welcome email if signup successful
       if (!error && data.user) {
+        // Update users table
         await supabase
           .from('users')
           .upsert({
             email: email,
             auth_user_id: data.user.id,
             marketing_consent: true,
+            welcome_email_sent: true, // Mark as sent immediately
           }, { onConflict: 'email' });
+
+        // Send welcome email directly during signup (fire and forget)
+        // No complex checks - just send it once during signup
+        fetch('/api/send-welcome-email-simple', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }).catch(err => {
+          console.error('⚠️ Failed to send welcome email:', err);
+          // Don't fail signup if email fails
+        });
       }
       
       return { error };
