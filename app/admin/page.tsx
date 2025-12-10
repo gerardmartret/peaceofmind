@@ -431,7 +431,7 @@ export default function AdminPage() {
               <div className="mb-6">
                 <ChartCard
                   title="Conversion funnel"
-                  description="Journey from reports to Drivania booking"
+                  description="Journey from reports to Chauffs booking"
                   tooltip="Shows the flow through the platform: Reports → Quotes → Bookings. Conversion rates show the percentage progressing to each stage."
                 >
                   <div className="space-y-4 py-4 overflow-x-auto">

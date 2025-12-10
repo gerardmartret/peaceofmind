@@ -114,7 +114,7 @@ export function ConfirmationSummaryCard({
 
           {/* What's Included */}
           <div className="pt-3 sm:pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-card-foreground mb-2">Included with Drivania</h3>
+            <h3 className="text-sm font-semibold text-card-foreground mb-2">Included with Chauffs</h3>
             <ul className="space-y-1.5 text-xs sm:text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-green-600 dark:text-green-400 mt-0.5">•</span>

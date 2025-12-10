@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Prepare update data
     const updateData: { status: string; driver?: string | null } = { status };
 
-    // Set driver when booking with Drivania
+    // Set driver when booking with Chauffs
     if (status === 'booked' && driver) {
       updateData.driver = driver;
       console.log(`🚗 Setting driver to: ${driver}`);

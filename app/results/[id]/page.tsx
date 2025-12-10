@@ -263,7 +263,7 @@ export default function ResultsPage() {
     sentAt: string;
   }>>([]);
 
-  // Drivania quote state
+  // Chauffs quote state
   const [loadingDrivaniaQuote, setLoadingDrivaniaQuote] = useState<boolean>(false);
   const [drivaniaQuotes, setDrivaniaQuotes] = useState<any>(null);
   const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
@@ -398,7 +398,7 @@ export default function ResultsPage() {
     driverDestination: driverDestinationForDrivers,
   });
 
-  // Calculate Drivania vehicle-related values
+  // Calculate Chauffs vehicle-related values
   const { lowestDrivaniaPrice, drivaniaCurrency, lowestExtraHourPrice } = useDrivaniaVehicleCalculations({
     drivaniaQuotes,
   });
@@ -1230,7 +1230,7 @@ export default function ResultsPage() {
   // Track previous locations to detect changes
   const prevLocationsRef = useRef<string>('');
 
-  // Clear Drivania quotes when trip locations actually change
+  // Clear Chauffs quotes when trip locations actually change
   useEffect(() => {
     if (tripData?.locations) {
       const locationsKey = JSON.stringify(tripData.locations.map((loc: any) => ({
@@ -1354,7 +1354,7 @@ export default function ResultsPage() {
     // OWNER FLOW: Block non-owners who aren't the assigned driver
     if (!isOwner) return;
 
-    // Block status toggle for Drivania bookings
+    // Block status toggle for Chauffs bookings
     if (driverEmail === 'drivania' && tripStatus === 'booked') {
       return;
     }
@@ -1709,7 +1709,7 @@ export default function ResultsPage() {
         setDrivaniaQuotes(result.data);
         setDrivaniaServiceType(result.serviceType);
       } else {
-        const errorMsg = result.error || result.message || 'Failed to get quote from Drivania';
+        const errorMsg = result.error || result.message || 'Failed to get quote from Chauffs';
         // Check if error contains PEAK_PERIOD and provide user-friendly message
         if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period')) {
           setDrivaniaError('We are expecting a high demand for this day, and online booking is not available. Please contact us at info@drivania.com and we will assist you.');
@@ -1718,7 +1718,7 @@ export default function ResultsPage() {
         }
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to request quote from Drivania. Please try again.';
+      const errorMsg = err instanceof Error ? err.message : 'Failed to request quote from Chauffs. Please try again.';
       // Check if error contains PEAK_PERIOD and provide user-friendly message
       if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period')) {
         setDrivaniaError('We are expecting a high demand for this day, and online booking is not available. Please contact us at info@drivania.com and we will assist you.');
@@ -1730,14 +1730,14 @@ export default function ResultsPage() {
     }
   };
 
-  // Fetch Drivania quotes on page load for owners (to show lowest price in button)
+  // Fetch Chauffs quotes on page load for owners (to show lowest price in button)
   // Called immediately when tripData loads (parallel to report generation)
   // Also refetches when locations change (tripData?.locations in dependency array)
   useEffect(() => {
     // Early returns
     if (!tripId || !isOwner || !ownershipChecked || loading || loadingDrivaniaQuote) return;
     
-    // Only fetch if trip is not cancelled/booked and not already assigned to Drivania
+    // Only fetch if trip is not cancelled/booked and not already assigned to Chauffs
     if (tripStatus === 'cancelled' || tripStatus === 'booked' || driverEmail === 'drivania') return;
     
     // Validate locations exist before calling (handleDrivaniaQuote will fetch fresh data from DB)

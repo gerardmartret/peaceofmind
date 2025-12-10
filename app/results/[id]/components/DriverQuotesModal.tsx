@@ -60,7 +60,7 @@ interface DriverQuotesModalProps {
   onSendQuoteRequest: (email: string) => void;
   onCloseDriverSuggestions: () => void;
   
-  // Drivania quote info
+  // Chauffs quote info
   lowestDrivaniaPrice: number | null;
   drivaniaCurrency: string | null;
   lowestExtraHourPrice: number | null;
@@ -675,7 +675,7 @@ export function DriverQuotesModal({
             </div>
           </div>
 
-          {/* Book with Drivania Section - Link to booking page */}
+          {/* Book with Chauffs Section - Link to booking page */}
           {isOwner && !assignOnlyMode && driverEmail !== 'drivania' && (
             <div className="mt-12 mb-0 -mx-4 sm:-mx-6">
               <Card className="shadow-none bg-[#161820] dark:bg-[#161820] relative w-full">
@@ -688,7 +688,7 @@ export function DriverQuotesModal({
                       </span>
                       <img
                         src="/logo-drivania-neg.png"
-                        alt="Drivania"
+                        alt="Chauffs"
                         className="h-[11.52px] sm:h-[14.4px] w-auto"
                       />
                     </div>

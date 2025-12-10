@@ -49,7 +49,7 @@ interface TripSummarySectionProps {
   onShowMapModal: () => void;
   onShowSignupModal: () => void;
   
-  // Drivania quote info
+  // Chauffs quote info
   lowestDrivaniaPrice: number | null;
   drivaniaCurrency: string | null;
   lowestExtraHourPrice: number | null;
@@ -349,7 +349,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             )}
           </div>
           <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto">
-            {/* Show confirmation button with driver quote when driver is selected, or Booked with Drivania button */}
+            {/* Show confirmation button with driver quote when driver is selected, or Booked with Chauffs button */}
             {(isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true') || (tripStatus === 'booked' && driverEmail === 'drivania') ? (
               <div className={`w-full ${tripStatus === 'booked' && driverEmail === 'drivania' ? 'sm:w-[275px]' : 'sm:w-[220px]'} flex flex-col items-stretch sm:items-end gap-2`}>
                 {tripStatus === 'booked' && driverEmail === 'drivania' ? (

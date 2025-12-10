@@ -33,7 +33,7 @@ export function TripCard({ trip, quote, drivaniaQuote, showPrice, theme, mounted
   const statusBadge = getStatusBadge(trip);
   
   // Determine colors based on variant (matching FlowHoverButton)
-  // Special case: Booking Secured (booked with Drivania) uses #716A5F
+  // Special case: Booking Secured (booked with Chauffs) uses #716A5F
   const colors = (trip.status === 'booked' && trip.driver === 'drivania')
     ? {
         bg: 'bg-[#716A5F]',

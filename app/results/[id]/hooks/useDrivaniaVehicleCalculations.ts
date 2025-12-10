@@ -16,7 +16,7 @@ interface UseDrivaniaVehicleCalculationsReturn {
 export function useDrivaniaVehicleCalculations({
   drivaniaQuotes,
 }: UseDrivaniaVehicleCalculationsParams): UseDrivaniaVehicleCalculationsReturn {
-  // Calculate lowest Drivania quote price
+  // Calculate lowest Chauffs quote price
   const lowestDrivaniaPrice = useMemo(() => {
     if (!drivaniaQuotes?.quotes?.vehicles || drivaniaQuotes.quotes.vehicles.length === 0) {
       return null;

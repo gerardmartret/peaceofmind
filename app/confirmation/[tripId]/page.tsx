@@ -30,7 +30,7 @@ export default function ConfirmationPage() {
     authLoading: authLoadingFromHook,
   } = useTripData(tripId);
 
-  // Drivania quote state
+  // Chauffs quote state
   const [loadingDrivaniaQuote, setLoadingDrivaniaQuote] = useState<boolean>(false);
   const [drivaniaQuotes, setDrivaniaQuotes] = useState<any>(null);
   const [drivaniaError, setDrivaniaError] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export default function ConfirmationPage() {
     }
   }, [tripId, router, authLoadingFromHook]);
 
-  // Fetch Drivania quotes when trip data is loaded
+  // Fetch Chauffs quotes when trip data is loaded
   useEffect(() => {
     // Early returns
     if (!tripData || loadingDrivaniaQuote || drivaniaQuotes) return;
@@ -259,10 +259,10 @@ export default function ConfirmationPage() {
             }, 3000);
           }
         } else {
-          setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
+          setDrivaniaError(result.error || result.message || 'Failed to get quote from Chauffs');
         }
       } catch (err) {
-        setDrivaniaError('Failed to request quote from Drivania. Please try again.');
+        setDrivaniaError('Failed to request quote from Chauffs. Please try again.');
       } finally {
         setLoadingDrivaniaQuote(false);
       }
@@ -452,7 +452,7 @@ export default function ConfirmationPage() {
           setBookingSubmissionMessage('Quotes have expired. Please refresh the page and try again.');
         } else {
           // Check if error is phone-related
-          const errorMessage = serviceResult.error || 'Failed to create service with Drivania';
+          const errorMessage = serviceResult.error || 'Failed to create service with Chauffs';
           if (errorMessage.toLowerCase().includes('contact_phone') || 
               errorMessage.toLowerCase().includes('phone') ||
               errorMessage.toLowerCase().includes('sms')) {
@@ -481,7 +481,7 @@ export default function ConfirmationPage() {
       }
     } catch (err) {
       setBookingSubmissionState('idle');
-      setBookingSubmissionMessage('Failed to create service with Drivania. Please try again.');
+      setBookingSubmissionMessage('Failed to create service with Chauffs. Please try again.');
     }
   };
 
@@ -540,7 +540,7 @@ export default function ConfirmationPage() {
           </Alert>
         )}
 
-        {/* Loading Drivania Quote */}
+        {/* Loading Chauffs Quote */}
         {loadingDrivaniaQuote && (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mr-3"></div>
@@ -548,7 +548,7 @@ export default function ConfirmationPage() {
           </div>
         )}
 
-        {/* Drivania Error */}
+        {/* Chauffs Error */}
         {drivaniaError && (
           <Alert variant="destructive" className="mb-6">
             <AlertDescription>

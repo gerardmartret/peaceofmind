@@ -81,10 +81,10 @@ export function useDrivaniaQuotes(tripData: any) {
           setDrivaniaQuotes(result.data);
           setDrivaniaServiceType(result.serviceType);
         } else {
-          setDrivaniaError(result.error || result.message || 'Failed to get quote from Drivania');
+          setDrivaniaError(result.error || result.message || 'Failed to get quote from Chauffs');
         }
       } catch (err) {
-        setDrivaniaError('Failed to request quote from Drivania. Please try again.');
+        setDrivaniaError('Failed to request quote from Chauffs. Please try again.');
       } finally {
         setLoadingDrivaniaQuote(false);
       }

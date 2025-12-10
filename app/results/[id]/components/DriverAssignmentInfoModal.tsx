@@ -53,7 +53,7 @@ export function DriverAssignmentInfoModal({
 
   const getStatusMessage = () => {
     if (tripStatus === 'confirmed') return '✅ You have confirmed this trip';
-    if (tripStatus === 'booked') return '✅ This trip has been booked with Drivania';
+    if (tripStatus === 'booked') return '✅ This trip has been booked with Chauffs';
     if (tripStatus === 'rejected') return '❌ You have rejected this trip';
     if (tripStatus === 'cancelled') return '🚫 This trip has been cancelled';
     if (tokenMessage && !['confirmed', 'booked', 'rejected', 'cancelled'].includes(tripStatus || '')) {
@@ -64,7 +64,7 @@ export function DriverAssignmentInfoModal({
 
   const getStatusDescription = () => {
     if (tripStatus === 'confirmed') return 'The trip owner has been notified of your acceptance.';
-    if (tripStatus === 'booked') return 'Your booking request has been sent to Drivania.';
+    if (tripStatus === 'booked') return 'Your booking request has been sent to Chauffs.';
     if (tripStatus === 'rejected') return 'The trip owner has been notified that you declined.';
     if (tripStatus === 'cancelled') return 'The trip owner has cancelled this trip.';
     return null;
@@ -92,7 +92,7 @@ export function DriverAssignmentInfoModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               <span className="text-muted-foreground">Assigned to:</span>
-              <span className="font-medium">{validatedDriverEmail === 'drivania' ? 'Drivania' : validatedDriverEmail}</span>
+              <span className="font-medium">{validatedDriverEmail === 'drivania' ? 'Chauffs' : validatedDriverEmail}</span>
             </div>
             {getStatusDescription() && (
               <div className="text-sm text-muted-foreground">

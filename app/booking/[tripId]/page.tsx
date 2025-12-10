@@ -37,7 +37,7 @@ export default function BookingPage() {
     driverDestination: tripDestination,
   });
 
-  // Fetch Drivania quotes
+  // Fetch Chauffs quotes
   const {
     loadingDrivaniaQuote,
     drivaniaQuotes,

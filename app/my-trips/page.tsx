@@ -72,7 +72,7 @@ export default function MyTripsPage() {
           }));
           setTrips(normalizedData);
 
-          // Fetch quotes for confirmed trips, pending trips with assigned drivers, and booked trips with Drivania
+          // Fetch quotes for confirmed trips, pending trips with assigned drivers, and booked trips with Chauffs
           const tripsWithQuotes = normalizedData.filter(trip => 
             ((trip.status === 'confirmed' || trip.status === 'pending') && trip.driver) ||
             (trip.status === 'booked' && trip.driver === 'drivania')
@@ -88,7 +88,7 @@ export default function MyTripsPage() {
               // Create a map of quotes by trip_id and driver email
               const quotesMap = new Map<string, Quote>();
               tripsWithQuotes.forEach(trip => {
-                // For Drivania bookings, find quote with email 'drivania'
+                // For Chauffs bookings, find quote with email 'drivania'
                 // For other trips, find quote matching the driver email
                 const quote = quotesData.find(q => 
                   q.trip_id === trip.id && 
@@ -249,7 +249,7 @@ export default function MyTripsPage() {
                   <p className="text-muted-foreground">
                     {drivaniaSearchText.trim() 
                       ? 'No trips match your search. Try a different search term.'
-                      : 'No trips booked with Drivania yet.'}
+                      : 'No trips booked with Chauffs yet.'}
                   </p>
                 </CardContent>
               </Card>
