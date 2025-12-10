@@ -82,11 +82,11 @@ export function getVehicleImagePath(
       ? (isLight ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.png")
       : vehicleType === 'luxury-suv'
         ? (isLight ? "/Vehicles/light-brief-range-web.png" : "/Vehicles/dark-brief-range-web.png")
-        : vehicleType === 'suv' 
+      : vehicleType === 'suv' 
           ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.png")
-          : vehicleType === 'signature-sedan'
+        : vehicleType === 'signature-sedan'
             ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom-web.png")
-            : vehicleType === 'premium-sedan'
+          : vehicleType === 'premium-sedan'
               ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass-web.png")
               : vehicleType === 'comfort-sedan'
                 ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.png")

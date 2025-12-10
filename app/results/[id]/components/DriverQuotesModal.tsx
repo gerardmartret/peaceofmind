@@ -121,6 +121,11 @@ export function DriverQuotesModal({
 }: DriverQuotesModalProps) {
   const router = useRouter();
   const { theme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const vehicleType = determineVehicleType(vehicleInfo, driverNotes, passengerCount, tripDestination);
   const numberOfPassengers = passengerCount || 1;
@@ -229,7 +234,7 @@ export function DriverQuotesModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[1800px] max-h-[90vh] overflow-hidden flex flex-col p-0 relative">
+      <DialogContent className="max-w-[1800px] min-w-[800px] sm:min-w-[1000px] max-h-[90vh] overflow-hidden flex flex-col p-0 relative">
         <DialogHeader className="relative p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
           {/* Driver assigned indicator - Top Right */}
           {driverEmail && driverEmail !== 'drivania' && (
@@ -240,16 +245,19 @@ export function DriverQuotesModal({
               <span className="text-sm sm:text-base font-medium text-[#3ea34b]">Driver assigned</span>
           </div>
           )}
-          <DialogTitle className="text-lg sm:text-2xl flex items-center gap-2">
+          <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
             {!assignOnlyMode && (
               <img
                 src={theme === 'dark' ? "/driver-fav-light.svg" : "/driver-fav-dark.svg"}
                 alt="Driver"
-                className="w-[24px] h-[24px] sm:w-[28.8px] sm:h-[28.8px] flex-shrink-0"
+                className="w-[18px] h-[18px] sm:w-[21.6px] sm:h-[21.6px] flex-shrink-0"
               />
             )}
             {assignOnlyMode ? 'Assign driver' : 'Assign your own driver'}
           </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-1">
+            Enter your driver's email to assign or request a quote
+          </DialogDescription>
         </DialogHeader>
 
         {/* Modal Content - Scrollable */}
@@ -413,8 +421,8 @@ export function DriverQuotesModal({
               {/* Unified Drivers List - Hide in assign-only mode */}
               {!assignOnlyMode && (sentDriverEmails.length > 0 || quotes.length > 0) && (
                 <div className="mt-6 pt-6 border-t">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-4">
-                    Drivers ({sentDriverEmails.length + quotes.filter(q => !sentDriverEmails.some(s => s.email.toLowerCase() === q.email.toLowerCase())).length})
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">
+                    Your drivers ({sentDriverEmails.length + quotes.filter(q => !sentDriverEmails.some(s => s.email.toLowerCase() === q.email.toLowerCase())).length})
                   </h3>
               {loadingQuotes ? (
                 <div className="flex items-center justify-center py-8">
@@ -503,7 +511,7 @@ export function DriverQuotesModal({
                                             Quote received
                                           </span>
                                         ) : (
-                                          <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-card-foreground bg-muted dark:bg-muted rounded whitespace-nowrap">
+                                          <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-[#05060A] bg-muted dark:bg-muted rounded whitespace-nowrap">
                                             Sent
                                       </span>
                                     )}
@@ -612,7 +620,7 @@ export function DriverQuotesModal({
                                           Quote received
                                         </span>
                                       ) : (
-                                        <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-card-foreground bg-muted dark:bg-muted rounded whitespace-nowrap">
+                                        <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-[#05060A] bg-muted dark:bg-muted rounded whitespace-nowrap">
                                           Sent
                                   </span>
                                 )}
@@ -682,37 +690,45 @@ export function DriverQuotesModal({
                 <CardContent className="pt-0 pb-0 px-2 sm:pt-1 sm:pb-0 sm:px-3">
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-col gap-2 flex-shrink-0 -mt-4 sm:-mt-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[14.4px] sm:text-[16.2px] font-semibold text-primary-foreground dark:text-card-foreground pl-1">
-                        Book with
+                    <div className="flex flex-col gap-1 pl-4 sm:pl-6">
+                      <span className="text-[21.6px] sm:text-[24px] font-semibold text-primary-foreground dark:text-card-foreground">
+                        Book a Trusted Driver Now
                       </span>
-                      <img
-                        src="/logo-drivania-neg.png"
-                        alt="Chauffs"
-                        className="h-[11.52px] sm:h-[14.4px] w-auto"
-                      />
+                      <span className="text-sm text-primary-foreground/80 dark:text-card-foreground/80">
+                        Secure your driver and get an instant confirmation
+                      </span>
                     </div>
                     {/* Vehicle Image */}
                     <div className="flex justify-center sm:justify-start mt-0.5 sm:mt-1 -mb-2 sm:-mb-3 pb-0">
                       <img
                         src={getVehicleImagePath()}
                         alt="Vehicle"
-                        className="h-[99.83px] sm:h-[133.1px] lg:h-[145.2px] w-auto object-contain"
+                        className="h-[109.81px] sm:h-[146.41px] lg:h-[159.72px] w-auto object-contain"
                         style={{ maxWidth: 'none' }}
                       />
                     </div>
                   </div>
                   {/* Button - Top Right */}
-                  <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+                  <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-col items-end gap-4">
                 <Button
                   onClick={() => {
                     onClose();
                     router.push(`/booking/${tripId}`);
                   }}
-                      className="bg-[#E5E7EF] dark:bg-[#E5E7EF] text-[#05060A] dark:text-[#05060A] hover:bg-[#E5E7EF]/90 dark:hover:bg-[#E5E7EF]/90 text-sm sm:text-base"
+                      className="bg-[#E5E7EF] dark:bg-[#E5E7EF] text-[#05060A] dark:text-[#05060A] hover:bg-[#E5E7EF]/90 dark:hover:bg-[#E5E7EF]/90 text-[16.1px] sm:text-[18.4px]"
                 >
                       Book this trip
                 </Button>
+                {mounted && (
+                  <div className="flex items-center justify-center gap-1.5">
+                    <img 
+                      src="/chauffs-seal-neg.png" 
+                      alt="Chauffs Trusted Driver" 
+                      className="h-[10.88px] sm:h-[13.6px] w-auto"
+                    />
+                    <span className="text-[9.6px] sm:text-[11.2px] font-medium text-primary-foreground dark:text-muted-foreground">Chauffs Trusted Driver</span>
+                  </div>
+                )}
               </div>
                   {/* Price - Bottom Right */}
                   {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
