@@ -20,26 +20,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasSentWelcomeEmail, setHasSentWelcomeEmail] = useState<Set<string>>(new Set());
+  const [hasAttemptedWelcomeEmail, setHasAttemptedWelcomeEmail] = useState<Set<string>>(new Set());
 
-  // Send welcome email when email is confirmed
+  // Send welcome email when email is confirmed (only once per user)
   useEffect(() => {
     const sendWelcomeEmailIfNeeded = async (currentUser: User | null) => {
       if (!currentUser || !currentUser.email_confirmed_at) {
         return;
       }
 
-      // Check if we've already sent welcome email for this user
-      if (hasSentWelcomeEmail.has(currentUser.id)) {
+      // Check if we've already attempted to send welcome email for this user in this session
+      if (hasAttemptedWelcomeEmail.has(currentUser.id)) {
         return;
       }
 
-      // Check if email was just confirmed (has email_confirmed_at but we haven't sent email yet)
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (!currentSession) {
           return;
         }
+
+        // Mark as attempted immediately to prevent duplicate calls
+        setHasAttemptedWelcomeEmail((prev) => new Set(prev).add(currentUser.id));
 
         const response = await fetch('/api/send-welcome-email', {
           method: 'POST',
@@ -51,11 +53,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (response.ok) {
-          setHasSentWelcomeEmail((prev) => new Set(prev).add(currentUser.id));
+          const result = await response.json();
           if (process.env.NODE_ENV === 'development') {
-            console.log('✅ Welcome email sent');
+            if (result.alreadySent) {
+              console.log('⚠️ Welcome email was already sent previously');
+            } else {
+              console.log('✅ Welcome email sent');
+            }
           }
         } else {
+          // If it failed, remove from attempted set so we can retry later if needed
+          setHasAttemptedWelcomeEmail((prev) => {
+            const next = new Set(prev);
+            next.delete(currentUser.id);
+            return next;
+          });
           // Don't log errors for welcome email - it's not critical
           if (process.env.NODE_ENV === 'development') {
             const result = await response.json();
@@ -63,6 +75,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
+        // If it failed, remove from attempted set so we can retry later if needed
+        setHasAttemptedWelcomeEmail((prev) => {
+          const next = new Set(prev);
+          next.delete(currentUser.id);
+          return next;
+        });
         // Silently fail - welcome email is not critical
         if (process.env.NODE_ENV === 'development') {
           console.log('⚠️ Failed to send welcome email:', error);
@@ -73,7 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user && user.email_confirmed_at) {
       sendWelcomeEmailIfNeeded(user);
     }
-  }, [user, hasSentWelcomeEmail]);
+    // Only depend on user, not hasAttemptedWelcomeEmail to avoid re-runs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   useEffect(() => {
     // Get initial session
@@ -131,10 +151,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
+      
+      // Sync to users table if signup successful
+      if (!error && data.user) {
+        await supabase
+          .from('users')
+          .upsert({
+            email: email,
+            auth_user_id: data.user.id,
+            marketing_consent: true,
+          }, { onConflict: 'email' });
+      }
+      
       return { error };
     } catch (error) {
       return { error: error as AuthError };
@@ -143,10 +175,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+      
+      // Sync to users table if login successful
+      if (!error && data.user) {
+        await supabase
+          .from('users')
+          .upsert({
+            email: email,
+            auth_user_id: data.user.id,
+          }, { onConflict: 'email' });
+      }
+      
       return { error };
     } catch (error) {
       // Handle network errors (e.g., "Failed to fetch")

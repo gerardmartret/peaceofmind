@@ -58,6 +58,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if welcome email was already sent
+    const { data: userRecord, error: userError } = await supabase
+      .from('users')
+      .select('welcome_email_sent')
+      .eq('email', user.email)
+      .single();
+
+    if (userError && userError.code !== 'PGRST116') {
+      // PGRST116 is "not found" - that's okay, we'll create the record
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error checking user record:', userError);
+      }
+    }
+
+    // If welcome email was already sent, return early
+    if (userRecord?.welcome_email_sent) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⚠️ Welcome email already sent to ${user.email}`);
+      }
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Welcome email was already sent',
+        alreadySent: true
+      });
+    }
+
     if (process.env.NODE_ENV === 'development') {
       console.log(`📧 Sending welcome email to ${user.email}`);
     }
@@ -90,6 +116,24 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Mark welcome email as sent in the database
+    const { error: updateError } = await supabase
+      .from('users')
+      .upsert({
+        email: user.email,
+        welcome_email_sent: true,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'email'
+      });
+
+    if (updateError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error updating welcome_email_sent flag:', updateError);
+      }
+      // Don't fail the request if we can't update the flag - email was sent successfully
     }
 
     if (process.env.NODE_ENV === 'development') {

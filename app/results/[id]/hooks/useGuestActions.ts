@@ -89,6 +89,20 @@ export function useGuestActions({
         } else {
         }
 
+        // Update users table: convert guest to authenticated
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({ auth_user_id: session.user.id })
+          .eq('email', tripData.userEmail)
+          .is('auth_user_id', null); // Only update if currently a guest
+
+        if (userUpdateError) {
+          // Log error but don't fail - trip linking is more critical
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Error updating users.auth_user_id:', userUpdateError);
+          }
+        }
+
         // Clear sessionStorage
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('guestCreatedTripId');

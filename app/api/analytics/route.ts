@@ -27,35 +27,21 @@ export async function GET(request: Request) {
     previousStartDate.setDate(previousStartDate.getDate() - daysAgo);
     const previousStartDateStr = previousStartDate.toISOString();
 
-    // Get service role key to access auth.users
-    const serviceRoleKey = process.env.NEXT_SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      throw new Error('NEXT_SUPABASE_SERVICE_ROLE_KEY environment variable is not set');
+    // Fetch authenticated users from users table (auth_user_id IS NOT NULL)
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('email, created_at, auth_user_id')
+      .not('auth_user_id', 'is', null);
+
+    if (usersError) {
+      throw new Error(`Failed to fetch users: ${usersError.message}`);
     }
 
-    // Create admin client with service role key to access auth.users
-    const supabaseAdmin = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    // Fetch auth users from auth.users table
-    const { data: authUsersData, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
-    if (authUsersError) {
-      throw new Error(`Failed to fetch auth users: ${authUsersError.message}`);
-    }
-
-    // Filter auth users that have created_at
-    const allAuthUsers = (authUsersData?.users || [])
+    // Filter users that have created_at
+    const allAuthUsers = (usersData || [])
       .filter(u => u.created_at !== null && u.created_at !== undefined)
       .map(u => ({
-        email: u.email,
+        email: u.email || '',
         created_at: u.created_at!,
       }));
 
@@ -234,7 +220,7 @@ export async function GET(request: Request) {
       return acc;
     }, {});
 
-    // Time series data for charts (using auth.users)
+    // Time series data for charts (using users table)
     const userTimeSeries = aggregateTimeSeries(
       authUsersTimeSeries,
       daysAgo

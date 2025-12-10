@@ -254,25 +254,31 @@ export type Database = {
       }
       users: {
         Row: {
+          auth_user_id: string | null
           created_at: string | null
           email: string
           marketing_consent: boolean | null
           unsubscribed: boolean | null
           updated_at: string | null
+          welcome_email_sent: boolean | null
         }
         Insert: {
+          auth_user_id?: string | null
           created_at?: string | null
           email: string
           marketing_consent?: boolean | null
           unsubscribed?: boolean | null
           updated_at?: string | null
+          welcome_email_sent?: boolean | null
         }
         Update: {
+          auth_user_id?: string | null
           created_at?: string | null
           email?: string
           marketing_consent?: boolean | null
           unsubscribed?: boolean | null
           updated_at?: string | null
+          welcome_email_sent?: boolean | null
         }
         Relationships: []
       }

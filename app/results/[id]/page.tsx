@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Car, Calendar as CalendarIcon, Maximize2 } from 'lucide-react';
+import { Car, Calendar as CalendarIcon, Maximize2, Trash2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -230,6 +230,10 @@ export default function ResultsPage() {
   const [statusModalSuccess, setStatusModalSuccess] = useState<string | null>(null);
   const [resendingConfirmation, setResendingConfirmation] = useState<boolean>(false);
   const [cancellingTrip, setCancellingTrip] = useState<boolean>(false);
+  
+  // Delete trip state
+  const [deletingTrip, setDeletingTrip] = useState<boolean>(false);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   // Flow A (quote selection) confirmation modal
   const [showFlowAModal, setShowFlowAModal] = useState<boolean>(false);
@@ -1248,6 +1252,52 @@ export default function ResultsPage() {
 
 
   // Guest signup handled by useGuestActions hook
+
+  const handleDeleteTrip = async () => {
+    if (!user?.id || !tripId) {
+      setError('Unable to delete trip: missing user or trip information');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this trip? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingTrip(true);
+      setDeleteSuccess(null);
+      setError(null);
+
+      const response = await fetch('/api/delete-trip', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tripId,
+          userId: user.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete trip');
+      }
+
+      setDeleteSuccess('Trip deleted successfully');
+      
+      // Redirect to my trips after a short delay
+      setTimeout(() => {
+        router.push('/my-trips');
+      }, 1500);
+    } catch (err) {
+      console.error('Error deleting trip:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete trip');
+    } finally {
+      setDeletingTrip(false);
+    }
+  };
 
   const handlePlanNewTrip = () => {
     // Check if user is authenticated - if not, show signup modal
@@ -3145,7 +3195,6 @@ export default function ResultsPage() {
             </>
           )}
 
-
         </div>
 
         {/* Request Quotes from Drivers - Now only in modal */}
@@ -3503,7 +3552,16 @@ export default function ResultsPage() {
 
         {/* Footer Navigation */}
         <div className="py-8">
-          <div className="flex flex-wrap justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3 items-center">
+            {isOwner && (
+              <button
+                onClick={handleDeleteTrip}
+                disabled={deletingTrip || loading}
+                className="text-sm text-destructive hover:text-destructive/80 underline disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingTrip ? 'Deleting...' : 'Delete trip'}
+              </button>
+            )}
             <Button
               onClick={handlePlanNewTrip}
               variant="default"

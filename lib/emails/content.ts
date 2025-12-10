@@ -224,3 +224,22 @@ export const BOOKING_CONFIRMATION = {
   note: 'We look forward to serving you again.',
 };
 
+// Guest Trip Created
+export const GUEST_TRIP_CREATED = {
+  subject: 'Unlock full functionality of Chauffs',
+  title: 'Unlock full functionality of Chauffs',
+  greeting: 'Hello,',
+  body: (destination: string) => `You created a trip to <strong style="color: #05060A;">${destination}</strong>, but here's more what you can do:`,
+  benefits: [
+    'Unlimited trips',
+    'Instant fixed pricing',
+    'Pick your driver',
+    'Edit trips instantly',
+    'Billed in seconds',
+    'Secure payments',
+  ],
+  freeNote: 'And it\'s completely <strong style="color: #3ea34b;">free</strong>!',
+  ctaText: 'Unlock all the features',
+  note: 'Create your account to access all features and manage your trips with ease.',
+};
+

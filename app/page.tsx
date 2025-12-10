@@ -594,13 +594,13 @@ export default function Home() {
         trip_destination: normalizedDestination,
       };
 
-      // Save user to database
+      // Save user to database (guest - no auth_user_id)
       const { error: userError } = await supabase
         .from('users')
         .upsert({
           email: userEmail.trim(),
           marketing_consent: true
-        });
+        }, { onConflict: 'email' });
 
       if (userError) {
         console.error('❌ Error saving user:', userError);
@@ -627,6 +627,23 @@ export default function Home() {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('guestCreatedTripId', tripData.id);
       }
+
+      // Send guest trip creation email (fire and forget - don't block redirect)
+      fetch('/api/send-guest-trip-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail.trim(),
+          destination: normalizedDestination || 'your destination',
+        }),
+      }).catch((err) => {
+        // Silently fail - email is not critical
+        if (process.env.NODE_ENV === 'development') {
+          console.log('⚠️ Failed to send guest trip email:', err);
+        }
+      });
 
       // Redirect to results page immediately (don't clear pendingTripData first)
       router.push(`/results/${tripData.id}`);
@@ -1093,7 +1110,7 @@ export default function Home() {
 
       // For authenticated users: Save trip immediately
       // For guest users: Store data and wait for email input
-      if (isAuthenticated) {
+      if (isAuthenticated && user?.id) {
         console.log('🔐 Authenticated user - saving trip to database immediately');
 
         // Save user to database
@@ -1101,8 +1118,9 @@ export default function Home() {
           .from('users')
           .upsert({
             email: emailToUse,
+            auth_user_id: user.id,
             marketing_consent: true
-          });
+          }, { onConflict: 'email' });
 
         if (userError) {
           console.error('❌ Error saving user:', userError);
