@@ -20,6 +20,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasSentWelcomeEmail, setHasSentWelcomeEmail] = useState<Set<string>>(new Set());
+
+  // Send welcome email when email is confirmed
+  useEffect(() => {
+    const sendWelcomeEmailIfNeeded = async (currentUser: User | null) => {
+      if (!currentUser || !currentUser.email_confirmed_at) {
+        return;
+      }
+
+      // Check if we've already sent welcome email for this user
+      if (hasSentWelcomeEmail.has(currentUser.id)) {
+        return;
+      }
+
+      // Check if email was just confirmed (has email_confirmed_at but we haven't sent email yet)
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) {
+          return;
+        }
+
+        const response = await fetch('/api/send-welcome-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`,
+          },
+          body: JSON.stringify({ userId: currentUser.id }),
+        });
+
+        if (response.ok) {
+          setHasSentWelcomeEmail((prev) => new Set(prev).add(currentUser.id));
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ Welcome email sent');
+          }
+        } else {
+          // Don't log errors for welcome email - it's not critical
+          if (process.env.NODE_ENV === 'development') {
+            const result = await response.json();
+            console.log('⚠️ Welcome email not sent:', result.error);
+          }
+        }
+      } catch (error) {
+        // Silently fail - welcome email is not critical
+        if (process.env.NODE_ENV === 'development') {
+          console.log('⚠️ Failed to send welcome email:', error);
+        }
+      }
+    };
+
+    if (user && user.email_confirmed_at) {
+      sendWelcomeEmailIfNeeded(user);
+    }
+  }, [user, hasSentWelcomeEmail]);
 
   useEffect(() => {
     // Get initial session

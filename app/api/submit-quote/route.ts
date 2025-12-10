@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { sendEmail } from '@/lib/emails/email-service';
+import { quoteSubmittedTemplate } from '@/lib/emails/templates/quote-submitted';
+import { QUOTE_SUBMITTED } from '@/lib/emails/content';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,10 +47,10 @@ export async function POST(request: NextRequest) {
       console.log(`💰 Submitting quote for trip: ${tripId}`);
     }
 
-    // Verify trip exists and get driver info
+    // Verify trip exists and get trip owner info
     const { data: trip, error: tripError } = await supabase
       .from('trips')
-      .select('id, driver, status, trip_date, lead_passenger_name')
+      .select('id, driver, status, trip_date, lead_passenger_name, trip_destination, user_id, user_email')
       .eq('id', tripId)
       .single();
 
@@ -61,8 +64,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if quote already exists for this email and trip
+    // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
+    
+    // Check if quote already exists for this email and trip
     const { data: existingQuote } = await supabase
       .from('quotes')
       .select('id')
@@ -134,6 +139,44 @@ export async function POST(request: NextRequest) {
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`✅ Quote ${isUpdate ? 'updated' : 'submitted'} successfully: ${quote.id}`);
+    }
+    
+    // Send notification to trip owner (only for new quotes, not updates)
+    if (!isUpdate && trip.user_email && trip.trip_destination) {
+      try {
+        const host = request.headers.get('host') || 'localhost:3000';
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+        // Link to results page with quote modal open
+        const tripLink = `${baseUrl}/results/${tripId}?quote=true`;
+
+        // Generate email HTML
+        const html = quoteSubmittedTemplate({
+          destination: trip.trip_destination,
+          driverEmail: normalizedEmail,
+          price: priceNum,
+          currency: currency,
+          tripLink,
+        });
+
+        // Send email (don't fail if email fails)
+        const emailResult = await sendEmail({
+          to: trip.user_email,
+          subject: QUOTE_SUBMITTED.subject(trip.trip_destination),
+          html,
+        });
+
+        if (emailResult.success && process.env.NODE_ENV === 'development') {
+          console.log(`✅ Quote notification sent to trip owner: ${trip.user_email}`);
+        } else if (process.env.NODE_ENV === 'development') {
+          console.log(`⚠️ Failed to send quote notification: ${emailResult.error}`);
+        }
+      } catch (emailError) {
+        // Don't fail quote submission if email fails
+        if (process.env.NODE_ENV === 'development') {
+          console.log('⚠️ Error sending quote notification:', emailError);
+        }
+      }
     }
     
     // NOTE: Removed auto-confirmation logic. Drivers must manually confirm trips via the confirmation button.

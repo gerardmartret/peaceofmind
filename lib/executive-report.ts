@@ -534,8 +534,8 @@ function postProcessReport(
  */
 function validateExtraction(
   report: ExecutiveReport,
-  driverNotes?: string,
-  attempt: number
+  attempt: number,
+  driverNotes?: string
 ): boolean {
   if (!driverNotes || !driverNotes.trim()) {
     return true; // No notes to validate
@@ -626,7 +626,7 @@ async function generateReportWithRetry(
       report = postProcessReport(report, driverNotes);
 
       // Validate extraction
-      const extractionComplete = validateExtraction(report, driverNotes, attempt);
+      const extractionComplete = validateExtraction(report, attempt, driverNotes);
 
       if (extractionComplete) {
         break; // Success!

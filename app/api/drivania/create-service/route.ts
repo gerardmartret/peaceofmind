@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createService, formatPhoneNumber, extractFBOCode } from '@/lib/drivania-api';
+import { supabase } from '@/lib/supabase';
+import { sendEmail } from '@/lib/emails/email-service';
+import { bookingConfirmationTemplate } from '@/lib/emails/templates/booking-confirmation';
+import { BOOKING_CONFIRMATION } from '@/lib/emails/content';
 
 export async function POST(request: NextRequest) {
   try {
@@ -141,6 +145,49 @@ export async function POST(request: NextRequest) {
     const serviceResponse = await createService(serviceRequest, false);
 
     console.log('✅ [Create Service API] Service created:', serviceResponse);
+
+    // Send booking confirmation email to trip owner
+    if (trip_id) {
+      try {
+        // Fetch trip data to get destination and owner email
+        const { data: trip, error: tripError } = await supabase
+          .from('trips')
+          .select('trip_destination, user_email')
+          .eq('id', trip_id)
+          .single();
+
+        if (!tripError && trip && trip.trip_destination && trip.user_email) {
+          const host = request.headers.get('host') || 'localhost:3000';
+          const protocol = host.includes('localhost') ? 'http' : 'https';
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+          const homePageUrl = baseUrl;
+
+          // Generate email HTML
+          const html = bookingConfirmationTemplate({
+            destination: trip.trip_destination,
+            homePageUrl,
+          });
+
+          // Send email (don't fail if email fails)
+          const emailResult = await sendEmail({
+            to: trip.user_email,
+            subject: BOOKING_CONFIRMATION.subject(trip.trip_destination),
+            html,
+          });
+
+          if (emailResult.success && process.env.NODE_ENV === 'development') {
+            console.log(`✅ Booking confirmation email sent to ${trip.user_email}`);
+          } else if (process.env.NODE_ENV === 'development') {
+            console.log(`⚠️ Failed to send booking confirmation: ${emailResult.error}`);
+          }
+        }
+      } catch (emailError) {
+        // Don't fail booking if email fails
+        if (process.env.NODE_ENV === 'development') {
+          console.log('⚠️ Error sending booking confirmation email:', emailError);
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

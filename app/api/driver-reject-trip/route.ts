@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { sendEmail, isEmailServiceConfigured } from '@/lib/emails/email-service';
+import { driverResponseTemplate } from '@/lib/emails/templates/driver-response';
+import { DRIVER_RESPONSE } from '@/lib/emails/content';
 
 export async function POST(request: NextRequest) {
   try {
@@ -127,91 +130,25 @@ export async function POST(request: NextRequest) {
 
     // Send notification email to trip owner
     try {
-      const Resend = require('resend').Resend;
-      const resendApiKey = process.env.RESEND_API_KEY;
-
-      if (resendApiKey) {
-        const resend = new Resend(resendApiKey);
-        const tripDate = new Date(trip.trip_date).toLocaleDateString('en-GB', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-
+      if (isEmailServiceConfigured() && trip.trip_destination) {
         const host = request.headers.get('host') || 'localhost:3000';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
         const tripLink = `${baseUrl}/results/${tripId}`;
 
-        await resend.emails.send({
-          from: 'Chauffs <info@trips.chauffs.com>',
-          to: [trip.user_email],
-          subject: `Driver declined trip - ${tripDate}`,
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #ffffff;">
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
-                <tr>
-                  <td align="center" style="padding: 40px 20px;">
-                    <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff;">
-                      <tr>
-                        <td style="background-color: #05060A; padding: 24px; border-radius: 8px 8px 0 0;">
-                          <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">Driver declined trip</h1>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-                          <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #374151;">
-                            The driver (${tokenData.driver_email}) has declined your trip assignment.
-                          </p>
-                          
-                          <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                              <tr>
-                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">Trip date:</td>
-                                <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right;">${tripDate}</td>
-                              </tr>
-                              ${trip.trip_destination ? `
-                              <tr>
-                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Destination:</td>
-                                <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right; border-top: 1px solid #e5e7eb;">${trip.trip_destination}</td>
-                              </tr>
-                              ` : ''}
-                              <tr>
-                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Status:</td>
-                                <td style="padding: 8px 0; font-size: 14px; color: #dc2626; font-weight: 600; text-align: right; border-top: 1px solid #e5e7eb;">Rejected</td>
-                              </tr>
-                            </table>
-                          </div>
-                          
-                          <p style="margin: 24px 0; font-size: 15px; line-height: 24px; color: #374151;">
-                            You can now assign a different driver to this trip.
-                          </p>
-                          
-                          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
-                            <tr>
-                              <td align="center">
-                                <a href="${tripLink}" style="display: inline-block; background-color: #3ea34b; color: #ffffff; font-size: 15px; font-weight: 500; text-decoration: none; padding: 14px 32px; border-radius: 6px; letter-spacing: -0.3px;">
-                                  View trip and assign driver
-                                </a>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-            </html>
-          `,
+        // Generate email HTML
+        const html = driverResponseTemplate({
+          type: 'rejected',
+          destination: trip.trip_destination,
+          driverEmail: tokenData.driver_email,
+          tripLink,
+        });
+
+        // Send email
+        await sendEmail({
+          to: trip.user_email,
+          subject: DRIVER_RESPONSE.rejected.subject(trip.trip_destination),
+          html,
         });
 
         if (process.env.NODE_ENV === 'development') {

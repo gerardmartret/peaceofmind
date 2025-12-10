@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { sendEmail, isEmailServiceConfigured } from '@/lib/emails/email-service';
+import { driverAssignmentTemplate } from '@/lib/emails/templates/driver-assignment';
+import { DRIVER_ASSIGNMENT } from '@/lib/emails/content';
 
 export async function POST(request: NextRequest) {
   try {
@@ -130,10 +133,7 @@ export async function POST(request: NextRequest) {
 
     // Send email notification
     try {
-      const Resend = require('resend').Resend;
-      const resendApiKey = process.env.RESEND_API_KEY;
-
-      if (!resendApiKey) {
+      if (!isEmailServiceConfigured()) {
         if (process.env.NODE_ENV === 'development') {
           console.warn('⚠️ RESEND_API_KEY not configured, skipping email');
         }
@@ -144,7 +144,6 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const resend = new Resend(resendApiKey);
       const formattedDate = new Date(tripDate).toLocaleDateString('en-GB', {
         weekday: 'long',
         year: 'numeric',
@@ -152,85 +151,30 @@ export async function POST(request: NextRequest) {
         day: 'numeric'
       });
 
-      await resend.emails.send({
-        from: 'Chauffs <info@trips.chauffs.com>',
-        to: [normalizedEmail],
-        subject: `You've been assigned to a trip - ${formattedDate}`,
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #ffffff;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
-              <tr>
-                <td align="center" style="padding: 40px 20px;">
-                  <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff;">
-                    <tr>
-                      <td style="background-color: #05060A; padding: 24px; border-radius: 8px 8px 0 0;">
-                        <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">You've been assigned to a trip</h1>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-                        <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #374151;">
-                          Hi,
-                        </p>
-                        
-                        <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #374151;">
-                          You've been assigned to a trip and your confirmation is needed.
-                        </p>
-                        
-                        <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-                          <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                            <tr>
-                              <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">Trip date:</td>
-                              <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right;">${formattedDate}</td>
-                            </tr>
-                            ${tripDestination ? `
-                            <tr>
-                              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Destination:</td>
-                              <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right; border-top: 1px solid #e5e7eb;">${tripDestination}</td>
-                            </tr>
-                            ` : ''}
-                            ${leadPassengerName ? `
-                            <tr>
-                              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Passenger:</td>
-                              <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right; border-top: 1px solid #e5e7eb;">${leadPassengerName}</td>
-                            </tr>
-                            ` : ''}
-                            <tr>
-                              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Status:</td>
-                              <td style="padding: 8px 0; font-size: 14px; color: #e77500; font-weight: 600; text-align: right; border-top: 1px solid #e5e7eb;">⏱️ Pending your confirmation</td>
-                            </tr>
-                          </table>
-                        </div>
-                        
-                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
-                          <tr>
-                            <td align="center">
-                              <a href="${magicLink}" style="display: inline-block; background-color: #3ea34b; color: #ffffff; font-size: 15px; font-weight: 500; text-decoration: none; padding: 14px 32px; border-radius: 6px; letter-spacing: -0.3px;">
-                                View and confirm trip
-                              </a>
-                            </td>
-                          </tr>
-                        </table>
-                        
-                        <p style="margin: 24px 0 0 0; font-size: 13px; line-height: 20px; color: #6b7280;">
-                          This link is valid for 3 days and can only be used once. If you have any questions about this trip, please reply to this email.
-                        </p>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </body>
-          </html>
-        `,
+      // Generate email HTML
+      const html = driverAssignmentTemplate({
+        tripDate: formattedDate,
+        magicLink,
+        tripDestination,
+        leadPassengerName,
       });
+
+      // Send email
+      const result = await sendEmail({
+        to: normalizedEmail,
+        subject: DRIVER_ASSIGNMENT.subject(formattedDate),
+        html,
+      });
+
+      if (!result.success) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Failed to send driver assignment email:', result.error);
+        }
+        return NextResponse.json(
+          { success: false, error: 'Failed to send notification email' },
+          { status: 500 }
+        );
+      }
 
       if (process.env.NODE_ENV === 'development') {
         console.log('✅ Driver assignment email sent successfully');

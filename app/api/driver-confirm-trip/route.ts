@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { sendEmail, isEmailServiceConfigured } from '@/lib/emails/email-service';
+import { driverConfirmDriverTemplate } from '@/lib/emails/templates/driver-confirm';
+import { driverResponseTemplate } from '@/lib/emails/templates/driver-response';
+import { DRIVER_CONFIRM, DRIVER_RESPONSE } from '@/lib/emails/content';
 
 export async function POST(request: NextRequest) {
   try {
@@ -150,11 +154,7 @@ export async function POST(request: NextRequest) {
 
     // Send confirmation email to driver
     try {
-      const Resend = require('resend').Resend;
-      const resendApiKey = process.env.RESEND_API_KEY;
-
-      if (resendApiKey) {
-        const resend = new Resend(resendApiKey);
+      if (isEmailServiceConfigured()) {
         const tripDate = new Date(trip.trip_date).toLocaleDateString('en-GB', {
           weekday: 'long',
           year: 'numeric',
@@ -167,76 +167,18 @@ export async function POST(request: NextRequest) {
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
         const tripLink = `${baseUrl}/results/${tripId}`;
 
-        await resend.emails.send({
-          from: 'Chauffs <info@trips.chauffs.com>',
-          to: [normalizedDriverEmail],
-          subject: `Confirmed - ${tripDate}`,
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #ffffff;">
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
-                <tr>
-                  <td align="center" style="padding: 40px 20px;">
-                    <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff;">
-                      <tr>
-                        <td style="background-color: #05060A; padding: 24px; border-radius: 8px 8px 0 0;">
-                          <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">Confirmed</h1>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-                          <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #374151;">
-                            Thank you for confirming your availability for this trip.
-                          </p>
-                          
-                          <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                              <tr>
-                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">Trip date:</td>
-                                <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right;">${tripDate}</td>
-                              </tr>
-                              ${trip.trip_destination ? `
-                              <tr>
-                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Destination:</td>
-                                <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right; border-top: 1px solid #e5e7eb;">${trip.trip_destination}</td>
-                              </tr>
-                              ` : ''}
-                              ${trip.lead_passenger_name ? `
-                              <tr>
-                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Passenger:</td>
-                                <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right; border-top: 1px solid #e5e7eb;">${trip.lead_passenger_name}</td>
-                              </tr>
-                              ` : ''}
-                            </table>
-                          </div>
-                          
-                          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
-                            <tr>
-                              <td align="center">
-                                <a href="${tripLink}" style="display: inline-block; background-color: #3ea34b; color: #ffffff; font-size: 15px; font-weight: 500; text-decoration: none; padding: 12px 32px; border-radius: 6px; letter-spacing: -0.3px;">
-                                  View trip details
-                                </a>
-                              </td>
-                            </tr>
-                          </table>
-                          
-                          <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 20px; color: #6b7280;">
-                            If you have any questions about this trip, please reply to this email.
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-            </html>
-          `,
+        // Send confirmation to driver
+        const driverHtml = driverConfirmDriverTemplate({
+          tripDate,
+          tripLink,
+          tripDestination: trip.trip_destination || undefined,
+          leadPassengerName: trip.lead_passenger_name || undefined,
+        });
+
+        await sendEmail({
+          to: normalizedDriverEmail,
+          subject: DRIVER_CONFIRM.driver.subject(tripDate),
+          html: driverHtml,
         });
 
         if (process.env.NODE_ENV === 'development') {
@@ -244,75 +186,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Also send notification to trip owner
-        if (trip.user_email) {
-          await resend.emails.send({
-            from: 'Chauffs <info@trips.chauffs.com>',
-            to: [trip.user_email],
-            subject: `Driver confirmed trip - ${tripDate}`,
-            html: `
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              </head>
-              <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #ffffff;">
-                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff;">
-                  <tr>
-                    <td align="center" style="padding: 40px 20px;">
-                      <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff;">
-                        <tr>
-                          <td style="background-color: #05060A; padding: 24px; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; font-size: 20px; font-weight: 600; color: #ffffff; letter-spacing: -0.5px;">Driver confirmed trip</h1>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-                            <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #374151;">
-                              Good news! ${normalizedDriverEmail} has confirmed their availability for your trip.
-                            </p>
-                            
-                            <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;">
-                              <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">Trip date:</td>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right;">${tripDate}</td>
-                                </tr>
-                                ${trip.trip_destination ? `
-                                <tr>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Destination:</td>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right; border-top: 1px solid #e5e7eb;">${trip.trip_destination}</td>
-                                </tr>
-                                ` : ''}
-                                <tr>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Driver:</td>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: 500; text-align: right; border-top: 1px solid #e5e7eb;">${normalizedDriverEmail}</td>
-                                </tr>
-                                <tr>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb;">Status:</td>
-                                  <td style="padding: 8px 0; font-size: 14px; color: #3ea34b; font-weight: 600; text-align: right; border-top: 1px solid #e5e7eb;">✓ Confirmed</td>
-                                </tr>
-                              </table>
-                            </div>
-                            
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
-                              <tr>
-                                <td align="center">
-                                  <a href="${tripLink}" style="display: inline-block; background-color: #3ea34b; color: #ffffff; font-size: 15px; font-weight: 500; text-decoration: none; padding: 14px 32px; border-radius: 6px; letter-spacing: -0.3px;">
-                                    View trip details
-                                  </a>
-                                </td>
-                              </tr>
-                            </table>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                </table>
-              </body>
-              </html>
-            `,
+        if (trip.user_email && trip.trip_destination) {
+          const ownerHtml = driverResponseTemplate({
+            type: 'confirmed',
+            destination: trip.trip_destination,
+            driverEmail: normalizedDriverEmail,
+            tripLink,
+          });
+
+          await sendEmail({
+            to: trip.user_email,
+            subject: DRIVER_RESPONSE.confirmed.subject(trip.trip_destination),
+            html: ownerHtml,
           });
 
           if (process.env.NODE_ENV === 'development') {
