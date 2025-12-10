@@ -136,7 +136,7 @@ export default function MyTripsPage() {
         
         // Ensure theme is properly typed
         const themeValue = theme === 'light' || theme === 'dark' ? theme : undefined;
-        
+
         return (
           <TripCard
             key={trip.id}
@@ -168,7 +168,16 @@ export default function MyTripsPage() {
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'drivania' | 'other-drivers')} className="mb-6">
           <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
             <TabsTrigger value="other-drivers" className="dark:data-[state=active]:bg-[#05060A]">My own drivers</TabsTrigger>
-            <TabsTrigger value="drivania" className="dark:data-[state=active]:bg-[#05060A]">Drivania Chauffeurs™</TabsTrigger>
+            <TabsTrigger value="drivania" className="dark:data-[state=active]:bg-[#05060A] !px-4 sm:!px-6">
+              {mounted && (
+                <img 
+                  src={theme === 'dark' ? "/chauffs-seal-neg.png" : "/chauffs-seal-pos.png"} 
+                  alt="Chauffs Trusted Driver" 
+                  className="h-[11.56px] sm:h-[14.45px] w-auto mr-0.5"
+                />
+              )}
+              Chauffs Trusted Drivers
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="other-drivers" className="mt-6">

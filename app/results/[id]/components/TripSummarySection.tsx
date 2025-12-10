@@ -184,11 +184,11 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
         ? (isLight ? "/Vehicles/light-brief-sprinter-web.png" : "/Vehicles/dark-brief-sprinter-web.png")
         : vehicleType === 'luxury-suv'
           ? (isLight ? "/Vehicles/light-brief-range-web.png" : "/Vehicles/dark-brief-range-web.png")
-          : vehicleType === 'suv' 
+        : vehicleType === 'suv' 
             ? (isLight ? "/Vehicles/light-brief-escalade-web.png" : "/Vehicles/dark-brief-escalade-web.png")
-            : vehicleType === 'signature-sedan'
+          : vehicleType === 'signature-sedan'
               ? (isLight ? "/Vehicles/light-brief-phantom-web.png" : "/Vehicles/dark-brief-phantom-web.png")
-              : vehicleType === 'premium-sedan'
+            : vehicleType === 'premium-sedan'
                 ? (isLight ? "/Vehicles/light-brief-sclass-web.png" : "/Vehicles/dark-brief-sclass-web.png")
                 : vehicleType === 'comfort-sedan'
                   ? (isLight ? "/Vehicles/light-brief-camry-web.png" : "/Vehicles/dark-brief-camry-web.png")
@@ -274,22 +274,22 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             {(isOwner || (driverToken && validatedDriverEmail)) && (
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-6 sm:mt-7">
                 {((tripStatus !== 'not confirmed' && tripStatus !== 'pending' && tripStatus !== 'confirmed' && !(tripStatus === 'booked' && driverEmail === 'drivania')) || (driverToken && validatedDriverEmail && tripStatus === 'pending')) ? (
-                  <div className="relative inline-block">
-                    <TripStatusButton
-                      tripStatus={tripStatus}
-                      driverResponseStatus={driverResponseStatus}
-                      driverEmail={driverEmail}
-                      originalDriverEmail={originalDriverEmail}
-                      quotes={quotes}
-                      sentDriverEmails={sentDriverEmails}
-                      isOwner={isOwner}
-                      quoteEmail={quoteEmail}
-                      driverToken={driverToken}
-                      validatedDriverEmail={validatedDriverEmail}
-                      updatingStatus={updatingStatus}
-                      onStatusToggle={onStatusToggle}
-                    />
-                  </div>
+                <div className="relative inline-block">
+            <TripStatusButton
+              tripStatus={tripStatus}
+              driverResponseStatus={driverResponseStatus}
+              driverEmail={driverEmail}
+              originalDriverEmail={originalDriverEmail}
+              quotes={quotes}
+              sentDriverEmails={sentDriverEmails}
+              isOwner={isOwner}
+              quoteEmail={quoteEmail}
+              driverToken={driverToken}
+              validatedDriverEmail={validatedDriverEmail}
+              updatingStatus={updatingStatus}
+              onStatusToggle={onStatusToggle}
+            />
+      </div>
                 ) : null}
                     {!(isDriverView && driverToken) && quoteParam !== 'true' && !(tripStatus === 'booked' && driverEmail === 'drivania') && (
                         <div className="relative inline-block">
@@ -321,11 +321,11 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                             {mounted && (
                               <>
                                 {driverEmail ? (
-                                  <img
-                                    src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
-                                    alt="Driver"
-                                    className="w-4 h-4"
-                                  />
+                              <img
+                                src={theme === 'dark' ? "/driver-dark.png" : "/driver-light.png"}
+                                alt="Driver"
+                                className="w-4 h-4"
+                              />
                                 ) : (
                                   <img
                                     src={theme === 'dark' ? "/driver-fav-light.svg" : "/driver-fav-dark.svg"}
@@ -353,22 +353,34 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             {(isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true') || (tripStatus === 'booked' && driverEmail === 'drivania') ? (
               <div className={`w-full ${tripStatus === 'booked' && driverEmail === 'drivania' ? 'sm:w-[275px]' : 'sm:w-[220px]'} flex flex-col items-stretch sm:items-end gap-2`}>
                 {tripStatus === 'booked' && driverEmail === 'drivania' ? (
-                  <div className="w-full">
-                    <TripStatusButton
-                      tripStatus={tripStatus}
-                      driverResponseStatus={driverResponseStatus}
-                      driverEmail={driverEmail}
-                      originalDriverEmail={originalDriverEmail}
-                      quotes={quotes}
-                      sentDriverEmails={sentDriverEmails}
-                      isOwner={isOwner}
-                      quoteEmail={quoteEmail}
-                      driverToken={driverToken}
-                      validatedDriverEmail={validatedDriverEmail}
-                      updatingStatus={updatingStatus}
-                      onStatusToggle={onStatusToggle}
-                      className={`w-full !h-auto !px-4 sm:!px-6 !py-3 sm:!py-3.5 ${tripStatus === 'booked' && driverEmail === 'drivania' ? '!text-sm sm:!text-base lg:!text-lg' : '!text-base sm:!text-lg lg:!text-xl'} !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg whitespace-nowrap`}
-                    />
+                  <div className="w-full flex flex-col items-end gap-4">
+                    <div className="w-full">
+                      <TripStatusButton
+                        tripStatus={tripStatus}
+                        driverResponseStatus={driverResponseStatus}
+                        driverEmail={driverEmail}
+                        originalDriverEmail={originalDriverEmail}
+                        quotes={quotes}
+                        sentDriverEmails={sentDriverEmails}
+                        isOwner={isOwner}
+                        quoteEmail={quoteEmail}
+                        driverToken={driverToken}
+                        validatedDriverEmail={validatedDriverEmail}
+                        updatingStatus={updatingStatus}
+                        onStatusToggle={onStatusToggle}
+                        className={`w-full !h-auto !px-4 sm:!px-6 !py-3 sm:!py-3.5 ${tripStatus === 'booked' && driverEmail === 'drivania' ? '!text-sm sm:!text-base lg:!text-lg' : '!text-base sm:!text-lg lg:!text-xl'} !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg whitespace-nowrap`}
+                      />
+                    </div>
+                    {mounted && (
+                      <div className="flex items-center justify-center gap-1.5 w-full">
+                        <img 
+                          src={theme === 'dark' ? "/chauffs-seal-neg.png" : "/chauffs-seal-pos.png"} 
+                          alt="Chauffs Trusted Driver" 
+                          className="h-[13.6px] sm:h-[17px] w-auto"
+                        />
+                        <span className="text-xs sm:text-sm font-medium text-muted-foreground">Chauffs Trusted Driver</span>
+                      </div>
+                    )}
                   </div>
                 ) : driverEmail ? (
                   <>
@@ -409,23 +421,23 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                 ) : (
                   <>
                     <FlowHoverButton
-                      onClick={() => {
-                        if (!isAuthenticated) {
-                          onShowSignupModal();
-                          return;
-                        }
-                        router.push(`/booking/${tripId}`);
-                      }}
-                      disabled={loadingDrivaniaQuote}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      onShowSignupModal();
+                      return;
+                    }
+                    router.push(`/booking/${tripId}`);
+                  }}
+                  disabled={loadingDrivaniaQuote}
                       variant="rejected"
                       className="w-full !h-auto disabled:opacity-70 disabled:cursor-not-allowed !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg !bg-[#05060A] dark:!bg-[#E5E7EF] !border-[#05060A] dark:!border-[#E5E7EF] !text-white dark:!text-[#05060A] hover:!bg-[#05060A]/90 dark:hover:!bg-[#E5E7EF]/90 before:!bg-[#05060A]/80 dark:before:!bg-[#E5E7EF]/80"
-                    >
-                      {loadingDrivaniaQuote ? (
+                >
+                  {loadingDrivaniaQuote ? (
                         <span className="flex items-center justify-center gap-2 text-sm sm:text-base lg:text-lg">
-                          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                           <span className="hidden sm:inline">Quoting trip</span>
                           <span className="sm:hidden">Quoting...</span>
-                        </span>
+                    </span>
                       ) : (
                         <span className="text-[1.15rem] sm:text-[1.29375rem] lg:text-[1.4375rem]">Book this trip</span>
                       )}

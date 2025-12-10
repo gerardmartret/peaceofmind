@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 interface FlowHoverButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: React.ReactNode
   children?: React.ReactNode
-  variant?: 'confirmed' | 'pending' | 'not-confirmed' | 'cancelled' | 'rejected' | 'request-quote-style'
+  variant?: 'confirmed' | 'pending' | 'not-confirmed' | 'cancelled' | 'rejected' | 'request-quote-style' | 'booked'
   size?: 'default' | 'sm'
 }
 
@@ -56,6 +56,14 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
         text: 'text-foreground',
         hoverBg: 'before:bg-accent dark:before:bg-[#323236]', // Match outline button hover
         hoverText: 'hover:text-accent-foreground'
+      }
+    : variant === 'booked'
+    ? {
+        bg: 'bg-[#716A5F]',
+        border: 'border-[#716A5F]',
+        text: 'text-white',
+        hoverBg: 'before:bg-[#5a5449]', // Darker brown for hover
+        hoverText: 'hover:text-white'
       }
     : {
         bg: 'bg-[#9e201b]',

@@ -77,7 +77,8 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
     }
     // All other statuses use existing variants
     return tripStatus === 'rejected' ? 'rejected' :
-      tripStatus === 'confirmed' || tripStatus === 'booked' ? 'confirmed' :
+      tripStatus === 'booked' ? 'booked' :
+      tripStatus === 'confirmed' ? 'confirmed' :
         driverEmail ? 'pending' : 'not-confirmed';
   };
 
@@ -89,7 +90,7 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
       driverResponseStatus === 'accepted' ? 'Trip accepted' :
         tripStatus === 'rejected' ? 'Rejected' :
           tripStatus === 'confirmed' ? 'Confirmed' :
-            tripStatus === 'booked' ? 'Booked with' :
+            tripStatus === 'booked' ? 'Booking Secured' :
               isDriverViewingPending ? 'Accept trip' :
                 driverEmail ? 'Pending' : 'Not confirmed';
 
@@ -107,25 +108,14 @@ export const TripStatusButton: React.FC<TripStatusButtonProps> = ({
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-            ) : tripStatus === 'booked' ? undefined : // No icon for booked with Drivania
-              undefined
+            ) : tripStatus === 'booked' ? (
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            ) : undefined
       }
     >
-      {tripStatus === 'booked' ? (
-        <span className="flex items-center justify-center gap-1.5">
-          {buttonText}
-          {mounted && (
-            <img 
-              src="/logo-drivania-neg.png" 
-              alt="Drivania" 
-              className="h-[13.2px] w-auto"
-            />
-          )}
-        </span>
-      ) : (
-        buttonText
-      )}
+      {buttonText}
     </FlowHoverButton>
   );
 };
-

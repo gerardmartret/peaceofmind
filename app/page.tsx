@@ -2410,7 +2410,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* View Route & Create brief Buttons */}
+              {/* View Route & Create trip Buttons */}
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <Button
                   onClick={() => setMapOpen(true)}
@@ -2448,7 +2448,7 @@ export default function Home() {
                       <span>Analyzing...</span>
                     </>
                   ) : (
-                    <>Create brief</>
+                    <>Create trip</>
                   )}
                 </Button>
               </div>
@@ -2672,7 +2672,7 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                   <AlertDescription className="text-destructive">
-                    Locations reordered! Click "Create brief" to update the route.
+                    Locations reordered! Click "Create trip" to update the route.
                   </AlertDescription>
                 </Alert>
               )}
@@ -2705,7 +2705,7 @@ export default function Home() {
                 />
               </div>
 
-              {/* View Route & Create brief Buttons */}
+              {/* View Route & Create trip Buttons */}
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   onClick={() => setMapOpen(true)}
@@ -2736,7 +2736,7 @@ export default function Home() {
                       <span>Analyzing...</span>
                     </>
                   ) : (
-                    <>Create brief</>
+                    <>Create trip</>
                   )}
                 </Button>
               </div>
@@ -2786,7 +2786,7 @@ export default function Home() {
                       </div>
                       <div className="text-center">
                         <h3 className="text-xl font-semibold mb-1">
-                          {loadingProgress >= 100 ? 'Your brief is ready' : 'Creating brief'}
+                          {loadingProgress >= 100 ? 'Your trip is ready' : 'Creating trip'}
                         </h3>
                         <p className="text-sm text-muted-foreground">
                           {loadingSteps.filter(s => s.status === 'completed').length} of {loadingSteps.length} steps completed
@@ -2806,14 +2806,14 @@ export default function Home() {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                               </svg>
-                              <h3 className="text-lg font-semibold text-card-foreground">Redirecting to brief</h3>
+                              <h3 className="text-lg font-semibold text-card-foreground">Redirecting to trip</h3>
                             </div>
                           ) : (
                             // Guest users: Show email field and View Report button
                             <div className="bg-[#05060A]/10 dark:bg-[#E5E7EF]/10 border border-[#05060A] dark:border-[#E5E7EF] rounded-md p-4">
                               <div className="flex flex-col items-center space-y-4">
                                 <label htmlFor="userEmail" className="block text-sm font-medium text-card-foreground text-center">
-                                  Your business email (required to view brief)
+                                  Your business email (required to view trip)
                                 </label>
                                 <Input
                                   type="email"
@@ -2837,7 +2837,7 @@ export default function Home() {
                                   </p>
                                 )}
 
-                                {/* View driver brief Button - Only for guest users */}
+                                {/* View driver trip Button - Only for guest users */}
                                 <Button
                                   onClick={handleGuestTripSave}
                                   size="lg"
@@ -2850,7 +2850,7 @@ export default function Home() {
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                       </svg>
-                                      <span>Composing brief...</span>
+                                      <span>Composing trip...</span>
                                     </>
                                   ) : savingGuestTrip ? (
                                     <>
@@ -2865,7 +2865,7 @@ export default function Home() {
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                                       </svg>
-                                      View trip brief
+                                      View trip
                                     </>
                                   )}
                                 </Button>

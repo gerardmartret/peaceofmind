@@ -131,7 +131,7 @@ export function getStatusBadge(trip: Trip) {
       return 'Confirmed';
     }
     if (status === 'booked') {
-      return 'Booked with';
+      return 'Booking Secured';
     }
     if (status === 'pending') {
       return 'Pending';

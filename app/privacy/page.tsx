@@ -63,7 +63,7 @@ export default function PrivacyPage() {
                 <ul className="list-disc pl-6 mt-2 space-y-1">
                   <li><strong>Service Provision:</strong> To provide, maintain, and improve the Service</li>
                   <li><strong>Trip Management:</strong> To create, store, and manage your trip plans and reports</li>
-                  <li><strong>AI Processing:</strong> To generate trip analyses, risk assessments, and driver briefings</li>
+                  <li><strong>AI Processing:</strong> To generate trip analyses, risk assessments, and driver trips</li>
                   <li><strong>Communication:</strong> To send trip updates, notifications, and respond to inquiries</li>
                   <li><strong>Driver Coordination:</strong> To facilitate driver assignments, quotes, and confirmations</li>
                   <li><strong>Analytics:</strong> To analyze usage patterns and improve service quality</li>
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
                 <ul className="list-disc pl-6 mt-2 space-y-1">
                   <li>Processing trip notes and requirements through AI models (OpenAI GPT-4o-mini)</li>
                   <li>Analyzing location data, weather, traffic, and safety information</li>
-                  <li>Generating executive reports and driver briefings</li>
+                  <li>Generating executive reports and driver trips</li>
                   <li>Quality evaluation and improvement of AI-generated content</li>
                 </ul>
                 <p className="mt-3">

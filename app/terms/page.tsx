@@ -29,12 +29,12 @@ export default function TermsPage() {
               <section>
                 <h2 className="text-xl font-semibold mb-3">2. Description of Service</h2>
                 <p>
-                  Chauffs is a SaaS platform that provides trip planning, analysis, and driver briefing services. The Service includes:
+                  Chauffs is a SaaS platform that provides trip planning, analysis, and driver trip services. The Service includes:
                 </p>
                 <ul className="list-disc pl-6 mt-2 space-y-1">
                   <li>Trip planning and itinerary management</li>
                   <li>AI-powered trip analysis and risk assessment</li>
-                  <li>Driver briefing generation</li>
+                  <li>Driver trip generation</li>
                   <li>Quote management and driver assignment</li>
                   <li>Integration with third-party services for location data, weather, traffic, and safety information</li>
                 </ul>

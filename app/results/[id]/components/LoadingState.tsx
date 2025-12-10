@@ -10,7 +10,7 @@ export function LoadingState({ ownershipChecked, isOwner }: LoadingStateProps) {
     <div className={`flex items-center justify-center ${ownershipChecked && !isOwner ? 'pt-32' : ''} min-h-screen`}>
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Loading your trip brief...
+          Loading your trip...
         </h2>
         <div className="flex items-center justify-center gap-2">
           <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">

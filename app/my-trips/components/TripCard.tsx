@@ -33,7 +33,14 @@ export function TripCard({ trip, quote, drivaniaQuote, showPrice, theme, mounted
   const statusBadge = getStatusBadge(trip);
   
   // Determine colors based on variant (matching FlowHoverButton)
-  const colors = statusBadge.variant === 'confirmed' 
+  // Special case: Booking Secured (booked with Drivania) uses #716A5F
+  const colors = (trip.status === 'booked' && trip.driver === 'drivania')
+    ? {
+        bg: 'bg-[#716A5F]',
+        border: 'border-[#716A5F]',
+        text: 'text-white',
+      }
+    : statusBadge.variant === 'confirmed' 
     ? {
         bg: 'bg-[#3ea34b]',
         border: 'border-[#3ea34b]',
@@ -134,24 +141,28 @@ export function TripCard({ trip, quote, drivaniaQuote, showPrice, theme, mounted
               )}
             </div>
             <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-3 flex-shrink-0">
-              <div
-                className={`relative z-0 flex items-center justify-center gap-1.5 overflow-hidden 
-                  border ${colors.border} ${colors.bg} ${shadowClass}
-                  h-9 sm:h-10 px-3 sm:px-4 py-2 ${trip.status === 'booked' && trip.driver === 'drivania' ? 'text-[11.2px] sm:text-[12.8px]' : 'text-xs sm:text-sm'} font-medium rounded-md ${colors.text} cursor-pointer whitespace-nowrap`}
-              >
-                {trip.status === 'booked' && trip.driver === 'drivania' ? (
-                  <span className="flex items-center justify-center gap-1.5">
-                    {statusBadge.text}
-                    {mounted && (
-                      <img 
-                        src="/logo-drivania-neg.png" 
-                        alt="Drivania" 
-                        className="h-[10.56px] w-auto"
-                      />
-                    )}
-                  </span>
-                ) : (
+              <div className="flex flex-col items-end gap-2">
+                <div
+                  className={`relative z-0 flex items-center justify-center gap-1.5 overflow-hidden 
+                    border ${colors.border} ${colors.bg} ${shadowClass}
+                    h-9 sm:h-10 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md ${colors.text} cursor-pointer whitespace-nowrap`}
+                >
+                  {trip.status === 'booked' && trip.driver === 'drivania' && (
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
                   <span className="truncate">{statusBadge.text}</span>
+                </div>
+                {trip.status === 'booked' && trip.driver === 'drivania' && mounted && (
+                  <div className="flex items-center justify-center gap-1.5 w-full">
+                    <img 
+                      src={theme === 'dark' ? "/chauffs-seal-neg.png" : "/chauffs-seal-pos.png"} 
+                      alt="Chauffs Trusted Driver" 
+                      className="h-[9.83px] sm:h-[12.28px] w-auto"
+                    />
+                    <span className="text-[8.5px] sm:text-[10.2px] font-medium text-muted-foreground">Chauffs Trusted Driver</span>
+                  </div>
                 )}
               </div>
               {showPrice && quote && (
@@ -166,9 +177,8 @@ export function TripCard({ trip, quote, drivaniaQuote, showPrice, theme, mounted
               )}
             </div>
           </div>
-        </CardHeader>
         {mounted && (
-          <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-6 flex items-center gap-2 text-[#05060A] dark:text-white font-medium text-xs sm:text-sm">
+          <div className="absolute bottom-[calc(0.75rem-0.25rem)] sm:bottom-[calc(1rem-0.25rem)] right-3 sm:right-4 md:right-6 flex items-baseline gap-2 text-[#05060A] dark:text-white font-medium text-xs sm:text-sm">
             <span className="hidden sm:inline">View trip</span>
             <span className="sm:hidden">View</span>
             <svg
@@ -186,6 +196,7 @@ export function TripCard({ trip, quote, drivaniaQuote, showPrice, theme, mounted
             </svg>
           </div>
         )}
+        </CardHeader>
       </Card>
     </Link>
   );

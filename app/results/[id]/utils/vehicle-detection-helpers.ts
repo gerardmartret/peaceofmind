@@ -311,7 +311,7 @@ export const determineVehicleType = (
   // PRIORITY LOGIC:
   // - Larger vehicles (van, minibus, SUV): Always honor if requested, regardless of passenger count (luggage/space needs)
   // - Sedans: Only honor if passenger count fits (typically ≤3-4). If too many passengers, use passenger count logic
-  
+
   if (hasVanPattern) {
     // Van: Always honor if requested (can accommodate luggage even with few passengers)
     vehicleType = 'van';
@@ -342,14 +342,14 @@ export const determineVehicleType = (
     // Signature Sedan: Only honor if passenger count fits (≤3 passengers)
     // Sedans cannot accommodate more than 3-4 passengers comfortably
     if (normalizedPassengerCount <= 3) {
-      vehicleType = 'signature-sedan';
+    vehicleType = 'signature-sedan';
     }
     // If passenger count > 3, fall through to else block (use passenger count logic)
   } else if (hasPremiumSedanPattern) {
     // Premium Sedan: Only honor if passenger count fits (≤3 passengers)
     // Sedans cannot accommodate more than 3-4 passengers comfortably
     if (normalizedPassengerCount <= 3) {
-      vehicleType = 'premium-sedan';
+    vehicleType = 'premium-sedan';
     }
     // If passenger count > 3, fall through to else block (use passenger count logic)
   } else if (hasComfortSedanPattern) {
@@ -363,7 +363,7 @@ export const determineVehicleType = (
     // Regular Sedan: Only honor if passenger count fits (≤3 passengers)
     // Sedans cannot accommodate more than 3-4 passengers comfortably
     if (normalizedPassengerCount <= 3) {
-      vehicleType = 'sedan';
+    vehicleType = 'sedan';
     }
     // If passenger count > 3, fall through to else block (use passenger count logic)
   } else {
@@ -415,8 +415,8 @@ export const determineVehicleType = (
       if (hasComfortSedanPattern) {
         vehicleType = 'comfort-sedan';
       } else {
-        vehicleType = 'sedan';
-      }
+      vehicleType = 'sedan';
+    }
     }
   }
 

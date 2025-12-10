@@ -205,8 +205,8 @@ export function DriverQuotesModal({
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
-      onClose();
-      onAssignOnlyModeChange(false); // Reset assign-only mode
+    onClose();
+    onAssignOnlyModeChange(false); // Reset assign-only mode
     }
   };
 
@@ -238,7 +238,7 @@ export function DriverQuotesModal({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               <span className="text-sm sm:text-base font-medium text-[#3ea34b]">Driver assigned</span>
-            </div>
+          </div>
           )}
           <DialogTitle className="text-lg sm:text-2xl flex items-center gap-2">
             {!assignOnlyMode && (
@@ -309,22 +309,22 @@ export function DriverQuotesModal({
                       {filteredDriverSuggestions
                         .filter(driver => driver.toLowerCase() !== manualDriverEmail.trim().toLowerCase())
                         .map((driver, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => onSelectDriverSuggestion(driver)}
-                            className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span>{driver}</span>
-                              {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
-                                <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        ))}
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => onSelectDriverSuggestion(driver)}
+                          className="w-full text-left px-4 py-2 hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors text-sm border-b last:border-b-0"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{driver}</span>
+                            {driverEmail && driverEmail.toLowerCase() === driver.toLowerCase() && (
+                              <span className="text-xs px-2 py-1 bg-[#3ea34b] text-white rounded">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   )}
 
@@ -416,32 +416,32 @@ export function DriverQuotesModal({
                   <h3 className="text-lg sm:text-xl font-semibold mb-4">
                     Drivers ({sentDriverEmails.length + quotes.filter(q => !sentDriverEmails.some(s => s.email.toLowerCase() === q.email.toLowerCase())).length})
                   </h3>
-                  {loadingQuotes ? (
-                    <div className="flex items-center justify-center py-8">
-                      <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      <span className="ml-2 text-muted-foreground text-sm sm:text-base">Loading quotes...</span>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Desktop Table View */}
-                      <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
-                        <div className="min-w-full inline-block align-middle">
-                          <div className="overflow-x-auto">
-                            <table className="w-full">
-                              <thead className="border-b">
-                                <tr>
-                                  <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
+              {loadingQuotes ? (
+                <div className="flex items-center justify-center py-8">
+                  <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="ml-2 text-muted-foreground text-sm sm:text-base">Loading quotes...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden sm:block overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="min-w-full inline-block align-middle">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="border-b">
+                            <tr>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Email</th>
                                   <th className="text-left py-3 px-4 font-semibold text-sm">Status</th>
-                                  <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
-                                  <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
-                                  <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
+                              <th className="text-right py-3 px-4 font-semibold text-sm">Price</th>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Currency</th>
+                              <th className="text-left py-3 px-4 font-semibold text-sm">Date</th>
                                   <th className="text-center py-3 px-4 font-semibold text-sm">Action</th>
-                                </tr>
-                              </thead>
-                              <tbody>
+                            </tr>
+                          </thead>
+                          <tbody>
                                 {/* Combine sent invitations and quotes into unified list */}
                                 {(() => {
                                   // Create a map of all drivers
@@ -488,13 +488,13 @@ export function DriverQuotesModal({
                                 })().map((driver) => {
                                   const hasQuote = !!driver.quote;
                                   const isDriver = driver.isDriver;
-                                  return (
-                                    <tr
+                              return (
+                                <tr
                                       key={driver.email}
-                                      className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
-                                        }`}
-                                    >
-                                      <td className="py-3 px-4 text-sm">
+                                  className={`border-b hover:bg-secondary/50 dark:hover:bg-[#181a23] transition-colors ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : ''
+                                    }`}
+                                >
+                                  <td className="py-3 px-4 text-sm">
                                         {driver.email}
                                       </td>
                                       <td className="py-3 px-4 text-sm">
@@ -505,58 +505,58 @@ export function DriverQuotesModal({
                                         ) : (
                                           <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-card-foreground bg-muted dark:bg-muted rounded whitespace-nowrap">
                                             Sent
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="py-3 px-4 text-sm text-right font-medium">
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-right font-medium">
                                         {hasQuote ? driver.quote!.price.toFixed(2) : '-'}
                                       </td>
                                       <td className="py-3 px-4 text-sm">
                                         {hasQuote ? driver.quote!.currency : '-'}
-                                      </td>
-                                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                                  </td>
+                                  <td className="py-3 px-4 text-sm text-muted-foreground">
                                         {hasQuote 
                                           ? new Date(driver.quote!.created_at).toLocaleDateString()
                                           : driver.sentAt 
                                             ? new Date(driver.sentAt).toLocaleDateString()
                                             : '-'
                                         }
-                                      </td>
-                                      <td className="py-3 px-4 text-center">
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
                                         {isDriver ? (
                                           <span className="px-2 py-1 text-xs font-bold text-white bg-[#3ea34b] rounded whitespace-nowrap">
                                             DRIVER
                                           </span>
                                         ) : hasQuote ? (
-                                          <Button
-                                            size="sm"
+                                    <Button
+                                      size="sm"
                                             variant="default"
                                             onClick={() => handleSelectQuoteDriver(driver.email)}
                                             disabled={settingDriver || tripStatus === 'cancelled'}
-                                          >
-                                            {settingDriver ? (
-                                              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                              </svg>
-                                            ) : (
-                                              'Select driver'
-                                            )}
-                                          </Button>
+                                    >
+                                      {settingDriver ? (
+                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                      ) : (
+                                        'Select driver'
+                                      )}
+                                    </Button>
                                         ) : (
                                           <span className="text-xs text-muted-foreground">Waiting for quote</span>
                                         )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                      {/* Mobile Card View */}
-                      <div className="sm:hidden space-y-3">
+                    </div>
+                  </div>
+                  {/* Mobile Card View */}
+                  <div className="sm:hidden space-y-3">
                         {(() => {
                           // Create a map of all drivers (same logic as desktop)
                           const driverMap = new Map<string, {
@@ -597,14 +597,14 @@ export function DriverQuotesModal({
                         })().map((driver) => {
                           const hasQuote = !!driver.quote;
                           const isDriver = driver.isDriver;
-                          return (
+                        return (
                             <Card
                               key={driver.email}
                               className={`shadow-sm ${isDriver ? 'bg-[#3ea34b]/10 border-[#3ea34b]/30' : hasQuote ? 'border-[#3ea34b]' : ''}`}
-                            >
+                          >
                               <CardContent className="p-4 sm:p-6">
-                                <div className="mb-2">
-                                  <div className="flex items-start gap-2 mb-1">
+                            <div className="mb-2">
+                              <div className="flex items-start gap-2 mb-1">
                                     <p className="text-sm font-medium break-words flex-1 min-w-0">{driver.email}</p>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                       {hasQuote ? (
@@ -614,21 +614,21 @@ export function DriverQuotesModal({
                                       ) : (
                                         <span className="px-2 py-1 text-xs font-medium text-muted-foreground dark:text-card-foreground bg-muted dark:bg-muted rounded whitespace-nowrap">
                                           Sent
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                                 </div>
                                 {hasQuote && (
-                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm mb-3">
-                                    <div className="flex-shrink-0">
-                                      <span className="text-muted-foreground">Price: </span>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm mb-3">
+                              <div className="flex-shrink-0">
+                                <span className="text-muted-foreground">Price: </span>
                                       <span className="font-medium">{driver.quote!.price.toFixed(2)} {driver.quote!.currency}</span>
-                                    </div>
-                                    <div className="text-muted-foreground text-xs sm:text-sm">
+                              </div>
+                              <div className="text-muted-foreground text-xs sm:text-sm">
                                       {new Date(driver.quote!.created_at).toLocaleDateString()}
-                                    </div>
-                                  </div>
+                              </div>
+                            </div>
                                 )}
                                 {!hasQuote && driver.sentAt && (
                                   <div className="text-xs text-muted-foreground mb-3">
@@ -642,36 +642,36 @@ export function DriverQuotesModal({
                                     </span>
                                   </div>
                                 ) : hasQuote ? (
-                                  <Button
-                                    size="sm"
+                            <Button
+                              size="sm"
                                     variant="default"
                                     onClick={() => handleSelectQuoteDriver(driver.email)}
                                     disabled={settingDriver || tripStatus === 'cancelled'}
                                     className="w-full text-sm"
-                                  >
-                                    {settingDriver ? (
-                                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                      </svg>
-                                    ) : (
-                                      'Select driver'
-                                    )}
-                                  </Button>
+                            >
+                              {settingDriver ? (
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                              ) : (
+                                'Select driver'
+                              )}
+                            </Button>
                                 ) : (
                                   <div className="text-xs text-muted-foreground text-center py-2">
                                     Waiting for quote
-                                  </div>
+                          </div>
                                 )}
                               </CardContent>
                             </Card>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
+                        );
+                      })}
+                    </div>
+                </>
               )}
+            </div>
+          )}
             </div>
           </div>
 
@@ -704,16 +704,16 @@ export function DriverQuotesModal({
                   </div>
                   {/* Button - Top Right */}
                   <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
-                    <Button
-                      onClick={() => {
-                        onClose();
-                        router.push(`/booking/${tripId}`);
-                      }}
+                <Button
+                  onClick={() => {
+                    onClose();
+                    router.push(`/booking/${tripId}`);
+                  }}
                       className="bg-[#E5E7EF] dark:bg-[#E5E7EF] text-[#05060A] dark:text-[#05060A] hover:bg-[#E5E7EF]/90 dark:hover:bg-[#E5E7EF]/90 text-sm sm:text-base"
-                    >
+                >
                       Book this trip
-                    </Button>
-                  </div>
+                </Button>
+              </div>
                   {/* Price - Bottom Right */}
                   {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
                     <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 flex flex-col gap-1 items-end">
