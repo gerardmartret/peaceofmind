@@ -234,7 +234,7 @@ export function DriverQuotesModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[1800px] min-w-[800px] sm:min-w-[1000px] max-h-[90vh] overflow-hidden flex flex-col p-0 relative">
+      <DialogContent className="max-w-[1800px] w-full sm:min-w-[1000px] max-h-[90vh] overflow-hidden flex flex-col p-0 relative">
         <DialogHeader className="relative p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex-shrink-0">
           {/* Driver assigned indicator - Top Right */}
           {driverEmail && driverEmail !== 'drivania' && (
@@ -690,32 +690,32 @@ export function DriverQuotesModal({
                 <CardContent className="pt-0 pb-0 px-2 sm:pt-1 sm:pb-0 sm:px-3">
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-col gap-2 flex-shrink-0 -mt-4 sm:-mt-3">
-                    <div className="flex flex-col gap-1 pl-4 sm:pl-6">
-                      <span className="text-[21.6px] sm:text-[24px] font-semibold text-primary-foreground dark:text-card-foreground">
+                    <div className="flex flex-col gap-1 pl-4 sm:pl-6 pr-20 sm:pr-32">
+                      <span className="text-lg sm:text-[24px] font-semibold text-primary-foreground dark:text-card-foreground">
                         Book a Trusted Driver Now
                       </span>
-                      <span className="text-sm text-primary-foreground/80 dark:text-card-foreground/80">
+                      <span className="text-xs sm:text-sm text-primary-foreground/80 dark:text-card-foreground/80">
                         Secure your driver and get an instant confirmation
                       </span>
                     </div>
                     {/* Vehicle Image */}
-                    <div className="flex justify-center sm:justify-start mt-0.5 sm:mt-1 -mb-2 sm:-mb-3 pb-0">
+                    <div className="flex justify-start mt-0.5 sm:mt-1 -mb-2 sm:-mb-3 pb-0">
                       <img
                         src={getVehicleImagePath()}
                         alt="Vehicle"
-                        className="h-[109.81px] sm:h-[146.41px] lg:h-[159.72px] w-auto object-contain"
+                        className="h-[80px] sm:h-[146.41px] lg:h-[159.72px] w-auto object-contain"
                         style={{ maxWidth: 'none' }}
                       />
                     </div>
                   </div>
                   {/* Button - Top Right */}
-                  <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-col items-end gap-4">
+                  <div className="absolute top-3 right-3 sm:top-6 sm:right-6 flex flex-col items-end gap-2 sm:gap-4">
                 <Button
                   onClick={() => {
                     onClose();
                     router.push(`/booking/${tripId}`);
                   }}
-                      className="bg-[#E5E7EF] dark:bg-[#E5E7EF] text-[#05060A] dark:text-[#05060A] hover:bg-[#E5E7EF]/90 dark:hover:bg-[#E5E7EF]/90 text-[16.1px] sm:text-[18.4px]"
+                      className="bg-[#E5E7EF] dark:bg-[#E5E7EF] text-[#05060A] dark:text-[#05060A] hover:bg-[#E5E7EF]/90 dark:hover:bg-[#E5E7EF]/90 text-sm sm:text-[18.4px] px-3 py-1.5 sm:px-4 sm:py-2"
                 >
                       Book this trip
                 </Button>
@@ -732,8 +732,8 @@ export function DriverQuotesModal({
               </div>
                   {/* Price - Bottom Right */}
                   {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
-                    <div className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 flex flex-col gap-1 items-end">
-                      <div className="text-xl sm:text-[1.62rem] font-medium text-primary-foreground dark:text-foreground">
+                    <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 flex flex-col gap-1 items-end">
+                      <div className="text-lg sm:text-[1.62rem] font-medium text-primary-foreground dark:text-foreground">
                         {(() => {
                           const formattedNumber = new Intl.NumberFormat('en-GB', {
                             minimumFractionDigits: 2,
