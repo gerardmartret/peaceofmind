@@ -574,6 +574,7 @@ export default function Home() {
       const validation = validateBusinessEmail(userEmail);
       if (!validation.isValid) {
         setEmailError(validation.error || null);
+        setSavingGuestTrip(false);
         return;
       }
 
@@ -581,6 +582,7 @@ export default function Home() {
       if (pendingTripData?.trip_destination && !isValidTripDestination(pendingTripData.trip_destination)) {
         console.error('❌ Invalid trip destination in pending trip:', pendingTripData.trip_destination);
         setError(`Invalid trip destination: "${pendingTripData.trip_destination}". Please select from the allowed destinations.`);
+        setSavingGuestTrip(false);
         return;
       }
 
@@ -594,58 +596,73 @@ export default function Home() {
         trip_destination: normalizedDestination,
       };
 
-      // Save user to database (guest - no auth_user_id)
-      const { error: userError } = await supabase
-        .from('users')
-        .upsert({
-          email: userEmail.trim(),
-          marketing_consent: true
-        }, { onConflict: 'email' });
+      // Use server-side API to create trip and send email atomically
+      console.log('💾 [GUEST-TRIP] Creating trip via server API...');
+      console.log('💾 [GUEST-TRIP] Trip data keys:', Object.keys(tripDataWithEmail));
+      console.log('💾 [GUEST-TRIP] Email:', userEmail.trim());
+      
+      let response;
+      let result;
+      
+      try {
+        response = await fetch('/api/create-guest-trip', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tripData: tripDataWithEmail,
+            email: userEmail.trim(),
+          }),
+        });
 
-      if (userError) {
-        console.error('❌ Error saving user:', userError);
-      }
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ [GUEST-TRIP] API response not OK:', response.status, errorText);
+          throw new Error(`API error: ${response.status} - ${errorText}`);
+        }
 
-      // Save trip to database
-      const { data: tripData, error: tripError } = await supabase
-        .from('trips')
-        .insert(tripDataWithEmail)
-        .select()
-        .single();
-
-      if (tripError || !tripData) {
-        console.error('❌ Error saving trip:', tripError);
-        setError('Failed to save trip. Please try again.');
+        result = await response.json();
+        console.log('📥 [GUEST-TRIP] API response received:', { success: result.success, emailSent: result.emailSent });
+      } catch (fetchError) {
+        console.error('❌ [GUEST-TRIP] Fetch error:', fetchError);
+        setError('Failed to connect to server. Please check your internet connection and try again.');
+        setSavingGuestTrip(false);
         return;
       }
 
-      console.log('✅ Guest trip saved to database');
+      if (!response.ok || !result.success) {
+        console.error('❌ [GUEST-TRIP] Error creating trip:', result.error || result.details);
+        setError(result.error || 'Failed to save trip. Please try again.');
+        setSavingGuestTrip(false);
+        return;
+      }
+
+      const tripData = result.trip;
+      console.log('✅ [GUEST-TRIP] Guest trip created successfully');
       console.log(`🔗 Trip ID: ${tripData.id}`);
       console.log(`📧 Guest email: ${userEmail}`);
+      console.log(`📧 [GUEST-TRIP] Email sent: ${result.emailSent ? 'YES' : 'NO'}`);
+      
+      // Check if email was sent - if not, show error but still allow redirect
+      if (!result.emailSent) {
+        const errorMsg = result.emailError || 'Email notification failed to send';
+        console.error('❌ [GUEST-TRIP] Email error:', errorMsg);
+        setError(`Trip created but email notification failed: ${errorMsg}. Please check your email or contact support.`);
+        setSavingGuestTrip(false);
+        // Still redirect but show error
+        setTimeout(() => {
+          router.push(`/results/${tripData.id}`);
+        }, 2000);
+        return;
+      }
 
       // Store trip ID in sessionStorage to identify guest as creator
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('guestCreatedTripId', tripData.id);
       }
 
-      // Send guest trip creation email (fire and forget - don't block redirect)
-      fetch('/api/send-guest-trip-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: userEmail.trim(),
-          destination: normalizedDestination || 'your destination',
-        }),
-      }).catch((err) => {
-        // Silently fail - email is not critical
-        if (process.env.NODE_ENV === 'development') {
-          console.log('⚠️ Failed to send guest trip email:', err);
-        }
-      });
-
-      // Redirect to results page immediately (don't clear pendingTripData first)
+      // Redirect to results page
       router.push(`/results/${tripData.id}`);
     } catch (err) {
       console.error('Error saving guest trip:', err);

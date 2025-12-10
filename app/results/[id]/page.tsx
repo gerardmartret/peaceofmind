@@ -1226,6 +1226,7 @@ export default function ResultsPage() {
     window.scrollTo(0, 0);
   }, []);
 
+
   // Track previous locations to detect changes
   const prevLocationsRef = useRef<string>('');
 

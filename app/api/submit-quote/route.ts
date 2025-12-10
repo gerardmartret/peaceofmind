@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
         // Link to results page with quote modal open
-        const tripLink = `${baseUrl}/results/${tripId}?quote=true`;
+        const tripLink = `${baseUrl}/results/${tripId}`;
 
         // Generate email HTML
         const html = quoteSubmittedTemplate({

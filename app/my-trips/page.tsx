@@ -164,7 +164,8 @@ export default function MyTripsPage() {
           <h1 className="text-3xl font-medium text-foreground">My trips</h1>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - only show when there are trips */}
+        {trips.length > 0 && (
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'drivania' | 'other-drivers')} className="mb-6">
           <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
             <TabsTrigger value="other-drivers" className="dark:data-[state=active]:bg-[#05060A]">My own drivers</TabsTrigger>
@@ -217,7 +218,7 @@ export default function MyTripsPage() {
               </div>
             </div>
             {otherDriversTrips.length > 0 && renderTripCards(otherDriversTrips, true)}
-            {otherDriversTrips.length === 0 && !loading && (
+            {otherDriversTrips.length === 0 && !loading && trips.length > 0 && (
               <Card>
                 <CardContent className="py-12 text-center">
                   <h3 className="text-lg font-semibold mb-2">No trips found</h3>
@@ -241,7 +242,7 @@ export default function MyTripsPage() {
               />
             </div>
             {drivaniaTrips.length > 0 && renderTripCards(drivaniaTrips, false)}
-            {drivaniaTrips.length === 0 && !loading && (
+            {drivaniaTrips.length === 0 && !loading && trips.length > 0 && (
               <Card>
                 <CardContent className="py-12 text-center">
                   <h3 className="text-lg font-semibold mb-2">No trips found</h3>
@@ -255,6 +256,7 @@ export default function MyTripsPage() {
             )}
           </TabsContent>
         </Tabs>
+        )}
 
         {/* Error Alert */}
         {error && (

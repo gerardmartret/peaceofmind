@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
@@ -20,7 +20,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasAttemptedWelcomeEmail, setHasAttemptedWelcomeEmail] = useState<Set<string>>(new Set());
+  // Use ref instead of state to prevent race conditions - refs update synchronously
+  const hasAttemptedWelcomeEmailRef = useRef<Set<string>>(new Set());
+  const isSendingWelcomeEmailRef = useRef<Set<string>>(new Set());
 
   // Send welcome email when email is confirmed (only once per user)
   useEffect(() => {
@@ -30,7 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Check if we've already attempted to send welcome email for this user in this session
-      if (hasAttemptedWelcomeEmail.has(currentUser.id)) {
+      if (hasAttemptedWelcomeEmailRef.current.has(currentUser.id)) {
+        console.log(`⏭️ [AUTH-CONTEXT] Already attempted welcome email for ${currentUser.id}`);
+        return;
+      }
+
+      // Check if we're currently sending (prevents concurrent calls)
+      if (isSendingWelcomeEmailRef.current.has(currentUser.id)) {
+        console.log(`⏳ [AUTH-CONTEXT] Welcome email send already in progress for ${currentUser.id}`);
         return;
       }
 
@@ -40,8 +49,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Mark as attempted immediately to prevent duplicate calls
-        setHasAttemptedWelcomeEmail((prev) => new Set(prev).add(currentUser.id));
+        // Mark as sending immediately (synchronous ref update prevents race conditions)
+        isSendingWelcomeEmailRef.current.add(currentUser.id);
+        console.log(`📧 [AUTH-CONTEXT] Attempting to send welcome email for ${currentUser.id}`);
 
         const response = await fetch('/api/send-welcome-email', {
           method: 'POST',
@@ -54,20 +64,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (response.ok) {
           const result = await response.json();
-          if (process.env.NODE_ENV === 'development') {
-            if (result.alreadySent) {
-              console.log('⚠️ Welcome email was already sent previously');
-            } else {
-              console.log('✅ Welcome email sent');
-            }
+          // Mark as attempted (email was sent or already sent)
+          hasAttemptedWelcomeEmailRef.current.add(currentUser.id);
+          if (result.alreadySent) {
+            console.log('⚠️ [AUTH-CONTEXT] Welcome email was already sent previously');
+          } else {
+            console.log('✅ [AUTH-CONTEXT] Welcome email sent successfully');
           }
         } else {
-          // If it failed, remove from attempted set so we can retry later if needed
-          setHasAttemptedWelcomeEmail((prev) => {
-            const next = new Set(prev);
-            next.delete(currentUser.id);
-            return next;
-          });
+          // If it failed, remove from sending set so we can retry later if needed
+          isSendingWelcomeEmailRef.current.delete(currentUser.id);
           // Don't log errors for welcome email - it's not critical
           if (process.env.NODE_ENV === 'development') {
             const result = await response.json();
@@ -75,16 +81,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (error) {
-        // If it failed, remove from attempted set so we can retry later if needed
-        setHasAttemptedWelcomeEmail((prev) => {
-          const next = new Set(prev);
-          next.delete(currentUser.id);
-          return next;
-        });
+        // If it failed, remove from sending set so we can retry later if needed
+        isSendingWelcomeEmailRef.current.delete(currentUser.id);
         // Silently fail - welcome email is not critical
         if (process.env.NODE_ENV === 'development') {
           console.log('⚠️ Failed to send welcome email:', error);
         }
+      } finally {
+        // Always remove from sending set when done
+        isSendingWelcomeEmailRef.current.delete(currentUser.id);
       }
     };
 

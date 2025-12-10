@@ -5,8 +5,12 @@ import { welcomeTemplate } from '@/lib/emails/templates/welcome';
 import { WELCOME } from '@/lib/emails/content';
 
 export async function POST(request: NextRequest) {
+  const requestId = Math.random().toString(36).substring(7);
+  const body = await request.json();
+  const { userId } = body;
+  console.log(`🔵 [WELCOME-EMAIL-${requestId}] Request received for userId: ${userId}`);
+  
   try {
-    const { userId } = await request.json();
 
     if (!userId) {
       return NextResponse.json(
@@ -58,25 +62,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if welcome email was already sent
-    const { data: userRecord, error: userError } = await supabase
+    // SIMPLEST POSSIBLE APPROACH:
+    // 1. Check if already sent - if yes, return immediately
+    // 2. Try to update from null/false to true
+    // 3. If update succeeded, we're the first - send email
+    // 4. If update failed (no rows), check again - if true now, someone else sent it
+
+    console.log(`🔵 [WELCOME-EMAIL-${requestId}] Checking status for ${user.email}`);
+    const { data: checkBefore } = await supabase
       .from('users')
       .select('welcome_email_sent')
       .eq('email', user.email)
-      .single();
+      .maybeSingle();
 
-    if (userError && userError.code !== 'PGRST116') {
-      // PGRST116 is "not found" - that's okay, we'll create the record
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Error checking user record:', userError);
-      }
-    }
+    console.log(`🔵 [WELCOME-EMAIL-${requestId}] Current status: ${checkBefore?.welcome_email_sent ?? 'null'}`);
 
-    // If welcome email was already sent, return early
-    if (userRecord?.welcome_email_sent) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`⚠️ Welcome email already sent to ${user.email}`);
-      }
+    if (checkBefore?.welcome_email_sent === true) {
+      console.log(`⚠️ [WELCOME-EMAIL-${requestId}] Already sent to ${user.email}`);
       return NextResponse.json({ 
         success: true, 
         message: 'Welcome email was already sent',
@@ -84,9 +86,77 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`📧 Sending welcome email to ${user.email}`);
+    // Try to update: only succeeds if welcome_email_sent is null or false
+    // This is as atomic as we can get with Supabase client
+    const wasNull = checkBefore?.welcome_email_sent === null;
+    const wasFalse = checkBefore?.welcome_email_sent === false;
+
+    let updateSucceeded = false;
+
+    if (wasNull) {
+      console.log(`🔵 [WELCOME-EMAIL-${requestId}] Attempting to update from null`);
+      const { data: updated, error: updateError } = await supabase
+        .from('users')
+        .update({ welcome_email_sent: true, updated_at: new Date().toISOString() })
+        .eq('email', user.email)
+        .is('welcome_email_sent', null)
+        .select('welcome_email_sent')
+        .maybeSingle();
+      
+      console.log(`🔵 [WELCOME-EMAIL-${requestId}] Update result: ${updated ? 'SUCCESS' : 'FAILED'}`, updateError ? `Error: ${updateError.message}` : '');
+      updateSucceeded = !!updated;
+    } else if (wasFalse) {
+      console.log(`🔵 [WELCOME-EMAIL-${requestId}] Attempting to update from false`);
+      const { data: updated, error: updateError } = await supabase
+        .from('users')
+        .update({ welcome_email_sent: true, updated_at: new Date().toISOString() })
+        .eq('email', user.email)
+        .eq('welcome_email_sent', false)
+        .select('welcome_email_sent')
+        .maybeSingle();
+      
+      console.log(`🔵 [WELCOME-EMAIL-${requestId}] Update result: ${updated ? 'SUCCESS' : 'FAILED'}`, updateError ? `Error: ${updateError.message}` : '');
+      updateSucceeded = !!updated;
+    } else if (!checkBefore) {
+      // User doesn't exist - create with flag set
+      const { error: createError } = await supabase
+        .from('users')
+        .upsert({
+          email: user.email,
+          welcome_email_sent: true,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'email' });
+      
+      updateSucceeded = !createError;
     }
+
+    // If update didn't succeed, check if another request set it
+    if (!updateSucceeded) {
+      const { data: checkAfter } = await supabase
+        .from('users')
+        .select('welcome_email_sent')
+        .eq('email', user.email)
+        .maybeSingle();
+
+      if (checkAfter?.welcome_email_sent === true) {
+        console.log(`⚠️ [WELCOME-EMAIL-${requestId}] Another request sent it first for ${user.email}`);
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Welcome email was already sent',
+          alreadySent: true
+        });
+      }
+
+      console.error(`❌ [WELCOME-EMAIL] Failed to set flag for ${user.email}`);
+      return NextResponse.json(
+        { success: false, error: 'Failed to update user record' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`✅ [WELCOME-EMAIL-${requestId}] Successfully claimed send right for ${user.email}`);
+
+    console.log(`📧 [WELCOME-EMAIL-${requestId}] Sending welcome email to ${user.email}`);
 
     // Get base URL for home page link
     const host = request.headers.get('host') || 'localhost:3000';
@@ -105,9 +175,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Error sending welcome email:', result.error);
-      }
+      console.error('❌ [WELCOME-EMAIL] Error sending:', result.error);
       return NextResponse.json(
         { 
           success: false, 
@@ -118,27 +186,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mark welcome email as sent in the database
-    const { error: updateError } = await supabase
-      .from('users')
-      .upsert({
-        email: user.email,
-        welcome_email_sent: true,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'email'
-      });
 
-    if (updateError) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Error updating welcome_email_sent flag:', updateError);
-      }
-      // Don't fail the request if we can't update the flag - email was sent successfully
-    }
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`✅ Welcome email sent to ${user.email}`);
-    }
+    console.log(`✅ [WELCOME-EMAIL-${requestId}] Sent successfully to ${user.email} (ID: ${result.emailId || 'N/A'})`);
     
     return NextResponse.json({ 
       success: true, 
@@ -146,9 +195,7 @@ export async function POST(request: NextRequest) {
       emailId: result.emailId
     });
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('❌ Error in send-welcome-email API:', error);
-    }
+    console.error('❌ [WELCOME-EMAIL] API error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
