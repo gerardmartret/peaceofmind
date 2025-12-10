@@ -286,3 +286,4 @@ export function getVehicleDisplayName(trip: Trip): string {
   return getDisplayVehicle(requestedVehicle, passengerCount);
 }
 
+

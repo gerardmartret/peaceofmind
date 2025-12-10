@@ -47,7 +47,96 @@ export interface ExecutiveReport {
   importantInformation?: string;
 }
 
-export async function generateExecutiveReport(
+// ============================================================================
+// Helper Functions (Extracted for better maintainability)
+// ============================================================================
+
+/**
+ * Logs the start of report generation with all input parameters
+ */
+function logReportGeneration(
+  tripData: Array<{ locationName: string; time: string; [key: string]: any }>,
+  tripDate: string,
+  routeDistance: number | undefined,
+  routeDuration: number | undefined,
+  trafficPredictions: Array<{ minutes: number; minutesNoTraffic: number }> | undefined,
+  leadPassengerName: string | undefined,
+  vehicleInfo: string | undefined,
+  passengerCount: number | undefined,
+  cityConfig: ReturnType<typeof getCityConfig>,
+  passengerNames: string[] | undefined,
+  driverNotes: string | undefined
+): void {
+  console.log('\n' + '='.repeat(80));
+  console.log('🤖 GENERATING EXECUTIVE PEACE OF MIND REPORT WITH GPT-4O-MINI...');
+  console.log('='.repeat(80));
+  console.log(`📅 Trip Date: ${tripDate}`);
+  console.log(`👤 Lead Passenger Name: ${leadPassengerName}`);
+  console.log(`🚗 Vehicle Info: ${vehicleInfo}`);
+  console.log(`👥 Passenger Count: ${passengerCount}`);
+  console.log(`🏙️ Trip Destination: ${cityConfig.cityName}`);
+  console.log(`🌍 City Mode: ${cityConfig.isLondon ? 'London (Full APIs)' : `${cityConfig.cityName} (Limited APIs)`}`);
+  console.log(`👤 Passenger Names: ${passengerNames}`);
+  console.log(`📝 Driver Notes: ${driverNotes}`);
+  console.log(`📍 Locations: ${tripData.length}`);
+  if (routeDistance) console.log(`🚗 Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} min`);
+  if (trafficPredictions) {
+    const totalTrafficDelay = trafficPredictions.reduce((sum, leg) => sum + (leg.minutes - leg.minutesNoTraffic), 0);
+    console.log(`🚦 Traffic Predictions: ${trafficPredictions.length} legs, +${totalTrafficDelay} min delay`);
+  }
+}
+
+/**
+ * Logs API call details and response information
+ */
+function logApiCall(
+  prompt: string,
+  completion: any,
+  responseText: string
+): void {
+  console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
+  console.log(`📏 Prompt length: ${prompt.length} characters`);
+  console.log(`\n🔧 Model: ${completion.model}`);
+  console.log(`📊 Tokens: ${completion.usage?.total_tokens} (prompt: ${completion.usage?.prompt_tokens}, completion: ${completion.usage?.completion_tokens})`);
+  console.log(`💰 Estimated cost: $${((completion.usage?.prompt_tokens || 0) * 0.15 / 1000000 + (completion.usage?.completion_tokens || 0) * 0.60 / 1000000).toFixed(6)}`);
+  console.log(`📏 Response length: ${responseText.length} characters`);
+  console.log(`\n📝 GPT-4o-mini Response (first 500 chars):`);
+  console.log(responseText.substring(0, 500));
+  console.log('...');
+  console.log(`📝 GPT-4o-mini Response (last 200 chars):`);
+  console.log('...' + responseText.substring(Math.max(0, responseText.length - 200)));
+  console.log('\n');
+
+  // Check if response was truncated
+  if (completion.choices[0]?.finish_reason === 'length') {
+    console.warn('⚠️ WARNING: Response was truncated due to max_tokens limit!');
+    console.warn('   This may result in incomplete JSON. Consider increasing max_tokens.');
+  }
+}
+
+/**
+ * Logs the completion of report generation with summary
+ */
+function logReportComplete(report: ExecutiveReport): void {
+  console.log('🔍 Validating report fields...');
+  console.log(`   - exceptionalInformation: ${typeof report.exceptionalInformation} (${report.exceptionalInformation ? 'exists' : 'empty'})`);
+  console.log(`   - importantInformation: ${typeof report.importantInformation} (${report.importantInformation ? 'exists' : 'empty'})`);
+  console.log(`   - recommendations: array of ${report.recommendations?.length || 0} items`);
+  console.log(`   - highlights: array of ${report.highlights?.length || 0} items`);
+
+  console.log(`\n✅ Executive Report Generated!`);
+  console.log(`🎯 Trip Risk Score: ${report.tripRiskScore}/10`);
+  console.log(`📝 Risk Explanation: ${report.riskScoreExplanation.substring(0, 100)}...`);
+  console.log(`⚠️ Top Disruptor: ${report.topDisruptor.substring(0, 100)}...`);
+  console.log(`📋 Highlights: ${report.highlights.length}`);
+  console.log(`💡 Recommendations: ${report.recommendations.length}`);
+  console.log('='.repeat(80) + '\n');
+}
+
+/**
+ * Prepares location data summary for GPT prompt (conditional based on city)
+ */
+function prepareReportData(
   tripData: Array<{
     locationName: string;
     time: string;
@@ -58,9 +147,74 @@ export async function generateExecutiveReport(
     parking: any;
     cafes: any;
   }>,
-  tripDate: string,
-  routeDistance?: number,
-  routeDuration?: number,
+  cityConfig: ReturnType<typeof getCityConfig>
+): Array<{
+  stop: number;
+  location: string;
+  time: string;
+  weatherSummary: string;
+  eventsCount: number;
+  events: string[];
+  premiumCafes: number;
+  topCafes: string[];
+  cafesAverageRating: number;
+  safetyScore?: number;
+  totalCrimes?: number;
+  topCrimes?: string[];
+  trafficDisruptions?: number;
+  moderateDisruptions?: number;
+  topDisruptions?: string[];
+  parkingRiskScore?: number;
+  nearbyCarParks?: number;
+  nearestParkingDistance?: string;
+  cpzRestrictions?: string;
+}> {
+  return tripData.map((loc, idx) => {
+    // Base data available for all cities
+    const base = {
+      stop: idx + 1,
+      location: loc.locationName,
+      time: loc.time,
+      weatherSummary: loc.weather?.summary ? `${loc.weather.summary.avgMinTemp}°C-${loc.weather.summary.avgMaxTemp}°C, ${loc.weather.summary.rainyDays} rainy days` : 'Weather data unavailable',
+      eventsCount: loc.events?.summary?.total || 0,
+      events: loc.events?.events?.map((e: any) => `${e.title} (${e.severity})`) || [],
+      premiumCafes: loc.cafes?.cafes?.length || 0,
+      topCafes: loc.cafes?.cafes?.slice(0, 3).map((c: any) => `${c.name} (${c.rating}⭐, ${'$'.repeat(c.priceLevel)}, ${Math.round(c.distance)}m)`) || [],
+      cafesAverageRating: loc.cafes?.summary?.averageRating || 0,
+    };
+
+    // Add London-specific fields only for London
+    if (cityConfig.isLondon) {
+      return {
+        ...base,
+        safetyScore: loc.crime?.safetyScore || 0,
+        totalCrimes: loc.crime?.summary?.totalCrimes || 0,
+        topCrimes: loc.crime?.summary?.topCategories?.slice(0, 3).map((c: any) => `${c.category} (${c.count})`) || [],
+        trafficDisruptions: loc.disruptions?.analysis?.total || 0,
+        moderateDisruptions: loc.disruptions?.analysis?.bySeverity?.['Moderate'] || 0,
+        topDisruptions: loc.disruptions?.disruptions?.slice(0, 2).map((d: any) => d.location) || [],
+        parkingRiskScore: loc.parking?.parkingRiskScore || 0,
+        nearbyCarParks: loc.parking?.summary?.totalNearby || 0,
+        nearestParkingDistance: loc.parking?.carParks?.[0]?.distance || 'None within 1km',
+        cpzRestrictions: loc.parking?.cpzInfo?.inCPZ
+          ? `${loc.parking.cpzInfo.zoneName} - ${loc.parking.cpzInfo.operatingHours} (${loc.parking.cpzInfo.chargeInfo})`
+          : 'No CPZ restrictions',
+      };
+    }
+
+    return base;
+  });
+}
+
+/**
+ * Builds the complete prompt for GPT-4o-mini report generation
+ */
+function buildReportPrompt(params: {
+  cityConfig: ReturnType<typeof getCityConfig>;
+  tripData: Array<{ locationName: string; time: string; [key: string]: any }>;
+  tripDate: string;
+  routeDistance?: number;
+  routeDuration?: number;
   trafficPredictions?: Array<{
     leg: string;
     minutes: number;
@@ -69,79 +223,35 @@ export async function generateExecutiveReport(
     originName: string;
     destinationName: string;
     departureTime: string;
-  }>,
-  emailContent?: string,
-  leadPassengerName?: string,
-  vehicleInfo?: string,
-  passengerCount?: number,
-  tripDestination?: string,
-  passengerNames?: string[],
-  driverNotes?: string
-): Promise<ExecutiveReport> {
-  // Get city configuration for conditional analysis
-  const cityConfig = getCityConfig(tripDestination);
-  try {
-    console.log('\n' + '='.repeat(80));
-    console.log('🤖 GENERATING EXECUTIVE PEACE OF MIND REPORT WITH GPT-4O-MINI...');
-    console.log('='.repeat(80));
-    console.log(`📅 Trip Date: ${tripDate}`);
-    console.log(`👤 Lead Passenger Name: ${leadPassengerName}`);
-    console.log(`🚗 Vehicle Info: ${vehicleInfo}`);
-    console.log(`👥 Passenger Count: ${passengerCount}`);
-    console.log(`🏙️ Trip Destination: ${cityConfig.cityName}`);
-    console.log(`🌍 City Mode: ${cityConfig.isLondon ? 'London (Full APIs)' : `${cityConfig.cityName} (Limited APIs)`}`);
-    console.log(`👤 Passenger Names: ${passengerNames}`);
-    console.log(`📝 Driver Notes: ${driverNotes}`);
-    console.log(`📍 Locations: ${tripData.length}`);
-    if (routeDistance) console.log(`🚗 Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} min`);
-    if (trafficPredictions) {
-      const totalTrafficDelay = trafficPredictions.reduce((sum, leg) => sum + (leg.minutes - leg.minutesNoTraffic), 0);
-      console.log(`🚦 Traffic Predictions: ${trafficPredictions.length} legs, +${totalTrafficDelay} min delay`);
-    }
+  }>;
+  emailContent?: string;
+  leadPassengerName?: string;
+  vehicleInfo?: string;
+  passengerCount?: number;
+  tripDestination?: string;
+  passengerNames?: string[];
+  driverNotes?: string;
+  dataSummary: ReturnType<typeof prepareReportData>;
+  tripNotesBulletCount: number;
+}): string {
+  const {
+    cityConfig,
+    tripDate,
+    routeDistance,
+    routeDuration,
+    trafficPredictions,
+    emailContent,
+    leadPassengerName,
+    vehicleInfo,
+    passengerCount,
+    tripDestination,
+    passengerNames,
+    driverNotes,
+    dataSummary,
+    tripNotesBulletCount,
+  } = params;
 
-    // Prepare data summary for GPT (conditional based on city)
-    const dataSummary = tripData.map((loc, idx) => {
-      // Base data available for all cities
-      const base = {
-        stop: idx + 1,
-        location: loc.locationName,
-        time: loc.time,
-        weatherSummary: loc.weather?.summary ? `${loc.weather.summary.avgMinTemp}°C-${loc.weather.summary.avgMaxTemp}°C, ${loc.weather.summary.rainyDays} rainy days` : 'Weather data unavailable',
-        eventsCount: loc.events?.summary?.total || 0,
-        events: loc.events?.events?.map((e: any) => `${e.title} (${e.severity})`) || [],
-        premiumCafes: loc.cafes?.cafes?.length || 0,
-        topCafes: loc.cafes?.cafes?.slice(0, 3).map((c: any) => `${c.name} (${c.rating}⭐, ${'$'.repeat(c.priceLevel)}, ${Math.round(c.distance)}m)`) || [],
-        cafesAverageRating: loc.cafes?.summary?.averageRating || 0,
-      };
-
-      // Add London-specific fields only for London
-      if (cityConfig.isLondon) {
-        return {
-          ...base,
-          safetyScore: loc.crime?.safetyScore || 0,
-          totalCrimes: loc.crime?.summary?.totalCrimes || 0,
-          topCrimes: loc.crime?.summary?.topCategories?.slice(0, 3).map((c: any) => `${c.category} (${c.count})`) || [],
-          trafficDisruptions: loc.disruptions?.analysis?.total || 0,
-          moderateDisruptions: loc.disruptions?.analysis?.bySeverity?.['Moderate'] || 0,
-          topDisruptions: loc.disruptions?.disruptions?.slice(0, 2).map((d: any) => d.location) || [],
-          parkingRiskScore: loc.parking?.parkingRiskScore || 0,
-          nearbyCarParks: loc.parking?.summary?.totalNearby || 0,
-          nearestParkingDistance: loc.parking?.carParks?.[0]?.distance || 'None within 1km',
-          cpzRestrictions: loc.parking?.cpzInfo?.inCPZ
-            ? `${loc.parking.cpzInfo.zoneName} - ${loc.parking.cpzInfo.operatingHours} (${loc.parking.cpzInfo.chargeInfo})`
-            : 'No CPZ restrictions',
-        };
-      }
-
-      return base;
-    });
-
-    // Count trip notes bullet points for validation
-    const tripNotesBulletCount = driverNotes 
-      ? driverNotes.split('\n').map(line => line.trim()).filter(line => line.length > 0).length 
-      : 0;
-
-    const prompt = `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in ${cityConfig.cityName}.
+  return `You are an executive security analyst preparing a "Peace of Mind" report for a VIP client traveling in ${cityConfig.cityName}.
 
 PASSENGER INFORMATION:
 ${(() => {
@@ -186,7 +296,7 @@ ${emailContent}
 ` : ''}TRIP DETAILS:
 Date: ${tripDate}
 ${routeDistance ? `Route: ${routeDistance} km, ${Math.round(routeDuration || 0)} minutes` : ''}
-Locations: ${tripData.length} stops
+Locations: ${params.tripData.length} stops
 
 ${trafficPredictions ? `TRAFFIC PREDICTIONS:
 ${JSON.stringify(trafficPredictions.map(leg => ({
@@ -302,22 +412,201 @@ ${driverNotes ? `TRIP NOTES EXTRACTION REQUIREMENTS:
 - Crime: safety precautions, locking protocols, area cautions
 - Weather: preparation needs, vehicle pre-conditioning
 - Parking: CPZ restrictions, car park locations, cost info`;
+}
 
-    // Use GPT-4o-mini for comprehensive executive analysis (proven working, 90% cost reduction)
-    console.log('🤖 Calling GPT-4o-mini for AI-powered analysis...');
-    console.log(`📏 Prompt length: ${prompt.length} characters`);
-    
-    // Retry logic for incomplete extraction
-    const maxRetries = 3;
-    let report!: ExecutiveReport; // Definite assignment assertion - will be assigned in loop or error thrown
-    let attempt = 0;
-    
-    while (attempt < maxRetries) {
-      attempt++;
-      if (attempt > 1) {
-        console.log(`\n🔄 Retry attempt ${attempt}/${maxRetries} - Previous extraction was incomplete`);
+/**
+ * Cleans JSON string to fix common issues from GPT responses
+ */
+function cleanJsonString(json: string): string {
+  // Remove trailing commas before closing braces/brackets
+  // Match: ,\s*} or ,\s*]
+  json = json.replace(/,(\s*[}\]])/g, '$1');
+
+  // Remove trailing commas in arrays/objects (more aggressive)
+  // This handles cases like: "key": "value",} or "key": "value",]
+  json = json.replace(/,(\s*[}\]])/g, '$1');
+
+  // Remove comments (single line and multi-line)
+  json = json.replace(/\/\/.*$/gm, '');
+  json = json.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  return json.trim();
+}
+
+/**
+ * Parses GPT response and extracts ExecutiveReport JSON
+ * Throws errors if parsing fails (retry loop will handle)
+ */
+function parseReportResponse(
+  responseText: string,
+  attempt: number,
+  completion: any
+): ExecutiveReport {
+  // Extract JSON from response - GPT-4o-mini may wrap in markdown
+  let jsonText = responseText;
+
+  // Remove markdown code blocks
+  jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+
+  // Try to find complete JSON object
+  let jsonMatch = jsonText.match(/\{[\s\S]*"tripRiskScore"[\s\S]*\}/);
+
+  if (!jsonMatch) {
+    console.error('❌ No JSON found in response');
+    console.error('❌ Full response:', responseText);
+    console.error('❌ Response was likely truncated or malformed');
+    throw new Error('No JSON found in GPT response - response may have been truncated');
+  }
+
+  // Ensure complete JSON by balancing braces
+  let startIndex = jsonMatch.index!;
+  let braceCount = 0;
+  let endIndex = startIndex;
+
+  for (let i = startIndex; i < jsonText.length; i++) {
+    if (jsonText[i] === '{') braceCount++;
+    if (jsonText[i] === '}') {
+      braceCount--;
+      if (braceCount === 0) {
+        endIndex = i + 1;
+        break;
       }
-      
+    }
+  }
+
+  let jsonString = jsonText.substring(startIndex, endIndex);
+  console.log('✅ JSON extracted successfully');
+  console.log(`📏 JSON length: ${jsonString.length} characters`);
+
+  // Clean up common JSON issues from GPT responses
+  jsonString = cleanJsonString(jsonString);
+
+  try {
+    const report = JSON.parse(jsonString);
+    return report;
+  } catch (parseError) {
+    console.error('❌ JSON parse error:', parseError);
+    console.error('❌ JSON string (first 500 chars):', jsonString.substring(0, 500));
+    console.error('❌ JSON string (last 500 chars):', jsonString.substring(Math.max(0, jsonString.length - 500)));
+    throw new Error(`Failed to parse JSON from GPT response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+  }
+}
+
+/**
+ * Post-processes report: adds asterisk-marked items and fixes type issues
+ */
+function postProcessReport(
+  report: ExecutiveReport,
+  driverNotes?: string
+): ExecutiveReport {
+  // Extract bullet points ending with * from driverNotes and add to exceptional information
+  if (driverNotes) {
+    const exceptionalFromAsterisk = extractExceptionalFromAsterisk(driverNotes);
+    if (exceptionalFromAsterisk) {
+      console.log('⭐ Found bullet points ending with *:', exceptionalFromAsterisk);
+      // Merge with existing exceptional information
+      if (report.exceptionalInformation && report.exceptionalInformation.trim()) {
+        report.exceptionalInformation = `${report.exceptionalInformation}\n${exceptionalFromAsterisk}`;
+      } else {
+        report.exceptionalInformation = exceptionalFromAsterisk;
+      }
+      console.log('✅ Added asterisk-marked items to exceptional information');
+    }
+  }
+
+  // VALIDATION: Check if importantInformation is an object instead of string
+  if (report.importantInformation && typeof report.importantInformation === 'object') {
+    console.error('❌ ERROR: importantInformation is an object, expected string!');
+    console.error('   Value:', JSON.stringify(report.importantInformation, null, 2));
+    // Convert object to string format
+    const infoObj = report.importantInformation as any;
+    const sections = Object.entries(infoObj).map(([key, value]) => `${key}:\n- ${value}`).join('\n\n');
+    report.importantInformation = sections;
+    console.log('✅ Converted importantInformation to string format');
+  }
+
+  return report;
+}
+
+/**
+ * Validates that all trip notes bullet points were extracted
+ * Returns true if extraction is complete, false if incomplete
+ */
+function validateExtraction(
+  report: ExecutiveReport,
+  driverNotes?: string,
+  attempt: number
+): boolean {
+  if (!driverNotes || !driverNotes.trim()) {
+    return true; // No notes to validate
+  }
+
+  const inputBullets = driverNotes
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  const exceptionalBullets = (report.exceptionalInformation || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  const importantBullets = (report.importantInformation || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  const totalExtracted = exceptionalBullets.length + importantBullets.length;
+
+  // Check for suspiciously long lines that might indicate combined items
+  const allExtracted = [...exceptionalBullets, ...importantBullets];
+  const longLines = allExtracted.filter(line => line.length > 200);
+  if (longLines.length > 0) {
+    console.warn(`\n⚠️ WARNING: Found ${longLines.length} suspiciously long line(s) that may contain combined items:`);
+    longLines.forEach((line, idx) => console.warn(`   ${idx + 1}. ${line.substring(0, 100)}...`));
+  }
+
+  console.log(`\n📊 TRIP NOTES EXTRACTION VALIDATION (Attempt ${attempt}):`);
+  console.log(`   Input bullet points: ${inputBullets.length}`);
+  console.log(`   Exceptional items: ${exceptionalBullets.length}`);
+  console.log(`   Important items: ${importantBullets.length}`);
+  console.log(`   Total extracted: ${totalExtracted}`);
+
+  if (totalExtracted !== inputBullets.length) {
+    console.error(`\n❌ EXTRACTION INCOMPLETE!`);
+    console.error(`   Expected ${inputBullets.length} items, got ${totalExtracted} items`);
+    console.error(`   Missing: ${inputBullets.length - totalExtracted} items`);
+    console.error(`\n   Input bullets:`);
+    inputBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+    console.error(`\n   Exceptional output:`);
+    exceptionalBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+    console.error(`\n   Important output:`);
+    importantBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
+    return false;
+  }
+
+  console.log(`✅ All ${inputBullets.length} bullet points successfully extracted and categorized`);
+  return true;
+}
+
+/**
+ * Generates report with retry logic for incomplete extraction or parse errors
+ */
+async function generateReportWithRetry(
+  prompt: string,
+  driverNotes?: string,
+  maxRetries: number = 3
+): Promise<ExecutiveReport> {
+  let report!: ExecutiveReport;
+  let attempt = 0;
+
+  while (attempt < maxRetries) {
+    attempt++;
+    if (attempt > 1) {
+      console.log(`\n🔄 Retry attempt ${attempt}/${maxRetries} - Previous extraction was incomplete`);
+    }
+
+    try {
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
@@ -327,201 +616,123 @@ ${driverNotes ? `TRIP NOTES EXTRACTION REQUIREMENTS:
 
       const responseText = completion.choices[0]?.message?.content || '';
 
-      console.log(`\n🔧 Model: ${completion.model}`);
-      console.log(`📊 Tokens: ${completion.usage?.total_tokens} (prompt: ${completion.usage?.prompt_tokens}, completion: ${completion.usage?.completion_tokens})`);
-      console.log(`💰 Estimated cost: $${((completion.usage?.prompt_tokens || 0) * 0.15 / 1000000 + (completion.usage?.completion_tokens || 0) * 0.60 / 1000000).toFixed(6)}`);
-      console.log(`📏 Response length: ${responseText.length} characters`);
-      console.log(`\n📝 GPT-4o-mini Response (first 500 chars):`);
-      console.log(responseText.substring(0, 500));
-      console.log('...');
-      console.log(`📝 GPT-4o-mini Response (last 200 chars):`);
-      console.log('...' + responseText.substring(Math.max(0, responseText.length - 200)));
-      console.log('\n');
+      // Log API call details
+      logApiCall(prompt, completion, responseText);
 
-      // Check if response was truncated
-      if (completion.choices[0]?.finish_reason === 'length') {
-        console.warn('⚠️ WARNING: Response was truncated due to max_tokens limit!');
-        console.warn('   This may result in incomplete JSON. Consider increasing max_tokens.');
+      // Parse response (throws on error)
+      report = parseReportResponse(responseText, attempt, completion);
+
+      // Post-process
+      report = postProcessReport(report, driverNotes);
+
+      // Validate extraction
+      const extractionComplete = validateExtraction(report, driverNotes, attempt);
+
+      if (extractionComplete) {
+        break; // Success!
       }
 
-      /**
-       * Clean JSON string to fix common issues from GPT responses
-       */
-      function cleanJsonString(json: string): string {
-        // Remove trailing commas before closing braces/brackets
-        // Match: ,\s*} or ,\s*]
-        json = json.replace(/,(\s*[}\]])/g, '$1');
-
-        // Remove trailing commas in arrays/objects (more aggressive)
-        // This handles cases like: "key": "value",} or "key": "value",]
-        json = json.replace(/,(\s*[}\]])/g, '$1');
-
-        // Remove comments (single line and multi-line)
-        json = json.replace(/\/\/.*$/gm, '');
-        json = json.replace(/\/\*[\s\S]*?\*\//g, '');
-
-        return json.trim();
+      // If incomplete and more retries available, continue loop
+      if (attempt < maxRetries) {
+        console.log(`\n🔄 Will retry extraction...`);
+        continue;
+      } else {
+        console.error(`\n⚠️ WARNING: Maximum retries reached. Proceeding with incomplete extraction.`);
       }
-
-      // Extract JSON from response - GPT-4o-mini may wrap in markdown
-      let jsonText = responseText;
-
-      // Remove markdown code blocks
-      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-
-      // Try to find complete JSON object
-      let jsonMatch = jsonText.match(/\{[\s\S]*"tripRiskScore"[\s\S]*\}/);
-
-      if (!jsonMatch) {
-        console.error('❌ No JSON found in response');
-        console.error('❌ Full response:', responseText);
-        console.error('❌ Response was likely truncated or malformed');
-        if (attempt < maxRetries) {
-          console.log(`\n🔄 Will retry...`);
-          continue;
-        }
-        throw new Error('No JSON found in GPT response - response may have been truncated');
+    } catch (error) {
+      // Parse errors or API errors
+      if (attempt < maxRetries) {
+        console.log(`\n🔄 Will retry...`);
+        continue;
       }
-
-      // Ensure complete JSON by balancing braces
-      let startIndex = jsonMatch.index!;
-      let braceCount = 0;
-      let endIndex = startIndex;
-
-      for (let i = startIndex; i < jsonText.length; i++) {
-        if (jsonText[i] === '{') braceCount++;
-        if (jsonText[i] === '}') {
-          braceCount--;
-          if (braceCount === 0) {
-            endIndex = i + 1;
-            break;
-          }
-        }
-      }
-
-      let jsonString = jsonText.substring(startIndex, endIndex);
-      console.log('✅ JSON extracted successfully');
-      console.log(`📏 JSON length: ${jsonString.length} characters`);
-
-      // Clean up common JSON issues from GPT responses
-      jsonString = cleanJsonString(jsonString);
-
-      try {
-        report = JSON.parse(jsonString);
-      } catch (parseError) {
-        console.error('❌ JSON parse error:', parseError);
-        console.error('❌ JSON string (first 500 chars):', jsonString.substring(0, 500));
-        console.error('❌ JSON string (last 500 chars):', jsonString.substring(Math.max(0, jsonString.length - 500)));
-        if (attempt < maxRetries) {
-          console.log(`\n🔄 Will retry...`);
-          continue;
-        }
-        throw new Error(`Failed to parse JSON from GPT response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
-      }
-
-      // Extract bullet points ending with * from driverNotes and add to exceptional information
-      if (driverNotes) {
-        const exceptionalFromAsterisk = extractExceptionalFromAsterisk(driverNotes);
-        if (exceptionalFromAsterisk) {
-          console.log('⭐ Found bullet points ending with *:', exceptionalFromAsterisk);
-          // Merge with existing exceptional information
-          if (report.exceptionalInformation && report.exceptionalInformation.trim()) {
-            report.exceptionalInformation = `${report.exceptionalInformation}\n${exceptionalFromAsterisk}`;
-          } else {
-            report.exceptionalInformation = exceptionalFromAsterisk;
-          }
-          console.log('✅ Added asterisk-marked items to exceptional information');
-        }
-      }
-
-      // VALIDATION: Check if importantInformation is an object instead of string
-      if (report.importantInformation && typeof report.importantInformation === 'object') {
-        console.error('❌ ERROR: importantInformation is an object, expected string!');
-        console.error('   Value:', JSON.stringify(report.importantInformation, null, 2));
-        // Convert object to string format
-        const infoObj = report.importantInformation as any;
-        const sections = Object.entries(infoObj).map(([key, value]) => `${key}:\n- ${value}`).join('\n\n');
-        report.importantInformation = sections;
-        console.log('✅ Converted importantInformation to string format');
-      }
-
-      // VALIDATION: Ensure all trip notes bullet points were extracted
-      let extractionComplete = true;
-      if (driverNotes && driverNotes.trim()) {
-        const inputBullets = driverNotes
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line.length > 0);
-
-        const exceptionalBullets = (report.exceptionalInformation || '')
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line.length > 0);
-
-        const importantBullets = (report.importantInformation || '')
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line.length > 0);
-
-        const totalExtracted = exceptionalBullets.length + importantBullets.length;
-
-        // Check for suspiciously long lines that might indicate combined items
-        const allExtracted = [...exceptionalBullets, ...importantBullets];
-        const longLines = allExtracted.filter(line => line.length > 200);
-        if (longLines.length > 0) {
-          console.warn(`\n⚠️ WARNING: Found ${longLines.length} suspiciously long line(s) that may contain combined items:`);
-          longLines.forEach((line, idx) => console.warn(`   ${idx + 1}. ${line.substring(0, 100)}...`));
-        }
-
-        console.log(`\n📊 TRIP NOTES EXTRACTION VALIDATION (Attempt ${attempt}):`);
-        console.log(`   Input bullet points: ${inputBullets.length}`);
-        console.log(`   Exceptional items: ${exceptionalBullets.length}`);
-        console.log(`   Important items: ${importantBullets.length}`);
-        console.log(`   Total extracted: ${totalExtracted}`);
-
-        if (totalExtracted !== inputBullets.length) {
-          extractionComplete = false;
-          console.error(`\n❌ EXTRACTION INCOMPLETE!`);
-          console.error(`   Expected ${inputBullets.length} items, got ${totalExtracted} items`);
-          console.error(`   Missing: ${inputBullets.length - totalExtracted} items`);
-          console.error(`\n   Input bullets:`);
-          inputBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
-          console.error(`\n   Exceptional output:`);
-          exceptionalBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
-          console.error(`\n   Important output:`);
-          importantBullets.forEach((bullet, idx) => console.error(`     ${idx + 1}. ${bullet}`));
-          
-          if (attempt < maxRetries) {
-            console.log(`\n🔄 Will retry extraction...`);
-            continue; // Retry the loop
-          } else {
-            console.error(`\n⚠️ WARNING: Maximum retries reached. Proceeding with incomplete extraction.`);
-          }
-        } else {
-          console.log(`✅ All ${inputBullets.length} bullet points successfully extracted and categorized`);
-        }
-      }
-      
-      // If extraction is complete or max retries reached, break out of retry loop
-      if (extractionComplete || attempt >= maxRetries) {
-        break;
-      }
+      throw error; // Re-throw if max retries reached
     }
+  }
 
-    // VALIDATION: Check field types
-    console.log('🔍 Validating report fields...');
-    console.log(`   - exceptionalInformation: ${typeof report.exceptionalInformation} (${report.exceptionalInformation ? 'exists' : 'empty'})`);
-    console.log(`   - importantInformation: ${typeof report.importantInformation} (${report.importantInformation ? 'exists' : 'empty'})`);
-    console.log(`   - recommendations: array of ${report.recommendations?.length || 0} items`);
-    console.log(`   - highlights: array of ${report.highlights?.length || 0} items`);
+  return report;
+}
 
-    console.log(`\n✅ Executive Report Generated!`);
-    console.log(`🎯 Trip Risk Score: ${report.tripRiskScore}/10`);
-    console.log(`📝 Risk Explanation: ${report.riskScoreExplanation.substring(0, 100)}...`);
-    console.log(`⚠️ Top Disruptor: ${report.topDisruptor.substring(0, 100)}...`);
-    console.log(`📋 Highlights: ${report.highlights.length}`);
-    console.log(`💡 Recommendations: ${report.recommendations.length}`);
-    console.log('='.repeat(80) + '\n');
+export async function generateExecutiveReport(
+  tripData: Array<{
+    locationName: string;
+    time: string;
+    crime: any;
+    disruptions: any;
+    weather: any;
+    events: any;
+    parking: any;
+    cafes: any;
+  }>,
+  tripDate: string,
+  routeDistance?: number,
+  routeDuration?: number,
+  trafficPredictions?: Array<{
+    leg: string;
+    minutes: number;
+    minutesNoTraffic: number;
+    distance: string;
+    originName: string;
+    destinationName: string;
+    departureTime: string;
+  }>,
+  emailContent?: string,
+  leadPassengerName?: string,
+  vehicleInfo?: string,
+  passengerCount?: number,
+  tripDestination?: string,
+  passengerNames?: string[],
+  driverNotes?: string
+): Promise<ExecutiveReport> {
+  // Get city configuration for conditional analysis
+  const cityConfig = getCityConfig(tripDestination);
+  try {
+    // Log generation start
+    logReportGeneration(
+      tripData,
+      tripDate,
+      routeDistance,
+      routeDuration,
+      trafficPredictions,
+      leadPassengerName,
+      vehicleInfo,
+      passengerCount,
+      cityConfig,
+      passengerNames,
+      driverNotes
+    );
+
+    // Prepare data summary for GPT (conditional based on city)
+    const dataSummary = prepareReportData(tripData, cityConfig);
+
+    // Count trip notes bullet points for validation
+    const tripNotesBulletCount = driverNotes 
+      ? driverNotes.split('\n').map(line => line.trim()).filter(line => line.length > 0).length 
+      : 0;
+
+    // Build prompt
+    const prompt = buildReportPrompt({
+      cityConfig,
+      tripData,
+      tripDate,
+      routeDistance,
+      routeDuration,
+      trafficPredictions,
+      emailContent,
+      leadPassengerName,
+      vehicleInfo,
+      passengerCount,
+      tripDestination,
+      passengerNames,
+      driverNotes,
+      dataSummary,
+      tripNotesBulletCount,
+    });
+
+    // Generate report with retry logic
+    const report = await generateReportWithRetry(prompt, driverNotes);
+
+    // Final validation and logging
+    logReportComplete(report);
 
     return report;
   } catch (error) {

@@ -191,3 +191,4 @@ export function TripCard({ trip, quote, drivaniaQuote, showPrice, theme, mounted
   );
 }
 
+

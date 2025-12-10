@@ -104,6 +104,7 @@ import { RegenerationLoadingModal } from './components/RegenerationLoadingModal'
 import { DriverQuotesModal } from './components/DriverQuotesModal';
 import { generateRegenerationSteps } from './utils/regeneration-helpers';
 import { useUserRole } from './hooks/useUserRole';
+import { generateReport } from '@/lib/services/report-service';
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -877,15 +878,10 @@ export default function ResultsPage() {
           backgroundTrafficData = trafficData;
 
           // Generate executive report
-          const reportResponse = await fetch('/api/executive-report', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tripData: results,
+          const reportResult = await generateReport({
+            results,
               tripDate: tripDateStr,
-              routeDistance: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.distanceMeters || 0), 0) / 1000,
-              routeDuration: trafficData.data?.reduce((sum: number, leg: any) => sum + (leg.minutes || 0), 0),
-              trafficPredictions: trafficData.data,
+            trafficData,
               emailContent: null,
               leadPassengerName,
               vehicleInfo,
@@ -893,16 +889,13 @@ export default function ResultsPage() {
               tripDestination,
               passengerNames,
               driverNotes: editedDriverNotes || driverNotes, // Use edited notes if available
-            }),
           });
 
-          const reportData = await reportResponse.json();
-
-          if (!reportData.success) {
-            throw new Error('Failed to generate executive report');
+          if (!reportResult.success) {
+            throw new Error(reportResult.error || 'Failed to generate executive report');
           }
 
-          backgroundReportData = reportData.data;
+          backgroundReportData = reportResult.data;
           backgroundCompleted = true;
         } catch (err) {
           backgroundError = err as Error;
@@ -2613,27 +2606,10 @@ export default function ResultsPage() {
       ));
       let executiveReportData = null;
 
-      try {
-        const reportData = results.map(r => ({
-          locationName: r.locationName,
-          time: r.time,
-          crime: r.data.crime,
-          disruptions: r.data.disruptions,
-          weather: r.data.weather,
-          events: r.data.events,
-          parking: r.data.parking,
-          cafes: r.data.cafes,
-        }));
-
-        const reportResponse = await fetch('/api/executive-report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tripData: reportData,
+      const reportResult = await generateReport({
+        results,
             tripDate: tripDateStr,
-            routeDistance: trafficData?.totalDistance || '0 km',
-            routeDuration: trafficData?.totalMinutes || 0,
-            trafficPredictions: trafficData?.success ? trafficData.data : null,
+        trafficData,
             emailContent: updateText || null,
             leadPassengerName: leadPassengerName || null,
             vehicleInfo: vehicleInfo || null,
@@ -2641,15 +2617,10 @@ export default function ResultsPage() {
             tripDestination: tripDestination || null,
             passengerNames: passengerNames || [],
             driverNotes: editedDriverNotes || driverNotes || null,
-          }),
         });
 
-        const reportResult = await reportResponse.json();
-
-        if (reportResult.success) {
+      if (reportResult.success && reportResult.data) {
           executiveReportData = reportResult.data;
-        }
-      } catch (reportError) {
       }
 
       // Prepare passenger name for database storage

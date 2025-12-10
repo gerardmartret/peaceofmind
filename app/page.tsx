@@ -42,6 +42,7 @@ import { safeJsonParse } from '@/lib/helpers/api-helpers';
 import { getSafetyColor, getSafetyBg, getSafetyLabel } from '@/lib/helpers/safety-helpers';
 import { getTimeLabel } from '@/lib/helpers/time-helpers';
 import { londonDistricts } from '@/lib/constants/districts';
+import { generateReport } from '@/lib/services/report-service';
 import { WhyChauffsSection } from '@/components/homepage/WhyChauffsSection';
 import { HowItWorksSection } from '@/components/homepage/HowItWorksSection';
 import { DemoSection } from '@/components/homepage/DemoSection';
@@ -1014,27 +1015,10 @@ export default function Home() {
       console.log('🤖 [GENERATE] Creating executive report...');
       let executiveReportData = null;
 
-      try {
-        const reportData = results.map(r => ({
-          locationName: r.locationName,
-          time: r.time,
-          crime: r.data.crime,
-          disruptions: r.data.disruptions,
-          weather: r.data.weather,
-          events: r.data.events,
-          parking: r.data.parking,
-          cafes: r.data.cafes,
-        }));
-
-        const reportResponse = await fetch('/api/executive-report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tripData: reportData,
+      const reportResult = await generateReport({
+        results,
             tripDate: tripDateStr,
-            routeDistance: trafficData?.totalDistance || '0 km',
-            routeDuration: trafficData?.totalMinutes || 0,
-            trafficPredictions: trafficData?.success ? trafficData.data : null,
+        trafficData,
             emailContent: extractionText || null,
             leadPassengerName: leadPassengerName || null,
             vehicleInfo: vehicleInfo || null,
@@ -1042,23 +1026,10 @@ export default function Home() {
             tripDestination: tripDestination || null,
             passengerNames: passengerNames || [],
             driverNotes: driverSummary || null,
-          }),
         });
 
-        const reportResult = await reportResponse.json();
-
-        if (reportResult.success) {
+      if (reportResult.success && reportResult.data) {
           executiveReportData = reportResult.data;
-          console.log('✅ Executive Report Generated!');
-          console.log(`🎯 Trip Risk Score: ${reportResult.data.tripRiskScore}/10`);
-        } else {
-          console.error('❌ Executive Report API returned error:', reportResult.error);
-          console.error('Full response:', reportResult);
-        }
-      } catch (reportError) {
-        console.error('⚠️ Could not generate executive report:', reportError);
-        console.error('Error details:', reportError instanceof Error ? reportError.message : String(reportError));
-        // Don't fail the whole trip analysis if report fails
       }
 
       // Prepare passenger name for database storage
