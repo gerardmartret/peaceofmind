@@ -64,6 +64,7 @@ export type Database = {
       }
       drivers: {
         Row: {
+          compressed_image_url: string | null
           destination: string
           first_name: string
           id: string
@@ -75,6 +76,7 @@ export type Database = {
           vehicle_age: string | null
         }
         Insert: {
+          compressed_image_url?: string | null
           destination: string
           first_name: string
           id?: string
@@ -86,6 +88,7 @@ export type Database = {
           vehicle_age?: string | null
         }
         Update: {
+          compressed_image_url?: string | null
           destination?: string
           first_name?: string
           id?: string

@@ -11,6 +11,7 @@ interface Driver {
   level_of_service: string | null;
   destination?: string;
   image_url?: string | null;
+  compressed_image_url?: string | null;
 }
 
 interface Vehicle {
