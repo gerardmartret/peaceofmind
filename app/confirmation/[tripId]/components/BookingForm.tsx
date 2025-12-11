@@ -6,6 +6,7 @@ interface BookingFormProps {
   bookingFields: {
     passengerName: string;
     contactEmail: string;
+    leadPassengerEmail: string;
     contactPhone: string;
     flightNumber: string;
     flightDirection: string;
@@ -17,6 +18,7 @@ interface BookingFormProps {
   };
   missingFields: Set<BookingPreviewFieldKey>;
   phoneError: string | null;
+  leadPassengerEmailError: string | null;
   onFieldChange: (field: BookingPreviewFieldKey, value: string | number) => void;
   getPhoneFieldClassName: () => string;
   highlightMissing: (field: BookingPreviewFieldKey) => string;
@@ -26,6 +28,7 @@ export function BookingForm({
   bookingFields,
   missingFields,
   phoneError,
+  leadPassengerEmailError,
   onFieldChange,
   getPhoneFieldClassName,
   highlightMissing,
@@ -39,7 +42,7 @@ export function BookingForm({
         <div className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-xs font-semibold uppercase text-muted-foreground">
-              Contact phone
+              Passenger contact phone <span className="text-destructive">*</span>
               <Input
                 className={getPhoneFieldClassName()}
                 value={bookingFields.contactPhone}
@@ -52,6 +55,25 @@ export function BookingForm({
               )}
             </label>
             <label className="text-xs font-semibold uppercase text-muted-foreground">
+              Passenger contact email <span className="text-destructive">*</span>
+              <Input
+                type="email"
+                className={`mt-2 w-full border border-border rounded-md px-3 py-2 ${highlightMissing('leadPassengerEmail') || (leadPassengerEmailError ? 'border-destructive/70 bg-destructive/10 text-destructive' : '')}`}
+                value={bookingFields.leadPassengerEmail}
+                onChange={(e) => onFieldChange('leadPassengerEmail', e.target.value)}
+                
+              />
+              {leadPassengerEmailError && (
+                <p className="mt-1.5 text-xs text-destructive/90" style={{ color: '#e38a8a' }}>
+                  {leadPassengerEmailError}
+                </p>
+              )}
+            </label>
+          </div>
+
+          {/* Row 2: Flight number and Child seats */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="text-xs font-semibold uppercase text-muted-foreground">
               Flight number
               <Input
                 className="mt-2 w-full border border-border rounded-md px-3 py-2"
@@ -59,9 +81,6 @@ export function BookingForm({
                 onChange={(e) => onFieldChange('flightNumber', e.target.value)}
               />
             </label>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
             <label className="text-xs font-semibold uppercase text-muted-foreground">
               Child seats
               <Input

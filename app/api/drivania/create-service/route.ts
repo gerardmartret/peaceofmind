@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       vehicle_id,
       passenger_name,
       contact_email,
+      lead_passenger_email,
       contact_phone,
       notes,
       child_seats,
@@ -55,6 +56,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!lead_passenger_email) {
+      return NextResponse.json(
+        { success: false, error: 'lead_passenger_email is required' },
+        { status: 400 }
+      );
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(lead_passenger_email.trim())) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid lead_passenger_email format' },
+        { status: 400 }
+      );
+    }
+
     // Format phone number
     const formattedPhone = formatPhoneNumber(contact_phone);
     if (!formattedPhone) {
@@ -62,6 +79,20 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Invalid phone number format' },
         { status: 400 }
       );
+    }
+
+    // Get trip owner email (Chauffs account email) from trip record
+    let chauffsAccountEmail = contact_email;
+    if (trip_id) {
+      const { data: trip } = await supabase
+        .from('trips')
+        .select('user_email')
+        .eq('id', trip_id)
+        .single();
+      
+      if (trip && trip.user_email) {
+        chauffsAccountEmail = trip.user_email;
+      }
     }
 
     // Generate client reference
@@ -74,7 +105,8 @@ export async function POST(request: NextRequest) {
     let fboCode: string | undefined;
 
     if (flight_number && pickup_location) {
-      const fbo = extractFBOCode(pickup_location.name || pickup_location);
+      const locationName = pickup_location.fullAddress || pickup_location.name || pickup_location;
+      const fbo = extractFBOCode(locationName);
       
       if (fbo) {
         fboCode = fbo;
@@ -94,18 +126,25 @@ export async function POST(request: NextRequest) {
       }
     } else if (pickup_location) {
       // Try to extract FBO code even without flight number
-      const fbo = extractFBOCode(pickup_location.name || pickup_location);
+      const locationName = pickup_location.fullAddress || pickup_location.name || pickup_location;
+      const fbo = extractFBOCode(locationName);
       if (fbo) {
         fboCode = fbo;
       }
     }
 
-    // Build contacts array
+    // Build contacts array - use Chauffs account email (contact_email)
+    // Contact should be different from lead_passenger to avoid duplication errors
+    // Use a generic contact name derived from email or a default, and omit phone since lead_passenger has it
+    const contactName = chauffsAccountEmail 
+      ? chauffsAccountEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Booking Contact'
+      : 'Booking Contact';
+    
     const contacts = [
       {
-        name: passenger_name,
-        email: contact_email || null,
-        phone_number: formattedPhone || null,
+        name: contactName,
+        email: chauffsAccountEmail || null, // Use Chauffs account email for contact notifications
+        phone_number: null, // Omit phone to avoid duplication with lead_passenger
         recipient: 'to' as const,
         permissions: [
           {
@@ -124,7 +163,7 @@ export async function POST(request: NextRequest) {
       lead_passenger: {
         name: passenger_name,
         phone_number: formattedPhone,
-        email: contact_email || null,
+        email: lead_passenger_email || null, // Use lead passenger email for lead_passenger.email
       },
       phone_number: formattedPhone,
       comments: notes || '',

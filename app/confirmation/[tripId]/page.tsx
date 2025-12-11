@@ -44,8 +44,11 @@ export default function ConfirmationPage() {
     setMissingFields,
     phoneError,
     setPhoneError,
+    leadPassengerEmailError,
+    setLeadPassengerEmailError,
     handleBookingFieldChange,
     validatePhone,
+    validateLeadPassengerEmail,
     getPhoneFieldClassName,
     highlightMissing,
   } = useBookingForm();
@@ -94,6 +97,7 @@ export default function ConfirmationPage() {
         const typedLocations = locations.map((loc: any, idx: number) => ({
           id: loc.id || `location-${idx + 1}`,
           name: loc.name || '',
+          fullAddress: loc.fullAddress || loc.formattedAddress || loc.name, // Prefer fullAddress, fallback to formattedAddress or name
           lat: loc.lat || 0,
           lng: loc.lng || 0,
           time: loc.time || '12:00',
@@ -103,6 +107,7 @@ export default function ConfirmationPage() {
         })) as Array<{
           id: string;
           name: string;
+          fullAddress?: string;
           displayName?: string;
           lat: number;
           lng: number;
@@ -118,10 +123,11 @@ export default function ConfirmationPage() {
         const passengerCountValue = tripData.passenger_count || 1;
         const tripDateValue = tripData.trip_date || new Date().toISOString().split('T')[0];
 
-        // Prepare the payload
+        // Prepare the payload - include fullAddress
         const quotePayload = {
-          locations: typedLocations.map((loc) => ({
+          locations: typedLocations.map((loc: any) => ({
             name: loc.name,
+            fullAddress: loc.fullAddress || loc.name, // Use fullAddress if available, fallback to name
             lat: loc.lat,
             lng: loc.lng,
             time: loc.time,
@@ -233,6 +239,7 @@ export default function ConfirmationPage() {
                 ...prev,
                 passengerName: tripData?.lead_passenger_name || '',
                 contactEmail: tripData?.user_email || '',
+                leadPassengerEmail: prev.leadPassengerEmail || '', // Don't auto-fill, user must provide
                 contactPhone: prev.contactPhone,
                 flightNumber: pickup?.flightNumber || '',
                 flightDirection: tripData?.trip_destination || pickup?.flightDirection || '',
@@ -292,6 +299,7 @@ export default function ConfirmationPage() {
           const typedLocations = locations.map((loc: any, idx: number) => ({
             id: loc.id || `location-${idx + 1}`,
             name: loc.name || '',
+            fullAddress: loc.fullAddress || loc.formattedAddress || loc.name, // Prefer fullAddress, fallback to formattedAddress or name
             lat: loc.lat || 0,
             lng: loc.lng || 0,
             time: loc.time || '12:00',
@@ -301,6 +309,7 @@ export default function ConfirmationPage() {
           })) as Array<{
             id: string;
             name: string;
+            fullAddress?: string;
             displayName?: string;
             lat: number;
             lng: number;
@@ -314,8 +323,9 @@ export default function ConfirmationPage() {
           const tripDateValue = tripData.trip_date || new Date().toISOString().split('T')[0];
 
           const quotePayload = {
-            locations: typedLocations.map((loc) => ({
+            locations: typedLocations.map((loc: any) => ({
               name: loc.name,
+              fullAddress: loc.fullAddress || loc.name, // Use fullAddress if available, fallback to name
               lat: loc.lat,
               lng: loc.lng,
               time: loc.time,
@@ -376,7 +386,7 @@ export default function ConfirmationPage() {
   const handleBookNow = async () => {
     if (!selectedDrivaniaVehicle) return;
 
-    // Validate phone number first (only required field in the form now)
+    // Validate phone number
     const phoneValidationError = validatePhone(bookingPreviewFields.contactPhone);
     if (phoneValidationError) {
       setPhoneError(phoneValidationError);
@@ -384,7 +394,16 @@ export default function ConfirmationPage() {
       return;
     }
 
+    // Validate lead passenger email
+    const emailValidationError = validateLeadPassengerEmail(bookingPreviewFields.leadPassengerEmail);
+    if (emailValidationError) {
+      setLeadPassengerEmailError(emailValidationError);
+      setBookingSubmissionState('idle');
+      return;
+    }
+
     setPhoneError(null);
+    setLeadPassengerEmailError(null);
     setBookingSubmissionState('loading');
 
     // Refresh quotes if expired before submitting
@@ -403,7 +422,8 @@ export default function ConfirmationPage() {
       service_id: drivaniaQuotes?.service_id,
       vehicle_id: selectedDrivaniaVehicle.vehicle_id,
       passenger_name: tripData?.lead_passenger_name || '',
-      contact_email: tripData?.user_email || '',
+      contact_email: tripData?.user_email || '', // Chauffs account email for contact
+      lead_passenger_email: bookingPreviewFields.leadPassengerEmail, // Lead passenger email
       contact_phone: bookingPreviewFields.contactPhone,
       notes: bookingPreviewFields.notes,
       child_seats: bookingPreviewFields.childSeats || 0,
@@ -576,6 +596,7 @@ export default function ConfirmationPage() {
                 bookingFields={bookingPreviewFields}
                 missingFields={missingFields}
                 phoneError={phoneError}
+                leadPassengerEmailError={leadPassengerEmailError}
                 onFieldChange={handleBookingFieldChange}
                 getPhoneFieldClassName={getPhoneFieldClassName}
                 highlightMissing={highlightMissing}

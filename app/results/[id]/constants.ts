@@ -1,6 +1,7 @@
 export const bookingPreviewInitialState = {
   passengerName: '',
   contactEmail: '',
+  leadPassengerEmail: '',
   contactPhone: '',
   flightNumber: '',
   flightDirection: '',
@@ -16,6 +17,7 @@ export type BookingPreviewFieldKey = keyof typeof bookingPreviewInitialState;
 export const requiredFields: BookingPreviewFieldKey[] = [
   'passengerName',
   'contactEmail',
+  'leadPassengerEmail',
   'flightDirection',
   'pickupTime',
   'dropoffTime',

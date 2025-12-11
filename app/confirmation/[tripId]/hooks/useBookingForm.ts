@@ -12,6 +12,7 @@ export function useBookingForm(options?: UseBookingFormOptions) {
   );
   const [missingFields, setMissingFields] = useState<Set<BookingPreviewFieldKey>>(new Set());
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [leadPassengerEmailError, setLeadPassengerEmailError] = useState<string | null>(null);
 
   // Handle booking field changes
   const handleBookingFieldChange = (field: BookingPreviewFieldKey, value: string | number) => {
@@ -20,9 +21,12 @@ export function useBookingForm(options?: UseBookingFormOptions) {
       [field]: value,
     }));
     
-    // Clear phone error when user types
+    // Clear errors when user types
     if (field === 'contactPhone') {
       setPhoneError(null);
+    }
+    if (field === 'leadPassengerEmail') {
+      setLeadPassengerEmailError(null);
     }
     
     if (missingFields.has(field)) {
@@ -37,6 +41,18 @@ export function useBookingForm(options?: UseBookingFormOptions) {
   // Validate phone number
   const validatePhone = (phone: string): string | null => {
     return validatePhoneNumber(phone);
+  };
+
+  // Validate lead passenger email
+  const validateLeadPassengerEmail = (email: string): string | null => {
+    if (!email || !email.trim()) {
+      return 'Lead passenger email is required';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return 'Please enter a valid email address';
+    }
+    return null;
   };
 
   // Get phone field className based on error state
@@ -59,8 +75,11 @@ export function useBookingForm(options?: UseBookingFormOptions) {
     setMissingFields,
     phoneError,
     setPhoneError,
+    leadPassengerEmailError,
+    setLeadPassengerEmailError,
     handleBookingFieldChange,
     validatePhone,
+    validateLeadPassengerEmail,
     getPhoneFieldClassName,
     highlightMissing,
   };

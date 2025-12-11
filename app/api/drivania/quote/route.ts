@@ -203,6 +203,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use fullAddress if available, fallback to name
+    const pickupAddress = pickupLocation.fullAddress || pickupLocation.name;
+    const dropoffAddress = dropoffLocation.fullAddress || dropoffLocation.name;
+
     // For hourly services with intermediate stops, calculate total distance and duration
     let totalRouteDistance: number | null = null;
     let totalRouteDuration: number | null = null;
@@ -253,20 +257,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Build quote request - use exact coordinates from database (no rounding)
+    // Use fullAddress instead of name for better location identification
     const quoteRequest = {
       service_type: finalServiceType,
       pickup: {
-        name: pickupLocation.name,
+        name: pickupAddress, // Use fullAddress if available, fallback to name
         latitude: Number(pickupLocation.lat), // Ensure it's a number, preserve full precision
         longitude: Number(pickupLocation.lng), // Ensure it's a number, preserve full precision
-        location_type: detectLocationType(pickupLocation.name),
+        location_type: detectLocationType(pickupAddress),
         datetime: formatDateTime(tripDate, pickupLocation.time || null),
       },
       dropoff: {
-        name: dropoffLocation.name,
+        name: dropoffAddress, // Use fullAddress if available, fallback to name
         latitude: Number(dropoffLocation.lat), // Ensure it's a number, preserve full precision
         longitude: Number(dropoffLocation.lng), // Ensure it's a number, preserve full precision
-        location_type: detectLocationType(dropoffLocation.name),
+        location_type: detectLocationType(dropoffAddress),
         datetime: finalServiceType === 'hourly' 
           ? formatDateTime(tripDate, dropoffLocation.time || null)
           : null,
