@@ -6,10 +6,12 @@ import { numberToLetter } from '@/lib/helpers/string-helpers';
 import { formatLocationDisplay } from '@/lib/helpers/location-formatters';
 import { getLondonLocalTime } from '../utils/time-helpers';
 import { extractFlightNumbers } from '../utils/extraction-helpers';
+import { getCityConfig } from '@/lib/city-helpers';
 import type { TripData } from '../types';
 
 interface LocationDetailCardProps {
   index: number;
+  tripDestination: string | null;
   result: {
     locationId: string;
     locationName: string;
@@ -84,6 +86,7 @@ interface LocationDetailCardProps {
 
 export function LocationDetailCard({
   index,
+  tripDestination,
   result,
   tripDate,
   tripResultsLength,
@@ -102,6 +105,8 @@ export function LocationDetailCard({
   const inputRef = useRef<HTMLInputElement>(null);
   const isExpanded = expandedLocations[result.locationId] || false;
   const isEditing = isOwner && editingLocationId === result.locationId;
+  const cityConfig = getCityConfig(tripDestination);
+  const isLondon = cityConfig.isLondon;
 
   // Format location display with flight numbers
   const fullAddr = result.fullAddress || result.locationName;
@@ -130,24 +135,24 @@ export function LocationDetailCard({
   }
 
   return (
-    <div className="flex items-start gap-4">
-      <div className="flex-shrink-0 w-32 text-right relative">
+    <div className="flex items-start gap-3 sm:gap-4">
+      <div className="flex-shrink-0 w-24 sm:w-32 text-right relative">
         {/* Timeline Dot for Location */}
-        <div className={`absolute left-2 top-0 w-8 h-8 rounded-full border-2 border-background flex items-center justify-center z-10 bg-primary text-primary-foreground`}>
-          <span className="text-base font-bold">{numberToLetter(index + 1)}</span>
+        <div className={`absolute left-2 top-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-background flex items-center justify-center z-10 bg-primary text-primary-foreground`}>
+          <span className="text-sm sm:text-base font-bold">{numberToLetter(index + 1)}</span>
         </div>
-        <div className="text-base font-bold text-foreground ml-6">
+        <div className="text-sm sm:text-base font-bold text-foreground ml-5 sm:ml-6">
           {getLondonLocalTime(result.time)}
         </div>
-        <div className="text-sm text-muted-foreground ml-2">
+        <div className="text-xs sm:text-sm text-muted-foreground ml-1 sm:ml-2">
           {index === 0 ? 'Pick up' : index === tripResultsLength - 1 ? 'Drop off' : 'Stop'}
         </div>
       </div>
-      <div className="flex-1">
-        <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 border border-border bg-background dark:bg-[#363636] text-foreground">
+      <div className="flex-1 min-w-0">
+        <div key={result.locationId} id={`trip-breakdown-${index}`} className="rounded-md p-3 sm:p-4 border border-border bg-background dark:bg-[#363636] text-foreground">
           {/* Header with Full Address */}
-          <div className="flex items-center justify-between mb-2 pb-2">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-2 pb-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div className="relative" style={{ width: '30px', height: '35px' }}>
                 <svg
                   viewBox="0 0 24 24"
@@ -178,7 +183,7 @@ export function LocationDetailCard({
                   />
                 ) : (
                   <div className="flex items-center gap-2 mt-1">
-                    <p className="text-base font-semibold text-foreground">
+                    <p className="text-sm sm:text-base font-semibold text-foreground break-words">
                       {locationDisplayNames[result.locationId] || `Stop ${index + 1}`}
                     </p>
                     {/* Only show edit button for owners */}
@@ -198,11 +203,11 @@ export function LocationDetailCard({
 
                 {/* Full Address with Flight Info - Formatted */}
                 <div className="mt-1">
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="text-sm sm:text-base font-semibold text-foreground break-words">
                     {displayBusinessName}
                   </p>
                   {restOfAddress && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 break-words">
                       {restOfAddress}
                     </p>
                   )}
@@ -210,27 +215,32 @@ export function LocationDetailCard({
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
               {/* Safety, Cafes, Parking Info */}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#3ea34b]"></span>
-                  <span>Safety: {result.data.crime.safetyScore}/100</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <div className="flex items-center gap-2 sm:gap-4 text-xs text-muted-foreground flex-wrap">
+                {isLondon && (
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="w-2 h-2 rounded-full bg-[#3ea34b] flex-shrink-0"></span>
+                    <span className="hidden xs:inline">Safety: </span>
+                    <span>{result.data.crime.safetyScore}/100</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
                   <span>{result.data.cafes?.summary?.total || 0} Cafes</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                  <span>{result.data.parking?.carParks?.length || 0} Parking</span>
-                </div>
+                {isLondon && (
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></span>
+                    <span>{result.data.parking?.carParks?.length || 0} Parking</span>
+                  </div>
+                )}
               </div>
 
               {/* Expand/Collapse Button */}
               <button
                 onClick={() => onToggleExpansion(result.locationId)}
-                className="p-2 hover:bg-muted rounded transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-muted rounded transition-colors flex-shrink-0"
                 title={isExpanded ? "Collapse details" : "Expand details"}
               >
                 <svg
@@ -250,10 +260,10 @@ export function LocationDetailCard({
             className={`overflow-hidden transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
               }`}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pt-2">
               {/* Traveller Safety */}
               <div
-                className="border border-border/40 rounded-md p-3"
+                className="border border-border/40 rounded-md p-3 sm:p-4"
                 style={{
                   backgroundColor: (() => {
                     const safetyScore = result.data.crime.safetyScore;
@@ -425,32 +435,9 @@ export function LocationDetailCard({
                 </div>
               </div>
 
-              {/* Potential Disruptive Events */}
-              <div className="bg-muted/30 border border-border rounded-md p-3">
-                <h4 className="font-bold text-foreground mb-3">Potential Disruptive Events</h4>
-                {result.data.events.events.length > 0 ? (
-                  <>
-                    <div className="space-y-2 mb-3">
-                      {result.data.events.events.slice(0, 3).map((event: any, idx: number) => (
-                        <div key={idx} className="text-xs text-muted-foreground">
-                          • {event.title}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-xs text-muted-foreground italic pt-2 border-t border-border">
-                      {result.data.events.summary.total === 1
-                        ? 'This event will be in the area. It might affect the trip. Be aware.'
-                        : `These ${result.data.events.summary.total} events will be in the area. They might affect the trip. Be aware.`}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-xs text-muted-foreground">No events found</div>
-                )}
-              </div>
-
               {/* Nearby Cafes & Parking */}
-              <div className="bg-muted/30 border border-border rounded-md p-3">
-                <h4 className="font-bold text-foreground mb-3">Nearby Cafes & Parking</h4>
+              <div className="bg-muted/30 border border-border rounded-md p-3 sm:p-4">
+                <h4 className="text-sm sm:text-base font-bold text-foreground mb-3">Nearby Cafes & Parking</h4>
 
                 {/* Cafes Section */}
                 <div className="mb-4">

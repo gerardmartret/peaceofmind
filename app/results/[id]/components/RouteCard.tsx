@@ -74,31 +74,32 @@ export function RouteCard({
   const isExpanded = expandedRoutes[routeId] || false;
 
   return (
-    <div className="flex items-start gap-4">
-      <div className="flex-shrink-0 w-32 text-right relative">
+    <div className="flex items-start gap-3 sm:gap-4">
+      <div className="flex-shrink-0 w-24 sm:w-32 text-right relative">
         {/* Timeline Dot for Route */}
-        <div className="absolute left-2 top-0 w-8 h-8 rounded-full bg-card border-2 border-border flex items-center justify-center z-10">
-          <span className="text-base font-bold text-card-foreground">→</span>
+        <div className="absolute left-2 top-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-card border-2 border-border flex items-center justify-center z-10">
+          <span className="text-sm sm:text-base font-bold text-card-foreground">→</span>
         </div>
-        <div className="text-base font-bold text-foreground ml-6">
+        <div className="text-sm sm:text-base font-bold text-foreground ml-5 sm:ml-6">
           {getLondonLocalTime(tripResults[index].time)}
         </div>
-        <div className="text-sm text-muted-foreground ml-2">
+        <div className="text-xs sm:text-sm text-muted-foreground ml-1 sm:ml-2">
           Route
         </div>
       </div>
-      <div className="flex-1">
-        <div className="bg-card rounded-md p-8 border border-border/40">
+      <div className="flex-1 min-w-0">
+        <div className="bg-card rounded-md p-4 sm:p-8 border border-border/40">
           {/* Route Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl font-bold text-card-foreground flex items-center gap-2">
-                <span>Route: {numberToLetter(index + 1)}</span>
-                <span className="inline-block text-lg">→</span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="text-lg sm:text-2xl font-bold text-card-foreground flex items-center gap-1 sm:gap-2">
+                <span className="hidden sm:inline">Route: </span>
+                <span>{numberToLetter(index + 1)}</span>
+                <span className="inline-block text-base sm:text-lg">→</span>
                 <span>{numberToLetter(index + 2)}</span>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <div
                 className="px-4 py-2 rounded-lg font-semibold"
                 style={{

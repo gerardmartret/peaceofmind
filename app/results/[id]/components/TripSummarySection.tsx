@@ -239,17 +239,17 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
       {/* Trip Summary Box */}
       <div className="mb-4 bg-card rounded-lg p-4 sm:p-6 lg:p-8 shadow-none">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-normal text-card-foreground mb-4 sm:mb-5 leading-tight break-words">
+          <div className="flex-1 min-w-0 w-full">
+            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-normal text-card-foreground mb-4 sm:mb-5 leading-tight break-words overflow-wrap-anywhere">
               {leadPassengerName || 'Passenger'} (x{passengerCount || 1}) {tripDuration} in {tripDestination || 'London'}
             </h2>
-            <div className="flex items-center gap-2 sm:gap-3 mb-1.5">
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-card-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-1.5">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-card-foreground mt-0.5 sm:mt-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="text-xs sm:text-sm font-normal text-card-foreground">
+              <span className="text-xs sm:text-sm font-normal text-card-foreground break-words overflow-wrap-anywhere">
                 Trip Date{' '}
-                <span className="text-base sm:text-lg lg:text-xl font-semibold ml-1 sm:ml-2">
+                <span className="text-sm sm:text-base md:text-lg lg:text-xl font-semibold ml-1 sm:ml-2 break-words">
                   {new Date(tripDate).toLocaleDateString('en-US', {
                     weekday: 'long',
                     day: 'numeric',
@@ -348,10 +348,10 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
               </div>
             )}
           </div>
-          <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto">
+          <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto min-w-0">
             {/* Show confirmation button with driver quote when driver is selected, or Booked with Chauffs button */}
             {(isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true') || (tripStatus === 'booked' && driverEmail === 'drivania') ? (
-              <div className={`w-full ${tripStatus === 'booked' && driverEmail === 'drivania' ? 'sm:w-[275px]' : 'sm:w-[220px]'} flex flex-col items-stretch sm:items-end gap-2`}>
+              <div className={`w-full max-w-full ${tripStatus === 'booked' && driverEmail === 'drivania' ? 'sm:w-[275px]' : 'sm:w-[220px]'} flex flex-col items-stretch sm:items-end gap-2 min-w-0`}>
                 {tripStatus === 'booked' && driverEmail === 'drivania' ? (
                   <div className="w-full flex flex-col items-end gap-4">
                     <div className="w-full">
@@ -368,7 +368,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                         validatedDriverEmail={validatedDriverEmail}
                         updatingStatus={updatingStatus}
                         onStatusToggle={onStatusToggle}
-                        className={`w-full !h-auto !px-4 sm:!px-6 !py-3 sm:!py-3.5 ${tripStatus === 'booked' && driverEmail === 'drivania' ? '!text-sm sm:!text-base lg:!text-lg' : '!text-base sm:!text-lg lg:!text-xl'} !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg whitespace-nowrap`}
+                        className={`w-full !h-auto !px-4 sm:!px-6 !py-3 sm:!py-3.5 ${tripStatus === 'booked' && driverEmail === 'drivania' ? '!text-sm sm:!text-base lg:!text-lg' : '!text-base sm:!text-lg lg:!text-xl'} !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg break-words sm:whitespace-nowrap`}
                       />
                     </div>
                     {mounted && (
@@ -404,8 +404,8 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                     {(() => {
                       const driverQuote = quotes.find((q: any) => q.email.toLowerCase() === driverEmail.toLowerCase());
                       return driverQuote ? (
-                        <div className="flex flex-col items-end gap-1">
-                          <div className="text-[1.8rem] font-semibold text-foreground text-right">
+                        <div className="flex flex-col items-end gap-1 w-full min-w-0">
+                          <div className="text-xl sm:text-2xl lg:text-[1.8rem] font-semibold text-foreground text-right break-words overflow-wrap-anywhere">
                             {(() => {
                               const formattedNumber = new Intl.NumberFormat('en-GB', {
                                 minimumFractionDigits: 2,
@@ -439,12 +439,12 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                           <span className="sm:hidden">Quoting...</span>
                     </span>
                       ) : (
-                        <span className="text-[1.15rem] sm:text-[1.29375rem] lg:text-[1.4375rem]">Book this trip</span>
+                        <span className="text-base sm:text-lg lg:text-[1.4375rem] break-words">Book this trip</span>
                       )}
                     </FlowHoverButton>
                     {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="text-[1.8rem] font-semibold text-foreground text-right">
+                      <div className="flex flex-col items-end gap-1 w-full min-w-0">
+                        <div className="text-xl sm:text-2xl lg:text-[1.8rem] font-semibold text-foreground text-right break-words overflow-wrap-anywhere">
                           {(() => {
                             const formattedNumber = new Intl.NumberFormat('en-GB', {
                               minimumFractionDigits: 2,
@@ -454,7 +454,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                           })()}
                         </div>
                         {lowestExtraHourPrice !== null && (
-                          <div className="text-sm font-medium text-muted-foreground text-right">
+                          <div className="text-xs sm:text-sm font-medium text-muted-foreground text-right break-words overflow-wrap-anywhere">
                             {(() => {
                               const formattedNumber = new Intl.NumberFormat('en-GB', {
                                 minimumFractionDigits: 2,

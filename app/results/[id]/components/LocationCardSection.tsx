@@ -142,7 +142,7 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
       <CardContent className="px-3 sm:px-4 md:px-6 pt-3 pb-4 sm:pb-6">
         <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <h3
-            className={`text-lg sm:text-xl font-semibold text-card-foreground ${
+            className={`text-lg sm:text-xl font-semibold text-card-foreground flex items-center gap-2 ${
               tripCompleted
                 ? 'opacity-50 cursor-not-allowed'
                 : 'cursor-pointer hover:text-primary transition-colors'
@@ -153,7 +153,12 @@ export const LocationCardSection: React.FC<LocationCardSectionProps> = ({
               }
             }}
           >
-            Trip Locations
+            <span>Trip Locations</span>
+            {!tripCompleted && (
+              <span className="text-xs sm:text-sm text-muted-foreground font-normal">
+                (click to expand)
+              </span>
+            )}
           </h3>
 
           {/* Action Buttons - Right Side */}
