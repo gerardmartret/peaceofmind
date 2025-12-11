@@ -1950,10 +1950,10 @@ export default function Home() {
                 alt="Chauffs"
                 className="mx-auto h-7 w-auto mb-12"
               /> */}
-              <p className="text-[3.45rem] font-light text-[#05060A] dark:text-white leading-[1.1]">
+              <p className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.45rem] font-light text-[#05060A] dark:text-white leading-[1.1]">
                 Access the world's top chauffeurs,<br />and book them instantly with AI
               </p>
-              <p className="text-xl text-muted-foreground mt-4 max-w-2xl mx-auto font-light leading-relaxed">
+              <p className="text-base sm:text-lg md:text-xl text-muted-foreground mt-4 max-w-2xl mx-auto font-light leading-relaxed px-4 sm:px-0">
                 Hand-pick your preferred drivers and secure their confirmation in seconds
               </p>
             </div>
