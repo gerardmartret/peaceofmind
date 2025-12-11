@@ -82,13 +82,13 @@ function MetricCard({
 }) {
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 px-4 sm:px-6 pt-4 sm:pt-6">
         <div className="flex items-center gap-2">
-          <CardDescription>{title}</CardDescription>
+          <CardDescription className="text-xs sm:text-sm">{title}</CardDescription>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <p className="text-xs">{tooltip}</p>
@@ -96,9 +96,9 @@ function MetricCard({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <CardTitle className="text-3xl">{value}</CardTitle>
+        <CardTitle className="text-2xl sm:text-3xl mt-2">{value}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
         {description}
       </CardContent>
     </Card>
@@ -119,13 +119,13 @@ function ChartCard({
 }) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4">
         <div className="flex items-center gap-2">
-          <CardTitle>{title}</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">{title}</CardTitle>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground cursor-help shrink-0" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <p className="text-xs">{tooltip}</p>
@@ -133,10 +133,12 @@ function ChartCard({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <CardDescription>{description}</CardDescription>
+        <CardDescription className="text-xs sm:text-sm mt-1">{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        {children}
+      <CardContent className="px-2 sm:px-4 md:px-6 pb-4 sm:pb-6 -mx-1 sm:mx-0">
+        <div className="w-full overflow-visible sm:overflow-hidden">
+          {children}
+        </div>
       </CardContent>
     </Card>
   );
@@ -283,16 +285,16 @@ export default function AdminPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Analytics dashboard</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold">Analytics dashboard</h1>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base">
                 Product metrics and insights
               </p>
             </div>
             <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
-              <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input">
+              <TabsList className="bg-muted dark:bg-input/30 dark:border dark:border-input w-full sm:w-auto">
                 <TabsTrigger value="7d" className="dark:data-[state=active]:bg-[#05060A]">Week</TabsTrigger>
                 <TabsTrigger value="30d" className="dark:data-[state=active]:bg-[#05060A]">Month</TabsTrigger>
                 <TabsTrigger value="90d" className="dark:data-[state=active]:bg-[#05060A]">Quarter</TabsTrigger>
@@ -303,7 +305,7 @@ export default function AdminPage() {
       </div>
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {error && (
           <Card className="mb-6 border-red-500">
             <CardContent className="pt-6">
@@ -319,7 +321,7 @@ export default function AdminPage() {
         ) : data ? (
           <>
             {/* KPI Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-4 sm:mb-6">
               {/* Total Users */}
               <MetricCard
                 title="Total users"
@@ -434,29 +436,29 @@ export default function AdminPage() {
                   description="Journey from reports to Chauffs booking"
                   tooltip="Shows the flow through the platform: Reports → Quotes → Bookings. Conversion rates show the percentage progressing to each stage."
                 >
-                  <div className="space-y-4 py-4 overflow-x-auto">
+                  <div className="space-y-3 sm:space-y-4 py-3 sm:py-4 overflow-x-auto">
                     {/* Funnel Stages */}
-                    <div className="flex flex-col gap-3 min-w-0">
+                    <div className="flex flex-col gap-2 sm:gap-3 min-w-0">
                       {/* Reports Stage */}
                       <div className="flex items-center gap-2 sm:gap-4">
-                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Reports</div>
+                        <div className="w-16 sm:w-20 md:w-24 text-xs sm:text-sm font-medium text-muted-foreground shrink-0">Reports</div>
                         <div className="flex-1 relative min-w-0">
                           <div 
-                            className="h-10 sm:h-12 bg-purple-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
+                            className="h-9 sm:h-10 md:h-12 bg-purple-500 rounded-md flex items-center justify-between px-2 sm:px-3 md:px-4 text-white font-semibold text-xs sm:text-sm md:text-base"
                             style={{ width: '100%', maxWidth: '100%' }}
                           >
                             <span className="truncate">{data.metrics.conversionFunnel.reports}</span>
-                            <span className="text-xs opacity-90 shrink-0 ml-2">100%</span>
+                            <span className="text-[10px] sm:text-xs opacity-90 shrink-0 ml-1 sm:ml-2">100%</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Arrow and Conversion Rate */}
                       <div className="flex items-center gap-2 sm:gap-4">
-                        <div className="w-20 sm:w-24 shrink-0"></div>
+                        <div className="w-16 sm:w-20 md:w-24 shrink-0"></div>
                         <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
                           <div className="flex-1 h-px bg-border"></div>
-                          <div className="text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
+                          <div className="text-[10px] sm:text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
                             {data.metrics.conversionFunnel.conversionRates.reportsToQuotes.toFixed(1)}% convert
                           </div>
                           <div className="flex-1 h-px bg-border"></div>
@@ -465,22 +467,22 @@ export default function AdminPage() {
 
                       {/* Quotes Stage */}
                       <div className="flex items-center gap-2 sm:gap-4">
-                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Quotes</div>
+                        <div className="w-16 sm:w-20 md:w-24 text-xs sm:text-sm font-medium text-muted-foreground shrink-0">Quotes</div>
                         <div className="flex-1 relative min-w-0">
                           <div 
-                            className="h-10 sm:h-12 bg-cyan-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
+                            className="h-9 sm:h-10 md:h-12 bg-cyan-500 rounded-md flex items-center justify-between px-2 sm:px-3 md:px-4 text-white font-semibold text-xs sm:text-sm md:text-base"
                             style={{ 
                               width: `${Math.max(10, data.metrics.conversionFunnel.reports > 0 ? (data.metrics.conversionFunnel.quotes / data.metrics.conversionFunnel.reports) * 100 : 0)}%`,
                               maxWidth: '100%'
                             }}
                           >
                             <span className="truncate">{data.metrics.conversionFunnel.quotes}</span>
-                            <span className="text-xs opacity-90 shrink-0 ml-2">
+                            <span className="text-[10px] sm:text-xs opacity-90 shrink-0 ml-1 sm:ml-2">
                               {data.metrics.conversionFunnel.conversionRates.reportsToQuotes.toFixed(1)}%
                             </span>
                           </div>
                           {data.metrics.conversionFunnel.dropOffs.reportsToQuotes > 0 && (
-                            <div className="absolute left-0 top-full mt-1 text-xs text-muted-foreground">
+                            <div className="absolute left-0 top-full mt-1 text-[10px] sm:text-xs text-muted-foreground">
                               {data.metrics.conversionFunnel.dropOffs.reportsToQuotes} dropped off
                             </div>
                           )}
@@ -489,10 +491,10 @@ export default function AdminPage() {
 
                       {/* Arrow and Conversion Rate */}
                       <div className="flex items-center gap-2 sm:gap-4">
-                        <div className="w-20 sm:w-24 shrink-0"></div>
+                        <div className="w-16 sm:w-20 md:w-24 shrink-0"></div>
                         <div className="flex-1 flex items-center gap-1 sm:gap-2 min-w-0">
                           <div className="flex-1 h-px bg-border"></div>
-                          <div className="text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
+                          <div className="text-[10px] sm:text-xs text-muted-foreground px-1 sm:px-2 shrink-0 whitespace-nowrap">
                             {data.metrics.conversionFunnel.conversionRates.quotesToBookings.toFixed(1)}% convert
                           </div>
                           <div className="flex-1 h-px bg-border"></div>
@@ -501,22 +503,22 @@ export default function AdminPage() {
 
                       {/* Bookings Stage */}
                       <div className="flex items-center gap-2 sm:gap-4">
-                        <div className="w-20 sm:w-24 text-sm font-medium text-muted-foreground shrink-0">Bookings</div>
+                        <div className="w-16 sm:w-20 md:w-24 text-xs sm:text-sm font-medium text-muted-foreground shrink-0">Bookings</div>
                         <div className="flex-1 relative min-w-0">
                           <div 
-                            className="h-10 sm:h-12 bg-green-500 rounded-md flex items-center justify-between px-2 sm:px-4 text-white font-semibold text-sm sm:text-base"
+                            className="h-9 sm:h-10 md:h-12 bg-green-500 rounded-md flex items-center justify-between px-2 sm:px-3 md:px-4 text-white font-semibold text-xs sm:text-sm md:text-base"
                             style={{ 
                               width: `${Math.max(10, data.metrics.conversionFunnel.reports > 0 ? (data.metrics.conversionFunnel.bookings / data.metrics.conversionFunnel.reports) * 100 : 0)}%`,
                               maxWidth: '100%'
                             }}
                           >
                             <span className="truncate">{data.metrics.conversionFunnel.bookings}</span>
-                            <span className="text-xs opacity-90 shrink-0 ml-2">
+                            <span className="text-[10px] sm:text-xs opacity-90 shrink-0 ml-1 sm:ml-2">
                               {data.metrics.conversionFunnel.conversionRates.overall.toFixed(1)}%
                             </span>
                           </div>
                           {data.metrics.conversionFunnel.dropOffs.quotesToBookings > 0 && (
-                            <div className="absolute left-0 top-full mt-1 text-xs text-muted-foreground">
+                            <div className="absolute left-0 top-full mt-1 text-[10px] sm:text-xs text-muted-foreground">
                               {data.metrics.conversionFunnel.dropOffs.quotesToBookings} dropped off
                             </div>
                           )}
@@ -525,21 +527,21 @@ export default function AdminPage() {
                     </div>
 
                     {/* Conversion Metrics Summary */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-border">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-border">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-foreground">
+                        <div className="text-xl sm:text-2xl font-bold text-foreground">
                           {data.metrics.conversionFunnel.conversionRates.reportsToQuotes.toFixed(1)}%
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">Reports → Quotes</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-foreground">
+                        <div className="text-xl sm:text-2xl font-bold text-foreground">
                           {data.metrics.conversionFunnel.conversionRates.quotesToBookings.toFixed(1)}%
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">Quotes → Bookings</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        <div className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
                           {data.metrics.conversionFunnel.conversionRates.overall.toFixed(1)}%
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">Overall Conversion</div>
@@ -551,7 +553,7 @@ export default function AdminPage() {
             )}
 
             {/* Charts */}
-            <div className="grid gap-6 md:grid-cols-2 mb-6">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 mb-4 sm:mb-6">
               {/* Users Over Time */}
               <ChartCard
                 title="Users over time"
@@ -565,20 +567,31 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-1))',
                     },
                   }}
-                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
+                  className="h-[250px] sm:h-[300px] w-full [&_.recharts-wrapper]:w-full [&_.recharts-surface]:max-w-full [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.charts.userTimeSeries}>
+                  <ResponsiveContainer width="100%" height="100%" debounce={1}>
+                    <AreaChart 
+                      data={data.charts.userTimeSeries}
+                      margin={{ top: 5, right: 5, left: -10, bottom: 40 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="date" 
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        angle={-45}
+                        textAnchor="end"
+                        height={70}
+                        interval="preserveStartEnd"
                       />
                       <YAxis 
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        width={40}
                       />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area 
@@ -607,20 +620,31 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-2))',
                     },
                   }}
-                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
+                  className="h-[250px] sm:h-[300px] w-full [&_.recharts-wrapper]:w-full [&_.recharts-surface]:max-w-full [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.charts.tripTimeSeries}>
+                  <ResponsiveContainer width="100%" height="100%" debounce={1}>
+                    <AreaChart 
+                      data={data.charts.tripTimeSeries}
+                      margin={{ top: 5, right: 5, left: -10, bottom: 40 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="date" 
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        angle={-45}
+                        textAnchor="end"
+                        height={70}
+                        interval="preserveStartEnd"
                       />
                       <YAxis 
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        width={40}
                       />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area 
@@ -649,20 +673,31 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-3))',
                     },
                   }}
-                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
+                  className="h-[250px] sm:h-[300px] w-full [&_.recharts-wrapper]:w-full [&_.recharts-surface]:max-w-full [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.charts.reportsPerUserTimeSeries}>
+                  <ResponsiveContainer width="100%" height="100%" debounce={1}>
+                    <AreaChart 
+                      data={data.charts.reportsPerUserTimeSeries}
+                      margin={{ top: 5, right: 5, left: -10, bottom: 40 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="date" 
-                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        angle={-45}
+                        textAnchor="end"
+                        height={70}
+                        interval="preserveStartEnd"
                       />
                       <YAxis 
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        width={40}
                       />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Area 
@@ -691,19 +726,26 @@ export default function AdminPage() {
                       color: 'hsl(var(--chart-4))',
                     },
                   }}
-                  className="h-[300px] [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
+                  className="h-[250px] sm:h-[300px] w-full [&_.recharts-wrapper]:w-full [&_.recharts-surface]:max-w-full [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-axis-tick_text]:opacity-70"
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.charts.tripsByStatus}>
+                  <ResponsiveContainer width="100%" height="100%" debounce={1}>
+                    <BarChart 
+                      data={data.charts.tripsByStatus}
+                      margin={{ top: 5, right: 5, left: -10, bottom: 40 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
                         dataKey="status" 
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        angle={-45}
+                        textAnchor="end"
+                        height={70}
                       />
                       <YAxis 
-                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7 }}
+                        tick={{ fill: 'hsl(var(--foreground))', opacity: 0.7, fontSize: 10 }}
                         stroke="hsl(var(--border))"
+                        width={40}
                       />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Bar 
@@ -737,31 +779,33 @@ export default function AdminPage() {
                     <p>No users found in the selected time period.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Created At</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {authUsers.map((user, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{user.email}</TableCell>
-                            <TableCell>
-                              {new Date(user.created_at).toLocaleString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </TableCell>
+                  <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs sm:text-sm">Email</TableHead>
+                            <TableHead className="text-xs sm:text-sm whitespace-nowrap">Created At</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {authUsers.map((user, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium text-xs sm:text-sm break-words max-w-[200px] sm:max-w-none">{user.email}</TableCell>
+                              <TableCell className="text-xs sm:text-sm whitespace-nowrap">
+                                {new Date(user.created_at).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 )}
               </ChartCard>
