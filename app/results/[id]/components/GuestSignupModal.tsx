@@ -116,12 +116,16 @@ export function GuestSignupModal({
                     type="password"
                     value={guestSignupPassword}
                     onChange={(e) => onPasswordChange(e.target.value)}
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 characters"
                     disabled={guestSignupLoading}
                     className={guestSignupError ? 'border-destructive' : ''}
                   />
-                  {guestSignupError && (
+                  {guestSignupError ? (
                     <p className="text-sm text-destructive mt-1">{guestSignupError}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Must be at least 8 characters and include lowercase, uppercase letters, and digits.
+                    </p>
                   )}
                 </div>
 

@@ -43,8 +43,8 @@ export function useGuestActions({
     setGuestSignupError(null);
 
     // Validation
-    if (!guestSignupPassword || guestSignupPassword.length < 6) {
-      setGuestSignupError('Password must be at least 6 characters');
+    if (!guestSignupPassword || guestSignupPassword.length < 8) {
+      setGuestSignupError('Password must be at least 8 characters');
       return;
     }
 

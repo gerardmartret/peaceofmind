@@ -86,8 +86,8 @@ function SignUpForm() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
@@ -167,12 +167,15 @@ function SignUpForm() {
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Must be at least 8 characters and include lowercase, uppercase letters, and digits.
+              </p>
             </div>
 
             <div className="space-y-2">
