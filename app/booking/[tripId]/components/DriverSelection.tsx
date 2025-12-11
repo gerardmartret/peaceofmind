@@ -7,6 +7,9 @@ interface Driver {
   level_of_service: string | null;
   destination?: string;
   image_url?: string | null;
+  compressed_image_url?: string | null;
+  vehicle_brand?: string | null;
+  vehicle_model?: string | null;
 }
 
 interface DriverSelectionProps {
@@ -51,9 +54,9 @@ export function DriverSelection({
                 }`}
               >
                 <div className="h-12 w-12 sm:h-12 sm:w-12 flex-shrink-0 overflow-hidden rounded-full bg-muted/70">
-                  {driver.image_url ? (
+                  {(driver.compressed_image_url || driver.image_url) ? (
                     <img
-                      src={driver.image_url}
+                      src={driver.compressed_image_url || driver.image_url || ''}
                       alt={driver.first_name}
                       width={48}
                       height={48}
@@ -62,7 +65,13 @@ export function DriverSelection({
                       decoding="async"
                       fetchPriority="low"
                       onError={(event) => {
-                        (event.target as HTMLImageElement).style.display = 'none';
+                        const img = event.target as HTMLImageElement;
+                        // Fallback to original image_url if compressed fails
+                        if (driver.compressed_image_url && driver.image_url && img.src === driver.compressed_image_url) {
+                          img.src = driver.image_url;
+                        } else {
+                          img.style.display = 'none';
+                        }
                       }}
                     />
                   ) : (
@@ -76,9 +85,9 @@ export function DriverSelection({
                     {driver.first_name}
                   </p>
                   <p className="truncate text-xs sm:text-[11px]">
-                    {driver.vehicle_type || 'Vehicle'}
-                    {driver.vehicle_type && driver.destination ? ' • ' : ''}
-                    {driver.destination}
+                    {driver.vehicle_brand && driver.vehicle_model
+                      ? `${driver.vehicle_brand} ${driver.vehicle_model}`
+                      : driver.vehicle_brand || driver.vehicle_model || 'Vehicle'}
                   </p>
                 </div>
               </div>

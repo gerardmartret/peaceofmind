@@ -49,20 +49,19 @@ export const matchesDriverToVehicle = (
 
   if (!vehicleMatches) return false;
 
-  // Service level matching: exact match required
+  // Service level matching: exact match required only
+  // No upgrades or downgrades allowed - strict matching
   if (normalizedDriverLevel === normalizedVehicleLevel) {
     return true;
   }
 
   // If vehicle has a service level, driver must match exactly
-  // Don't allow "business premium" driver to match "business" vehicle
-  // Only allow if vehicle level contains driver level (e.g., "business premium" vehicle can match "business premium" driver)
   if (normalizedVehicleLevel) {
-    // Allow if vehicle level contains driver level (vehicle is more specific or same)
-    if (normalizedVehicleLevel.includes(normalizedDriverLevel)) {
-      return true;
+    // If driver has no level specified, don't match vehicles with specific levels
+    if (!normalizedDriverLevel) {
+      return false;
     }
-    // Don't allow driver level to contain vehicle level (driver is more specific than vehicle)
+    // Only exact matches allowed - no upgrades or downgrades
     return false;
   }
 
