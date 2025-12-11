@@ -340,51 +340,6 @@ export default function Home() {
     setEndDate(formatDateLocal(futureDate));
     // No default trip date - user must explicitly select a date (tomorrow or later)
 
-    // Restore extracted data from session storage
-    if (typeof window !== 'undefined') {
-      const savedData = sessionStorage.getItem('extractedTripData');
-      if (savedData) {
-        try {
-          const parsed = JSON.parse(savedData);
-
-          const savedDestination = parsed.tripDestination || '';
-
-          // Validate destination if it exists
-          if (savedDestination && !isValidTripDestination(savedDestination)) {
-            console.log('❌ [SESSION] Unsupported city detected in saved data:', savedDestination);
-            setExtractionError('We don\'t support this city at the moment.');
-            setExtractionText(parsed.text || '');
-            setExtractedLocations(null);
-            setExtractedDate(null);
-            setExtractedDriverSummary(null);
-            setLeadPassengerName('');
-            setVehicleInfo('');
-            setPassengerCount(1);
-            setTripDestination('');
-            setPassengerNames([]);
-          } else {
-            // Restore the data
-            setExtractionText(parsed.text || '');
-            // Mark all restored locations as verified
-            const restoredLocations = parsed.locations?.map((loc: any) => ({
-              ...loc,
-              verified: true
-            }));
-            setExtractedLocations(restoredLocations || null);
-            setExtractedDate(parsed.date || null);
-            setExtractedDriverSummary(parsed.driverSummary || null);
-            setLeadPassengerName(parsed.leadPassengerName || '');
-            setVehicleInfo(parsed.vehicleInfo || '');
-            setPassengerCount(parsed.passengerCount || 1);
-            setTripDestination(savedDestination);
-            setPassengerNames(parsed.passengerNames || []);
-          }
-        } catch (error) {
-          console.error('❌ [SESSION] Error restoring data:', error);
-        }
-      }
-    }
-
     // Cleanup timeouts on unmount
     return () => {
       if (locationEditTimeoutRef.current) {
@@ -512,22 +467,6 @@ export default function Home() {
       }));
 
       setExtractedLocations(locationsWithSwappedTimes);
-
-      // Save to session storage
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('extractedTripData', JSON.stringify({
-          text: extractionText,
-          locations: locationsWithSwappedTimes,
-          date: extractedDate,
-          driverSummary: extractedDriverSummary,
-          leadPassengerName: leadPassengerName,
-          vehicleInfo: vehicleInfo,
-          passengerCount: passengerCount,
-          tripDestination: tripDestination,
-          passengerNames: passengerNames,
-          timestamp: new Date().toISOString(),
-        }));
-      }
     }
   };
 
@@ -1605,22 +1544,6 @@ export default function Home() {
       setTripDestination(extractedDestination);
       setPassengerNames(data.passengerNames || []);
       setLastExtractedText(extractionText);
-
-      // Save to session storage
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('extractedTripData', JSON.stringify({
-          text: extractionText,
-          locations: data.locations,
-          date: data.date,
-          driverSummary: data.driverNotes,
-          leadPassengerName: data.leadPassengerName,
-          vehicleInfo: data.vehicleInfo,
-          passengerCount: data.passengerCount,
-          tripDestination: data.tripDestination,
-          passengerNames: data.passengerNames,
-          timestamp: new Date().toISOString(),
-        }));
-      }
     } catch (error) {
       console.error('❌ [EXTRACT] Error:', error);
       setExtractionError('An error occurred while extracting trip information.');
@@ -1638,12 +1561,6 @@ export default function Home() {
     setExtractionText('');
     setLastExtractedText('');
     setExtractionError(null);
-
-    // Clear from session storage
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('extractedTripData');
-      console.log('✅ [FRONTEND] Cleared session storage');
-    }
   };
 
   // Handle resetting to initial import state (for logo click)
@@ -1689,12 +1606,6 @@ export default function Home() {
     setEmailError(null);
     setPendingTripData(null);
     setLoadingSteps([]);
-
-    // Clear session storage
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('extractedTripData');
-      console.log('✅ [FRONTEND] Cleared session storage');
-    }
   };
 
 
@@ -1721,19 +1632,6 @@ export default function Home() {
           clearTimeout(locationEditTimeoutRef.current);
         }
 
-        // Set new timeout for saving
-        locationEditTimeoutRef.current = setTimeout(() => {
-          sessionStorage.setItem('extractedTripData', JSON.stringify({
-            text: extractionText,
-            locations: updatedLocations,
-            date: extractedDate,
-            driverSummary: extractedDriverSummary,
-            passengerCount: passengerCount,
-            tripDestination: tripDestination,
-            passengerNames: passengerNames,
-            timestamp: new Date().toISOString(),
-          }));
-        }, 500); // Save after 500ms of no typing
       }
     }
   };
@@ -1756,29 +1654,6 @@ export default function Home() {
 
       setExtractedLocations(sortedLocations);
 
-      // Save to session storage with debouncing
-      if (typeof window !== 'undefined') {
-        // Clear any existing timeout
-        if (timeEditTimeoutRef.current) {
-          clearTimeout(timeEditTimeoutRef.current);
-        }
-
-        // Set new timeout for saving
-        timeEditTimeoutRef.current = setTimeout(() => {
-          sessionStorage.setItem('extractedTripData', JSON.stringify({
-            text: extractionText,
-            locations: sortedLocations,
-            date: extractedDate,
-            driverSummary: extractedDriverSummary,
-            leadPassengerName: leadPassengerName,
-            vehicleInfo: vehicleInfo,
-            passengerCount: passengerCount,
-            tripDestination: tripDestination,
-            passengerNames: passengerNames,
-            timestamp: new Date().toISOString(),
-          }));
-        }, 500); // Save after 500ms of no typing
-      }
     }
   };
 
@@ -1800,21 +1675,6 @@ export default function Home() {
           clearTimeout(locationEditTimeoutRef.current);
         }
 
-        // Set new timeout for saving
-        locationEditTimeoutRef.current = setTimeout(() => {
-          sessionStorage.setItem('extractedTripData', JSON.stringify({
-            text: extractionText,
-            locations: updatedLocations,
-            date: extractedDate,
-            driverSummary: extractedDriverSummary,
-            leadPassengerName: leadPassengerName,
-            vehicleInfo: vehicleInfo,
-            passengerCount: passengerCount,
-            tripDestination: tripDestination,
-            passengerNames: passengerNames,
-            timestamp: new Date().toISOString(),
-          }));
-        }, 500); // Save after 500ms of no typing
       }
     }
   };
@@ -1824,22 +1684,6 @@ export default function Home() {
     if (date) {
       const dateString = formatDateLocal(date);
       setExtractedDate(dateString);
-
-      // Save to session storage
-      if (typeof window !== 'undefined' && extractedLocations) {
-        sessionStorage.setItem('extractedTripData', JSON.stringify({
-          text: extractionText,
-          locations: extractedLocations,
-          date: dateString,
-          driverSummary: extractedDriverSummary,
-          leadPassengerName: leadPassengerName,
-          vehicleInfo: vehicleInfo,
-          passengerCount: passengerCount,
-          tripDestination: tripDestination,
-          passengerNames: passengerNames,
-          timestamp: new Date().toISOString(),
-        }));
-      }
     } else {
       setExtractedDate(null);
     }
@@ -1849,22 +1693,6 @@ export default function Home() {
   // Handle date edit (legacy - for direct input, kept for backward compatibility)
   const handleDateEdit = (value: string) => {
     setExtractedDate(value);
-
-    // Save to session storage
-    if (typeof window !== 'undefined' && extractedLocations) {
-      sessionStorage.setItem('extractedTripData', JSON.stringify({
-        text: extractionText,
-        locations: extractedLocations,
-        date: value,
-        driverSummary: extractedDriverSummary,
-        leadPassengerName: leadPassengerName,
-        vehicleInfo: vehicleInfo,
-        passengerCount: passengerCount,
-        tripDestination: tripDestination,
-        passengerNames: passengerNames,
-        timestamp: new Date().toISOString(),
-      }));
-    }
   };
 
   // Handle extracted location selection
@@ -1881,22 +1709,6 @@ export default function Home() {
         verified: true,
       };
       setExtractedLocations(updatedLocations);
-
-      // Save to session storage immediately
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('extractedTripData', JSON.stringify({
-          text: extractionText,
-          locations: updatedLocations,
-          date: extractedDate,
-          driverSummary: extractedDriverSummary,
-          leadPassengerName: leadPassengerName,
-          vehicleInfo: vehicleInfo,
-          passengerCount: passengerCount,
-          tripDestination: tripDestination,
-          passengerNames: passengerNames,
-          timestamp: new Date().toISOString(),
-        }));
-      }
     }
   };
 
@@ -1905,22 +1717,6 @@ export default function Home() {
     if (extractedLocations && extractedLocations.length > 1) {
       const updatedLocations = extractedLocations.filter((_, i) => i !== index);
       setExtractedLocations(updatedLocations);
-
-      // Save to session storage
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('extractedTripData', JSON.stringify({
-          text: extractionText,
-          locations: updatedLocations,
-          date: extractedDate,
-          driverSummary: extractedDriverSummary,
-          leadPassengerName: leadPassengerName,
-          vehicleInfo: vehicleInfo,
-          passengerCount: passengerCount,
-          tripDestination: tripDestination,
-          passengerNames: passengerNames,
-          timestamp: new Date().toISOString(),
-        }));
-      }
     }
   };
 
@@ -2231,20 +2027,6 @@ export default function Home() {
                       value={leadPassengerName}
                       onChange={(e) => {
                         setLeadPassengerName(e.target.value);
-                        if (typeof window !== 'undefined' && extractedLocations) {
-                          sessionStorage.setItem('extractedTripData', JSON.stringify({
-                            text: extractionText,
-                            locations: extractedLocations,
-                            date: extractedDate,
-                            driverSummary: extractedDriverSummary,
-                            leadPassengerName: e.target.value,
-                            vehicleInfo: vehicleInfo,
-                            passengerCount: passengerCount,
-                            tripDestination: tripDestination,
-                            passengerNames: passengerNames,
-                            timestamp: new Date().toISOString(),
-                          }));
-                        }
                       }}
                       placeholder="e.g., Mr. Smith"
                       className="bg-background border-border rounded-md h-9 text-foreground"
@@ -2257,20 +2039,6 @@ export default function Home() {
                       value={passengerCount}
                       onChange={(count) => {
                         setPassengerCount(count);
-                        if (typeof window !== 'undefined' && extractedLocations) {
-                          sessionStorage.setItem('extractedTripData', JSON.stringify({
-                            text: extractionText,
-                            locations: extractedLocations,
-                            date: extractedDate,
-                            driverSummary: extractedDriverSummary,
-                            leadPassengerName: leadPassengerName,
-                            vehicleInfo: vehicleInfo,
-                            passengerCount: count,
-                            tripDestination: tripDestination,
-                            passengerNames: passengerNames,
-                            timestamp: new Date().toISOString(),
-                          }));
-                        }
                       }}
                       className="h-9"
                     />
@@ -2282,22 +2050,7 @@ export default function Home() {
                     <Input
                       value={vehicleInfo || ''}
                       onChange={(e) => {
-                        const newValue = e.target.value;
-                        setVehicleInfo(newValue);
-                        if (typeof window !== 'undefined' && extractedLocations) {
-                          sessionStorage.setItem('extractedTripData', JSON.stringify({
-                            text: extractionText,
-                            locations: extractedLocations,
-                            date: extractedDate,
-                            driverSummary: extractedDriverSummary,
-                            leadPassengerName: leadPassengerName,
-                            vehicleInfo: newValue,
-                            passengerCount: passengerCount,
-                            tripDestination: tripDestination,
-                            passengerNames: passengerNames,
-                            timestamp: new Date().toISOString(),
-                          }));
-                        }
+                        setVehicleInfo(e.target.value);
                       }}
                       placeholder="e.g., Mercedes S-Class"
                       className="bg-background border-border rounded-md h-9 text-foreground"
@@ -2369,23 +2122,6 @@ export default function Home() {
                         placeId: null,
                       };
                       setExtractedLocations([...extractedLocations, newLocation]);
-
-                      // Save to session storage
-                      if (typeof window !== 'undefined') {
-                        const updatedLocations = [...extractedLocations, newLocation];
-                        sessionStorage.setItem('extractedTripData', JSON.stringify({
-                          text: extractionText,
-                          locations: updatedLocations,
-                          date: extractedDate,
-                          driverSummary: extractedDriverSummary,
-                          leadPassengerName: leadPassengerName,
-                          vehicleInfo: vehicleInfo,
-                          passengerCount: passengerCount,
-                          tripDestination: tripDestination,
-                          passengerNames: passengerNames,
-                          timestamp: new Date().toISOString(),
-                        }));
-                      }
                     }
                   }}
                   variant="outline"
@@ -2406,20 +2142,6 @@ export default function Home() {
                   value={extractedDriverSummary || ''}
                   onChange={(e) => {
                     setExtractedDriverSummary(e.target.value);
-                    if (typeof window !== 'undefined' && extractedLocations) {
-                      sessionStorage.setItem('extractedTripData', JSON.stringify({
-                        text: extractionText,
-                        locations: extractedLocations,
-                        date: extractedDate,
-                        driverSummary: e.target.value,
-                        leadPassengerName: leadPassengerName,
-                        vehicleInfo: vehicleInfo,
-                        passengerCount: passengerCount,
-                        tripDestination: tripDestination,
-                        passengerNames: passengerNames,
-                        timestamp: new Date().toISOString(),
-                      }));
-                    }
                   }}
                   placeholder="Additional notes, contact info, special instructions, etc."
                   rows={6}
