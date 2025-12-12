@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Strip console.logs in production builds
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'], // Keep console.error and console.warn for production error tracking
+    } : false,
+  },
 };
 
 export default nextConfig;

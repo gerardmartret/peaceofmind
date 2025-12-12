@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requestQuote } from '@/lib/drivania-api';
+import { debug } from '@/lib/debug';
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -322,38 +323,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Log intermediate stops information
-    if (intermediateStopsInfo && process.env.NODE_ENV === 'development') {
-      console.log('📍 Intermediate stops info:', intermediateStopsInfo.trim());
-      console.log(`📏 Total route distance (including intermediate stops): ${totalRouteDistance} km`);
-      console.log(`⏱️ Total route duration (including intermediate stops): ${totalRouteDuration} min`);
-      console.log('💡 Note: Drivania will calculate distance from pickup to dropoff coordinates. The dropoff datetime represents the total service duration.');
+    if (intermediateStopsInfo) {
+      debug.log('📍 Intermediate stops info:', intermediateStopsInfo.trim());
+      debug.log(`📏 Total route distance (including intermediate stops): ${totalRouteDistance} km`);
+      debug.log(`⏱️ Total route duration (including intermediate stops): ${totalRouteDuration} min`);
+      debug.log('💡 Note: Drivania will calculate distance from pickup to dropoff coordinates. The dropoff datetime represents the total service duration.');
     }
 
     // Call Drivania API
     const quoteResponse = await requestQuote(quoteRequest);
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('✅ Drivania quote received:', {
-        serviceId: quoteResponse.service_id,
-        vehicleCount: quoteResponse.quotes?.vehicles?.length || 0,
-        currency: quoteResponse.currency_code,
-        distance: quoteResponse.distance,
-        driveTime: quoteResponse.drive_time,
-        createdAt: quoteResponse.created_at,
-        expiration: quoteResponse.expiration,
-        timestamp: new Date().toISOString(),
-      });
+    debug.log('✅ Drivania quote received:', {
+      serviceId: quoteResponse.service_id,
+      vehicleCount: quoteResponse.quotes?.vehicles?.length || 0,
+      currency: quoteResponse.currency_code,
+      distance: quoteResponse.distance,
+      driveTime: quoteResponse.drive_time,
+      createdAt: quoteResponse.created_at,
+      expiration: quoteResponse.expiration,
+      timestamp: new Date().toISOString(),
+    });
 
-      // Log a hash of the request to help identify if same request is being sent
-      const requestHash = JSON.stringify({
-        pickup: `${quoteRequest.pickup.latitude.toFixed(6)},${quoteRequest.pickup.longitude.toFixed(6)}`,
-        dropoff: `${quoteRequest.dropoff.latitude.toFixed(6)},${quoteRequest.dropoff.longitude.toFixed(6)}`,
-        datetime: quoteRequest.pickup.datetime,
-        serviceType: quoteRequest.service_type,
-        passengers: quoteRequest.passengers_number,
-      });
-      console.log('🔑 Request hash (for cache detection):', requestHash.substring(0, 100) + '...');
-    }
+    // Log a hash of the request to help identify if same request is being sent
+    const requestHash = JSON.stringify({
+      pickup: `${quoteRequest.pickup.latitude.toFixed(6)},${quoteRequest.pickup.longitude.toFixed(6)}`,
+      dropoff: `${quoteRequest.dropoff.latitude.toFixed(6)},${quoteRequest.dropoff.longitude.toFixed(6)}`,
+      datetime: quoteRequest.pickup.datetime,
+      serviceType: quoteRequest.service_type,
+      passengers: quoteRequest.passengers_number,
+    });
+    debug.log('🔑 Request hash (for cache detection):', requestHash.substring(0, 100) + '...');
 
     return NextResponse.json({
       success: true,

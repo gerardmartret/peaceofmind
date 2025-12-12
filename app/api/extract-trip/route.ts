@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { extractFlightNumbers, matchFlightsToLocations } from '@/lib/flight-parser';
 import { getCityConfig } from '@/lib/city-helpers';
+import { debug } from '@/lib/debug';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -12,18 +13,16 @@ const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.en
 
 // Function to verify location with Google Maps Geocoding API
 async function verifyLocationWithGoogle(locationQuery: string, tripDestination?: string) {
-  console.log(`🔍 [API] Verifying location with Google Maps: "${locationQuery}"`);
+  debug.log(`🔍 [API] Verifying location with Google Maps: "${locationQuery}"`);
   
   // Get city-specific configuration
   const cityConfig = getCityConfig(tripDestination);
-  console.log(`🌍 [API] City context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias}, region: ${cityConfig.geocodingRegion})`);
+  debug.log(`🌍 [API] City context: ${cityConfig.cityName} (bias: ${cityConfig.geocodingBias}, region: ${cityConfig.geocodingRegion})`);
   
   // Check if API key is available
   if (!GOOGLE_MAPS_API_KEY) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('❌ [API] CRITICAL: Google Maps API key is missing!');
-      console.error('❌ [API] Check your .env.local file for GOOGLE_MAPS_API_KEY or NEXT_PUBLIC_GOOGLE_MAPS_API_KEY');
-    }
+    debug.error('❌ [API] CRITICAL: Google Maps API key is missing!');
+    debug.error('❌ [API] Check your .env.local file for GOOGLE_MAPS_API_KEY or NEXT_PUBLIC_GOOGLE_MAPS_API_KEY');
     return {
       verified: false,
       formattedAddress: locationQuery,
@@ -40,13 +39,13 @@ async function verifyLocationWithGoogle(locationQuery: string, tripDestination?:
     url.searchParams.append('region', cityConfig.geocodingRegion);
 
     const maskedUrl = url.toString().replace(GOOGLE_MAPS_API_KEY, `***${GOOGLE_MAPS_API_KEY.slice(-4)}`);
-    console.log(`📡 [API] Google Maps API URL:`, maskedUrl);
+    debug.log(`📡 [API] Google Maps API URL:`, maskedUrl);
 
     const response = await fetch(url.toString());
     const data = await response.json();
 
-    console.log(`📥 [API] Google Maps API response status:`, data.status);
-    console.log(`📥 [API] Google Maps API results count:`, data.results?.length || 0);
+    debug.log(`📥 [API] Google Maps API response status:`, data.status);
+    debug.log(`📥 [API] Google Maps API results count:`, data.results?.length || 0);
 
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       const result = data.results[0];
@@ -57,11 +56,11 @@ async function verifyLocationWithGoogle(locationQuery: string, tripDestination?:
         lng: result.geometry.location.lng,
         placeId: result.place_id,
       };
-      console.log(`✅ [API] Location verified:`, verifiedData);
+      debug.log(`✅ [API] Location verified:`, verifiedData);
       return verifiedData;
     }
 
-    console.log(`⚠️ [API] Location NOT verified (status: ${data.status})`);
+    debug.log(`⚠️ [API] Location NOT verified (status: ${data.status})`);
     return {
       verified: false,
       formattedAddress: locationQuery,
@@ -70,7 +69,7 @@ async function verifyLocationWithGoogle(locationQuery: string, tripDestination?:
       placeId: null,
     };
   } catch (error) {
-    console.error('❌ [API] Error verifying location with Google:', error);
+    debug.error('❌ [API] Error verifying location with Google:', error);
     return {
       verified: false,
       formattedAddress: locationQuery,
@@ -82,17 +81,17 @@ async function verifyLocationWithGoogle(locationQuery: string, tripDestination?:
 }
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 [API] Starting trip extraction...');
+  debug.log('🚀 [API] Starting trip extraction...');
   
   try {
     const { text, tripDestination } = await request.json();
-    console.log(`📝 [API] Received text (${text?.length || 0} chars):`, text?.substring(0, 100) + '...');
+    debug.log(`📝 [API] Received text (${text?.length || 0} chars):`, text?.substring(0, 100) + '...');
     if (tripDestination) {
-      console.log(`🌍 [API] Trip destination specified: ${tripDestination}`);
+      debug.log(`🌍 [API] Trip destination specified: ${tripDestination}`);
     }
 
     if (!text || typeof text !== 'string') {
-      console.log('❌ [API] Invalid text provided');
+      debug.log('❌ [API] Invalid text provided');
       return NextResponse.json(
         { success: false, error: 'Invalid text provided' },
         { status: 400 }
@@ -102,7 +101,7 @@ export async function POST(request: NextRequest) {
     // Get city configuration for context
     const cityConfig = getCityConfig(tripDestination);
 
-    console.log('🤖 [API] Calling OpenAI for extraction and summary generation...');
+    debug.log('🤖 [API] Calling OpenAI for extraction and summary generation...');
     // Call OpenAI to extract locations, times, date, AND generate professional summary
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -482,10 +481,10 @@ Rules for driver notes:
     });
 
     const result = completion.choices[0].message.content;
-    console.log('✅ [API] OpenAI response received:', result?.substring(0, 200) + '...');
+    debug.log('✅ [API] OpenAI response received:', result?.substring(0, 200) + '...');
     
     const parsed = JSON.parse(result || '{}');
-    console.log('📊 [API] Parsed OpenAI result:', {
+    debug.log('📊 [API] Parsed OpenAI result:', {
       success: parsed.success,
       locationCount: parsed.locations?.length || 0,
       date: parsed.date,
@@ -497,7 +496,7 @@ Rules for driver notes:
     if (parsed.locations && Array.isArray(parsed.locations)) {
       parsed.locations.forEach((loc: any, idx: number) => {
         if (loc.time === 'HH:MM' || loc.time === 'hh:mm' || loc.time === 'HH:mm') {
-          console.warn(`⚠️ [FIX] Location ${idx + 1} has literal "HH:MM" time, estimating time based on context`);
+          debug.warn(`⚠️ [FIX] Location ${idx + 1} has literal "HH:MM" time, estimating time based on context`);
           
           // Estimate time based on position and other locations
           if (parsed.locations.length > 1) {
@@ -513,18 +512,18 @@ Rules for driver notes:
             
             loc.time = `${estimatedHour.toString().padStart(2, '0')}:${estimatedMinute.toString().padStart(2, '0')}`;
             loc.confidence = 'low'; // Mark as estimated
-            console.log(`   → Estimated time: ${loc.time} (confidence: low)`);
+            debug.log(`   → Estimated time: ${loc.time} (confidence: low)`);
           } else {
             // Single location: default to 12:00
             loc.time = '12:00';
             loc.confidence = 'low';
-            console.log(`   → Default time: ${loc.time} (confidence: low)`);
+            debug.log(`   → Default time: ${loc.time} (confidence: low)`);
           }
         } else if (loc.time && typeof loc.time === 'string') {
           // Validate time format is HH:MM
           const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
           if (!timeRegex.test(loc.time)) {
-            console.warn(`⚠️ [FIX] Location ${idx + 1} has invalid time format "${loc.time}", defaulting to 12:00`);
+            debug.warn(`⚠️ [FIX] Location ${idx + 1} has invalid time format "${loc.time}", defaulting to 12:00`);
             loc.time = '12:00';
             loc.confidence = 'low';
           }
@@ -533,15 +532,15 @@ Rules for driver notes:
     }
     
     if (parsed.tripPurpose) {
-      console.log('📝 [API] Trip purpose generated:', parsed.tripPurpose.substring(0, 100) + '...');
+      debug.log('📝 [API] Trip purpose generated:', parsed.tripPurpose.substring(0, 100) + '...');
     }
     if (parsed.specialRemarks) {
-      console.log('⚠️ [API] Special remarks generated:', parsed.specialRemarks.substring(0, 100) + '...');
+      debug.log('⚠️ [API] Special remarks generated:', parsed.specialRemarks.substring(0, 100) + '...');
     }
 
     // Normalize driverNotes if AI returned it as array instead of string
     if (Array.isArray(parsed.driverNotes)) {
-      console.warn('⚠️ [API] driverNotes returned as array, converting to string');
+      debug.warn('⚠️ [API] driverNotes returned as array, converting to string');
       parsed.driverNotes = parsed.driverNotes.length > 0 ? parsed.driverNotes.join('\n') : null;
     }
     
@@ -558,13 +557,13 @@ Rules for driver notes:
     
     // Log what was extracted
     if (hasRemovals) {
-      console.log(`🗑️ [API] Detected ${parsed.removedLocations.length} location(s) to remove:`, parsed.removedLocations);
+      debug.log(`🗑️ [API] Detected ${parsed.removedLocations.length} location(s) to remove:`, parsed.removedLocations);
     }
 
     // If AI marked success=false but we have extractable info, override it
     if (!hasAnyExtractableInfo) {
-      console.log('❌ [API] No extractable information found');
-      console.log('📊 [API] Extraction details:', {
+      debug.log('❌ [API] No extractable information found');
+      debug.log('📊 [API] Extraction details:', {
         hasLocations,
         hasNotes,
         hasRemovals,
@@ -581,7 +580,7 @@ Rules for driver notes:
 
     // Override AI's success flag if we have extractable info
     if (!parsed.success && hasAnyExtractableInfo) {
-      console.log('⚠️ [API] AI marked success=false but extractable info found, overriding to success=true');
+      debug.log('⚠️ [API] AI marked success=false but extractable info found, overriding to success=true');
       parsed.success = true;
     }
 
@@ -589,12 +588,12 @@ Rules for driver notes:
     let verifiedLocations = [];
     if (hasLocations) {
       const verificationStartTime = Date.now();
-      console.log(`🗺️ [API] Starting Google Maps verification for ${parsed.locations.length} locations...`);
+      debug.log(`🗺️ [API] Starting Google Maps verification for ${parsed.locations.length} locations...`);
       
       // Verify each location with Google Maps API (parallelized for speed)
       verifiedLocations = await Promise.all(
         parsed.locations.map(async (loc: any, index: number) => {
-          console.log(`🔍 [API] Verifying location ${index + 1}/${parsed.locations.length}: "${loc.location}"`);
+          debug.log(`🔍 [API] Verifying location ${index + 1}/${parsed.locations.length}: "${loc.location}"`);
           const googleData = await verifyLocationWithGoogle(loc.location, parsed.tripDestination || tripDestination);
           
           // VALIDATION: Check for geocoding mismatches (Issue #3 fix)
@@ -631,10 +630,10 @@ Rules for driver notes:
           
           // If query is for airport but result isn't, there's a mismatch
           if (isAirportQuery && !isAirportResult) {
-            console.error(`❌ [VALIDATION] Geocoding mismatch detected at location ${index + 1}!`);
-            console.error(`   Query: "${loc.location}" (appears to be airport)`);
-            console.error(`   Result: "${googleData.formattedAddress}" (NOT an airport)`);
-            console.error(`   → Re-geocoding with explicit airport query...`);
+            debug.error(`❌ [VALIDATION] Geocoding mismatch detected at location ${index + 1}!`);
+            debug.error(`   Query: "${loc.location}" (appears to be airport)`);
+            debug.error(`   Result: "${googleData.formattedAddress}" (NOT an airport)`);
+            debug.error(`   → Re-geocoding with explicit airport query...`);
             
             // Get city config to determine correct country/region
             const cityConfig = getCityConfig(parsed.tripDestination || tripDestination);
@@ -691,7 +690,7 @@ Rules for driver notes:
               lng: fixedData.lng,
               placeId: fixedData.placeId,
             };
-            console.log(`✅ [FIX] Corrected location ${index + 1}:`, {
+            debug.log(`✅ [FIX] Corrected location ${index + 1}:`, {
               original: loc.location,
               verified: verifiedLoc.verified,
               formatted: verifiedLoc.formattedAddress,
@@ -712,7 +711,7 @@ Rules for driver notes:
             lng: googleData.lng,
             placeId: googleData.placeId,
           };
-          console.log(`✅ [API] Location ${index + 1} result:`, {
+          debug.log(`✅ [API] Location ${index + 1} result:`, {
             original: loc.location,
             verified: verifiedLoc.verified,
             formatted: verifiedLoc.formattedAddress,
@@ -723,35 +722,35 @@ Rules for driver notes:
       );
       
       const verificationTime = Date.now() - verificationStartTime;
-      console.log(`🎉 [API] All locations verified in ${verificationTime}ms!`);
+      debug.log(`🎉 [API] All locations verified in ${verificationTime}ms!`);
     } else {
-      console.log('⚡️ [OPTIMIZATION] No locations to verify - skipping Google Maps API calls entirely!');
-      console.log('💡 [API] Note-only update detected (driver instructions, passenger info, etc.)');
-      console.log('⏱️ [API] Estimated time saved: ~3-6 seconds (no geocoding needed)');
+      debug.log('⚡️ [OPTIMIZATION] No locations to verify - skipping Google Maps API calls entirely!');
+      debug.log('💡 [API] Note-only update detected (driver instructions, passenger info, etc.)');
+      debug.log('⏱️ [API] Estimated time saved: ~3-6 seconds (no geocoding needed)');
     }
 
-    console.log('📤 [API] Preparing response...');
+    debug.log('📤 [API] Preparing response...');
     
     // FLIGHT NUMBER MATCHING: Extract and match flight numbers to airport locations
     let enrichedLocations = verifiedLocations;
     if (verifiedLocations.length > 0 && parsed.driverNotes) {
-      console.log('✈️ [API] Extracting flight numbers from driver notes...');
+      debug.log('✈️ [API] Extracting flight numbers from driver notes...');
       const flights = extractFlightNumbers(parsed.driverNotes);
       
       if (flights.length > 0) {
-        console.log(`✈️ [API] Found ${flights.length} flight(s):`, flights.map(f => `${f.code} (${f.direction || 'unknown direction'})`).join(', '));
+        debug.log(`✈️ [API] Found ${flights.length} flight(s):`, flights.map(f => `${f.code} (${f.direction || 'unknown direction'})`).join(', '));
         
         // Match flights to airport locations
         const flightMatches = matchFlightsToLocations(flights, verifiedLocations, parsed.driverNotes);
         
         if (flightMatches.size > 0) {
-          console.log(`✈️ [API] Matched ${flightMatches.size} flight(s) to airport locations`);
+          debug.log(`✈️ [API] Matched ${flightMatches.size} flight(s) to airport locations`);
           
           // Enrich locations with flight numbers
           enrichedLocations = verifiedLocations.map((loc, index) => {
             const matchedFlight = flightMatches.get(index);
             if (matchedFlight) {
-              console.log(`✈️ [API] Location ${index + 1} (${loc.location}): Flight ${matchedFlight.code}`);
+              debug.log(`✈️ [API] Location ${index + 1} (${loc.location}): Flight ${matchedFlight.code}`);
               return {
                 ...loc,
                 flightNumber: matchedFlight.code,
@@ -761,10 +760,10 @@ Rules for driver notes:
             return loc;
           });
         } else {
-          console.log('✈️ [API] No flight matches found for airport locations');
+          debug.log('✈️ [API] No flight matches found for airport locations');
         }
       } else {
-        console.log('✈️ [API] No flight numbers found in driver notes');
+        debug.log('✈️ [API] No flight numbers found in driver notes');
       }
     }
     
@@ -779,13 +778,13 @@ Rules for driver notes:
         
         // Date must be today or later (date < today means invalid)
         if (extractedDate < today) {
-          console.warn(`⚠️ [VALIDATION] Extracted date ${validatedDate} is in the past. Setting to null (user must select date manually).`);
+          debug.warn(`⚠️ [VALIDATION] Extracted date ${validatedDate} is in the past. Setting to null (user must select date manually).`);
           validatedDate = null;
         } else {
-          console.log(`✅ [VALIDATION] Extracted date ${validatedDate} is valid (today or later)`);
+          debug.log(`✅ [VALIDATION] Extracted date ${validatedDate} is valid (today or later)`);
         }
       } catch (error) {
-        console.error(`❌ [VALIDATION] Invalid date format: ${validatedDate}`, error);
+        debug.error(`❌ [VALIDATION] Invalid date format: ${validatedDate}`, error);
         validatedDate = null;
       }
     }
@@ -802,11 +801,11 @@ Rules for driver notes:
       removedLocations: parsed.removedLocations || [], // Keywords for locations to remove
       locations: enrichedLocations, // Now includes flightNumber and flightDirection for airports
     };
-    console.log('📤 [API] Final response:', JSON.stringify(response, null, 2));
+    debug.log('📤 [API] Final response:', JSON.stringify(response, null, 2));
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('❌ [API] Error extracting trip:', error);
+    debug.error('❌ [API] Error extracting trip:', error);
     return NextResponse.json(
       { 
         success: false, 

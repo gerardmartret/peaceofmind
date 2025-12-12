@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { debug } from '@/lib/debug';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft } from 'lucide-react';
@@ -173,7 +174,7 @@ export default function ConfirmationPage() {
                 
                 // If found by ID, use it. Otherwise fall back to stored vehicle (same service_id)
                 if (vehicle) {
-                  console.log('Vehicle found in matching service_id quotes:', {
+                  debug.log('Vehicle found in matching service_id quotes:', {
                     vehicleId: vehicle.vehicle_id,
                     serviceId: currentServiceId,
                     message: 'Using vehicle from fresh quotes with matching service_id'
@@ -181,7 +182,7 @@ export default function ConfirmationPage() {
                 } else {
                   // Service ID matches but vehicle not found - use stored vehicle
                   vehicle = storedVehicle;
-                  console.log('Using stored vehicle (service_id matches):', {
+                  debug.log('Using stored vehicle (service_id matches):', {
                     vehicleId: vehicle.vehicle_id,
                     serviceId: currentServiceId,
                     message: 'Service ID matches, using stored vehicle'
@@ -199,7 +200,7 @@ export default function ConfirmationPage() {
                 }
                 
                 if (!vehicle) {
-                  console.warn('Vehicle not found in new quotes:', {
+                  debug.warn('Vehicle not found in new quotes:', {
                     storedVehicleId: vehicleId,
                     storedServiceId: storedServiceId,
                     currentServiceId: currentServiceId,
@@ -221,7 +222,7 @@ export default function ConfirmationPage() {
                   return;
                 }
                 
-                console.log('Vehicle found in new quotes by type/level:', {
+                debug.log('Vehicle found in new quotes by type/level:', {
                   originalVehicleId: vehicleId,
                   foundVehicleId: vehicle.vehicle_id,
                   vehicleType: vehicle.vehicle_type,
@@ -252,7 +253,7 @@ export default function ConfirmationPage() {
               // Clear sessionStorage after using it
               sessionStorage.removeItem(`selectedVehicle_${tripId}`);
             } catch (e) {
-              console.error('Failed to parse stored vehicle data', e);
+              debug.error('Failed to parse stored vehicle data', e);
               setDrivaniaError('Invalid vehicle data. Please select a vehicle again.');
               setTimeout(() => {
                 router.replace(`/booking/${tripId}`);
@@ -374,7 +375,7 @@ export default function ConfirmationPage() {
           }
           return false;
         } catch (err) {
-          console.error('Failed to refresh quotes:', err);
+          debug.error('Failed to refresh quotes:', err);
           return false;
         }
       }

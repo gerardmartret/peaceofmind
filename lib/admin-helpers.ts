@@ -15,6 +15,7 @@ const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMA
 
 // Warn in production if admin email is not set
 if (!process.env.NEXT_PUBLIC_ADMIN_EMAIL && !process.env.ADMIN_EMAIL && process.env.NODE_ENV === 'production') {
+  // Use console.error here as this is a critical startup warning (not user-facing)
   console.error('⚠️ NEXT_PUBLIC_ADMIN_EMAIL or ADMIN_EMAIL environment variable is not set! Admin access will not work correctly.');
 }
 

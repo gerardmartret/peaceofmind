@@ -43,6 +43,7 @@ import { getSafetyColor, getSafetyBg, getSafetyLabel } from '@/lib/helpers/safet
 import { getTimeLabel } from '@/lib/helpers/time-helpers';
 import { londonDistricts } from '@/lib/constants/districts';
 import { generateReport } from '@/lib/services/report-service';
+import { debug } from '@/lib/debug';
 import { WhyChauffsSection } from '@/components/homepage/WhyChauffsSection';
 import { HowItWorksSection } from '@/components/homepage/HowItWorksSection';
 import { DemoSection } from '@/components/homepage/DemoSection';
@@ -190,7 +191,7 @@ export default function Home() {
 
         // Handle errors
         recognitionInstance.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
+          debug.error('Speech recognition error:', event.error);
 
           if (event.error === 'no-speech') {
             setRecordingError('No speech detected. Please try again.');
@@ -314,15 +315,15 @@ export default function Home() {
             isValidTripDestination(dest)
           );
           setAvailableDestinations(filteredDestinations);
-          console.log('✅ Loaded trip destinations:', filteredDestinations);
+          debug.log('✅ Loaded trip destinations:', filteredDestinations);
           if (data.destinations.length !== filteredDestinations.length) {
-            console.warn('⚠️ Filtered out invalid destinations from API response');
+            debug.warn('⚠️ Filtered out invalid destinations from API response');
           }
         } else {
-          console.error('❌ Failed to fetch trip destinations');
+          debug.error('❌ Failed to fetch trip destinations');
         }
       } catch (error) {
-        console.error('❌ Error fetching trip destinations:', error);
+        debug.error('❌ Error fetching trip destinations:', error);
       } finally {
         setLoadingDestinations(false);
       }
@@ -435,8 +436,8 @@ export default function Home() {
           time: timesByPosition[index]
         }));
 
-        console.log(`Location reordered: ${numberToLetter(oldIndex + 1)} → ${numberToLetter(newIndex + 1)}`);
-        console.log(`Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
+        debug.log(`Location reordered: ${numberToLetter(oldIndex + 1)} → ${numberToLetter(newIndex + 1)}`);
+        debug.log(`Time swapped: ${items[oldIndex].time} ↔ ${items[newIndex].time}`);
 
         // Show reorder indicator
         setLocationsReordered(true);
@@ -500,14 +501,14 @@ export default function Home() {
   // Save guest trip to database after email is entered
   const handleGuestTripSave = async () => {
     if (!pendingTripData || !userEmail.trim() || emailError) {
-      console.error('Cannot save trip: missing data or invalid email');
+      debug.error('Cannot save trip: missing data or invalid email');
       return;
     }
 
     setSavingGuestTrip(true);
     try {
-      console.log('💾 Saving guest trip to database...');
-      console.log('   Email:', userEmail);
+      debug.log('💾 Saving guest trip to database...');
+      debug.log('   Email:', userEmail);
 
       // Validate email one more time
       const validation = validateBusinessEmail(userEmail);
@@ -519,7 +520,7 @@ export default function Home() {
 
       // Validate and normalize trip destination before saving
       if (pendingTripData?.trip_destination && !isValidTripDestination(pendingTripData.trip_destination)) {
-        console.error('❌ Invalid trip destination in pending trip:', pendingTripData.trip_destination);
+        debug.error('❌ Invalid trip destination in pending trip:', pendingTripData.trip_destination);
         setError(`Invalid trip destination: "${pendingTripData.trip_destination}". Please select from the allowed destinations.`);
         setSavingGuestTrip(false);
         return;
@@ -536,9 +537,9 @@ export default function Home() {
       };
 
       // Use server-side API to create trip and send email atomically
-      console.log('💾 [GUEST-TRIP] Creating trip via server API...');
-      console.log('💾 [GUEST-TRIP] Trip data keys:', Object.keys(tripDataWithEmail));
-      console.log('💾 [GUEST-TRIP] Email:', userEmail.trim());
+      debug.log('💾 [GUEST-TRIP] Creating trip via server API...');
+      debug.log('💾 [GUEST-TRIP] Trip data keys:', Object.keys(tripDataWithEmail));
+      debug.log('💾 [GUEST-TRIP] Email:', userEmail.trim());
       
       let response;
       let result;
@@ -557,36 +558,36 @@ export default function Home() {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ [GUEST-TRIP] API response not OK:', response.status, errorText);
+          debug.error('❌ [GUEST-TRIP] API response not OK:', response.status, errorText);
           throw new Error(`API error: ${response.status} - ${errorText}`);
         }
 
         result = await response.json();
-        console.log('📥 [GUEST-TRIP] API response received:', { success: result.success, emailSent: result.emailSent });
+        debug.log('📥 [GUEST-TRIP] API response received:', { success: result.success, emailSent: result.emailSent });
       } catch (fetchError) {
-        console.error('❌ [GUEST-TRIP] Fetch error:', fetchError);
+        debug.error('❌ [GUEST-TRIP] Fetch error:', fetchError);
         setError('Failed to connect to server. Please check your internet connection and try again.');
         setSavingGuestTrip(false);
         return;
       }
 
       if (!response.ok || !result.success) {
-        console.error('❌ [GUEST-TRIP] Error creating trip:', result.error || result.details);
+        debug.error('❌ [GUEST-TRIP] Error creating trip:', result.error || result.details);
         setError(result.error || 'Failed to save trip. Please try again.');
         setSavingGuestTrip(false);
         return;
       }
 
       const tripData = result.trip;
-      console.log('✅ [GUEST-TRIP] Guest trip created successfully');
-      console.log(`🔗 Trip ID: ${tripData.id}`);
-      console.log(`📧 Guest email: ${userEmail}`);
-      console.log(`📧 [GUEST-TRIP] Email sent: ${result.emailSent ? 'YES' : 'NO'}`);
+      debug.log('✅ [GUEST-TRIP] Guest trip created successfully');
+      debug.log(`🔗 Trip ID: ${tripData.id}`);
+      debug.log(`📧 Guest email: ${userEmail}`);
+      debug.log(`📧 [GUEST-TRIP] Email sent: ${result.emailSent ? 'YES' : 'NO'}`);
       
       // Check if email was sent - if not, show error but still allow redirect
       if (!result.emailSent) {
         const errorMsg = result.emailError || 'Email notification failed to send';
-        console.error('❌ [GUEST-TRIP] Email error:', errorMsg);
+        debug.error('❌ [GUEST-TRIP] Email error:', errorMsg);
         setError(`Trip created but email notification failed: ${errorMsg}. Please check your email or contact support.`);
         setSavingGuestTrip(false);
         // Still redirect but show error
@@ -604,7 +605,7 @@ export default function Home() {
       // Redirect to results page
       router.push(`/results/${tripData.id}`);
     } catch (err) {
-      console.error('Error saving guest trip:', err);
+      debug.error('Error saving guest trip:', err);
       setError('Failed to save trip. Please try again.');
       setSavingGuestTrip(false);
     }
@@ -648,11 +649,11 @@ export default function Home() {
     }
     const tripDateToUse = new Date(extractedDate);
 
-    console.log('\n🚀 Starting analysis for EXTRACTED trip data...');
-    console.log(`📍 ${mappedLocations.length} locations mapped from extraction`);
-    console.log(`📅 Trip date: ${formatDateLocal(tripDateToUse)}`);
+    debug.log('\n🚀 Starting analysis for EXTRACTED trip data...');
+    debug.log(`📍 ${mappedLocations.length} locations mapped from extraction`);
+    debug.log(`📅 Trip date: ${formatDateLocal(tripDateToUse)}`);
     if (extractedDriverSummary) {
-      console.log(`📝 Driver summary will be saved: ${extractedDriverSummary.substring(0, 50)}...`);
+      debug.log(`📝 Driver summary will be saved: ${extractedDriverSummary.substring(0, 50)}...`);
     }
 
     // Now call the same trip submission logic with mapped data and all extracted fields
@@ -690,9 +691,9 @@ export default function Home() {
     }
     const tripDateToUse = tripDate;
 
-    console.log('\n🚀 Starting analysis for MANUAL trip data...');
-    console.log(`📍 ${validLocations.length} locations from manual form`);
-    console.log(`📅 Trip date: ${formatDateLocal(tripDateToUse)}`);
+    debug.log('\n🚀 Starting analysis for MANUAL trip data...');
+    debug.log(`📍 ${validLocations.length} locations from manual form`);
+    debug.log(`📅 Trip date: ${formatDateLocal(tripDateToUse)}`);
 
     // Call the trip analysis with manual form data and all fields
     await performTripAnalysis(
@@ -797,13 +798,13 @@ export default function Home() {
     try {
       const tripDateStr = formatDateLocal(tripDateObj);
 
-      console.log(`🚀 [GENERATE] Starting report for ${validLocations.length} locations on ${tripDateStr}`);
+      debug.log(`🚀 [GENERATE] Starting report for ${validLocations.length} locations on ${tripDateStr}`);
 
       const days = 7; // Fixed period for trip planning
 
       // Get city configuration for conditional API calls
       const cityConfig = getCityConfig(tripDestination);
-      console.log(`🌍 [HOMEPAGE] City configuration: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
+      debug.log(`🌍 [HOMEPAGE] City configuration: ${cityConfig.cityName} (London APIs ${cityConfig.isLondon ? 'ENABLED' : 'DISABLED'})`);
 
       // Fetch data for all locations in parallel
       const results = await Promise.all(
@@ -838,7 +839,7 @@ export default function Home() {
           if (weatherResponse.ok) {
             weatherData = await weatherResponse.json();
           } else {
-            console.warn(`⚠️ Weather API failed, using fallback data`);
+            debug.warn(`⚠️ Weather API failed, using fallback data`);
             weatherData = {
               success: true,
               data: {
@@ -860,7 +861,7 @@ export default function Home() {
           if (crimeResponse.ok) {
             crimeData = await crimeResponse.json();
           } else {
-            console.warn(`⚠️ Crime API failed (${crimeResponse.status}), using fallback data`);
+            debug.warn(`⚠️ Crime API failed (${crimeResponse.status}), using fallback data`);
             crimeData = {
               success: true,
               data: {
@@ -883,7 +884,7 @@ export default function Home() {
           if (disruptionsResponse.ok) {
             disruptionsData = await disruptionsResponse.json();
           } else {
-            console.warn(`⚠️ Disruptions API failed, using fallback data`);
+            debug.warn(`⚠️ Disruptions API failed, using fallback data`);
             disruptionsData = {
               success: true,
               data: {
@@ -897,7 +898,7 @@ export default function Home() {
           if (parkingResponse.ok) {
             parkingData = await parkingResponse.json();
           } else {
-            console.warn(`⚠️ Parking API failed, using fallback data`);
+            debug.warn(`⚠️ Parking API failed, using fallback data`);
             parkingData = {
               success: true,
               data: {
@@ -985,7 +986,7 @@ export default function Home() {
       }
 
       // Generate executive report
-      console.log('🤖 [GENERATE] Creating executive report...');
+      debug.log('🤖 [GENERATE] Creating executive report...');
       let executiveReportData = null;
 
       const reportResult = await generateReport({
@@ -1017,7 +1018,7 @@ export default function Home() {
 
       // Validate and normalize trip destination before saving
       if (tripDestination && !isValidTripDestination(tripDestination)) {
-        console.error('❌ Invalid trip destination:', tripDestination);
+        debug.error('❌ Invalid trip destination:', tripDestination);
         setError(`Invalid trip destination: "${tripDestination}". Please select from the allowed destinations.`);
         setLoadingTrip(false);
         return;
@@ -1052,12 +1053,12 @@ export default function Home() {
       };
 
       // Debug: Log what we're saving to database
-      console.log('💾 [FRONTEND] Database save values:');
-      console.log('   lead_passenger_name:', passengerNameForDb ? '[SET]' : '[NOT SET]');
-      console.log('   vehicle:', displayVehicle || null);
-      console.log('   passenger_count:', passengerCount || 1);
-      console.log('   trip_destination:', tripDestination || null);
-      console.log('   trip_notes:', driverSummary || null);
+      debug.log('💾 [FRONTEND] Database save values:');
+      debug.log('   lead_passenger_name:', passengerNameForDb ? '[SET]' : '[NOT SET]');
+      debug.log('   vehicle:', displayVehicle || null);
+      debug.log('   passenger_count:', passengerCount || 1);
+      debug.log('   trip_destination:', tripDestination || null);
+      debug.log('   trip_notes:', driverSummary || null);
 
       // Add user_id for authenticated users
       if (isAuthenticated && user?.id) {
@@ -1067,7 +1068,7 @@ export default function Home() {
       // For authenticated users: Save trip immediately
       // For guest users: Store data and wait for email input
       if (isAuthenticated && user?.id) {
-        console.log('🔐 Authenticated user - saving trip to database immediately');
+        debug.log('🔐 Authenticated user - saving trip to database immediately');
 
         // Save user to database
         const { error: userError } = await supabase
@@ -1079,7 +1080,7 @@ export default function Home() {
           }, { onConflict: 'email' });
 
         if (userError) {
-          console.error('❌ Error saving user:', userError);
+          debug.error('❌ Error saving user:', userError);
         }
 
         // Save trip to database
@@ -1090,52 +1091,52 @@ export default function Home() {
           .single();
 
         if (tripError || !tripData) {
-          console.error('❌ Error saving trip:', tripError);
+          debug.error('❌ Error saving trip:', tripError);
           throw new Error(`Failed to save trip to database: ${tripError?.message || 'Unknown error'}`);
         }
 
-        console.log('✅ Trip saved to database');
-        console.log(`🔗 Trip ID: ${tripData.id}`);
+        debug.log('✅ Trip saved to database');
+        debug.log(`🔗 Trip ID: ${tripData.id}`);
 
         // Store trip ID for navigation
         const savedTripId = tripData.id;
         setTripId(savedTripId);
 
         // For authenticated users: auto-redirect when complete
-        console.log('🔐 Authenticated user - will auto-redirect when animation completes');
+        debug.log('🔐 Authenticated user - will auto-redirect when animation completes');
 
         // Mark background process as complete
         backgroundProcessComplete = true;
-        console.log('✅ Background process complete');
+        debug.log('✅ Background process complete');
 
         // Force progress to 100% and redirect after a short delay
         setLoadingProgress(100);
 
         // Wait for visual animation to complete and then redirect
         setTimeout(() => {
-          console.log('✅ Background process complete, redirecting...');
+          debug.log('✅ Background process complete, redirecting...');
           // Small delay to show the green completion state
           setTimeout(() => {
-            console.log(`✅ [GENERATE] Complete - redirecting to report`);
+            debug.log(`✅ [GENERATE] Complete - redirecting to report`);
             router.push(`/results/${savedTripId}`);
           }, 1000); // Show completion state for 1 second
         }, 500);
       } else {
-        console.log('👤 Guest user - storing trip data for later save (after email entry)');
+        debug.log('👤 Guest user - storing trip data for later save (after email entry)');
 
         // Store the trip data to save later when guest enters email
         setPendingTripData(tripInsertData);
 
         // Mark background process as complete
         backgroundProcessComplete = true;
-        console.log('✅ Background process complete');
-        console.log('👤 Guest user - will show email field and View Report button');
+        debug.log('✅ Background process complete');
+        debug.log('👤 Guest user - will show email field and View Report button');
         // For guest users, don't auto-redirect
         // They will manually click "View Report" button after entering email
       }
 
     } catch (err) {
-      console.error('❌ Error:', err);
+      debug.error('❌ Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch trip data';
       setError(`Trip analysis failed: ${errorMessage}. Please try again or check your internet connection.`);
       setLoadingTrip(false);
@@ -1150,17 +1151,17 @@ export default function Home() {
     try {
       const days = calculateDaysFromDates(startDate, endDate);
 
-      console.log(`\n${'='.repeat(80)}`);
-      console.log(`🚀 Fetching data for ${selectedDistricts.length} district(s)`);
-      console.log(`📅 Date Range: ${startDate} to ${endDate} (${days} days)`);
-      console.log(`📍 Districts: ${selectedDistricts.map(id => londonDistricts.find(d => d.id === id)?.name).join(', ')}`);
-      console.log(`${'='.repeat(80)}\n`);
+      debug.log(`\n${'='.repeat(80)}`);
+      debug.log(`🚀 Fetching data for ${selectedDistricts.length} district(s)`);
+      debug.log(`📅 Date Range: ${startDate} to ${endDate} (${days} days)`);
+      debug.log(`📍 Districts: ${selectedDistricts.map(id => londonDistricts.find(d => d.id === id)?.name).join(', ')}`);
+      debug.log(`${'='.repeat(80)}\n`);
 
       // Fetch data for all selected districts in parallel
       const districtPromises = selectedDistricts.map(async (districtId) => {
         const districtName = londonDistricts.find(d => d.id === districtId)?.name || districtId;
 
-        console.log(`\n🔍 Fetching data for ${districtName}...`);
+        debug.log(`\n🔍 Fetching data for ${districtName}...`);
 
         const [crimeResponse, disruptionsResponse, weatherResponse] = await Promise.all([
           fetch(`/api/uk-crime?district=${districtId}`),
@@ -1173,7 +1174,7 @@ export default function Home() {
         const weatherData = await weatherResponse.json();
 
         if (crimeData.success && disruptionsData.success && weatherData.success) {
-          console.log(`✅ ${districtName}: ${crimeData.data.summary.totalCrimes} crimes, ${disruptionsData.data.analysis.total} disruptions, ${weatherData.data.forecast.length} days forecast`);
+          debug.log(`✅ ${districtName}: ${crimeData.data.summary.totalCrimes} crimes, ${disruptionsData.data.analysis.total} disruptions, ${weatherData.data.forecast.length} days forecast`);
 
           return {
             district: districtId,
@@ -1223,7 +1224,7 @@ export default function Home() {
 
       setResults(allResults);
     } catch (error) {
-      console.error('❌ Error:', error);
+      debug.error('❌ Error:', error);
       setError(error instanceof Error ? error.message : 'Failed to fetch data');
     } finally {
       setLoading(false);
@@ -1249,7 +1250,7 @@ export default function Home() {
       recognition.start();
       setIsRecording(true);
     } catch (err) {
-      console.error('Microphone access error:', err);
+      debug.error('Microphone access error:', err);
       setRecordingError('Could not access microphone. Please enable permissions.');
     }
   };
@@ -1286,7 +1287,7 @@ export default function Home() {
         setFileError('No text found in Word document');
       }
     } catch (error) {
-      console.error('Error processing Word file:', error);
+      debug.error('Error processing Word file:', error);
       setFileError('Failed to read Word document');
     } finally {
       setIsProcessingFile(false);
@@ -1320,7 +1321,7 @@ export default function Home() {
         setFileError('No data found in Excel file');
       }
     } catch (error) {
-      console.error('Error processing Excel file:', error);
+      debug.error('Error processing Excel file:', error);
       setFileError('Failed to read Excel file');
     } finally {
       setIsProcessingFile(false);
@@ -1362,7 +1363,7 @@ export default function Home() {
         setFileError('No text found in PDF document');
       }
     } catch (error) {
-      console.error('Error processing PDF file:', error);
+      debug.error('Error processing PDF file:', error);
       setFileError('Failed to read PDF document');
     } finally {
       setIsProcessingFile(false);
@@ -1398,7 +1399,7 @@ export default function Home() {
         setFileError(data.error || 'Failed to transcribe audio file');
       }
     } catch (error) {
-      console.error('Error transcribing audio file:', error);
+      debug.error('Error transcribing audio file:', error);
       setFileError('Failed to transcribe audio file');
     } finally {
       setIsProcessingFile(false);
@@ -1479,7 +1480,7 @@ export default function Home() {
 
   // Handle text extraction for trip planning
   const handleExtractTrip = async () => {
-    console.log('🚀 [EXTRACT] Starting extraction...');
+    debug.log('🚀 [EXTRACT] Starting extraction...');
 
     if (!extractionText.trim()) {
       setExtractionError('Please enter some text to extract trip information.');
@@ -1504,19 +1505,19 @@ export default function Home() {
       const data = await safeJsonParse(response);
 
       if (!data.success) {
-        console.log('❌ [EXTRACT] Failed:', data.error);
+        debug.log('❌ [EXTRACT] Failed:', data.error);
         setExtractionError(data.error || 'Failed to extract trip information.');
         return;
       }
 
-      console.log(`✅ [EXTRACT] Success - ${data.locations?.length || 0} locations, date: ${data.date}`);
+      debug.log(`✅ [EXTRACT] Success - ${data.locations?.length || 0} locations, date: ${data.date}`);
 
       const extractedDestination = data.tripDestination || '';
-      console.log('📍 [EXTRACT] Extracted trip destination:', extractedDestination);
+      debug.log('📍 [EXTRACT] Extracted trip destination:', extractedDestination);
 
       // Check if the extracted destination is supported
       if (extractedDestination && !isValidTripDestination(extractedDestination)) {
-        console.log('❌ [EXTRACT] Unsupported city detected:', extractedDestination);
+        debug.log('❌ [EXTRACT] Unsupported city detected:', extractedDestination);
         setExtractionError('We don\'t support this city at the moment.');
         setExtractedLocations(null);
         setExtractedDate(null);
@@ -1545,7 +1546,7 @@ export default function Home() {
       setPassengerNames(data.passengerNames || []);
       setLastExtractedText(extractionText);
     } catch (error) {
-      console.error('❌ [EXTRACT] Error:', error);
+      debug.error('❌ [EXTRACT] Error:', error);
       setExtractionError('An error occurred while extracting trip information.');
     } finally {
       setIsExtracting(false);
@@ -1565,7 +1566,7 @@ export default function Home() {
 
   // Handle resetting to initial import state (for logo click)
   const handleResetToImport = () => {
-    console.log('🏠 [FRONTEND] Resetting to initial import state...');
+    debug.log('🏠 [FRONTEND] Resetting to initial import state...');
 
     // Reset extraction state
     setExtractedLocations(null);
@@ -1611,7 +1612,7 @@ export default function Home() {
 
   // Handle manual location edit
   const handleLocationEdit = (index: number, value: string) => {
-    console.log(`✏️ [FRONTEND] Manual location edit for index ${index}: "${value}"`);
+    debug.log(`✏️ [FRONTEND] Manual location edit for index ${index}: "${value}"`);
     if (extractedLocations) {
       const updatedLocations = [...extractedLocations];
       updatedLocations[index] = {

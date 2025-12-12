@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { debug } from './debug';
 
 interface AuthContextType {
   user: User | null;
@@ -29,15 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         // Handle refresh token errors - clear session state
         if (error.message?.includes('Refresh Token') || error.message?.includes('refresh_token')) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('⚠️ Refresh token error detected, clearing session:', error.message);
-          }
+          debug.warn('⚠️ Refresh token error detected, clearing session:', error.message);
           setSession(null);
           setUser(null);
         } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('❌ Session error:', error.message);
-          }
+          debug.error('❌ Session error:', error.message);
           // For other errors, still clear session to be safe
           setSession(null);
           setUser(null);
@@ -49,9 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }).catch((err) => {
       // Fallback error handling for unexpected errors
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Unexpected session error:', err);
-      }
+      debug.error('❌ Unexpected session error:', err);
       setSession(null);
       setUser(null);
       setLoading(false);
@@ -65,9 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // This is the correct behavior - Supabase automatically clears invalid sessions
       if (event === 'TOKEN_REFRESHED' && !session) {
         // Token refresh failed - session is null
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('⚠️ Token refresh failed, session cleared');
-        }
+        debug.warn('⚠️ Token refresh failed, session cleared');
       }
       setSession(session);
       setUser(session?.user ?? null);
@@ -103,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email }),
         }).catch(err => {
-          console.error('⚠️ Failed to send welcome email:', err);
+          debug.error('⚠️ Failed to send welcome email:', err);
           // Don't fail signup if email fails
         });
       }
@@ -153,9 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('❌ Sign out error:', error.message);
-        }
+        debug.error('❌ Sign out error:', error.message);
         // Clear state even if signOut fails (e.g., invalid session)
         // This ensures UI updates correctly
         setSession(null);
@@ -168,9 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       // Fallback error handling for unexpected errors
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Unexpected sign out error:', err);
-      }
+      debug.error('❌ Unexpected sign out error:', err);
       // Always clear state on error to ensure UI updates
       setSession(null);
       setUser(null);
