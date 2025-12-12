@@ -23,6 +23,9 @@ export default function ContactPage() {
   useEffect(() => {
     if (user?.email) {
       setEmail(user.email);
+    } else {
+      // Clear email when user logs out
+      setEmail('');
     }
   }, [user]);
 
