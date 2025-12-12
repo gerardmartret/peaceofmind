@@ -31,7 +31,7 @@ import { supabase } from '@/lib/supabase';
 import { validateBusinessEmail } from '@/lib/email-validation';
 import { useAuth } from '@/lib/auth-context';
 import { useHomepageContext } from '@/lib/homepage-context';
-import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination } from '@/lib/city-helpers';
+import { getCityConfig, createMockResponse, MOCK_DATA, isValidTripDestination, normalizeTripDestination, ALLOWED_TRIP_DESTINATIONS } from '@/lib/city-helpers';
 import { getDisplayVehicle } from '@/lib/vehicle-helpers';
 import { numberToLetter } from '@/lib/helpers/string-helpers';
 import { formatLocationDisplay } from '@/lib/helpers/location-formatters';
@@ -1735,7 +1735,10 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <div className="h-screen p-4 sm:p-8 flex items-center justify-center">
+      <div className={cn(
+        "p-4 sm:p-8 flex justify-center",
+        !extractedLocations && !showManualForm ? "h-screen items-center" : "min-h-screen items-start pt-8 sm:pt-8"
+      )}>
         <div className="max-w-4xl mx-auto w-full">
 
 
@@ -2794,7 +2797,7 @@ export default function Home() {
           <div className="max-w-4xl mx-auto">
             <div className="space-y-2 sm:space-y-3">
               <p className="text-xs sm:text-sm text-[#05060A] dark:text-white text-center font-bold">
-                Available in
+                Available in {ALLOWED_TRIP_DESTINATIONS.length} cities:
               </p>
               <div className="w-full">
                 <DestinationCarousel />
