@@ -30,6 +30,7 @@ interface TripSummarySectionProps {
   quotes: Array<any>;
   sentDriverEmails: Array<any>;
   isOwner: boolean;
+  isGuestCreator: boolean;
   quoteEmail: string;
   driverToken: string | null;
   validatedDriverEmail: string | null;
@@ -73,6 +74,7 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
   quotes,
   sentDriverEmails,
   isOwner,
+  isGuestCreator,
   quoteEmail,
   driverToken,
   validatedDriverEmail,
@@ -349,8 +351,8 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
             )}
           </div>
           <div className="flex-shrink-0 flex flex-col items-stretch sm:items-end gap-3 w-full sm:w-auto min-w-0">
-            {/* Show confirmation button with driver quote when driver is selected, or Booked with Chauffs button */}
-            {(isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true') || (tripStatus === 'booked' && driverEmail === 'drivania') ? (
+            {/* Show confirmation button with driver quote when driver is selected, or Booked with Chauffs button, or Continue button for guest creators */}
+            {(isOwner && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true') || (tripStatus === 'booked' && driverEmail === 'drivania') || (isGuestCreator && !isAuthenticated && tripStatus !== 'booked' && driverEmail !== 'drivania' && !(isDriverView && driverToken) && quoteParam !== 'true') ? (
               <div className={`w-full max-w-full ${tripStatus === 'booked' && driverEmail === 'drivania' ? 'sm:w-[275px]' : 'sm:w-[220px]'} flex flex-col items-stretch sm:items-end gap-2 min-w-0`}>
                 {tripStatus === 'booked' && driverEmail === 'drivania' ? (
                   <div className="w-full flex flex-col items-end gap-4">
@@ -420,51 +422,66 @@ export const TripSummarySection: React.FC<TripSummarySectionProps> = ({
                   </>
                 ) : (
                   <>
-                    <FlowHoverButton
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      onShowSignupModal();
-                      return;
-                    }
-                    router.push(`/booking/${tripId}`);
-                  }}
-                  disabled={loadingDrivaniaQuote}
-                      variant="rejected"
-                      className="w-full !h-auto disabled:opacity-70 disabled:cursor-not-allowed !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg !bg-[#05060A] dark:!bg-[#E5E7EF] !border-[#05060A] dark:!border-[#E5E7EF] !text-white dark:!text-[#05060A] hover:!bg-[#05060A]/90 dark:hover:!bg-[#E5E7EF]/90 before:!bg-[#05060A]/80 dark:before:!bg-[#E5E7EF]/80"
-                >
-                  {loadingDrivaniaQuote ? (
-                        <span className="flex items-center justify-center gap-2 text-sm sm:text-base lg:text-lg">
-                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                          <span className="hidden sm:inline">Quoting trip</span>
-                          <span className="sm:hidden">Quoting...</span>
-                    </span>
-                      ) : (
-                        <span className="text-base sm:text-lg lg:text-[1.4375rem] break-words">Book this trip</span>
-                      )}
-                    </FlowHoverButton>
-                    {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
-                      <div className="flex flex-col items-end gap-1 w-full min-w-0">
-                        <div className="text-xl sm:text-2xl lg:text-[1.8rem] font-semibold text-foreground text-right break-words overflow-wrap-anywhere">
-                          {(() => {
-                            const formattedNumber = new Intl.NumberFormat('en-GB', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }).format(lowestDrivaniaPrice);
-                            return `${formattedNumber} ${drivaniaCurrency || 'USD'}`;
-                          })()}
-                        </div>
-                        {lowestExtraHourPrice !== null && (
-                          <div className="text-xs sm:text-sm font-medium text-muted-foreground text-right break-words overflow-wrap-anywhere">
-                            {(() => {
-                              const formattedNumber = new Intl.NumberFormat('en-GB', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }).format(lowestExtraHourPrice);
-                              return `${formattedNumber} ${drivaniaCurrency || 'USD'} per extra hour`;
-                            })()}
+                    {/* Show Continue button for guest creators, Book this trip for authenticated owners */}
+                    {isGuestCreator && !isAuthenticated ? (
+                      <FlowHoverButton
+                        onClick={() => {
+                          onShowSignupModal();
+                        }}
+                        variant="rejected"
+                        className="w-full !h-auto !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg !bg-[#05060A] dark:!bg-[#E5E7EF] !border-[#05060A] dark:!border-[#E5E7EF] !text-white dark:!text-[#05060A] hover:!bg-[#05060A]/90 dark:hover:!bg-[#E5E7EF]/90 before:!bg-[#05060A]/80 dark:before:!bg-[#E5E7EF]/80"
+                      >
+                        <span className="text-base sm:text-lg lg:text-[1.4375rem] break-words">Book now</span>
+                      </FlowHoverButton>
+                    ) : (
+                      <>
+                        <FlowHoverButton
+                          onClick={() => {
+                            if (!isAuthenticated) {
+                              onShowSignupModal();
+                              return;
+                            }
+                            router.push(`/booking/${tripId}`);
+                          }}
+                          disabled={loadingDrivaniaQuote}
+                          variant="rejected"
+                          className="w-full !h-auto disabled:opacity-70 disabled:cursor-not-allowed !px-4 sm:!px-6 !py-3 sm:!py-3.5 !text-base sm:!text-lg lg:!text-xl !font-medium min-h-[48px] sm:min-h-[52px] rounded-lg !bg-[#05060A] dark:!bg-[#E5E7EF] !border-[#05060A] dark:!border-[#E5E7EF] !text-white dark:!text-[#05060A] hover:!bg-[#05060A]/90 dark:hover:!bg-[#E5E7EF]/90 before:!bg-[#05060A]/80 dark:before:!bg-[#E5E7EF]/80"
+                        >
+                          {loadingDrivaniaQuote ? (
+                            <span className="flex items-center justify-center gap-2 text-sm sm:text-base lg:text-lg">
+                              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                              <span className="hidden sm:inline">Quoting trip</span>
+                              <span className="sm:hidden">Quoting...</span>
+                            </span>
+                          ) : (
+                            <span className="text-base sm:text-lg lg:text-[1.4375rem] break-words">Book this trip</span>
+                          )}
+                        </FlowHoverButton>
+                        {!loadingDrivaniaQuote && lowestDrivaniaPrice !== null && (
+                          <div className="flex flex-col items-end gap-1 w-full min-w-0">
+                            <div className="text-xl sm:text-2xl lg:text-[1.8rem] font-semibold text-foreground text-right break-words overflow-wrap-anywhere">
+                              {(() => {
+                                const formattedNumber = new Intl.NumberFormat('en-GB', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }).format(lowestDrivaniaPrice);
+                                return `${formattedNumber} ${drivaniaCurrency || 'USD'}`;
+                              })()}
+                            </div>
+                            {lowestExtraHourPrice !== null && (
+                              <div className="text-xs sm:text-sm font-medium text-muted-foreground text-right break-words overflow-wrap-anywhere">
+                                {(() => {
+                                  const formattedNumber = new Intl.NumberFormat('en-GB', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }).format(lowestExtraHourPrice);
+                                  return `${formattedNumber} ${drivaniaCurrency || 'USD'} per extra hour`;
+                                })()}
+                              </div>
+                            )}
                           </div>
                         )}
-                      </div>
+                      </>
                     )}
                   </>
                 )}

@@ -2939,6 +2939,7 @@ export default function ResultsPage() {
               quotes={quotes}
               sentDriverEmails={sentDriverEmails}
               isOwner={isOwner}
+              isGuestCreator={isGuestCreator}
               quoteEmail={quoteEmail}
               driverToken={driverToken}
               validatedDriverEmail={validatedDriverEmail}
