@@ -55,6 +55,8 @@ export default function RootLayout({
                 <div className="container mx-auto px-4">
                   <span>© Chauffs 2025</span>
                   <span className="mx-2">·</span>
+                  <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
+                  <span className="mx-2">·</span>
                   <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
                   <span className="mx-2">·</span>
                   <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
