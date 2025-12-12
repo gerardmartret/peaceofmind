@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a trip planning assistant that extracts location and time information from unstructured text (emails, messages, etc.).
 
-CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London, SIN/Changi=Singapore, FRA=Frankfurt, CDG/ORY=Paris, NRT/HND=Tokyo, BOS=Boston, ZRH=Zurich), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
+CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London, SIN/Changi=Singapore, FRA=Frankfurt, CDG/ORY=Paris, NRT/HND=Tokyo, BOS=Boston, ZRH=Zurich, AMS=Amsterdam, ATH=Athens, ATL=Atlanta, AUS=Austin, BCN=Barcelona, BRU=Brussels, EZE/AEP=Buenos Aires, CUN=Cancun, ORD/MDW=Chicago, CPH=Copenhagen, DFW/DAL=Dallas, DEN=Denver, DUB=Dublin, FLR=Florence, GVA=Geneva, GLA=Glasgow, HAM=Hamburg, IAH/HOU=Houston, JAX=Jacksonville, LIS=Lisbon, LPL=Liverpool, LAX/BUR/ONT=Los Angeles, LYS=Lyon, MAD=Madrid, AGP=Malaga, MAN=Manchester, MRS=Marseille, MEX=Mexico City, MIA/FLL=Miami, MXP/LIN=Milan, YUL=Montreal, MUC=Munich, HVN=New Haven, NCE=Nice, MCO=Orlando, PMO=Palermo, PSP=Palm Springs, PHX=Phoenix, FCO/CIA=Rome, SAN=San Diego, SFO/OAK=San Francisco, SJC=San Jose, SCL=Santiago de Chile, GRU/CGH=Sao Paulo, SEA=Seattle, TPA=Tampa, YYZ=Toronto, VIE=Vienna, DCA/IAD/BWI=Washington, PBI=West Palm Beach), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
 
 METRO AREA COVERAGE:
 - "New York" = NYC metro area (Manhattan, Brooklyn, Queens, Bronx, Staten Island, Yonkers, Jersey City, Newark, Hoboken, Long Island)
@@ -122,7 +122,7 @@ METRO AREA COVERAGE:
 - "Tokyo" = Tokyo metro area + surrounding areas within ~80-100km
 - "Boston" = Boston metro area + surrounding areas within ~80-100km
 - "Zurich" = Zurich metro area + surrounding areas within ~80-100km
-- Include locations in surrounding areas within ~80-100km of city center for day trips
+- All other cities = city and surrounding metro area locations within ~80-100km for day trips
 
 CRITICAL: For driverNotes, preserve ALL unique content from the original email BUT exclude ANY information that's already extracted into structured fields (locations, times, dates, names). Do NOT repeat location names, addresses, times, or dates in driverNotes - these are already in the locations array. ONLY include contextual details not captured elsewhere.
 
@@ -136,21 +136,131 @@ Extract:
    - For Tokyo: Include Tokyo and surrounding areas within ~80-100km
    - For Boston: Include Boston and surrounding areas within ~80-100km
    - For Zurich: Include Zurich and surrounding areas within ~80-100km
+   - For all other cities: Include city and surrounding metro area locations within ~80-100km for day trips
 2. Associated times for each location
 3. Trip date if mentioned
 4. Lead passenger name (main/first passenger name)
 5. Number of passengers (total count)
 6. Trip destination/city - CRITICAL: Detect from context! Look for:
-   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", "Singapore", "Singapura", "Frankfurt", "Paris", "Tokyo", "Boston", "Zurich", etc.
-   - Airport codes: JFK/LGA/EWR/Newark = New York, LHR/LGW/STN/LTN = London, SIN/Changi = Singapore, FRA = Frankfurt, CDG/ORY = Paris, NRT/HND = Tokyo, BOS = Boston, ZRH = Zurich
-   - Address patterns: "NY", "Manhattan", "Brooklyn", "Queens", "Bronx", "Yonkers", "Jersey City" = New York
-   - Address patterns: "UK", "Westminster", "Camden" = London
-   - Address patterns: "SG", "Singapore" = Singapore
-   - Address patterns: "DE", "Germany", "Frankfurt" = Frankfurt
-   - Address patterns: "FR", "France", "Paris" = Paris
-   - Address patterns: "JP", "Japan", "Tokyo" = Tokyo
-   - Address patterns: "MA", "Massachusetts", "Boston" = Boston
-   - Address patterns: "CH", "Switzerland", "Zurich" = Zurich
+   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", "Singapore", "Singapura", "Frankfurt", "Paris", "Tokyo", "Boston", "Zurich", "Amsterdam", "Athens", "Atlanta", "Austin", "Barcelona", "Brussels", "Buenos Aires", "Cancun", "Chicago", "Copenhagen", "Dallas", "Denver", "Dublin", "Florence", "Geneva", "Glasgow", "Hamburg", "Houston", "Jacksonville", "Lisbon", "Liverpool", "Los Angeles", "Lyon", "Madrid", "Malaga", "Manchester", "Marseille", "Mexico City", "Miami", "Milan", "Montreal", "Munich", "New Haven", "Nice", "Orlando", "Palermo", "Palm Springs", "Phoenix", "Rome", "San Diego", "San Francisco", "San Jose", "Santiago de Chile", "Sao Paulo", "Seattle", "Tampa", "Toronto", "Vienna", "Washington", "West Palm Beach", etc.
+   - Airport codes: 
+     * JFK/LGA/EWR/Newark = New York
+     * LHR/LGW/STN/LTN/LCY = London
+     * SIN/Changi = Singapore
+     * FRA = Frankfurt
+     * CDG/ORY = Paris
+     * NRT/HND = Tokyo
+     * BOS = Boston
+     * ZRH = Zurich
+     * AMS = Amsterdam
+     * ATH = Athens
+     * ATL = Atlanta
+     * AUS = Austin
+     * BCN = Barcelona
+     * BRU = Brussels
+     * EZE/AEP = Buenos Aires
+     * CUN = Cancun
+     * ORD/MDW = Chicago
+     * CPH = Copenhagen
+     * DFW/DAL = Dallas
+     * DEN = Denver
+     * DUB = Dublin
+     * FLR = Florence
+     * GVA = Geneva
+     * GLA = Glasgow
+     * HAM = Hamburg
+     * IAH/HOU = Houston
+     * JAX = Jacksonville
+     * LIS = Lisbon
+     * LPL = Liverpool
+     * LAX/BUR/ONT = Los Angeles
+     * LYS = Lyon
+     * MAD = Madrid
+     * AGP = Malaga
+     * MAN = Manchester
+     * MRS = Marseille
+     * MEX = Mexico City
+     * MIA/FLL = Miami
+     * MXP/LIN = Milan
+     * YUL = Montreal
+     * MUC = Munich
+     * HVN = New Haven
+     * NCE = Nice
+     * MCO = Orlando
+     * PMO = Palermo
+     * PSP = Palm Springs
+     * PHX = Phoenix
+     * FCO/CIA = Rome
+     * SAN = San Diego
+     * SFO/OAK = San Francisco
+     * SJC = San Jose
+     * SCL = Santiago de Chile
+     * GRU/CGH = Sao Paulo
+     * SEA = Seattle
+     * TPA = Tampa
+     * YYZ = Toronto
+     * VIE = Vienna
+     * DCA/IAD/BWI = Washington
+     * PBI = West Palm Beach
+   - Address patterns: 
+     * "NY", "Manhattan", "Brooklyn", "Queens", "Bronx", "Yonkers", "Jersey City" = New York
+     * "UK", "Westminster", "Camden" = London
+     * "SG", "Singapore" = Singapore
+     * "DE", "Germany", "Frankfurt" = Frankfurt
+     * "FR", "France", "Paris" = Paris
+     * "JP", "Japan", "Tokyo" = Tokyo
+     * "MA", "Massachusetts", "Boston" = Boston
+     * "CH", "Switzerland", "Zurich" = Zurich
+     * "NL", "Netherlands", "Amsterdam" = Amsterdam
+     * "GR", "Greece", "Athens" = Athens
+     * "GA", "Atlanta" = Atlanta
+     * "TX", "Austin" = Austin
+     * "ES", "Spain", "Barcelona" = Barcelona
+     * "BE", "Belgium", "Brussels" = Brussels
+     * "AR", "Argentina", "Buenos Aires" = Buenos Aires
+     * "MX", "Mexico", "Cancun" = Cancun
+     * "IL", "Chicago" = Chicago
+     * "DK", "Denmark", "Copenhagen" = Copenhagen
+     * "TX", "Dallas" = Dallas
+     * "CO", "Denver" = Denver
+     * "IE", "Ireland", "Dublin" = Dublin
+     * "IT", "Italy", "Florence" = Florence
+     * "CH", "Switzerland", "Geneva" = Geneva
+     * "UK", "Glasgow" = Glasgow
+     * "DE", "Germany", "Hamburg" = Hamburg
+     * "TX", "Houston" = Houston
+     * "FL", "Jacksonville" = Jacksonville
+     * "PT", "Portugal", "Lisbon" = Lisbon
+     * "UK", "Liverpool" = Liverpool
+     * "CA", "Los Angeles", "LA" = Los Angeles
+     * "FR", "France", "Lyon" = Lyon
+     * "ES", "Spain", "Madrid" = Madrid
+     * "ES", "Spain", "Malaga" = Malaga
+     * "UK", "Manchester" = Manchester
+     * "FR", "France", "Marseille" = Marseille
+     * "MX", "Mexico", "Mexico City" = Mexico City
+     * "FL", "Miami" = Miami
+     * "IT", "Italy", "Milan" = Milan
+     * "QC", "Quebec", "Montreal" = Montreal
+     * "DE", "Germany", "Munich" = Munich
+     * "CT", "Connecticut", "New Haven" = New Haven
+     * "FR", "France", "Nice" = Nice
+     * "FL", "Orlando" = Orlando
+     * "IT", "Italy", "Palermo" = Palermo
+     * "CA", "Palm Springs" = Palm Springs
+     * "AZ", "Phoenix" = Phoenix
+     * "IT", "Italy", "Rome" = Rome
+     * "CA", "San Diego" = San Diego
+     * "CA", "San Francisco", "SF" = San Francisco
+     * "CA", "San Jose" = San Jose
+     * "CL", "Chile", "Santiago" = Santiago de Chile
+     * "BR", "Brazil", "Sao Paulo" = Sao Paulo
+     * "WA", "Seattle" = Seattle
+     * "FL", "Tampa" = Tampa
+     * "ON", "Ontario", "Toronto" = Toronto
+     * "AT", "Austria", "Vienna" = Vienna
+     * "DC", "Washington", "Washington DC" = Washington
+     * "FL", "West Palm Beach" = West Palm Beach
 7. Vehicle information (ONLY brand and model, e.g., 'Mercedes S-Class', 'BMW 7 Series')
 8. Driver notes (ONLY information that doesn't fit in structured fields - NO location names, NO times, NO dates. Include: contact info, special instructions, flight details, vehicle features, dress codes, allergies, preferences, etc.)
 9. Passenger names (all passenger names as array)
@@ -243,13 +353,63 @@ CRITICAL: Distinguish between ADD and normal location mentions:
   * Set "confidence": "low" for estimates, but "time" must ALWAYS be "HH:MM" format like "14:45", NEVER "low"
 - Expand abbreviated locations appropriately:
   * Airport codes: JFK/LGA/EWR → include "Airport" suffix
-  * LHR/LGW/STN/LTN → include "Airport" suffix
+  * LHR/LGW/STN/LTN/LCY → include "Airport" suffix
   * SIN/Changi → include "Airport" suffix
   * FRA → include "Airport" suffix
   * CDG/ORY → include "Airport" suffix
   * NRT/HND → include "Airport" suffix
   * BOS → include "Airport" suffix
   * ZRH → include "Airport" suffix
+  * AMS → include "Airport" suffix
+  * ATH → include "Airport" suffix
+  * ATL → include "Airport" suffix
+  * AUS → include "Airport" suffix
+  * BCN → include "Airport" suffix
+  * BRU → include "Airport" suffix
+  * EZE/AEP → include "Airport" suffix
+  * CUN → include "Airport" suffix
+  * ORD/MDW → include "Airport" suffix
+  * CPH → include "Airport" suffix
+  * DFW/DAL → include "Airport" suffix
+  * DEN → include "Airport" suffix
+  * DUB → include "Airport" suffix
+  * FLR → include "Airport" suffix
+  * GVA → include "Airport" suffix
+  * GLA → include "Airport" suffix
+  * HAM → include "Airport" suffix
+  * IAH/HOU → include "Airport" suffix
+  * JAX → include "Airport" suffix
+  * LIS → include "Airport" suffix
+  * LPL → include "Airport" suffix
+  * LAX/BUR/ONT → include "Airport" suffix
+  * LYS → include "Airport" suffix
+  * MAD → include "Airport" suffix
+  * AGP → include "Airport" suffix
+  * MAN → include "Airport" suffix
+  * MRS → include "Airport" suffix
+  * MEX → include "Airport" suffix
+  * MIA/FLL → include "Airport" suffix
+  * MXP/LIN → include "Airport" suffix
+  * YUL → include "Airport" suffix
+  * MUC → include "Airport" suffix
+  * HVN → include "Airport" suffix
+  * NCE → include "Airport" suffix
+  * MCO → include "Airport" suffix
+  * PMO → include "Airport" suffix
+  * PSP → include "Airport" suffix
+  * PHX → include "Airport" suffix
+  * FCO/CIA → include "Airport" suffix
+  * SAN → include "Airport" suffix
+  * SFO/OAK → include "Airport" suffix
+  * SJC → include "Airport" suffix
+  * SCL → include "Airport" suffix
+  * GRU/CGH → include "Airport" suffix
+  * SEA → include "Airport" suffix
+  * TPA → include "Airport" suffix
+  * YYZ → include "Airport" suffix
+  * VIE → include "Airport" suffix
+  * DCA/IAD/BWI → include "Airport" suffix
+  * PBI → include "Airport" suffix
 - ONLY include locations in the trip destination city/metro area (auto-detect from context)
 - For New York: Include all NYC metro area locations (Yonkers, Jersey City, Newark, etc. are valid)
 - For London: Include all Greater London locations
@@ -259,6 +419,7 @@ CRITICAL: Distinguish between ADD and normal location mentions:
 - For Tokyo: Include all Tokyo and surrounding area locations (within ~80-100km)
 - For Boston: Include all Boston and surrounding area locations (within ~80-100km)
 - For Zurich: Include all Zurich and surrounding area locations (within ~80-100km)
+- For all other cities: Include city and surrounding metro area locations (within ~80-100km for day trips)
 - IMPORTANT: If the text contains ONLY instructions, notes, or verbal updates WITHOUT locations:
   * Return locations as empty array []
   * Put all instructions/notes in driverNotes field
@@ -637,14 +798,29 @@ Rules for driver notes:
             
             // Get city config to determine correct country/region
             const cityConfig = getCityConfig(parsed.tripDestination || tripDestination);
-            const countrySuffix = cityConfig.isLondon ? 'UK' : 
-                                 parsed.tripDestination === 'New York' ? 'USA' :
-                                 parsed.tripDestination === 'Singapore' ? 'Singapore' :
-                                 parsed.tripDestination === 'Frankfurt' ? 'Germany' :
-                                 parsed.tripDestination === 'Paris' ? 'France' :
-                                 parsed.tripDestination === 'Tokyo' ? 'Japan' :
-                                 parsed.tripDestination === 'Boston' ? 'USA' :
-                                 parsed.tripDestination === 'Zurich' ? 'Switzerland' : 'UK';
+            // Map city to country for airport geocoding
+            const cityToCountry: Record<string, string> = {
+              'London': 'UK', 'Glasgow': 'UK', 'Liverpool': 'UK', 'Manchester': 'UK',
+              'New York': 'USA', 'Boston': 'USA', 'Atlanta': 'USA', 'Austin': 'USA',
+              'Chicago': 'USA', 'Dallas': 'USA', 'Denver': 'USA', 'Houston': 'USA',
+              'Jacksonville': 'USA', 'Los Angeles': 'USA', 'Miami': 'USA', 'New Haven': 'USA',
+              'Orlando': 'USA', 'Palm Springs': 'USA', 'Phoenix': 'USA', 'San Diego': 'USA',
+              'San Francisco': 'USA', 'San Jose': 'USA', 'Seattle': 'USA', 'Tampa': 'USA',
+              'Washington': 'USA', 'West Palm Beach': 'USA',
+              'Montreal': 'Canada', 'Toronto': 'Canada',
+              'Amsterdam': 'Netherlands', 'Brussels': 'Belgium', 'Copenhagen': 'Denmark',
+              'Dublin': 'Ireland', 'Lisbon': 'Portugal', 'Athens': 'Greece',
+              'Barcelona': 'Spain', 'Madrid': 'Spain', 'Malaga': 'Spain',
+              'Florence': 'Italy', 'Milan': 'Italy', 'Palermo': 'Italy', 'Rome': 'Italy',
+              'Frankfurt': 'Germany', 'Hamburg': 'Germany', 'Munich': 'Germany',
+              'Lyon': 'France', 'Marseille': 'France', 'Nice': 'France', 'Paris': 'France',
+              'Geneva': 'Switzerland', 'Zurich': 'Switzerland', 'Vienna': 'Austria',
+              'Singapore': 'Singapore', 'Tokyo': 'Japan',
+              'Mexico City': 'Mexico', 'Cancun': 'Mexico',
+              'Buenos Aires': 'Argentina', 'Santiago de Chile': 'Chile', 'Sao Paulo': 'Brazil',
+            };
+            const countrySuffix = cityToCountry[parsed.tripDestination || tripDestination || ''] || 
+                                 (cityConfig.isLondon ? 'UK' : 'USA');
             
             // Determine which airport and re-geocode with explicit query
             let retryQuery = loc.location;
