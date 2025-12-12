@@ -2793,7 +2793,7 @@ export default function Home() {
         <div className="w-full py-6 sm:py-8 px-4 sm:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="space-y-2 sm:space-y-3">
-              <p className="text-xs sm:text-sm text-white dark:text-white text-center font-bold">
+              <p className="text-xs sm:text-sm text-[#05060A] dark:text-white text-center font-bold">
                 Available in
               </p>
               <div className="w-full">
