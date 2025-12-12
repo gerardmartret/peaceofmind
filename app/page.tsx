@@ -1735,7 +1735,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <div className="min-h-screen p-4 sm:p-8 flex items-start sm:items-center justify-center pt-8 sm:pt-0">
+      <div className="h-screen p-4 sm:p-8 flex items-center justify-center">
         <div className="max-w-4xl mx-auto w-full">
 
 
@@ -1758,7 +1758,7 @@ export default function Home() {
 
           {/* Email/Text Import Section */}
           {!showManualForm && !extractedLocations && (
-            <div className="mb-6 sm:mb-8 flex justify-center mt-6 sm:mt-12">
+            <div className="mb-6 sm:mb-8 flex justify-center mt-0 sm:mt-12">
               <div className="space-y-4 w-[92%] sm:w-[85%]">
                 {/* Textarea with Dark Container */}
                 <div>
@@ -1931,16 +1931,6 @@ export default function Home() {
                     <AlertDescription>{extractionError}</AlertDescription>
                   </Alert>
                 )}
-
-                {/* Available in Section */}
-                <div className="space-y-2 sm:space-y-3 mt-6 sm:mt-8">
-                  <p className="text-xs sm:text-sm text-muted-foreground text-center font-light">
-                    Available in
-                  </p>
-                  <div className="w-full">
-                    <DestinationCarousel />
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -2797,6 +2787,22 @@ export default function Home() {
 
         </div>
       </div>
+
+      {/* Available in Section - Below Hero */}
+      {!extractedLocations && !showManualForm && (
+        <div className="w-full py-6 sm:py-8 px-4 sm:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="space-y-2 sm:space-y-3">
+              <p className="text-xs sm:text-sm text-white dark:text-white text-center font-bold">
+                Available in
+              </p>
+              <div className="w-full">
+                <DestinationCarousel />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!isAuthenticated && (
         <>

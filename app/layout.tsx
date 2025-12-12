@@ -13,8 +13,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Chauffs - Roadshow planner",
-  description: "Plan your roadshow with ease",
+  title: "Chauffs",
+  description: "Access the world's top chauffeurs, and book them instantly with AI",
   icons: [
     {
       rel: 'icon',

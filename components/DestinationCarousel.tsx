@@ -4,16 +4,35 @@ import { ALLOWED_TRIP_DESTINATIONS } from '@/lib/city-helpers';
 
 export default function DestinationCarousel() {
   return (
-    <div className="w-full flex justify-center">
-      <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 flex-wrap justify-center max-h-[120px] sm:max-h-[140px] overflow-y-auto">
-        {ALLOWED_TRIP_DESTINATIONS.map((destination) => (
-          <div
-            key={destination}
-            className="inline-flex items-center justify-center rounded sm:rounded-md border border-border dark:border-input bg-transparent text-foreground hover:border-foreground/50 dark:hover:border-foreground/50 px-1.5 py-0.5 sm:px-2 sm:py-1 md:px-3 md:py-1.5 text-[9px] sm:text-[10px] md:text-xs font-medium whitespace-nowrap transition-colors"
-          >
-            {destination}
-          </div>
-        ))}
+    <div className="w-full">
+      {/* Desktop: Grid layout */}
+      <div className="hidden sm:block">
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+          {ALLOWED_TRIP_DESTINATIONS.map((destination) => (
+            <span
+              key={destination}
+              className="whitespace-nowrap hover:text-foreground transition-colors text-center"
+            >
+              {destination}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile: Compact flowing text with separators */}
+      <div className="block sm:hidden">
+        <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-[10px] text-muted-foreground leading-relaxed">
+          {ALLOWED_TRIP_DESTINATIONS.map((destination, index) => (
+            <span key={destination}>
+              <span className="hover:text-foreground transition-colors whitespace-nowrap">
+                {destination}
+              </span>
+              {index < ALLOWED_TRIP_DESTINATIONS.length - 1 && (
+                <span className="text-muted-foreground/40 mx-0.5">•</span>
+              )}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
