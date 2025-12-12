@@ -30,7 +30,6 @@ export const ALLOWED_TRIP_DESTINATIONS = [
   'Houston',
   'Jacksonville',
   'Lisbon',
-  'Liverpool',
   'London',
   'Los Angeles',
   'Lyon',
@@ -47,7 +46,6 @@ export const ALLOWED_TRIP_DESTINATIONS = [
   'New York',
   'Nice',
   'Orlando',
-  'Palermo',
   'Palm Springs',
   'Paris',
   'Phoenix',
@@ -133,18 +131,18 @@ export function getDestinationTimezone(tripDestination?: string | null): string 
     return 'America/Toronto';
   }
   // Europe - UK
-  if (['London', 'Glasgow', 'Liverpool', 'Manchester'].includes(tripDestination)) {
+  if (['London', 'Glasgow', 'Manchester'].includes(tripDestination)) {
     return 'Europe/London';
   }
   // Europe - Central European Time
-  if (['Amsterdam', 'Brussels', 'Paris', 'Frankfurt', 'Hamburg', 'Munich', 'Vienna', 'Zurich', 'Geneva', 'Milan', 'Rome', 'Florence', 'Palermo', 'Barcelona', 'Madrid', 'Malaga', 'Lyon', 'Marseille', 'Nice'].includes(tripDestination)) {
+  if (['Amsterdam', 'Brussels', 'Paris', 'Frankfurt', 'Hamburg', 'Munich', 'Vienna', 'Zurich', 'Geneva', 'Milan', 'Rome', 'Florence', 'Barcelona', 'Madrid', 'Malaga', 'Lyon', 'Marseille', 'Nice'].includes(tripDestination)) {
     return tripDestination === 'Amsterdam' ? 'Europe/Amsterdam' :
            tripDestination === 'Brussels' ? 'Europe/Brussels' :
            tripDestination === 'Paris' ? 'Europe/Paris' :
            tripDestination === 'Frankfurt' || tripDestination === 'Hamburg' || tripDestination === 'Munich' ? 'Europe/Berlin' :
            tripDestination === 'Vienna' ? 'Europe/Vienna' :
            tripDestination === 'Zurich' || tripDestination === 'Geneva' ? 'Europe/Zurich' :
-           tripDestination === 'Milan' || tripDestination === 'Rome' || tripDestination === 'Florence' || tripDestination === 'Palermo' ? 'Europe/Rome' :
+           tripDestination === 'Milan' || tripDestination === 'Rome' || tripDestination === 'Florence' ? 'Europe/Rome' :
            tripDestination === 'Barcelona' || tripDestination === 'Madrid' || tripDestination === 'Malaga' ? 'Europe/Madrid' :
            tripDestination === 'Lyon' || tripDestination === 'Marseille' || tripDestination === 'Nice' ? 'Europe/Paris' :
            'Europe/Paris';
@@ -243,8 +241,8 @@ export function isEuropeTrip(tripDestination?: string | null): boolean {
   const europeanCities = [
     'Amsterdam', 'Athens', 'Barcelona', 'Brussels', 'Copenhagen', 'Dublin',
     'Florence', 'Frankfurt', 'Geneva', 'Glasgow', 'Hamburg', 'Lisbon',
-    'Liverpool', 'London', 'Lyon', 'Madrid', 'Malaga', 'Manchester',
-    'Marseille', 'Milan', 'Munich', 'Nice', 'Palermo', 'Paris', 'Rome',
+    'London', 'Lyon', 'Madrid', 'Malaga', 'Manchester',
+    'Marseille', 'Milan', 'Munich', 'Nice', 'Paris', 'Rome',
     'Vienna', 'Zurich'
   ];
   
@@ -364,9 +362,6 @@ export function getCityConfig(tripDestination?: string | null) {
     } else if (tripDestination === 'Lisbon') {
       geocodingBias = 'Lisbon, Portugal';
       geocodingRegion = 'pt';
-    } else if (tripDestination === 'Liverpool') {
-      geocodingBias = 'Liverpool, UK';
-      geocodingRegion = 'gb';
     } else if (tripDestination === 'Lyon') {
       geocodingBias = 'Lyon, France';
       geocodingRegion = 'fr';
@@ -391,9 +386,6 @@ export function getCityConfig(tripDestination?: string | null) {
     } else if (tripDestination === 'Nice') {
       geocodingBias = 'Nice, France';
       geocodingRegion = 'fr';
-    } else if (tripDestination === 'Palermo') {
-      geocodingBias = 'Palermo, Italy';
-      geocodingRegion = 'it';
     } else if (tripDestination === 'Paris') {
       geocodingBias = 'Paris, France';
       geocodingRegion = 'fr';

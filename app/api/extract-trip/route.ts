@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
           role: 'system',
           content: `You are a trip planning assistant that extracts location and time information from unstructured text (emails, messages, etc.).
 
-CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London, SIN/Changi=Singapore, FRA=Frankfurt, CDG/ORY=Paris, NRT/HND=Tokyo, BOS=Boston, ZRH=Zurich, AMS=Amsterdam, ATH=Athens, ATL=Atlanta, AUS=Austin, BCN=Barcelona, BRU=Brussels, EZE/AEP=Buenos Aires, CUN=Cancun, ORD/MDW=Chicago, CPH=Copenhagen, DFW/DAL=Dallas, DEN=Denver, DUB=Dublin, FLR=Florence, GVA=Geneva, GLA=Glasgow, HAM=Hamburg, IAH/HOU=Houston, JAX=Jacksonville, LIS=Lisbon, LPL=Liverpool, LAX/BUR/ONT=Los Angeles, LYS=Lyon, MAD=Madrid, AGP=Malaga, MAN=Manchester, MRS=Marseille, MEX=Mexico City, MIA/FLL=Miami, MXP/LIN=Milan, YUL=Montreal, MUC=Munich, HVN=New Haven, NCE=Nice, MCO=Orlando, PMO=Palermo, PSP=Palm Springs, PHX=Phoenix, FCO/CIA=Rome, SAN=San Diego, SFO/OAK=San Francisco, SJC=San Jose, SCL=Santiago de Chile, GRU/CGH=Sao Paulo, SEA=Seattle, TPA=Tampa, YYZ=Toronto, VIE=Vienna, DCA/IAD/BWI=Washington, PBI=West Palm Beach), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
+CITY CONTEXT: ${cityConfig.isLondon && !tripDestination ? 'AUTO-DETECT the trip destination city from the text. Look for city names, airports (JFK/LaGuardia=New York, Heathrow/Gatwick=London, SIN/Changi=Singapore, FRA=Frankfurt, CDG/ORY=Paris, NRT/HND=Tokyo, BOS=Boston, ZRH=Zurich, AMS=Amsterdam, ATH=Athens, ATL=Atlanta, AUS=Austin, BCN=Barcelona, BRU=Brussels, EZE/AEP=Buenos Aires, CUN=Cancun, ORD/MDW=Chicago, CPH=Copenhagen, DFW/DAL=Dallas, DEN=Denver, DUB=Dublin, FLR=Florence, GVA=Geneva, GLA=Glasgow, HAM=Hamburg, IAH/HOU=Houston, JAX=Jacksonville, LIS=Lisbon, LAX/BUR/ONT=Los Angeles, LYS=Lyon, MAD=Madrid, AGP=Malaga, MAN=Manchester, MRS=Marseille, MEX=Mexico City, MIA/FLL=Miami, MXP/LIN=Milan, YUL=Montreal, MUC=Munich, HVN=New Haven, NCE=Nice, MCO=Orlando, PSP=Palm Springs, PHX=Phoenix, FCO/CIA=Rome, SAN=San Diego, SFO/OAK=San Francisco, SJC=San Jose, SCL=Santiago de Chile, GRU/CGH=Sao Paulo, SEA=Seattle, TPA=Tampa, YYZ=Toronto, VIE=Vienna, DCA/IAD/BWI=Washington, PBI=West Palm Beach), or location context clues.' : `This trip is for ${cityConfig.cityName}. Extract locations relevant to ${cityConfig.cityName}.`}
 
 METRO AREA COVERAGE:
 - "New York" = NYC metro area (Manhattan, Brooklyn, Queens, Bronx, Staten Island, Yonkers, Jersey City, Newark, Hoboken, Long Island)
@@ -142,7 +142,7 @@ Extract:
 4. Lead passenger name (main/first passenger name)
 5. Number of passengers (total count)
 6. Trip destination/city - CRITICAL: Detect from context! Look for:
-   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", "Singapore", "Singapura", "Frankfurt", "Paris", "Tokyo", "Boston", "Zurich", "Amsterdam", "Athens", "Atlanta", "Austin", "Barcelona", "Brussels", "Buenos Aires", "Cancun", "Chicago", "Copenhagen", "Dallas", "Denver", "Dublin", "Florence", "Geneva", "Glasgow", "Hamburg", "Houston", "Jacksonville", "Lisbon", "Liverpool", "Los Angeles", "Lyon", "Madrid", "Malaga", "Manchester", "Marseille", "Mexico City", "Miami", "Milan", "Montreal", "Munich", "New Haven", "Nice", "Orlando", "Palermo", "Palm Springs", "Phoenix", "Rome", "San Diego", "San Francisco", "San Jose", "Santiago de Chile", "Sao Paulo", "Seattle", "Tampa", "Toronto", "Vienna", "Washington", "West Palm Beach", etc.
+   - City names mentioned: "New York", "NYC", "Nueva York", "Londres", "London", "Singapore", "Singapura", "Frankfurt", "Paris", "Tokyo", "Boston", "Zurich", "Amsterdam", "Athens", "Atlanta", "Austin", "Barcelona", "Brussels", "Buenos Aires", "Cancun", "Chicago", "Copenhagen", "Dallas", "Denver", "Dublin", "Florence", "Geneva", "Glasgow", "Hamburg", "Houston", "Jacksonville", "Lisbon", "Los Angeles", "Lyon", "Madrid", "Malaga", "Manchester", "Marseille", "Mexico City", "Miami", "Milan", "Montreal", "Munich", "New Haven", "Nice", "Orlando", "Palm Springs", "Phoenix", "Rome", "San Diego", "San Francisco", "San Jose", "Santiago de Chile", "Sao Paulo", "Seattle", "Tampa", "Toronto", "Vienna", "Washington", "West Palm Beach", etc.
    - Airport codes: 
      * JFK/LGA/EWR/Newark = New York
      * LHR/LGW/STN/LTN/LCY = London
@@ -172,7 +172,6 @@ Extract:
      * IAH/HOU = Houston
      * JAX = Jacksonville
      * LIS = Lisbon
-     * LPL = Liverpool
      * LAX/BUR/ONT = Los Angeles
      * LYS = Lyon
      * MAD = Madrid
@@ -187,7 +186,6 @@ Extract:
      * HVN = New Haven
      * NCE = Nice
      * MCO = Orlando
-     * PMO = Palermo
      * PSP = Palm Springs
      * PHX = Phoenix
      * FCO/CIA = Rome
@@ -231,7 +229,6 @@ Extract:
      * "TX", "Houston" = Houston
      * "FL", "Jacksonville" = Jacksonville
      * "PT", "Portugal", "Lisbon" = Lisbon
-     * "UK", "Liverpool" = Liverpool
      * "CA", "Los Angeles", "LA" = Los Angeles
      * "FR", "France", "Lyon" = Lyon
      * "ES", "Spain", "Madrid" = Madrid
@@ -246,7 +243,6 @@ Extract:
      * "CT", "Connecticut", "New Haven" = New Haven
      * "FR", "France", "Nice" = Nice
      * "FL", "Orlando" = Orlando
-     * "IT", "Italy", "Palermo" = Palermo
      * "CA", "Palm Springs" = Palm Springs
      * "AZ", "Phoenix" = Phoenix
      * "IT", "Italy", "Rome" = Rome
@@ -800,7 +796,7 @@ Rules for driver notes:
             const cityConfig = getCityConfig(parsed.tripDestination || tripDestination);
             // Map city to country for airport geocoding
             const cityToCountry: Record<string, string> = {
-              'London': 'UK', 'Glasgow': 'UK', 'Liverpool': 'UK', 'Manchester': 'UK',
+              'London': 'UK', 'Glasgow': 'UK', 'Manchester': 'UK',
               'New York': 'USA', 'Boston': 'USA', 'Atlanta': 'USA', 'Austin': 'USA',
               'Chicago': 'USA', 'Dallas': 'USA', 'Denver': 'USA', 'Houston': 'USA',
               'Jacksonville': 'USA', 'Los Angeles': 'USA', 'Miami': 'USA', 'New Haven': 'USA',
@@ -811,7 +807,7 @@ Rules for driver notes:
               'Amsterdam': 'Netherlands', 'Brussels': 'Belgium', 'Copenhagen': 'Denmark',
               'Dublin': 'Ireland', 'Lisbon': 'Portugal', 'Athens': 'Greece',
               'Barcelona': 'Spain', 'Madrid': 'Spain', 'Malaga': 'Spain',
-              'Florence': 'Italy', 'Milan': 'Italy', 'Palermo': 'Italy', 'Rome': 'Italy',
+              'Florence': 'Italy', 'Milan': 'Italy', 'Rome': 'Italy',
               'Frankfurt': 'Germany', 'Hamburg': 'Germany', 'Munich': 'Germany',
               'Lyon': 'France', 'Marseille': 'France', 'Nice': 'France', 'Paris': 'France',
               'Geneva': 'Switzerland', 'Zurich': 'Switzerland', 'Vienna': 'Austria',

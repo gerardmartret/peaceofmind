@@ -1735,22 +1735,22 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <div className="min-h-screen p-4 sm:p-8 flex items-center justify-center">
+      <div className="min-h-screen p-4 sm:p-8 flex items-start sm:items-center justify-center pt-8 sm:pt-0">
         <div className="max-w-4xl mx-auto w-full">
 
 
           {/* Tagline for Homepage - Hide when extracted info or manual form is shown */}
           {!extractedLocations && !showManualForm && (
-            <div className="mb-8 text-center -mt-24">
+            <div className="mb-6 sm:mb-8 text-center">
               {/* <img
                 src="/chauffs-logo-new-neutral.png"
                 alt="Chauffs"
                 className="mx-auto h-7 w-auto mb-12"
               /> */}
-              <p className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.45rem] font-light text-[#05060A] dark:text-white leading-[1.1]">
-                Access the world's top chauffeurs,<br />and book them instantly with AI
+              <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-[3.45rem] font-light text-[#05060A] dark:text-white leading-tight sm:leading-[1.1] px-2 sm:px-0">
+                Access the world's top chauffeurs,<br className="hidden sm:block" />and book them instantly with AI
               </p>
-              <p className="text-base sm:text-lg md:text-xl text-muted-foreground mt-4 max-w-2xl mx-auto font-light leading-relaxed px-4 sm:px-0">
+              <p className="text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground mt-3 sm:mt-4 max-w-2xl mx-auto font-light leading-relaxed px-4 sm:px-0">
                 Hand-pick your preferred drivers and secure their confirmation in seconds
               </p>
             </div>
@@ -1758,7 +1758,7 @@ export default function Home() {
 
           {/* Email/Text Import Section */}
           {!showManualForm && !extractedLocations && (
-            <div className="mb-8 flex justify-center mt-16">
+            <div className="mb-6 sm:mb-8 flex justify-center mt-6 sm:mt-12">
               <div className="space-y-4 w-[92%] sm:w-[85%]">
                 {/* Textarea with Dark Container */}
                 <div>
@@ -1933,8 +1933,8 @@ export default function Home() {
                 )}
 
                 {/* Available in Section */}
-                <div className="space-y-3 mt-12">
-                  <p className="text-sm text-muted-foreground text-center font-light">
+                <div className="space-y-2 sm:space-y-3 mt-6 sm:mt-8">
+                  <p className="text-xs sm:text-sm text-muted-foreground text-center font-light">
                     Available in
                   </p>
                   <div className="w-full">

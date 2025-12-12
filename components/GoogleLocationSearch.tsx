@@ -31,7 +31,7 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
   const cityConfig = getCityConfig(tripDestination);
   // Determine country code based on trip destination
   let countryCode = 'us'; // Default to US
-  if (cityConfig.isLondon || ['Glasgow', 'Liverpool', 'Manchester'].includes(tripDestination || '')) {
+  if (cityConfig.isLondon || ['Glasgow', 'Manchester'].includes(tripDestination || '')) {
     countryCode = 'gb';
   } else if (['Amsterdam'].includes(tripDestination || '')) {
     countryCode = 'nl';
@@ -45,7 +45,7 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
     countryCode = 'dk';
   } else if (['Dublin'].includes(tripDestination || '')) {
     countryCode = 'ie';
-  } else if (['Florence', 'Milan', 'Palermo', 'Rome'].includes(tripDestination || '')) {
+  } else if (['Florence', 'Milan', 'Rome'].includes(tripDestination || '')) {
     countryCode = 'it';
   } else if (['Frankfurt', 'Hamburg', 'Munich'].includes(tripDestination || '')) {
     countryCode = 'de';
@@ -81,17 +81,12 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
         new google.maps.LatLng(40.4774, -74.2591), // Southwest
         new google.maps.LatLng(40.9176, -73.7004)  // Northeast
       );
-    } else if (cityConfig.isLondon || ['Glasgow', 'Liverpool', 'Manchester'].includes(tripDestination || '')) {
+    } else if (cityConfig.isLondon || ['Glasgow', 'Manchester'].includes(tripDestination || '')) {
       // UK cities: Greater London bounds or city-specific bounds
       if (tripDestination === 'Glasgow') {
         return new google.maps.LatLngBounds(
           new google.maps.LatLng(55.8, -4.4),
           new google.maps.LatLng(55.9, -4.1)
-        );
-      } else if (tripDestination === 'Liverpool') {
-        return new google.maps.LatLngBounds(
-          new google.maps.LatLng(53.3, -3.1),
-          new google.maps.LatLng(53.5, -2.8)
         );
       } else if (tripDestination === 'Manchester') {
         return new google.maps.LatLngBounds(
@@ -169,7 +164,7 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
           new google.maps.LatLng(36.8, -4.3)
         );
       }
-    } else if (['Milan', 'Rome', 'Florence', 'Palermo'].includes(tripDestination || '')) {
+    } else if (['Milan', 'Rome', 'Florence'].includes(tripDestination || '')) {
       // Italian cities
       if (tripDestination === 'Milan') {
         return new google.maps.LatLngBounds(
@@ -185,11 +180,6 @@ export default function GoogleLocationSearch({ onLocationSelect, currentLocation
         return new google.maps.LatLngBounds(
           new google.maps.LatLng(43.7, 11.1),
           new google.maps.LatLng(43.8, 11.4)
-        );
-      } else if (tripDestination === 'Palermo') {
-        return new google.maps.LatLngBounds(
-          new google.maps.LatLng(38.0, 13.2),
-          new google.maps.LatLng(38.3, 13.5)
         );
       }
     } else if (tripDestination === 'Tokyo') {

@@ -12,7 +12,7 @@ import type { TripData } from '../types';
 
 export interface UseGuestActionsParams {
   tripData: TripData | null;
-  signUp: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string) => Promise<{ data: any; error: any }>;
 }
 
 export interface UseGuestActionsReturn {
@@ -57,7 +57,7 @@ export function useGuestActions({
 
     try {
       // Create auth user with email and password
-      const { error: signUpError } = await signUp(tripData.userEmail, guestSignupPassword);
+      const { data: signUpData, error: signUpError } = await signUp(tripData.userEmail, guestSignupPassword);
 
       if (signUpError) {
         // Handle specific errors
@@ -71,28 +71,28 @@ export function useGuestActions({
         return;
       }
 
-      // Wait a moment for auth state to update
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Check if user was created (even if session is not available yet due to email confirmation)
+      if (signUpData?.user?.id) {
+        const userId = signUpData.user.id;
 
-      // Get the session to get user ID
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session?.user?.id) {
         // Update ALL trips with this email to link to new user
         const { error: updateError } = await supabase
           .from('trips')
-          .update({ user_id: session.user.id })
+          .update({ user_id: userId })
           .eq('user_email', tripData.userEmail)
           .is('user_id', null);
 
         if (updateError) {
-        } else {
+          // Log error but continue - user was created successfully
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Error updating trips.user_id:', updateError);
+          }
         }
 
         // Update users table: convert guest to authenticated
         const { error: userUpdateError } = await supabase
           .from('users')
-          .update({ auth_user_id: session.user.id })
+          .update({ auth_user_id: userId })
           .eq('email', tripData.userEmail)
           .is('auth_user_id', null); // Only update if currently a guest
 
@@ -117,6 +117,7 @@ export function useGuestActions({
           window.location.reload();
         }, 2000);
       } else {
+        // User was not created - this shouldn't happen if signUp succeeded
         setGuestSignupError('Something went wrong. Please try logging in.');
       }
     } catch (err) {

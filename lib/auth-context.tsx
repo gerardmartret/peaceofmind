@@ -10,7 +10,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean; // Whether auth is still loading
   isAuthenticated: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string) => Promise<{ data: any; error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
 }
@@ -101,9 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
-      return { error };
+      return { data, error };
     } catch (error) {
-      return { error: error as AuthError };
+      return { data: null, error: error as AuthError };
     }
   };
 
