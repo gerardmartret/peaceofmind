@@ -76,9 +76,9 @@ export function VehicleList({
     return (
       <Alert variant="destructive" className="mb-4">
         <AlertDescription>
-          {error.includes('PEAK_PERIOD') || error.includes('Peak period') ? (
+          {error.includes('PEAK_PERIOD') || error.includes('Peak period') || error.includes('URGENT_RIDE') || error.includes('NOTFREQUENTLYUSED_RIDE') ? (
             <>
-              We are expecting a high demand for this day, and online booking is not available. Please contact us at{' '}
+              Online booking is not available for this trip. Please contact us at{' '}
               <a href="mailto:info@drivania.com" className="underline hover:text-primary">
                 info@drivania.com
               </a>{' '}
@@ -96,9 +96,9 @@ export function VehicleList({
     return (
       <Alert className="mb-4">
         <AlertDescription>
-          {quotes.quotes.unavailable_reason === 'PEAK_PERIOD' ? (
+          {quotes.quotes.unavailable_reason === 'PEAK_PERIOD' || quotes.quotes.unavailable_reason === 'URGENT_RIDE' || quotes.quotes.unavailable_reason === 'NOTFREQUENTLYUSED_RIDE' ? (
             <>
-              We are expecting a high demand for this day, and online booking is not available. Please contact us at{' '}
+              Online booking is not available for this trip. Please contact us at{' '}
               <a href="mailto:info@drivania.com" className="underline hover:text-primary">
                 info@drivania.com
               </a>{' '}

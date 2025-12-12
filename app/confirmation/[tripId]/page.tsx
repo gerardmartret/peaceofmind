@@ -573,9 +573,9 @@ export default function ConfirmationPage() {
         {drivaniaError && (
           <Alert variant="destructive" className="mb-6">
             <AlertDescription>
-              {drivaniaError.includes('PEAK_PERIOD') || drivaniaError.includes('Peak period') ? (
+              {drivaniaError.includes('PEAK_PERIOD') || drivaniaError.includes('Peak period') || drivaniaError.includes('URGENT_RIDE') || drivaniaError.includes('NOTFREQUENTLYUSED_RIDE') ? (
                 <>
-                  We are expecting a high demand for this day, and online booking is not available. Please contact us at{' '}
+                  Online booking is not available for this trip. Please contact us at{' '}
                   <a href="mailto:info@drivania.com" className="underline hover:text-primary">
                     info@drivania.com
                   </a>{' '}

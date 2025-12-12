@@ -1710,18 +1710,18 @@ export default function ResultsPage() {
         setDrivaniaServiceType(result.serviceType);
       } else {
         const errorMsg = result.error || result.message || 'Failed to get quote from Chauffs';
-        // Check if error contains PEAK_PERIOD and provide user-friendly message
-        if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period')) {
-          setDrivaniaError('We are expecting a high demand for this day, and online booking is not available. Please contact us at info@drivania.com and we will assist you.');
+        // Check if error contains special error types and provide user-friendly message
+        if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period') || errorMsg.includes('URGENT_RIDE') || errorMsg.includes('NOTFREQUENTLYUSED_RIDE')) {
+          setDrivaniaError('Online booking is not available for this trip. Please contact us at info@drivania.com and we will assist you.');
         } else {
           setDrivaniaError(errorMsg);
         }
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to request quote from Chauffs. Please try again.';
-      // Check if error contains PEAK_PERIOD and provide user-friendly message
-      if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period')) {
-        setDrivaniaError('We are expecting a high demand for this day, and online booking is not available. Please contact us at info@drivania.com and we will assist you.');
+      // Check if error contains special error types and provide user-friendly message
+      if (errorMsg.includes('PEAK_PERIOD') || errorMsg.includes('Peak period') || errorMsg.includes('URGENT_RIDE') || errorMsg.includes('NOTFREQUENTLYUSED_RIDE')) {
+        setDrivaniaError('Online booking is not available for this trip. Please contact us at info@drivania.com and we will assist you.');
       } else {
         setDrivaniaError(errorMsg);
       }
