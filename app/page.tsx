@@ -2793,25 +2793,27 @@ export default function Home() {
 
       {/* Available in Section - Below Hero */}
       {!extractedLocations && !showManualForm && (
-        <div className="w-full py-6 sm:py-8 px-4 sm:px-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="space-y-2 sm:space-y-3">
-              <p className="text-xs sm:text-sm text-[#05060A] dark:text-white text-center font-bold">
-                Available in {ALLOWED_TRIP_DESTINATIONS.length} cities:
-              </p>
-              <div className="w-full">
-                <DestinationCarousel />
+        <>
+          <div className="w-full py-6 sm:py-8 px-4 sm:px-8">
+            <div className="max-w-4xl mx-auto">
+              <div className="space-y-2 sm:space-y-3">
+                <p className="text-xs sm:text-sm text-[#05060A] dark:text-white text-center font-bold">
+                  Available in {ALLOWED_TRIP_DESTINATIONS.length} cities:
+                </p>
+                <div className="w-full">
+                  <DestinationCarousel />
+                </div>
               </div>
             </div>
           </div>
-        </div>
+          <DemoSection />
+        </>
       )}
 
       {!isAuthenticated && (
         <>
           <WhyChauffsSection />
           <HowItWorksSection />
-          <DemoSection />
           <CTASection />
         </>
       )}
